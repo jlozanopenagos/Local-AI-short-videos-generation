@@ -173,6 +173,16 @@ The expression tracking system couples SQLite with per-language CSV files:
 - `state/pipeline_status.csv` tracks progress for all 1,200+ prompts across all 6 production stages.
 - Stage workers query `core/status_tracker.py` prior to task execution to filter pending items, preventing unnecessary disk I/O.
 
+### Privacy & Schema Template Architecture
+To maintain privacy for production content and proprietary prompt libraries, production datasets and runtime states are excluded from version control via `.gitignore`:
+- **Private Production Assets**: Production prompt queues (`input/csv/**/*.csv`), database files (`database/*.db`, `database/*.csv`), and intermediate states (`state/**/*.json`) are strictly gitignored.
+- **Canonical Schema Templates**:
+  - `input/csv/sample_templates/`: Schema models for all 4 video formats (`EXPRESSION.sample.csv`, `GAME.sample.csv`, `ROLEPLAY.sample.csv`, `FUN_FACTS.sample.csv`) and `CALL_TO_ACTIONS.sample.csv`.
+  - `database/expressions.sample.csv`: Master schema for expression progress tracking.
+  - `state/script_state.sample.json`: Canonical reference schema for stage-by-stage JSON state machines.
+  - `.env.example`: Safe environment configuration template.
+- **Queue Documentation**: See [input/csv/README.md](file:///c:/AI/shorts_automation/input/csv/README.md) for detailed column requirements and validation standards.
+
 ---
 
 ## Hardware Optimization: Low-VRAM (6GB) Engineering
@@ -275,6 +285,10 @@ source .venv/bin/activate       # Linux/macOS
 
 # 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Initialize prompt queues & database (optional for new environments)
+# Copy templates from input/csv/sample_templates/ into input/csv/<lang>/expressions_list/
+python tools/database/sync_prompts.py
 ```
 
 ---
@@ -380,11 +394,15 @@ shorts_automation/
 │   ├── status_tracker.py           # Cross-queue pipeline progress manifest auditor
 │   └── chalkboard_renderer.py      # FreeType chalk typography renderer on CPU
 ├── database/                       # Centralized expression stores
-│   ├── expressions.db              # SQLite expression database (ignored by git, auto-synced)
-│   └── <lang>_expressions.csv      # Auto-synced CSV status trackers (english, french, spanish, italian)
+│   ├── expressions.sample.csv      # Reference schema for master expression tracking
+│   ├── expressions.db              # SQLite expression database (gitignored, auto-synced locally)
+│   └── <lang>_expressions.csv      # Auto-synced CSV status trackers (gitignored locally)
 ├── input/
-│   ├── csv/<lang>/expressions_list/# Streamlined prompt queues per format
-│   ├── csv/<lang>/game_call_to_action_phrases/ # CTA phrase libraries for game sanitization
+│   ├── csv/
+│   │   ├── README.md               # Prompt queue documentation and column schemas
+│   │   ├── sample_templates/       # Canonical .sample.csv templates for all 4 formats & CTAs
+│   │   ├── <lang>/expressions_list/# Active prompt queues per format (gitignored for privacy)
+│   │   └── <lang>/game_call_to_action_phrases/ # CTA phrase libraries (gitignored for privacy)
 │   └── images/                     # Static brand assets
 │       ├── game_images/            # Empty chalkboard template and waiting illustrations
 │       ├── openning_closure_images/# Opening bumper (2.0s) and outro CTA cards (3.0s)

@@ -138,6 +138,17 @@ Input queues in `input/csv/<language>/expressions_list/` are streamlined to cont
 4. **`FORMAT`**: For EXPRESSION, GAME, and ROLEPLAY, JSON format is enforced by prompt rules. For FUN_FACTS, the optional `FORMAT` column lets creators select one of the 6 authorized format structures (e.g. `ONE_BIG_CURIOSITY`, `3_FACTS`, `CHALLENGE`, `MYSTERY`, `COMPARISON`, `RANKING_LIST`) or leave blank for autonomous LLM selection.
 5. **`STATUS`**: Omitted from CSVs. Script progress is tracked solely through the state machine (`state/<language>/<video_type>/script_<ID>.json`).
 
+### Privacy & Version Control: Sample Templates
+To protect the creator's proprietary prompt libraries and production assets:
+- Production CSV queues in `input/csv/<language>/` are strictly gitignored via `.gitignore`.
+- Canonical schema templates are maintained in `input/csv/sample_templates/`:
+  - `EXPRESSION.sample.csv`: Schema for the 5-section micro-story storytelling format.
+  - `GAME.sample.csv`: Schema for educational trivia challenges and clean contrast pairs.
+  - `ROLEPLAY.sample.csv`: Schema for 3-speaker peer dialogue scenarios.
+  - `FUN_FACTS.sample.csv`: Schema for 6 viral language curiosity formats.
+  - `CALL_TO_ACTIONS.sample.csv`: Schema for randomized outro engagement lines.
+- Complete documentation on CSV columns and validation rules is available in `input/csv/README.md`.
+
 ---
 
 ## Structured Script ID Standard
@@ -332,8 +343,8 @@ All workflow stages and shared templates are organized inside the `video_creatio
 | `video_creation/` | Consolidated package containing all 6 workflow generation stages (`_A` through `_G`). |
 | `core/` | Central infrastructure package: `core/state_manager.py` (state machine & JSON state manager), `core/status_tracker.py` (cross-queue status auditor & manifest manager), `core/cli_prompt.py` (interactive 10s countdown mode prompt), and canonical ID resolution. |
 | `tools/` | Dedicated CLI utilities organized into 5 functional subfolders: <ul><li>**`database/`**: `db.py` (DB & CSV manager), `sync_prompts.py` (queue sync), `assign_ids.py` (canonical ID assigner)</li><li>**`auditing/`**: `status_scraper.py` (pipeline status compiler), `json_health_checker.py` (JSON audit/repair), `check_language_mixing.py` (multilingual contamination check), `scrapper_script.py` (script review exporter)</li><li>**`modifiers/`**: `script_modifier.py` (verbatim single & mass script repair, canonical title ordering, auto review CSV sync), `voice_modifier.py` (voice audition & recasting), `image_modifier.py` (scene recreation & chalkboard editor), `subtitles_modifier.py` (subtitle timing & ASS editor)</li><li>**`prompt_builders/`**: `build_all_multilingual_prompts.py` (cross-language queue builder), `localize_fun_facts.py` (Fun Facts target language localizer), `adapt_english_prompts.py` (English queue adapter)</li><li>**`maintenance/`**: `migrate_remove_music_state.py` (music state migrator)</li></ul> |
-| `database/` | Centralized expression tracking: `database/expressions.db` (SQLite) and auto-synced per-language CSVs (`database/<lang>_expressions.csv`: `english`, `french`, `spanish`, `italian`). Schema: `ID,EXPRESSION,CONTEXT,VIDEO_TYPE,STATUS` (for FUN_FACTS, `TOPIC` maps to `EXPRESSION` and `FACT_DETAILS` maps to `CONTEXT`). Manages master completion status (`PENDING` vs `DONE`). |
-| `input/` | Unified input root organized by type: `input/csv/<lang>/expressions_list/*READY_PROMPTS_*.csv`, `input/csv/<lang>/game_call_to_action_phrases/*CALL_TO_ACTIONS*.csv`, and static assets under `input/images/` (`game_images/`, `openning_closure_images/`, `thumbnail_models/`, `watermark/`). |
+| `database/` | Centralized expression tracking: `database/expressions.sample.csv` (reference schema), `database/expressions.db` (SQLite, gitignored), and auto-synced per-language CSVs (`database/<lang>_expressions.csv`: `english`, `french`, `spanish`, `italian`, gitignored). Schema: `ID,EXPRESSION,CONTEXT,VIDEO_TYPE,STATUS`. Manages master completion status (`PENDING` vs `DONE`). |
+| `input/` | Unified input root organized by type: `input/csv/sample_templates/` (canonical `.sample.csv` templates for all formats), `input/csv/<lang>/expressions_list/` (active prompt queues, gitignored for privacy), `input/csv/<lang>/game_call_to_action_phrases/` (CTA libraries), and static brand assets under `input/images/` (`game_images/`, `openning_closure_images/`, `thumbnail_models/`, `watermark/`). |
 | `state/<language>/<video_type>/script_<ID>.json` | State machine artifact tracking stage status, metadata, character personalities, and asset paths using structured IDs. |
 | `state/pipeline_status.csv` | Centralized pipeline status manifest tracking generation progress for all 1,224 video prompts across all 6 stages (`script_generation_status`, `voice_generation_status`, `image_generation_status`, `music_generation_status`, `thumbnail_generation_status`, `video_assembly_status`). |
 | `system_prompts_editor.csv` | Per-video-type system prompts for external LLM script doctoring (EXPRESSION, ROLEPLAY, GAME, FUN_FACTS). Defines doctoring principles, word budgets, structural rules, and anti-cliché constraints for script polishing workflows. |
