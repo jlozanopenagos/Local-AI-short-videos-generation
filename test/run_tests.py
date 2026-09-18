@@ -9,10 +9,11 @@ import argparse
 import unittest
 from pathlib import Path
 
-# Ensure repo root and test_layer are on sys.path
-TEST_LAYER_DIR = Path(__file__).resolve().parent
-REPO_ROOT = TEST_LAYER_DIR.parent
-for p in [str(REPO_ROOT), str(TEST_LAYER_DIR)]:
+# Ensure repo root, main project, and test directory are on sys.path
+TEST_DIR = Path(__file__).resolve().parent
+REPO_ROOT = TEST_DIR.parent
+MAIN_DIR = REPO_ROOT / "main"
+for p in [str(REPO_ROOT), str(MAIN_DIR), str(TEST_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -55,13 +56,13 @@ def build_suite(layer_filter: str = "all") -> unittest.TestSuite:
 
     layers_to_run = []
     if layer_filter in ("all", "unit"):
-        layers_to_run.append(("Unit Tests", TEST_LAYER_DIR / "unit"))
+        layers_to_run.append(("Unit Tests", TEST_DIR / "unit"))
     if layer_filter in ("all", "integration"):
-        layers_to_run.append(("Integration Tests", TEST_LAYER_DIR / "integration"))
+        layers_to_run.append(("Integration Tests", TEST_DIR / "integration"))
     if layer_filter in ("all", "contract", "contracts"):
-        layers_to_run.append(("Contract & Schema Tests", TEST_LAYER_DIR / "contracts"))
+        layers_to_run.append(("Contract & Schema Tests", TEST_DIR / "contracts"))
     if layer_filter in ("all", "security"):
-        layers_to_run.append(("Security & Privacy Tests", TEST_LAYER_DIR / "security"))
+        layers_to_run.append(("Security & Privacy Tests", TEST_DIR / "security"))
 
     for name, directory in layers_to_run:
         if directory.exists():

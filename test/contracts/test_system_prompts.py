@@ -6,11 +6,12 @@ import csv
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+MAIN_DIR = REPO_ROOT / "main"
 
 
 class TestSystemPrompts(unittest.TestCase):
     def setUp(self):
-        self.editor_csv = REPO_ROOT / "system_prompts_editor.csv"
+        self.editor_csv = MAIN_DIR / "system_prompts_editor.csv"
 
     def test_editor_csv_exists(self):
         self.assertTrue(self.editor_csv.exists())

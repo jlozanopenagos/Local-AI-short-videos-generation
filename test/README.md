@@ -27,33 +27,33 @@ test_layer/
 ### 1. Run All Tests (Native Python Runner - Recommended)
 No external dependencies required:
 ```bash
-py test_layer/run_tests.py
+py test/run_tests.py
 ```
 
 ### 2. Run Specific Test Layers
 ```bash
 # Unit tests only
-py test_layer/run_tests.py --unit
+py test/run_tests.py --unit
 
 # Integration tests only
-py test_layer/run_tests.py --integration
+py test/run_tests.py --integration
 
 # Contract & schema tests only
-py test_layer/run_tests.py --contract
+py test/run_tests.py --contract
 
 # Security & privacy regression tests only
-py test_layer/run_tests.py --security
+py test/run_tests.py --security
 ```
 
 ### 3. Run via Standard Python Unittest
 ```bash
-py -m unittest discover -s test_layer -p "test_*.py"
+py -m unittest discover -s test -p "test_*.py"
 ```
 
 ### 4. Run via Pytest (Optional)
 If you have `pytest` installed:
 ```bash
-py -m pytest test_layer/ -c test_layer/pytest.ini
+py -m pytest test/ -c test/pytest.ini
 ```
 
 ---

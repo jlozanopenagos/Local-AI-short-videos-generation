@@ -6,11 +6,12 @@ import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+MAIN_DIR = REPO_ROOT / "main"
 
 
 class TestJSONSchemas(unittest.TestCase):
     def setUp(self):
-        self.sample_state_path = REPO_ROOT / "state" / "script_state.sample.json"
+        self.sample_state_path = MAIN_DIR / "state" / "script_state.sample.json"
 
     def test_sample_state_file_exists_and_is_valid_json(self):
         self.assertTrue(self.sample_state_path.exists())

@@ -37,7 +37,7 @@ class TestPrivacyLeak(unittest.TestCase):
     def test_env_file_is_not_tracked_in_git(self):
         try:
             res = subprocess.run(
-                ["git", "ls-files", ".env"],
+                ["git", "ls-files", ".env", "main/.env"],
                 cwd=str(REPO_ROOT),
                 capture_output=True,
                 text=True,
@@ -51,7 +51,7 @@ class TestPrivacyLeak(unittest.TestCase):
     def test_private_input_csvs_are_not_tracked_in_git(self):
         try:
             res = subprocess.run(
-                ["git", "ls-files", "input/csv/"],
+                ["git", "ls-files", "input/csv/", "main/input/csv/"],
                 cwd=str(REPO_ROOT),
                 capture_output=True,
                 text=True,

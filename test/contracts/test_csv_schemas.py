@@ -6,12 +6,13 @@ import csv
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+MAIN_DIR = REPO_ROOT / "main"
 
 
 class TestCSVSchemas(unittest.TestCase):
     def setUp(self):
-        self.templates_dir = REPO_ROOT / "input" / "csv" / "sample_templates"
-        self.db_sample = REPO_ROOT / "database" / "expressions.sample.csv"
+        self.templates_dir = MAIN_DIR / "input" / "csv" / "sample_templates"
+        self.db_sample = MAIN_DIR / "database" / "expressions.sample.csv"
 
     def test_sample_templates_directory_exists(self):
         self.assertTrue(self.templates_dir.exists(), f"Templates directory not found: {self.templates_dir}")

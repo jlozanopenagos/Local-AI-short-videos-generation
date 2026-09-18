@@ -10,10 +10,11 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Any, Generator
 
-# Add repository root and test_layer to sys.path
+# Add repository root, main project, and test directory to sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TEST_LAYER_DIR = Path(__file__).resolve().parent
-for p in [str(REPO_ROOT), str(TEST_LAYER_DIR)]:
+MAIN_DIR = REPO_ROOT / "main"
+TEST_DIR = Path(__file__).resolve().parent
+for p in [str(REPO_ROOT), str(MAIN_DIR), str(TEST_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
