@@ -1,0 +1,105 @@
+{
+  "6": {
+    "inputs": {
+      "audio": "english_male_open_swara_008.wav",
+      "audioUI": "/api/view?filename=english_male_open_swara_008.wav&type=input&subfolder=&rand=0.10544497080879656"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "CargarAudio"
+    }
+  },
+  "8": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "audioUI": "/api/view?filename=ComfyUI_00003.flac&type=output&subfolder=audio&rand=0.9004383796737185",
+      "audio": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "GuardarAudio"
+    }
+  },
+  "33": {
+    "inputs": {
+      "model_repo": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+      "download_source": "ModelScope",
+      "precision": "fp16",
+      "attn_mode": "sdpa",
+      "auto_download": true
+    },
+    "class_type": "Qwen3TTSLoader",
+    "_meta": {
+      "title": "Qwen3-TTS Loader 🚀"
+    }
+  },
+  "35": {
+    "inputs": {
+      "x_vector_only": true,
+      "ref_text": [
+        "40",
+        0
+      ],
+      "model_obj": [
+        "33",
+        0
+      ],
+      "ref_audio": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "Qwen3TTSVoiceClonePrompt",
+    "_meta": {
+      "title": "Qwen3-TTS Clone Prompt 🧠"
+    }
+  },
+  "39": {
+    "inputs": {
+      "target_text": "Did you know that saying “I’m fine” in English doesn’t always mean you’re actually fine?\n\nSometimes, “I’m fine” really means... “Please don't ask me what’s wrong.”\n\nThe funny part is that your tone completely changes the meaning.\n\n“I’m fine!” sounds happy.\n\n“I’m fine...” sounds like something is definitely wrong.\n\nSo next time someone tells you they’re fine, listen to their tone...\n\nNot just their words.",
+      "target_language": "English",
+      "output_mode": "Concatenate (Merge)",
+      "seed": 1093667481500304,
+      "ref_text": "",
+      "instruct": "A [MALE or FEMALE] narrator speaking [language] with a [LOW, MEDIUM, HIGH, or VERY HIGH] energy and a [main emotion] tone. [educational/storytelling angle]. [desired narration style]",
+      "enable_x_vector_instant": false,
+      "max_new_tokens": 1024,
+      "temperature": 0.75,
+      "top_p": 0.9,
+      "top_k": 50,
+      "repetition_penalty": 1.0,
+      "subtalker_temperature": 0.75,
+      "subtalker_top_p": 0.9,
+      "subtalker_top_k": 50,
+      "model_obj": [
+        "33",
+        0
+      ],
+      "voice_clone_prompt": [
+        "35",
+        0
+      ]
+    },
+    "class_type": "Qwen3TTSVoiceClone",
+    "_meta": {
+      "title": "Qwen3-TTS Voice Clone 👥"
+    }
+  },
+  "40": {
+    "inputs": {
+      "model_id": "iic/SenseVoiceSmall",
+      "language": "auto",
+      "audio": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "Qwen3TTSSenseVoiceASR",
+    "_meta": {
+      "title": "Qwen3-TTS SenseVoice ASR 🗣️"
+    }
+  }
+}

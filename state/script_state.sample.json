@@ -1,0 +1,67 @@
+{
+    "id": "EE01",
+    "status": {
+        "script_generation": "done",
+        "voice_generation": "pending",
+        "image_generation": "pending",
+        "thumbnail_generation": "pending",
+        "video_assembly": "pending"
+    },
+    "assets": {
+        "audio_path": null,
+        "images": {},
+        "thumbnail_path": null,
+        "final_video_path": null
+    },
+    "prompt_params": {
+        "ID": "EE01",
+        "EXPRESSION": "Break a leg",
+        "SUBJECT": "Popular English Idioms",
+        "CONTEXT": "Wishing someone good luck before a show",
+        "ANGLE": "Why good luck is actually bad luck",
+        "LEXICAL_FIELD": "Performance & Theatre",
+        "EMOTIONAL_TRIGGER": "Surprise & Curiosity",
+        "TARGET_LANGUAGE": "English",
+        "VIDEO_TYPE": "EXPRESSION"
+    },
+    "script_text": "{\n  \"title\": \"The Theater Secret: Why 'Good Luck' is a Curse\",\n  \"hook\": \"Stop saying 'good luck' before a play. That phrase is actually bad luck.\",\n  \"setup\": \"Most people think wishing someone luck is positive. But in theater, it's considered a total curse. It's an old insider secret.\",\n  \"discovery\": \"The real expression is 'break a leg.' It's how professionals wish each other success backstage. It's the vibe you need.\",\n  \"example\": \"Before my big show, I told my friend, 'Break a leg tonight, you'll crush it.' It sounds way more natural.\",\n  \"payoff\": \"Hearing 'break a leg' instantly shows you know the real vibe. What would you say instead? Drop your version below!\"\n}",
+    "content_metadata": {
+        "video_type": "EXPRESSION",
+        "language": "English",
+        "category": "Language Learning",
+        "subcategory": "Idioms",
+        "topic": "The Secret Theater Wish: Break a Leg",
+        "learning_objective": "Learn the correct, idiomatic way to wish someone good luck in the theater.",
+        "character_personalities": {
+            "PERSON_ONE": "Charismatic, energetic creator.",
+            "PERSON_TWO": "Relatable, street-smart friend.",
+            "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor."
+        },
+        "script": {
+            "title": "The Theater Secret: Why 'Good Luck' is a Curse",
+            "hook": "Stop saying 'good luck' before a play. That phrase is actually bad luck.",
+            "setup": "Most people think wishing someone luck is positive. But in theater, it's considered a total curse. It's an old insider secret.",
+            "discovery": "The real expression is 'break a leg.' It's how professionals wish each other success backstage. It's the vibe you need.",
+            "example": "Before my big show, I told my friend, 'Break a leg tonight, you'll crush it.' It sounds way more natural.",
+            "payoff": "Hearing 'break a leg' instantly shows you know the real vibe. What would you say instead? Drop your version below!"
+        },
+        "target_expression": "Break a leg",
+        "game_type": "N/A",
+        "roleplay_scenario": "N/A",
+        "difficulty": "Intermediate",
+        "emotion": "Surprise & Confidence",
+        "related_content": [
+            "Good luck vs. Break a leg comparison",
+            "Theater slang idioms"
+        ]
+    },
+    "metadata": {
+        "TITLE": "Break a leg \ud83c\udfad Why Good Luck Is a Curse",
+        "DESCRIPTION": "Stop saying 'good luck' before a play. That phrase is actually considered bad luck in the theater world.\n#EnglishLearning #LearnEnglish #Idioms",
+        "SHORT_DESCRIPTION": "Break a leg is the secret theater secret you need to know. #EnglishIdioms #LearnEnglish",
+        "TAGS": "english, break a leg, english idioms, theater idioms, learn english, vocabulary",
+        "HASHTAGS": "#LearnEnglish #EnglishIdioms #Theater #SpeakBetter",
+        "LABEL": "English | Popular English Idioms | Theater",
+        "FILENAME": "english-popular-english-idioms-break-a-leg-wishing-luck.mp4"
+    }
+}

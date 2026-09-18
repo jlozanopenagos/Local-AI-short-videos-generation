@@ -1,0 +1,1035 @@
+import argparse
+import os
+import sys
+import time
+import random
+import json
+import re
+from pathlib import Path
+
+# Add project root, video_creation, and module directory to path for robust imports
+MODULE_DIR = Path(__file__).parent.resolve()
+VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+for p in [str(PROJECT_ROOT), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+try:
+    from config import (
+        BASE_DIR,
+        LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME,
+        STATIC_NARRATOR_PERSONALITY, require_services
+    )
+except (ImportError, ModuleNotFoundError):
+    # pyrefly: ignore [missing-import]
+    from shorts_automation.config import (
+        BASE_DIR,
+        LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME,
+        STATIC_NARRATOR_PERSONALITY, require_services
+    )
+
+try:
+    from core.state_manager import StateManager
+except (ImportError, ModuleNotFoundError):
+    # pyrefly: ignore [missing-import]
+    from state_manager import StateManager
+
+try:
+    from video_creation._A_video_scripts.core.metadata_builder import build_metadata
+    from video_creation._A_video_scripts.core.llm import generate_response, check_connection
+    from video_creation._A_video_scripts.prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
+    from video_creation._A_video_scripts.id_generator import generate_script_id, parse_script_id
+except (ImportError, ModuleNotFoundError):
+    try:
+        # pyrefly: ignore [missing-import]
+        from core.metadata_builder import build_metadata
+        # pyrefly: ignore [missing-import]
+        from core.llm import generate_response, check_connection
+        from prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
+        from id_generator import generate_script_id, parse_script_id
+    except (ImportError, ModuleNotFoundError):
+        try:
+            from _A_video_scripts.core.metadata_builder import build_metadata
+            from _A_video_scripts.core.llm import generate_response, check_connection
+            from _A_video_scripts.prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
+            from _A_video_scripts.id_generator import generate_script_id, parse_script_id
+        except (ImportError, ModuleNotFoundError):
+            # pyrefly: ignore [missing-import]
+            from shorts_automation.video_creation._A_video_scripts.core.metadata_builder import build_metadata
+            # pyrefly: ignore [missing-import]
+            from shorts_automation.video_creation._A_video_scripts.core.llm import generate_response, check_connection
+            # pyrefly: ignore [missing-import]
+            from shorts_automation.video_creation._A_video_scripts.prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
+            # pyrefly: ignore [missing-import]
+            from shorts_automation.video_creation._A_video_scripts.id_generator import generate_script_id, parse_script_id
+
+DEFAULT_PAUSE_SECONDS = float(os.getenv("LLM_PAUSE_SECONDS", "5"))
+
+def timed_input(prompt: str, timeout: float = 8.0, default: str = "1") -> str:
+    """
+    Prompts for interactive console input with a countdown timer.
+    Automatically defaults to `default` (e.g. '1') when timeout expires without input.
+    """
+    if not sys.stdin.isatty():
+        return default
+
+    # Windows implementation using msvcrt
+    if sys.platform == "win32":
+        import msvcrt
+        start_time = time.time()
+        user_chars = []
+        last_shown_sec = -1
+
+        while True:
+            elapsed = time.time() - start_time
+            remaining = max(0, int(timeout - elapsed) + 1)
+
+            if not user_chars and remaining != last_shown_sec:
+                last_shown_sec = remaining
+                sys.stdout.write(f"\r{prompt} (auto in {remaining}s): ")
+                sys.stdout.flush()
+
+            if elapsed >= timeout:
+                if not user_chars:
+                    print(f"\n[Timer: {int(timeout)}s elapsed] Automatically selecting [{default}] (Local LLM).")
+                    return default
+                break
+
+            if msvcrt.kbhit():
+                ch = msvcrt.getwch()
+                if ch in ("\r", "\n"):
+                    print()
+                    break
+                elif ch == "\b":  # Backspace
+                    if user_chars:
+                        user_chars.pop()
+                        sys.stdout.write("\b \b")
+                        sys.stdout.flush()
+                elif ch == "\x03":  # Ctrl+C
+                    raise KeyboardInterrupt
+                else:
+                    user_chars.append(ch)
+                    sys.stdout.write(ch)
+                    sys.stdout.flush()
+                    # Quick select on single digit
+                    if len(user_chars) == 1 and user_chars[0] in ("1", "2"):
+                        print()
+                        return user_chars[0]
+
+            time.sleep(0.04)
+
+        val = "".join(user_chars).strip()
+        return val if val else default
+
+    # Unix fallback using select
+    import select
+    print(f"{prompt} (auto in {int(timeout)}s): ", end="", flush=True)
+    rlist, _, _ = select.select([sys.stdin], [], [], timeout)
+    if rlist:
+        val = sys.stdin.readline().strip()
+        return val if val else default
+    else:
+        print(f"\n[Timer: {int(timeout)}s elapsed] Automatically selecting [{default}].")
+        return default
+
+def extract_json_from_llm(raw_text: str) -> dict:
+    """
+    Robustly extracts and parses the JSON object from raw LLM output.
+    Handles markdown code fences, surrounding commentary, and extra trailing data.
+    """
+    if not raw_text or not raw_text.strip():
+        raise ValueError("Empty response from LLM")
+
+    cleaned = re.sub(r"```(?:json)?", "", raw_text).strip()
+
+    # 1. Direct parse attempt
+    try:
+        data = json.loads(cleaned, strict=False)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    # 2. Extract first valid JSON object using JSONDecoder.raw_decode
+    start_idx = cleaned.find("{")
+    if start_idx != -1:
+        try:
+            obj, _ = json.JSONDecoder(strict=False).raw_decode(cleaned[start_idx:])
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+
+    # 3. Balanced bracket scan
+    depth = 0
+    start = -1
+    for i, c in enumerate(cleaned):
+        if c == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0 and start != -1:
+                candidate = cleaned[start : i + 1]
+                try:
+                    obj = json.loads(candidate, strict=False)
+                    if isinstance(obj, dict) and ("script" in obj or "video_type" in obj or "title" in obj):
+                        return obj
+                except Exception:
+                    pass
+
+    # 4. Fallback to regex search
+    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+    if match:
+        try:
+            obj = json.loads(match.group(), strict=False)
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+
+    raise ValueError(f"Could not parse valid JSON from LLM response. Raw output preview:\n{cleaned[:200]}")
+
+def handle_prompt(
+    state_manager: StateManager,
+    script_id: str,
+    params: dict,
+    script_number: int,
+    total: int,
+    auto: bool = False,
+    script_input: str = None,
+    force: bool = False,
+) -> int:
+    # 1. Master DB Gate: Skip if marked DONE in expressions database
+    from core.expression_db import is_expression_done
+    if not force and is_expression_done(script_id):
+        expr_name = params.get("EXPRESSION") or params.get("ROLEPLAY_SCENARIO") or params.get("TOPIC") or ""
+        print(f"[{script_number}/{total}] [DB: SKIPPED] Script {script_id} ('{expr_name}') is marked as DONE in database.")
+        return 0
+
+    state = state_manager.get_script_state(script_id)
+    
+    # 2. Stage-level granularity: Skip if script already generated
+    if not force and state["status"]["script_generation"] == "done":
+        print(f"[{script_number}/{total}] Script {script_id} already generated — skipping.")
+        return 0
+
+    try:
+        validate_params(params)
+    except ValueError as exc:
+        print(f"[{script_number}/{total}] Invalid input: {exc}", file=sys.stderr)
+        return 1
+
+    video_type = params.get("VIDEO_TYPE", "EXPRESSION").upper()
+    user_provided_script = None
+
+    # Interactive or file-based script input for FUN_FACTS
+    if video_type in ["FUN_FACTS", "FUNFACTS"]:
+        if script_input and Path(script_input).is_file():
+            try:
+                user_provided_script = Path(script_input).read_text(encoding="utf-8").strip()
+                print(f"[{script_number}/{total}] Loaded external script from file: {script_input}")
+            except Exception as e:
+                print(f"Warning: Could not read script_input file: {e}")
+        elif not auto and sys.stdin.isatty():
+            topic_desc = params.get("TOPIC") or params.get("EXPRESSION") or params.get("SUBJECT") or script_id
+            print("\n" + "=" * 64)
+            print(f"🎬 FUN_FACTS SCRIPT WORKFLOW: {script_id} ({params.get('TARGET_LANGUAGE')})")
+            print(f"Topic: {topic_desc}")
+            print("=" * 64)
+            print("Choose how to provide the script:")
+            print("  [1] Generate automatically using local LLM (Default)")
+            print("  [2] Pass / paste external script (e.g. from ChatGPT/Claude)")
+            print("-" * 64)
+            try:
+                choice = timed_input("Enter choice [1/2] (default: 1)", timeout=8.0, default="1").strip()
+            except (EOFError, KeyboardInterrupt):
+                choice = "1"
+
+            if choice == "2":
+                print("\nPaste your raw script below (or provide a .txt filepath).")
+                print("When finished, enter an empty line and then type 'DONE' or 'EOF':")
+                print("-" * 40)
+                lines = []
+                while True:
+                    try:
+                        line = input()
+                    except (EOFError, KeyboardInterrupt):
+                        break
+                    if line.strip().upper() in ("DONE", "EOF"):
+                        break
+                    lines.append(line)
+                pasted_text = "\n".join(lines).strip()
+
+                # If the user pasted a single path to an existing text file, read from it
+                if pasted_text and "\n" not in pasted_text and Path(pasted_text).is_file():
+                    try:
+                        pasted_text = Path(pasted_text).read_text(encoding="utf-8").strip()
+                        print(f"Loaded script from file: {pasted_text[:60]}...")
+                    except Exception as fe:
+                        print(f"Error reading file '{pasted_text}': {fe}")
+
+                if pasted_text:
+                    user_provided_script = pasted_text
+                    print(f"✓ External script received ({len(pasted_text.split())} words).")
+                else:
+                    print("No script text provided — defaulting to automatic generation.")
+
+    if user_provided_script:
+        prompt = build_fun_facts_formatting_prompt(user_provided_script, params)
+        print(
+            f"[{script_number}/{total}] Adapting & formatting external script with local LLM — "
+            f"{params.get('TARGET_LANGUAGE')} / {params.get('TOPIC', params.get('EXPRESSION', ''))}"
+        )
+    else:
+        prompt = build_prompt(params)
+        print(
+            f"[{script_number}/{total}] Generating script — "
+            f"{params.get('TARGET_LANGUAGE')} / {params.get('SUBJECT')} / {params.get('EXPRESSION', params.get('TOPIC', ''))}"
+        )
+
+    try:
+        parsed_json = None
+        script_field = None
+        raw_response = ""
+        last_parse_err = None
+
+        for parse_attempt in range(1, 4):
+            try:
+                raw_response = generate_response(prompt)
+                if not raw_response:
+                    raise ValueError("Empty response from LLM")
+                    
+                # Extract JSON from raw response
+                parsed_json = extract_json_from_llm(raw_response)
+                script_field = parsed_json.get("script", "")
+                if not script_field:
+                    raise ValueError("Missing 'script' field in LLM JSON response")
+                break
+            except Exception as pe:
+                last_parse_err = pe
+                if parse_attempt < 3:
+                    print(
+                        f"[{script_number}/{total}] Attempt {parse_attempt} failed ({pe}). "
+                        f"Retrying generation in 2s..."
+                    )
+                    time.sleep(2)
+                else:
+                    raise last_parse_err
+            
+        # Automated pipeline guardrail: validate spoken word counts and speaker isolation
+        video_type = params.get("VIDEO_TYPE", "EXPRESSION").upper()
+        if isinstance(script_field, dict):
+            spoken_words = sum(len(v.split()) for k, v in script_field.items() if k.lower() != "title" and isinstance(v, str))
+            if video_type == "ROLEPLAY":
+                min_limit = 145
+                max_limit = 180
+            elif video_type == "GAME":
+                min_limit = 95
+                max_limit = 125
+            elif video_type in ["FUN_FACTS", "FUNFACTS"]:
+                min_limit = 95
+                max_limit = 135
+            else:  # EXPRESSION
+                min_limit = 85
+                max_limit = 110
+            keys_lower = {k.lower(): k for k in script_field.keys()}
+
+            if video_type == "ROLEPLAY":
+                has_narrator_in_dialogue = any(
+                    "narrator" in str(v).lower()
+                    for k, v in script_field.items()
+                    if "dialogue" in k.lower()
+                )
+                part_4_text = str(script_field.get("DIALOGUE_PART_4", "")).strip()
+                ends_with_unresolved_question = part_4_text.endswith("?")
+                missing_payoff = "payoff" not in keys_lower
+                missing_hook = "hook" not in keys_lower
+                missing_parts = [
+                    p for p in ["dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4"]
+                    if p not in keys_lower
+                ]
+                illegal_keys = [
+                    k for k in script_field.keys()
+                    if k.lower() not in [
+                        "title", "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"
+                    ]
+                ]
+                needs_retry = (
+                    (spoken_words > max_limit or spoken_words < min_limit)
+                    or has_narrator_in_dialogue
+                    or ends_with_unresolved_question
+                    or missing_payoff
+                    or missing_hook
+                    or bool(missing_parts)
+                    or bool(illegal_keys)
+                )
+                if needs_retry:
+                    reasons = []
+                    if spoken_words > max_limit or spoken_words < min_limit:
+                        reasons.append(f"word count is {spoken_words} (target {min_limit}-{max_limit})")
+                    if missing_payoff:
+                        reasons.append("Missing mandatory 'PAYOFF' section")
+                    if missing_hook:
+                        reasons.append("Missing mandatory 'hook' section")
+                    if missing_parts:
+                        reasons.append(f"Missing dialogue sections: {', '.join(missing_parts)}")
+                    if illegal_keys:
+                        reasons.append(f"Illegal invented keys: {', '.join(illegal_keys)}")
+                    if has_narrator_in_dialogue:
+                        reasons.append("NARRATOR placed inside dialogue")
+                    if ends_with_unresolved_question:
+                        reasons.append("DIALOGUE_PART_4 ended with unresolved question")
+
+                    print(f"[{script_number}/{total}] Validation check failed: {'; '.join(reasons)}. Retrying generation...")
+                    retry_prompt = prompt + (
+                        f"\n\nCRITICAL RETRY REQUIREMENT: Your previous draft had errors: {'; '.join(reasons)}. "
+                        f"1. The 'script' object MUST contain EXACTLY these 7 keys: 'title', 'hook', 'DIALOGUE_PART_1', 'DIALOGUE_PART_2', 'DIALOGUE_PART_3', 'DIALOGUE_PART_4', 'PAYOFF'.\n"
+                        f"2. Total spoken words across all sections (excluding title) MUST be STRICTLY between {min_limit} and {max_limit} words for a 60-80s max runtime.\n"
+                        f"3. Strict alternating speaker turns: PERSON_ONE then PERSON_TWO in every dialogue part.\n"
+                        f"4. The target expression / phonetic word MUST be explicitly spoken in DIALOGUE_PART_1."
+                    )
+                    try:
+                        retry_raw = generate_response(retry_prompt)
+                        retry_parsed = extract_json_from_llm(retry_raw)
+                        if retry_parsed and retry_parsed.get("script"):
+                            parsed_json = retry_parsed
+                            script_field = retry_parsed["script"]
+                            new_words = sum(len(v.split()) for k, v in script_field.items() if k.lower() != "title" and isinstance(v, str))
+                            print(f"[{script_number}/{total}] Retry successful! Calibrated word count: {new_words} words.")
+                    except Exception as retry_exc:
+                        print(f"[{script_number}/{total}] Retry failed: {retry_exc}")
+
+            elif video_type == "GAME":
+                missing_game_keys = [
+                    k for k in ["hook", "challenge", "pressure", "answer", "explanation"]
+                    if k not in keys_lower
+                ]
+                illegal_game_keys = [
+                    k for k in script_field.keys()
+                    if k.lower() not in [
+                        "title", "hook", "challenge", "pressure", "answer", "explanation"
+                    ]
+                ]
+                # Check word limits
+                word_limit_failed = (spoken_words > max_limit or spoken_words < min_limit)
+
+                # Extract and validate options
+                ch_text = str(script_field.get("challenge", ""))
+                board_text = str(parsed_json.get("chalkboard_exercise", "") or script_field.get("chalkboard_exercise", ""))
+
+                def _extract_opts(text):
+                    return re.findall(r"(?:^|\s)([A-E])[\)\.:\-]\s*([^\n\rA-E\)\.:\-]+)", text)
+
+                ch_opts = _extract_opts(ch_text)
+                board_opts = _extract_opts(board_text)
+
+                # Check for duplicate options
+                duplicate_reasons = []
+                for label, opt_list in [("challenge", ch_opts), ("chalkboard", board_opts)]:
+                    if opt_list:
+                        seen = {}
+                        for let, txt in opt_list:
+                            clean_t = txt.strip().rstrip(".,!? ").lower()
+                            raw_t = txt.strip().rstrip(".,!? ")
+                            if len(clean_t) > 1:
+                                if clean_t in seen:
+                                    prev_let, prev_raw = seen[clean_t]
+                                    if raw_t == prev_raw:
+                                        duplicate_reasons.append(f"identical option '{raw_t}' at {prev_let} and {let}")
+                                else:
+                                    seen[clean_t] = (let, raw_t)
+
+                # Check option count
+                opts_to_count = board_opts if board_opts else ch_opts
+                too_few_options = len(opts_to_count) < 2
+                too_few_spoken_options = not (
+                    re.search(r"(?:^|[\s\n])A\s*[:\)\.\-]", ch_text, re.IGNORECASE)
+                    and re.search(r"(?:^|[\s\n])B\s*[:\)\.\-]", ch_text, re.IGNORECASE)
+                )
+
+                # Check for spoken blank (___ in spoken challenge)
+                spoken_blank = bool(re.search(r"_{2,}", ch_text))
+
+                # Check for prompt leakage in spoken challenge
+                prompt_leak_reasons = []
+                if re.search(r"\(.*=.*(?:vs|ou|o|-).*\)", ch_text) or re.search(r"\((?:noun|verb|sens):", ch_text, re.IGNORECASE):
+                    prompt_leak_reasons.append("Prompt definition/notes leaked into spoken challenge")
+
+                # Check for banned formulas
+                hook_text = str(script_field.get("hook", "")).lower()
+                ans_text = str(script_field.get("answer", "")).lower()
+                ch_text_lower = ch_text.lower()
+                banned_podcast_hook = "podcast" in hook_text
+                banned_crown_reveal = "takes the crown" in ans_text
+
+                # Check for abstract/contextless questions
+                abstract_reasons = []
+                abstract_patterns = [
+                    r"which one is the correct word\b",
+                    r"which one has the correct stress\b",
+                    r"which is the correct pronunciation\b",
+                    r"quel est le mot correct\b",
+                    r"cu[aá]l es la palabra correcta\b",
+                    r"qual [eè] la parola corretta\b",
+                ]
+                for pat in abstract_patterns:
+                    if re.search(pat, ch_text_lower):
+                        if "___" not in ch_text and "___" not in board_text and '"' not in ch_text and "'" not in ch_text:
+                            abstract_reasons.append("Abstract question without a concrete test sentence or blank (___)")
+                            break
+
+                # Check language purity for French, Spanish, Italian
+                target_lang_str = str(params.get("TARGET_LANGUAGE", "")).lower()
+                lang_leak_reasons = []
+                if target_lang_str in ["french", "spanish", "italian"]:
+                    full_script_str = " ".join(str(v) for v in script_field.values()) + " " + board_text
+                    en_leaks = re.findall(
+                        r"\b(you agree to|never show up|meet your friend|which sentence|totally natural|"
+                        r"three seconds on the clock|what does it really mean|can you spot|spot this easy phrase|"
+                        r"the correct answer is|choose the most native|native speaker trap|this year|money|blessed)\b",
+                        full_script_str,
+                        re.IGNORECASE
+                    )
+                    if en_leaks:
+                        lang_leak_reasons.append(f"English leak into {target_lang_str.title()}: {', '.join(set(en_leaks))}")
+
+                missing_board = not board_text.strip()
+
+                needs_retry = (
+                    word_limit_failed
+                    or bool(missing_game_keys)
+                    or bool(illegal_game_keys)
+                    or bool(duplicate_reasons)
+                    or too_few_options
+                    or too_few_spoken_options
+                    or spoken_blank
+                    or bool(prompt_leak_reasons)
+                    or banned_podcast_hook
+                    or banned_crown_reveal
+                    or bool(abstract_reasons)
+                    or bool(lang_leak_reasons)
+                    or missing_board
+                )
+                if needs_retry:
+                    reasons = []
+                    if word_limit_failed:
+                        reasons.append(f"word count is {spoken_words} (target {min_limit}-{max_limit})")
+                    if missing_game_keys:
+                        reasons.append(f"Missing mandatory sections: {', '.join(missing_game_keys)}")
+                    if illegal_game_keys:
+                        reasons.append(f"Illegal sections: {', '.join(illegal_game_keys)}")
+                    if duplicate_reasons:
+                        reasons.append(f"DUPLICATE OPTIONS: {'; '.join(duplicate_reasons)}. All options must be 100% distinct!")
+                    if too_few_options:
+                        reasons.append("Chalkboard must offer at least 2 distinct labeled options (A and B)")
+                    if too_few_spoken_options:
+                        reasons.append("Spoken challenge MUST voice all options clearly (e.g. 'A: [Option A], or B: [Option B]')")
+                    if spoken_blank:
+                        reasons.append("SPOKEN BLANK DETECTED: Do NOT put '___' in spoken challenge audio! Deliver the test sentence with the target word/rhythm spoken naturally and ask which option was heard/used (Option A).")
+                    if prompt_leak_reasons:
+                        reasons.append(f"PROMPT LEAKAGE: {'; '.join(prompt_leak_reasons)}. Never copy parenthetical notes or glosses into the script!")
+                    if banned_podcast_hook:
+                        reasons.append("BANNED HOOK: Do NOT use the podcast setup formula! Use the assigned situational archetype.")
+                    if banned_crown_reveal:
+                        reasons.append("BANNED PHRASE: Do NOT say 'takes the crown' in answer! Reveal the winning answer naturally.")
+                    if abstract_reasons:
+                        reasons.append(f"ABSTRACT QUESTION: {'; '.join(abstract_reasons)}. You MUST provide a concrete test sentence with a blank (___)!")
+                    if lang_leak_reasons:
+                        reasons.append(f"LANGUAGE PURITY VIOLATION: {'; '.join(lang_leak_reasons)}. Script must be 100% in {target_lang_str.title()}!")
+                    if missing_board:
+                        reasons.append("Missing 'chalkboard_exercise' field")
+
+                    print(f"[{script_number}/{total}] Validation check failed: {'; '.join(reasons)}. Retrying generation...")
+                    retry_prompt = prompt + (
+                        f"\n\nCRITICAL RETRY REQUIREMENT: Your previous draft had errors: {'; '.join(reasons)}. "
+                        f"1. The 'script' object MUST contain EXACTLY these 5 sections (plus 'title'): 'title', 'hook', 'challenge', 'pressure', 'answer', 'explanation'.\n"
+                        f"2. Total spoken words across all sections (excluding title) MUST be STRICTLY between {min_limit} and {max_limit} words for a 40-55s runtime.\n"
+                        f"3. ZERO raw underscores ('___') in the spoken 'challenge'! Deliver the test sentence with the target word/rhythm spoken out loud (Option A), and speak all options clearly (e.g. 'A: [Option A], or B: [Option B]').\n"
+                        f"4. All options MUST be completely distinct. ZERO duplicate options allowed.\n"
+                        f"5. DO NOT copy parenthetical notes or translations from the prompt into the script.\n"
+                        f"6. DO NOT use the word 'podcast' in hook, and DO NOT say 'takes the crown' in answer.\n"
+                        f"7. 100% in {target_lang_str.upper()}. No English words, sentences, or translation prompts.\n"
+                        f"8. Include 'chalkboard_exercise' formatted with the test sentence with blank (___) on line 1, then each option on a new line: \\n[Test sentence with ___]\\nA) [Option A]\\nB) [Option B]."
+                    )
+                    try:
+                        retry_raw = generate_response(retry_prompt)
+                        retry_parsed = extract_json_from_llm(retry_raw)
+                        if retry_parsed and retry_parsed.get("script"):
+                            parsed_json = retry_parsed
+                            script_field = retry_parsed["script"]
+                            new_words = sum(len(v.split()) for k, v in script_field.items() if k.lower() != "title" and isinstance(v, str))
+                            print(f"[{script_number}/{total}] Retry successful! Calibrated word count: {new_words} words.")
+                    except Exception as retry_exc:
+                        print(f"[{script_number}/{total}] Retry failed: {retry_exc}")
+
+            elif video_type in ["FUN_FACTS", "FUNFACTS"]:
+                missing_hook = "hook" not in keys_lower
+                missing_payoff = "payoff" not in keys_lower
+                authorized_fun_facts_keys = {
+                    "title", "hook", "payoff",
+                    # Format A (Facts)
+                    "fact_1", "fact_2", "fact_3", "fact_4", "fact_5", "fact",
+                    # Format B (One Big Curiosity / Story)
+                    "setup", "discovery", "story", "context", "details", "explanation",
+                    # Format C (Challenge)
+                    "challenge", "thinking_time", "answer", "pressure", "question",
+                    # Format D (Mystery)
+                    "mystery", "clues", "reveal", "clue_1", "clue_2", "clue_3",
+                    # Format E (Comparison)
+                    "comparison_a", "comparison_b", "surprise",
+                    # Format F (Ranking/List)
+                    "item_3", "item_2", "item_1", "item_4", "item_5",
+                    # Common optional
+                    "cta", "curiosity", "example"
+                }
+                illegal_keys = [k for k in script_field.keys() if k.lower() not in authorized_fun_facts_keys]
+                needs_retry = (
+                    (spoken_words > max_limit or spoken_words < min_limit)
+                    or missing_hook
+                    or missing_payoff
+                    or bool(illegal_keys)
+                )
+                if needs_retry:
+                    reasons = []
+                    if spoken_words > max_limit or spoken_words < min_limit:
+                        reasons.append(f"word count is {spoken_words} (target {min_limit}-{max_limit} words for 40-60s runtime)")
+                    if missing_hook:
+                        reasons.append("Missing mandatory 'hook' section")
+                    if missing_payoff:
+                        reasons.append("Missing mandatory 'payoff' section")
+                    if illegal_keys:
+                        reasons.append(f"Illegal invented keys: {', '.join(illegal_keys)}")
+
+                    print(f"[{script_number}/{total}] Validation check failed: {'; '.join(reasons)}. Retrying generation...")
+                    retry_prompt = prompt + (
+                        f"\n\nCRITICAL RETRY REQUIREMENT: Your previous draft had errors: {'; '.join(reasons)}. "
+                        f"1. Total spoken words across all sections (excluding title) MUST be STRICTLY between {min_limit} and {max_limit} words for a 40-60s runtime.\n"
+                        f"2. Follow the FUN_FACTS format with mandatory 'title', 'hook', body discovery sections, and 'payoff'."
+                    )
+                    try:
+                        retry_raw = generate_response(retry_prompt)
+                        retry_parsed = extract_json_from_llm(retry_raw)
+                        if retry_parsed and retry_parsed.get("script"):
+                            parsed_json = retry_parsed
+                            script_field = retry_parsed["script"]
+                            new_words = sum(len(v.split()) for k, v in script_field.items() if k.lower() != "title" and isinstance(v, str))
+                            print(f"[{script_number}/{total}] Retry successful! Calibrated word count: {new_words} words.")
+                    except Exception as retry_exc:
+                        print(f"[{script_number}/{total}] Retry failed: {retry_exc}")
+
+            elif video_type == "EXPRESSION":
+                missing_hook = "hook" not in keys_lower
+                missing_setup = "setup" not in keys_lower
+                missing_discovery = "discovery" not in keys_lower
+                missing_example = "example" not in keys_lower
+                missing_payoff = "payoff" not in keys_lower
+                word_limit_failed = spoken_words > max_limit or spoken_words < min_limit
+                illegal_keys = [
+                    k for k in script_field.keys()
+                    if k.lower() not in ["title", "hook", "setup", "discovery", "example", "payoff"]
+                ]
+                needs_retry = (
+                    word_limit_failed
+                    or missing_hook
+                    or missing_setup
+                    or missing_discovery
+                    or missing_example
+                    or missing_payoff
+                    or bool(illegal_keys)
+                )
+                if needs_retry:
+                    reasons = []
+                    if word_limit_failed:
+                        reasons.append(f"word count is {spoken_words} (target {min_limit}-{max_limit} for 38-48s duration)")
+                    if missing_hook:
+                        reasons.append("missing mandatory 'hook' section")
+                    if missing_setup:
+                        reasons.append("missing mandatory 'setup' section")
+                    if missing_discovery:
+                        reasons.append("missing mandatory 'discovery' section")
+                    if missing_example:
+                        reasons.append("missing mandatory 'example' section (in-context real-world usage phrase)")
+                    if missing_payoff:
+                        reasons.append("missing mandatory 'payoff' section")
+                    if illegal_keys:
+                        reasons.append(f"illegal keys: {', '.join(illegal_keys)}")
+                    print(f"[{script_number}/{total}] Validation check failed: {'; '.join(reasons)}. Retrying generation...")
+                    retry_prompt = prompt + (
+                        f"\n\nCRITICAL RETRY REQUIREMENT: Your previous draft had errors: {'; '.join(reasons)}. "
+                        f"Total spoken words across all sections (excluding title) MUST be STRICTLY between {min_limit} and {max_limit} words for a 38-48s runtime. "
+                        f"Follow the EXPRESSION format with mandatory keys: 'title', 'hook', 'setup', 'discovery', 'example', 'payoff'."
+                    )
+                    try:
+                        retry_raw = generate_response(retry_prompt)
+                        retry_parsed = extract_json_from_llm(retry_raw)
+                        if retry_parsed and retry_parsed.get("script"):
+                            parsed_json = retry_parsed
+                            script_field = retry_parsed["script"]
+                            new_words = sum(len(v.split()) for k, v in script_field.items() if k.lower() != "title" and isinstance(v, str))
+                            print(f"[{script_number}/{total}] Retry successful! Calibrated word count: {new_words} words.")
+                    except Exception as retry_exc:
+                        print(f"[{script_number}/{total}] Retry failed: {retry_exc}")
+
+        # Ensure PAYOFF does not contain robotic filler like "Follow for more idioms and comments below!"
+        if isinstance(script_field, dict):
+            payoff_key = next((k for k in script_field if k.lower() == "payoff"), None)
+            if payoff_key:
+                payoff_val = script_field[payoff_key]
+                if isinstance(payoff_val, str):
+                    for bad_phr in [
+                        "Follow for more essential idioms and comments below!",
+                        "Follow for more essential idioms and comments below.",
+                        "follow for more essential idioms and comments below!",
+                        "follow for more essential idioms and comments below.",
+                        "Follow for more idioms and comments below!",
+                        "Follow for more essential idioms and comment below!",
+                        "comments below!",
+                        "comments below."
+                    ]:
+                        if bad_phr in payoff_val:
+                            ctas = load_call_to_actions(params.get("TARGET_LANGUAGE"))
+                            replacement = random.choice(ctas) if ctas else "Your turn — use it in a sentence!"
+                            payoff_val = payoff_val.replace(bad_phr, replacement).strip()
+                            script_field[payoff_key] = payoff_val
+
+            parsed_json["script"] = script_field
+
+        if isinstance(script_field, dict):
+            script_text = json.dumps(script_field, indent=2)
+        else:
+            script_text = str(script_field)
+            
+    except Exception as exc:
+        print(f"[{script_number}/{total}] LLM error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"[{script_number}/{total}] Generating metadata…")
+    metadata = build_metadata(script_text, params)
+
+    # Ensure character_personalities exists and includes the static charismatic narrator personality
+    if "character_personalities" not in parsed_json or not isinstance(parsed_json["character_personalities"], dict):
+        parsed_json["character_personalities"] = {}
+    parsed_json["character_personalities"]["Narrator"] = STATIC_NARRATOR_PERSONALITY
+
+    if video_type == "GAME":
+        board = parsed_json.get("chalkboard_exercise") or (script_field.get("chalkboard_exercise") if isinstance(script_field, dict) else "")
+        expr_val = str(params.get("EXPRESSION", "")).strip()
+        context_str = str(params.get("CONTEXT", "")).strip()
+
+        # If board is empty or malformed, build a robust fallback
+        if not board or not str(board).strip() or ("A)" not in str(board) and "A." not in str(board)):
+            if " vs " in expr_val.lower():
+                parts = re.split(r"\s+vs\.?\s+", expr_val, flags=re.IGNORECASE)
+                if len(parts) >= 2:
+                    p1, p2 = parts[0].strip(), parts[1].strip()
+                    first_line = expr_val + "?"
+                    if "___" in context_str:
+                        clean_sentence = re.split(r"\(", context_str)[0].strip()
+                        if clean_sentence:
+                            first_line = clean_sentence
+                    board = f"{first_line}\nA) {p1}\nB) {p2}"
+            elif ch_opts and len(ch_opts) >= 2:
+                q_text = ch_text.split("A)")[0].strip() if "A)" in ch_text else expr_val
+                board = q_text + "\n" + "\n".join([f"{let}) {txt.strip()}" for let, txt in ch_opts])
+            else:
+                board = f"{expr_val}\nA) {expr_val}\nB) Option B"
+
+        # If context has a sentence with ___, ensure it is line 1 of the chalkboard
+        if "___" in context_str:
+            clean_sentence = re.split(r"\(", context_str)[0].strip()
+            if clean_sentence and "___" in clean_sentence:
+                board_lines = str(board).strip().split("\n")
+                if len(board_lines) >= 2 and "___" not in board_lines[0]:
+                    board_lines[0] = clean_sentence
+                    board = "\n".join(board_lines)
+
+        # Check for duplicate options in board; if duplicate or lost uppercase, fix from clean contrast
+        b_opts = re.findall(r"(?:^|\s)([A-E])[\)\.:\-]\s*([^\n\rA-E\)\.:\-]+)", str(board))
+        if " vs " in expr_val.lower():
+            parts = re.split(r"\s+vs\.?\s+", expr_val, flags=re.IGNORECASE)
+            if len(parts) >= 2:
+                p1, p2 = parts[0].strip(), parts[1].strip()
+                b_lines = str(board).strip().split("\n")
+                prompt_line = b_lines[0] if b_lines else expr_val
+                # If uppercase stress notation was lost or duplicate options occurred
+                has_upper = any(c.isupper() for c in expr_val if c.isalpha())
+                if has_upper or len(b_opts) < 2 or b_opts[0][1].strip().lower() == b_opts[1][1].strip().lower():
+                    board = f"{prompt_line}\nA) {p1}\nB) {p2}"
+
+        parsed_json["chalkboard_exercise"] = board
+        metadata["chalkboard_exercise"] = board
+
+        # Option A Enforcement on Finalized Chalkboard:
+        # Guarantee that spoken challenge never contains '___' and voices all options
+        if isinstance(script_field, dict):
+            ch_val = str(script_field.get("challenge", ""))
+
+            # Strip prompt parentheticals
+            ch_val = re.sub(r"\s*\(.*=.*(?:vs|ou|o|-).*\)", "", ch_val)
+            ch_val = re.sub(r"\s*\((?:noun|verb|sens):[^\)]*\)", "", ch_val, flags=re.IGNORECASE)
+
+            # Extract final options from finalized board
+            b_lines = [l.strip() for l in str(board).splitlines() if l.strip()]
+            opt_a, opt_b = None, None
+            for l in b_lines:
+                ma = re.match(r"^A\s*[:\)\.\-]\s*(.+)$", l, re.IGNORECASE)
+                if ma:
+                    opt_a = ma.group(1).strip()
+                mb = re.match(r"^B\s*[:\)\.\-]\s*(.+)$", l, re.IGNORECASE)
+                if mb:
+                    opt_b = mb.group(1).strip()
+
+            # Replace ___ in spoken challenge with opt_a
+            if re.search(r"_{2,}", ch_val) and opt_a:
+                ch_val = re.sub(r"\s*_{2,}\s*", f" {opt_a} ", ch_val)
+                ch_val = re.sub(r"\s+", " ", ch_val).strip()
+
+            # Ensure options are voiced in spoken challenge
+            has_spoken_opts = bool(
+                re.search(r"(?:^|[\s\n])A\s*[:\)\.\-]", ch_val, re.IGNORECASE)
+                and re.search(r"(?:^|[\s\n])B\s*[:\)\.\-]", ch_val, re.IGNORECASE)
+            )
+            if not has_spoken_opts and opt_a and opt_b:
+                target_l = str(params.get("TARGET_LANGUAGE", "")).lower()
+                sep = {"english": "or", "french": "ou", "italian": "oppure", "spanish": "o"}.get(target_l, "or")
+                ch_val = ch_val.rstrip(":., ") + f". A: {opt_a}, {sep} B: {opt_b}?"
+
+            script_field["challenge"] = ch_val
+            parsed_json["script"] = script_field
+            script_text = json.dumps(script_field, indent=2, ensure_ascii=False)
+
+    # Save to JSON State
+    state["prompt_params"] = params
+    state["script_text"] = script_text
+    state["content_metadata"] = parsed_json
+    state["metadata"] = metadata
+    state["status"]["script_generation"] = "done"
+    state_manager.save_script_state(script_id, state)
+
+    return 0
+
+def load_ready_prompts_from_csv(base_dir: Path) -> list:
+    import csv
+    input_dir = base_dir / "input"
+    
+    csv_files = []
+    
+    # 1. Primary: Unified input/csv/<language>/expressions_list/*_READY_PROMPTS_*.csv
+    input_csv_dir = input_dir / "csv"
+    if input_csv_dir.exists():
+        for lang_dir in sorted(input_csv_dir.iterdir()):
+            if lang_dir.is_dir():
+                expr_dir = lang_dir / "expressions_list"
+                if expr_dir.exists():
+                    csv_files.extend(sorted(expr_dir.glob("*READY_PROMPTS_*.csv")))
+
+    # 2. Fallback: input/<language>/expressions_list/*_READY_PROMPTS_*.csv
+    if not csv_files and input_dir.exists():
+        for lang_dir in sorted(input_dir.iterdir()):
+            if lang_dir.is_dir() and lang_dir.name not in ("csv", "images"):
+                expr_dir = lang_dir / "expressions_list"
+                if expr_dir.exists():
+                    csv_files.extend(sorted(expr_dir.glob("*READY_PROMPTS_*.csv")))
+                    
+        # 3. Fallback: flat files directly inside input/
+        if not csv_files:
+            csv_files.extend(sorted(input_dir.glob("*READY_PROMPTS_*.csv")))
+
+    # 4. Fallback: legacy data/ directory
+    if not csv_files:
+        fallback_dir = Path(__file__).parent / "data"
+        if fallback_dir.exists():
+            csv_files.extend(sorted(fallback_dir.glob("*READY_PROMPTS_*.csv")))
+
+    queued = []
+    max_indices = {}
+
+    # Pre-scan existing valid IDs to prevent any collisions
+    state_dir = base_dir / "state"
+    if state_dir.exists():
+        for sf in state_dir.rglob("script_*.json"):
+            parsed = parse_script_id(sf.stem.replace("script_", ""))
+            if parsed:
+                k = (parsed["lang_code"], parsed["type_code"])
+                max_indices[k] = max(max_indices.get(k, 0), parsed["index"])
+
+    for ready_csv in csv_files:
+        with ready_csv.open("r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                cid = str(row.get("ID", "")).strip().upper()
+                parsed = parse_script_id(cid)
+                if parsed:
+                    k = (parsed["lang_code"], parsed["type_code"])
+                    max_indices[k] = max(max_indices.get(k, 0), parsed["index"])
+
+    for ready_csv in csv_files:
+        path_parts = [p.lower() for p in ready_csv.parts]
+        inferred_lang = "English"
+        for lk in ["french", "spanish", "italian", "english"]:
+            if lk in path_parts:
+                inferred_lang = lk.capitalize()
+                break
+
+        fname_upper = ready_csv.name.upper()
+        inferred_type = "EXPRESSION"
+        if "GAME" in fname_upper:
+            inferred_type = "GAME"
+        elif "ROLEPLAY" in fname_upper:
+            inferred_type = "ROLEPLAY"
+        elif "FUN_FACTS" in fname_upper or "FUNFACTS" in fname_upper or "FACTS" in fname_upper:
+            inferred_type = "FUN_FACTS"
+        elif "EXPRESSION" in fname_upper:
+            inferred_type = "EXPRESSION"
+
+        with ready_csv.open("r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if any(row.values()):
+                    # Auto-infer TARGET_LANGUAGE and VIDEO_TYPE if not explicitly in CSV
+                    if not row.get("TARGET_LANGUAGE"):
+                        row["TARGET_LANGUAGE"] = inferred_lang
+                    if not row.get("VIDEO_TYPE"):
+                        row["VIDEO_TYPE"] = inferred_type
+
+                    # Strip deprecated static fields so they don't pollute state or LLM prompt
+                    row.pop("STATUS", None)
+                    if inferred_type not in ("FUN_FACTS", "FUNFACTS"):
+                        row.pop("FORMAT", None)
+
+                    lang = row.get("TARGET_LANGUAGE", inferred_lang)
+                    vtype = row.get("VIDEO_TYPE", inferred_type)
+
+                    if not row.get("ID"):
+                        from id_generator import get_language_code, get_type_code
+                        lang_c = get_language_code(lang)
+                        type_c = get_type_code(vtype)
+                        k = (lang_c, type_c)
+                        max_indices[k] = max_indices.get(k, 0) + 1
+                        row["ID"] = generate_script_id(lang, vtype, max_indices[k])
+                    queued.append(row)
+                    
+    return queued
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="LingoVerse Shorts Script Generator")
+    parser.add_argument("--script-id", type=str, default=None, help="Target specific script ID (e.g. EE01, FG02)")
+    parser.add_argument("--pause-seconds", type=float, default=DEFAULT_PAUSE_SECONDS, help="Pause seconds between scripts")
+    parser.add_argument("--auto", action="store_true", help="Auto-generate scripts without interactive terminal prompts")
+    parser.add_argument("--script-input", type=str, default=None, help="Path to text file containing raw script to format")
+    parser.add_argument("--force", action="store_true", help="Force regeneration even if script is already generated")
+    args = parser.parse_args()
+
+    base_dir = BASE_DIR
+    state_manager = StateManager(base_dir)
+    
+    try:
+        print("Checking local LLM server connection...")
+        require_services(llm=True)
+        print("LLM server connection verified.")
+    except ConnectionError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    # Production Mode Selection: Mass-produce, Specific Script ID, or Number Range Group
+    from core.cli_prompt import prompt_production_mode, prompt_group_range
+    target_script_ids, selected_mode = prompt_production_mode(
+        stage_title="Part A: Video Scripts",
+        asset_name="scripts",
+        timeout=10.0,
+        script_id_arg=args.script_id,
+        auto=args.auto,
+        require_existing_state=False,
+        base_dir=base_dir,
+        return_mode=True,
+    )
+
+    while True:
+        # Load prompts from CSV and filter using Pipeline Status Tracker
+        queued_prompts = load_ready_prompts_from_csv(base_dir)
+        if not queued_prompts:
+            print("No prompts found in input CSV queues.")
+            return 0
+
+        if target_script_ids:
+            target_set = set(target_script_ids)
+            prompts_to_process = [p for p in queued_prompts if p["ID"] in target_set]
+            prompts_to_process.sort(key=lambda p: target_script_ids.index(p["ID"]) if p["ID"] in target_script_ids else 9999)
+            if not prompts_to_process:
+                print(f"Error: None of the specified script IDs {target_script_ids} were found in any input CSV queue.", file=sys.stderr)
+                if selected_mode == "group_range" and not args.auto:
+                    try:
+                        retry_more = input("\nWould you like to try another number range? [y/N]: ").strip().lower()
+                    except (KeyboardInterrupt, EOFError):
+                        return 0
+                    if retry_more in ("y", "yes"):
+                        target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
+                        if target_script_ids:
+                            continue
+                    return 0
+                return 1
+        else:
+            try:
+                from core.status_tracker import get_status_tracker
+                tracker = get_status_tracker(base_dir)
+                pending_rows = tracker.get_pending_scripts("script_generation")
+                pending_ids = {r["ID"] for r in pending_rows}
+                prompts_to_process = [p for p in queued_prompts if p["ID"] in pending_ids]
+            except Exception:
+                prompts_to_process = queued_prompts
+
+        if not prompts_to_process:
+            print(f"All {len(queued_prompts)} video scripts across all queues have already been generated! (0 pending)")
+            if selected_mode == "group_range" and not args.auto:
+                try:
+                    create_more = input("\nDo you want to create another group of scripts? [y/N]: ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    return 0
+                if create_more in ("y", "yes"):
+                    target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
+                    if target_script_ids:
+                        continue
+            return 0
+
+        total = len(prompts_to_process)
+        if target_script_ids:
+            print(f"Processing {len(prompts_to_process)} target script(s): {', '.join([p['ID'] for p in prompts_to_process])}")
+        else:
+            print(f"Found {total} pending prompt(s) to generate out of {len(queued_prompts)} total library prompts.")
+
+        for i, params in enumerate(prompts_to_process, start=1):
+            script_id = params["ID"]
+            if handle_prompt(state_manager, script_id, params, i, total, auto=args.auto, script_input=args.script_input, force=args.force) != 0:
+                return 1
+            if i < total:
+                time.sleep(args.pause_seconds)
+
+        print(f"\n[Completed] Finished generating {total} script(s)!")
+
+        # If in group_range mode, ask if the user wants to create more scripts
+        if selected_mode == "group_range" and not args.auto:
+            try:
+                create_more = input("\nDo you want to create more scripts? [y/N]: ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print("\nFinished script generation session.")
+                break
+
+            if create_more in ("y", "yes"):
+                target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
+                if target_script_ids:
+                    continue
+                else:
+                    break
+            else:
+                print("\nFinished script generation session.")
+                break
+        else:
+            break
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

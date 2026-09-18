@@ -1,0 +1,10 @@
+openai
+python-dotenv
+requests
+ffmpeg-python
+transformers
+torch
+torchaudio
+scipy
+pillow
+faster-whisper

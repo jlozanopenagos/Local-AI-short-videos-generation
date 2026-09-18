@@ -1,0 +1,78 @@
+# ==============================================================================
+# Git Ignore Rules for Shorts Automation
+# ==============================================================================
+
+# --- Secrets & Environment Variables ---
+.env
+*.env
+.env.*
+!.env.example
+
+# --- Oversized Binaries (>100MB) & Windows Executables ---
+# ffmpeg.exe and ffprobe.exe are 138MB+ each and exceed GitHub limits.
+# Keep them locally; the pipeline falls back to system PATH if not in the folder.
+video_creation/_G_video_assembly/ffmpeg.exe
+video_creation/_G_video_assembly/ffprobe.exe
+*.exe
+
+# --- Output & Generated Media ---
+# Bulky media files (WAV audio, MP4 renders, ASS subtitle files, and review CSVs)
+output/
+*.mp4
+*.wav
+*.mp3
+*.ass
+*.srt
+
+# --- State Data & Pipeline Status Manifest ---
+# Generated script JSON states and real-time status CSV are produced at runtime.
+# Track directory hierarchy via .gitkeep, sample JSON schema, and README only.
+state/**/*.json
+state/pipeline_status.csv
+!state/script_state.sample.json
+!state/**/.gitkeep
+!state/**/README.md
+
+# --- SQLite Database & Mirror CSVs ---
+# expressions.db is auto-generated and synced from input CSVs via py tools/database/sync_prompts.py
+database/*.db
+database/*.sqlite*
+database/*.csv
+!database/*.sample.csv
+
+# --- Proprietary Input CSV Queues & Archives ---
+# Keep your curated prompts and content library private.
+input/csv/**/*.csv
+!input/csv/**/*.sample.csv
+input/*.zip
+input/**/*.zip
+*.zip
+
+# --- Scratch & Experimental Debug Scripts ---
+scratch/
+
+# --- Python Bytecode & Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Virtual Environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- IDE & OS Metadata ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
