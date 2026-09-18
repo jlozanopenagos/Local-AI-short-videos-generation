@@ -4,20 +4,26 @@
 
 # --- Secrets & Environment Variables ---
 .env
+main/.env
 *.env
 .env.*
 !.env.example
+!main/.env.example
 
 # --- Oversized Binaries (>100MB) & Windows Executables ---
 # ffmpeg.exe and ffprobe.exe are 138MB+ each and exceed GitHub limits.
 # Keep them locally; the pipeline falls back to system PATH if not in the folder.
 video_creation/_G_video_assembly/ffmpeg.exe
 video_creation/_G_video_assembly/ffprobe.exe
+main/video_creation/_G_video_assembly/ffmpeg.exe
+main/video_creation/_G_video_assembly/ffprobe.exe
 *.exe
 
 # --- Output & Generated Media ---
 # Bulky media files (WAV audio, MP4 renders, ASS subtitle files, and review CSVs)
 output/
+main/output/
+**/output/
 *.mp4
 *.wav
 *.mp3
@@ -33,6 +39,18 @@ state/pipeline_status.csv
 !state/**/.gitkeep
 !state/**/README.md
 
+main/state/**/*.json
+main/state/pipeline_status.csv
+!main/state/script_state.sample.json
+!main/state/**/.gitkeep
+!main/state/**/README.md
+
+**/state/**/*.json
+**/state/pipeline_status.csv
+!**/state/script_state.sample.json
+!**/state/**/.gitkeep
+!**/state/**/README.md
+
 # --- SQLite Database & Mirror CSVs ---
 # expressions.db is auto-generated and synced from input CSVs via py tools/database/sync_prompts.py
 database/*.db
@@ -40,23 +58,46 @@ database/*.sqlite*
 database/*.csv
 !database/*.sample.csv
 
+main/database/*.db
+main/database/*.sqlite*
+main/database/*.csv
+!main/database/*.sample.csv
+
+**/database/*.db
+**/database/*.sqlite*
+**/database/*.csv
+!**/database/*.sample.csv
+
 # --- Proprietary Input CSV Queues & Archives ---
 # Keep your curated prompts and content library private.
 input/csv/**/*.csv
 !input/csv/**/*.sample.csv
+
+main/input/csv/**/*.csv
+!main/input/csv/**/*.sample.csv
+
+**/input/csv/**/*.csv
+!**/input/csv/**/*.sample.csv
+
 input/*.zip
 input/**/*.zip
+main/input/*.zip
+main/input/**/*.zip
 *.zip
 
 # --- Scratch & Experimental Debug Scripts ---
 scratch/
+main/scratch/
+**/scratch/
 
 # --- Python Bytecode & Cache ---
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .pytest_cache/
+**/.pytest_cache/
 .coverage
 htmlcov/
 
