@@ -19,6 +19,7 @@ for p in [str(REPO_ROOT), str(MAIN_DIR), str(TEST_DIR)]:
         sys.path.insert(0, p)
 
 try:
+    # pyrefly: ignore [missing-import]
     import pytest
     HAS_PYTEST = True
 except ImportError:
