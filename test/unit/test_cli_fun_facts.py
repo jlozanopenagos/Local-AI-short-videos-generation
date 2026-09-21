@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 from core.cli_prompt import prompt_production_mode, prompt_fun_facts_mode
 
 
