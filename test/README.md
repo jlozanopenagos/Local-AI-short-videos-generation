@@ -7,10 +7,10 @@ An isolated, enterprise-grade automated testing layer for the `shorts_automation
 ## Directory Architecture
 
 ```
-test_layer/
+test/
 ├── README.md               # Test documentation & execution manual
 ├── run_tests.py            # Standalone test runner (zero external dependencies needed)
-├── pytest.ini              # Pytest configuration & markers (contained inside test_layer)
+├── pytest.ini              # Pytest configuration & markers (contained inside test directory)
 ├── requirements-test.txt   # Optional test tooling (pytest, pytest-mock)
 ├── conftest.py             # Shared fixtures and mock helpers
 │

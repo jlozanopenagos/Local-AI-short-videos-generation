@@ -37,7 +37,13 @@ input/csv/
 
 ### 3. ROLEPLAY
 - **Filename**: `<LANG>_READY_PROMPTS_ROLEPLAY.csv`
-- **Columns**: `ID,ROLEPLAY_SCENARIO,SUBJECT,LEXICAL_FIELD,EMOTIONAL_TRIGGER`
+- **Columns**: `ID,ROLEPLAY_SCENARIO,SUBJECT,LEXICAL_FIELD,EMOTIONAL_TRIGGER,SPECIAL_TREATMENT`
+- **Column Details**:
+  - `SPECIAL_TREATMENT` *(optional, backward compatible)*: Classifies the target expression under one mutually exclusive pedagogical lens:
+    - `idiomatic`: Fixed multi-word figurative phrases (*break a leg*, *costar un ojo de la cara*, *poser un lapin*). Enforces mandatory 4-part idiomatic arc where **PERSON_ONE must use the complete idiom in an original sentence in DIALOGUE_PART_4** (Error #4 fix), with automated validation and retry.
+    - `phonetic`: Minimal pairs, heteronyms, stress shifts (*REcord vs reCORD*).
+    - `false_friend`: Cross-language cognate traps (*embarrassed / embarazada*).
+    - *(blank)*: Default LLM generation behavior preserved.
 
 ### 4. FUN_FACTS
 - **Filename**: `<LANG>_READY_PROMPTS_FUN_FACTS.csv`

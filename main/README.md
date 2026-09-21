@@ -124,6 +124,10 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **Trigger Direction**: PERSON_ONE sets up their real-world problem or error; PERSON_TWO introduces the idiom naturally in `DIALOGUE_PART_1`. P1 never self-diagnoses with the idiom in turn 1.
 - **TTS Stress Notation**: For heteronyms and minimal pairs, stressed syllables are capitalized (`REcord` vs `reCORD`, `PROject` vs `proJECT`) to instruct the TTS model.
 - **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
+- **`SPECIAL_TREATMENT` Classification System**:
+  - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
+  - **Idiomatic Arc (Error #4 Fix)**: For multi-word figurative idioms, the LLM is instructed to enforce active usage modeling: P2 drops the full idiom in Part 1; P1 reacts to literal image while P2 clarifies in ≤1 sentence in Part 2; P2 demonstrates a new real-life usage in Part 3; and **P1 must use the complete idiom in an original sentence in Part 4** (the proof of learning).
+  - **Automated Quality Gate**: `validate_idiomatic_roleplay()` in `_A_video_scripts/main.py` verifies both the full idiom in Part 1 and P1 active usage in Part 4, triggering auto-retries with targeted feedback upon failure.
 
 ### 3. GAME: Fast-Paced Interactive Trivia
 - **Trivia Standard**: Pure educational quiz game—no fictional narratives or roleplay acting.
