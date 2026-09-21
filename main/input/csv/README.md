@@ -16,15 +16,23 @@ input/csv/
 │   │   └── <LANG>_READY_PROMPTS_FUN_FACTS.csv
 │   └── game_call_to_action_phrases/
 │       └── <LANG>_CALL_TO_ACTIONS.csv
+├── script_to_change/              # CSV queues to replace existing video scripts
+│   └── *.csv                      # CSV files with columns 'ID' and 'NEW_SCRIPT'
 └── sample_templates/             # Reusable schema templates
     ├── READY_PROMPTS_EXPRESSION.sample.csv
     ├── READY_PROMPTS_GAME.sample.csv
     ├── READY_PROMPTS_ROLEPLAY.sample.csv
     ├── READY_PROMPTS_FUN_FACTS.sample.csv
-    └── CALL_TO_ACTIONS.sample.csv
+    ├── CALL_TO_ACTIONS.sample.csv
+    └── script_to_change.sample.csv
 ```
 
 ## Schema Reference
+
+### 0. SCRIPT TO CHANGE (`script_to_change/*.csv`)
+- **Columns**: `ID,NEW_SCRIPT`
+- **Purpose**: Modifies existing scripts using custom text. The canonical `ID` determines target language and video format.
+- **State Rule**: Automatically updates the state JSON format property from `"script_generation": "done"` to `"pending"` BEFORE generating the new script.
 
 ### 1. EXPRESSION
 - **Filename**: `<LANG>_READY_PROMPTS_EXPRESSION.csv`

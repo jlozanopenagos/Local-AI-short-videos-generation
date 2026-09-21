@@ -3,6 +3,7 @@ test_layer/unit/test_id_generator.py — Unit tests for canonical ID generation,
 """
 import unittest
 
+# pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.id_generator import (
     get_language_code,
     get_type_code,

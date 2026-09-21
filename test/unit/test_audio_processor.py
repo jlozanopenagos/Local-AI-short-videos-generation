@@ -2,8 +2,10 @@
 test_layer/unit/test_audio_processor.py — Unit tests for audio silence trimming, pause math, and token budgeting.
 """
 import unittest
+# pyrefly: ignore [missing-import]
 import numpy as np
 
+# pyrefly: ignore [missing-import]
 from video_creation._B_voice_generation.core.audio_processor import trim_trailing_silence
 
 

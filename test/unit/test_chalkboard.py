@@ -3,6 +3,7 @@ test_layer/unit/test_chalkboard.py — Unit tests for chalkboard typography pars
 """
 import unittest
 
+# pyrefly: ignore [missing-import]
 from video_creation._C_image_generation.core.chalkboard_renderer import parse_quiz_exercise
 
 

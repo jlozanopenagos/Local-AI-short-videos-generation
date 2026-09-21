@@ -6,6 +6,7 @@ import unittest
 import tempfile
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 from core.state_manager import StateManager, resolve_lang_and_type, LANG_MAP, TYPE_MAP
 
 

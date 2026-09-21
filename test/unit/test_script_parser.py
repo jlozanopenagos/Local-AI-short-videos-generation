@@ -3,6 +3,7 @@ test_layer/unit/test_script_parser.py — Unit tests for dialogue normalization,
 """
 import unittest
 
+# pyrefly: ignore [missing-import]
 from video_creation._B_voice_generation.core.script_parser import (
     extract_parenthetical,
     normalize_spoken_dialogue,

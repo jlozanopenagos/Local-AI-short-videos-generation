@@ -5,6 +5,7 @@ import unittest
 import tempfile
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 from video_creation._G_video_assembly.core.subtitle_builder import SubtitleBuilder
 
 

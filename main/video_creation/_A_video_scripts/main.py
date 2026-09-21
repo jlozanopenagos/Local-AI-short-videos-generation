@@ -1,3 +1,4 @@
+from typing import Optional
 import argparse
 import os
 import sys
@@ -30,16 +31,17 @@ except (ImportError, ModuleNotFoundError):
     )
 
 try:
-    from core.state_manager import StateManager
+    from core.state_manager import StateManager, resolve_lang_and_type
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
-    from state_manager import StateManager
+    from state_manager import StateManager, resolve_lang_and_type
 
 try:
     from video_creation._A_video_scripts.core.metadata_builder import build_metadata
     from video_creation._A_video_scripts.core.llm import generate_response, check_connection
     from video_creation._A_video_scripts.prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
     from video_creation._A_video_scripts.id_generator import generate_script_id, parse_script_id
+    from video_creation._A_video_scripts.script_modifier import modify_video_script
 except (ImportError, ModuleNotFoundError):
     try:
         # pyrefly: ignore [missing-import]
@@ -48,12 +50,14 @@ except (ImportError, ModuleNotFoundError):
         from core.llm import generate_response, check_connection
         from prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
         from id_generator import generate_script_id, parse_script_id
+        from script_modifier import modify_video_script
     except (ImportError, ModuleNotFoundError):
         try:
             from _A_video_scripts.core.metadata_builder import build_metadata
             from _A_video_scripts.core.llm import generate_response, check_connection
             from _A_video_scripts.prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
             from _A_video_scripts.id_generator import generate_script_id, parse_script_id
+            from _A_video_scripts.script_modifier import modify_video_script
         except (ImportError, ModuleNotFoundError):
             # pyrefly: ignore [missing-import]
             from shorts_automation.video_creation._A_video_scripts.core.metadata_builder import build_metadata
@@ -63,6 +67,8 @@ except (ImportError, ModuleNotFoundError):
             from shorts_automation.video_creation._A_video_scripts.prompts.prompt_builder import build_prompt, validate_params, load_call_to_actions, build_fun_facts_formatting_prompt
             # pyrefly: ignore [missing-import]
             from shorts_automation.video_creation._A_video_scripts.id_generator import generate_script_id, parse_script_id
+            # pyrefly: ignore [missing-import]
+            from shorts_automation.video_creation._A_video_scripts.script_modifier import modify_video_script
 
 DEFAULT_PAUSE_SECONDS = float(os.getenv("LLM_PAUSE_SECONDS", "5"))
 
@@ -1008,6 +1014,211 @@ def load_ready_prompts_from_csv(base_dir: Path) -> list:
                     
     return queued
 
+def process_scripts_to_change_from_csv(
+    base_dir: Path,
+    csv_path: Optional[str] = None,
+    auto: bool = False,
+) -> int:
+    """
+    Processes script updates from CSV file(s) containing columns 'ID' and 'NEW_SCRIPT'.
+    Target directory: input/csv/script_to_change/
+    
+    Before generating and saving the new script, the script's state in state JSON is
+    explicitly set from "script_generation": "done" to "pending".
+    """
+    import csv
+
+    state_manager = StateManager(base_dir)
+    script_to_change_dir = base_dir / "input" / "csv" / "script_to_change"
+    script_to_change_dir.mkdir(parents=True, exist_ok=True)
+
+    target_csvs: list[Path] = []
+
+    if csv_path:
+        p = Path(csv_path)
+        if not p.is_file():
+            alt_p = script_to_change_dir / csv_path
+            if alt_p.is_file():
+                p = alt_p
+        if not p.is_file():
+            print(f"[Error] Specified CSV file '{csv_path}' was not found.", file=sys.stderr)
+            return 1
+        target_csvs = [p]
+    else:
+        found_csvs = sorted(script_to_change_dir.glob("*.csv"))
+        # Exclude sample templates
+        found_csvs = [f for f in found_csvs if not f.name.endswith(".sample.csv")]
+        if not found_csvs:
+            print(f"\n[Warning] No CSV files found in '{script_to_change_dir}'.")
+            print("Please place a CSV file containing columns 'ID' and 'NEW_SCRIPT' in that directory.")
+            return 0
+
+        if len(found_csvs) == 1:
+            target_csvs = found_csvs
+        else:
+            if not auto and sys.stdin.isatty():
+                print("\n" + "-" * 60)
+                print(f"Multiple CSV files found in {script_to_change_dir.name}:")
+                for idx, cf in enumerate(found_csvs, start=1):
+                    print(f"  [{idx}] {cf.name}")
+                print("  [A] Process all CSV files [Default]")
+                print("-" * 60)
+                try:
+                    c_input = input("Select choice (default: A): ").strip().upper()
+                except (KeyboardInterrupt, EOFError):
+                    print("\nOperation cancelled by user.")
+                    return 0
+
+                if c_input in ("A", "", "ALL"):
+                    target_csvs = found_csvs
+                elif c_input.isdigit() and 1 <= int(c_input) <= len(found_csvs):
+                    target_csvs = [found_csvs[int(c_input) - 1]]
+                else:
+                    target_csvs = found_csvs
+            else:
+                target_csvs = found_csvs
+
+    queued_prompts = load_ready_prompts_from_csv(base_dir)
+
+    total_processed = 0
+    total_successful = 0
+    total_failed = 0
+
+    for csv_file in target_csvs:
+        print(f"\n📄 Loading script changes from: {csv_file.name}")
+        
+        rows = []
+        try:
+            with csv_file.open("r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+        except UnicodeDecodeError:
+            with csv_file.open("r", encoding="latin-1") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+
+        # Detect ID and NEW_SCRIPT columns (case-insensitive)
+        id_col = next((c for c in fieldnames if c.strip().upper() == "ID"), None)
+        script_col = next(
+            (c for c in fieldnames if c.strip().upper() in ("NEW_SCRIPT", "SCRIPT", "NEW_SCRIPT_TEXT")),
+            None
+        )
+
+        if not id_col or not script_col:
+            print(
+                f"❌ Error: '{csv_file.name}' is missing required columns ('ID', 'NEW_SCRIPT'). "
+                f"Found headers: {fieldnames}",
+                file=sys.stderr
+            )
+            total_failed += 1
+            continue
+
+        if not rows:
+            print(f"⚠️ Warning: '{csv_file.name}' is empty (no data rows).")
+            continue
+
+        print(f"Found {len(rows)} script modification request(s) in {csv_file.name}.")
+
+        for r_idx, row in enumerate(rows, start=1):
+            script_id = str(row.get(id_col, "")).strip().upper()
+            raw_new_script = str(row.get(script_col, "")).strip()
+
+            if not script_id:
+                continue
+            if not raw_new_script:
+                print(f"⚠️ Warning: Row {r_idx} for Script ID '{script_id}' has empty NEW_SCRIPT. Skipping.")
+                continue
+
+            # Check if raw_new_script points to an existing text file
+            if "\n" not in raw_new_script:
+                potential_file = Path(raw_new_script)
+                if not potential_file.is_file():
+                    potential_file = script_to_change_dir / raw_new_script
+                if potential_file.is_file():
+                    try:
+                        raw_new_script = potential_file.read_text(encoding="utf-8").strip()
+                        print(f"  Loaded script text from file: {potential_file.name}")
+                    except Exception as fe:
+                        print(f"  Warning: Could not read script file '{potential_file}': {fe}")
+
+            total_processed += 1
+            lang, vtype = resolve_lang_and_type(script_id)
+            print("\n" + "=" * 65)
+            print(f"[{total_processed}] TARGET SCRIPT: {script_id} ({lang.capitalize()} | {vtype.upper()})")
+            print("=" * 65)
+
+            # Step 1: Access state JSON and set "script_generation": "pending" BEFORE doing the new script
+            state = state_manager.get_script_state(script_id)
+            if "status" not in state or not isinstance(state["status"], dict):
+                state["status"] = {}
+
+            previous_status = state["status"].get("script_generation", "pending")
+            state["status"]["script_generation"] = "pending"
+
+            # Reset downstream stages since the script content is changing
+            for downstream in ["voice_generation", "image_generation", "thumbnail_generation", "video_assembly"]:
+                state["status"][downstream] = "pending"
+
+            # Ensure prompt_params exist
+            if not state.get("prompt_params"):
+                matching_prompt = next((p for p in queued_prompts if p.get("ID", "").upper() == script_id), None)
+                if matching_prompt:
+                    state["prompt_params"] = dict(matching_prompt)
+                else:
+                    state["prompt_params"] = {
+                        "ID": script_id,
+                        "TARGET_LANGUAGE": lang.capitalize(),
+                        "VIDEO_TYPE": vtype.upper(),
+                    }
+
+            # Save state to disk FIRST with status "pending"
+            state_manager.save_script_state(script_id, state)
+            print(f"  ✓ Set status in state JSON: 'script_generation' = 'pending' (was '{previous_status}').")
+
+            # Update status tracker manifest
+            try:
+                from core.status_tracker import get_status_tracker
+                tracker = get_status_tracker(base_dir)
+                tracker.update_script_stage_status(script_id, "script_generation", "pending")
+                for downstream in ["voice_generation", "image_generation", "thumbnail_generation", "video_assembly"]:
+                    tracker.update_script_stage_status(script_id, downstream, "pending")
+            except Exception:
+                pass
+
+            # Step 2: Now do the new script using modify_video_script
+            print(f"  🚀 Applying new script to {script_id}...")
+            try:
+                success = modify_video_script(
+                    script_id=script_id,
+                    raw_script_text=raw_new_script,
+                    reset_downstream=True,
+                    base_dir=base_dir,
+                )
+            except Exception as me:
+                print(f"  ❌ Error applying script to {script_id}: {me}", file=sys.stderr)
+                success = False
+
+            if success:
+                total_successful += 1
+                try:
+                    from core.status_tracker import get_status_tracker
+                    tracker = get_status_tracker(base_dir)
+                    tracker.update_script_stage_status(script_id, "script_generation", "done")
+                except Exception:
+                    pass
+                print(f"  ✅ Script {script_id} successfully updated to new script!")
+            else:
+                total_failed += 1
+                print(f"  ❌ Failed to update script {script_id}.", file=sys.stderr)
+
+    print("\n" + "=" * 65)
+    print(f"  SCRIPT CHANGE RUN COMPLETED: {total_successful}/{total_processed} succeeded, {total_failed} failed.")
+    print("=" * 65 + "\n")
+
+    return 0 if total_failed == 0 else 1
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="LingoVerse Shorts Script Generator")
     parser.add_argument("--script-id", type=str, default=None, help="Target specific script ID (e.g. EE01, FG02)")
@@ -1036,6 +1247,15 @@ def main() -> int:
         choices=["all", "english", "french", "spanish", "italian"],
         help="Filter generation to specific language (default: all)"
     )
+    parser.add_argument(
+        "--change-from-csv",
+        "--script-to-change",
+        dest="change_from_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Change script(s) from CSV containing 'ID' and 'NEW_SCRIPT' columns (optionally specify CSV path, otherwise checks input/csv/script_to_change/)"
+    )
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -1049,7 +1269,13 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    # Production Mode Selection: Mass-produce, Specific Script ID, Number Range Group, or Fun Facts Only
+    # CLI Direct Option: Change script(s) from CSV
+    if args.change_from_csv is not None:
+        print("\n[CLI Option] Change script(s) from CSV mode active.")
+        csv_p = args.change_from_csv if args.change_from_csv.strip() else None
+        return process_scripts_to_change_from_csv(base_dir=base_dir, csv_path=csv_p, auto=args.auto)
+
+    # Production Mode Selection: Mass-produce, Specific Script ID, Number Range Group, Fun Facts, or Change from CSV
     from core.cli_prompt import prompt_production_mode, prompt_group_range, prompt_fun_facts_mode
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
@@ -1062,16 +1288,20 @@ def main() -> int:
         target_script_ids, selected_mode = prompt_production_mode(
             stage_title="Part A: Video Scripts",
             asset_name="scripts",
-            timeout=10.0,
+            timeout=20.0,
             script_id_arg=args.script_id,
             auto=args.auto,
             require_existing_state=False,
             base_dir=base_dir,
             return_mode=True,
             allow_fun_facts_mode=True,
+            allow_script_to_change_mode=True,
         )
         if is_cli_fun_facts:
             selected_mode = "fun_facts"
+
+    if selected_mode == "script_to_change":
+        return process_scripts_to_change_from_csv(base_dir=base_dir, csv_path=None, auto=args.auto)
 
     while True:
         # Load prompts from CSV and filter using Pipeline Status Tracker

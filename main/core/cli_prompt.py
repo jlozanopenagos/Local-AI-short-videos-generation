@@ -315,6 +315,7 @@ def prompt_production_mode(
     base_dir: Optional[Path] = None,
     return_mode: bool = False,
     allow_fun_facts_mode: bool = False,
+    allow_script_to_change_mode: bool = False,
 ) -> Union[Optional[List[str]], Tuple[Optional[List[str]], str]]:
     """
     Prompts the user in the terminal to choose between:
@@ -322,6 +323,7 @@ def prompt_production_mode(
       [2] Selecting specific script(s) by ID to produce in a custom queue
       [3] Producing by Number Range / Group (e.g. 10 - 20)
       [4] Fun Facts only (produce only Fun Facts scripts, if allow_fun_facts_mode is True)
+      [5] Change script(s) from CSV (if allow_script_to_change_mode is True)
 
     Args:
         stage_title: Human-readable stage title (e.g. "Part B: Voice Generation").
@@ -331,8 +333,9 @@ def prompt_production_mode(
         auto: If True, bypasses prompt and defaults to mass-produce (or script_id_arg).
         require_existing_state: If True, checks that state/<lang>/<type>/script_<ID>.json exists before queueing.
         base_dir: Base project directory for state checks.
-        return_mode: If True, returns (target_ids, mode) tuple where mode is 'mass', 'specific', 'group_range', or 'fun_facts'.
-        allow_fun_facts_mode: If True, adds Option [4] for Fun Facts only production.
+        return_mode: If True, returns (target_ids, mode) tuple where mode is 'mass', 'specific', 'group_range', 'fun_facts', or 'script_to_change'.
+        allow_fun_facts_mode: If True, adds Option for Fun Facts only production.
+        allow_script_to_change_mode: If True, adds Option for changing scripts from CSV in input/csv/script_to_change.
 
     Returns:
         Optional[List[str]] or Tuple[Optional[List[str]], str]:
@@ -357,7 +360,12 @@ def prompt_production_mode(
         print(f"\n[Auto Mode] Defaulting to mass-producing all pending {asset_name}.")
         return (None, "mass") if return_mode else None
 
-    valid_choices = ("1", "2", "3", "4") if allow_fun_facts_mode else ("1", "2", "3")
+    valid_choices = ["1", "2", "3"]
+    if allow_fun_facts_mode:
+        valid_choices.append("4")
+    change_csv_choice = str(len(valid_choices) + 1)
+    if allow_script_to_change_mode:
+        valid_choices.append(change_csv_choice)
 
     print("\n" + "=" * 65)
     print(f"  {stage_title.upper()}")
@@ -368,9 +376,11 @@ def prompt_production_mode(
     print( "  [3] Produce by Number Range / Group (e.g. 10 - 20)")
     if allow_fun_facts_mode:
         print("  [4] Fun Facts only (produce only Fun Facts scripts)")
+    if allow_script_to_change_mode:
+        print(f"  [{change_csv_choice}] Change script(s) from CSV (input/csv/script_to_change)")
     print("-" * 65)
 
-    choice = _timed_choice(timeout=timeout, default="1", valid_choices=valid_choices)
+    choice = _timed_choice(timeout=timeout, default="1", valid_choices=tuple(valid_choices))
 
     if choice == "1":
         print(f"[Selected Mode] Mass-producing all pending {asset_name}.\n")
@@ -391,6 +401,10 @@ def prompt_production_mode(
         else:
             print("[Warning] No valid Fun Facts script IDs queued. Defaulting to mass-production.\n")
             return (None, "mass") if return_mode else None
+
+    if allow_script_to_change_mode and choice == change_csv_choice:
+        print(f"[Selected Mode] Change script(s) from CSV in input/csv/script_to_change.\n")
+        return (None, "script_to_change") if return_mode else None
 
     # Choice == "2": Interactive queue construction
     queued_ids: List[str] = []

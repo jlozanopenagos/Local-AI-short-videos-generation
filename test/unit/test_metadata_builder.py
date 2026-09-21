@@ -4,6 +4,7 @@ test_layer/unit/test_metadata_builder.py — Unit tests for YouTube metadata bui
 import unittest
 from unittest.mock import patch
 
+# pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.core.metadata_builder import (
     _extract_json,
     build_metadata,
