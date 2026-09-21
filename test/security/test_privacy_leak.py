@@ -59,11 +59,12 @@ class TestPrivacyLeak(unittest.TestCase):
             )
             tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
             for filepath in tracked_files:
-                # Only README.md and sample_templates/*.csv are permitted
+                # Only README.md, .gitkeep, and sample_templates/*.csv are permitted
                 is_sample = "sample_templates" in filepath
                 is_readme = filepath.endswith("README.md")
+                is_gitkeep = filepath.endswith(".gitkeep")
                 self.assertTrue(
-                    is_sample or is_readme,
+                    is_sample or is_readme or is_gitkeep,
                     f"Private input file tracked in git: {filepath}"
                 )
         except Exception as exc:
