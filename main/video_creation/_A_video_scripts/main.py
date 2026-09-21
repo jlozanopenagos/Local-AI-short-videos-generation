@@ -192,6 +192,87 @@ def extract_json_from_llm(raw_text: str) -> dict:
 
     raise ValueError(f"Could not parse valid JSON from LLM response. Raw output preview:\n{cleaned[:200]}")
 
+
+def validate_idiomatic_roleplay(script: dict, params: dict) -> list[str]:
+    """
+    Validate an idiomatic ROLEPLAY script for the two Error #4 quality gates.
+
+    Called when SPECIAL_TREATMENT == 'idiomatic'. Returns a list of violation
+    strings; an empty list means the script is valid.
+
+    Gates enforced:
+    1. Full idiom form must appear verbatim in DIALOGUE_PART_1 (specifically
+       in PERSON_TWO's turn, since P2 introduces the idiom per the arc rules).
+    2. PERSON_ONE must actively USE the idiom in DIALOGUE_PART_4 — not just
+       react, confirm, or ask about it. Detected by checking that the idiom
+       string appears in P1's turn of DIALOGUE_PART_4.
+
+    Args:
+        script:  The parsed 'script' dict from the LLM response (7 keys).
+        params:  The original prompt params dict (must contain ROLEPLAY_SCENARIO).
+
+    Returns:
+        List[str]: Validation error descriptions. Empty list = valid.
+    """
+    errors = []
+
+    # --- Extract the target idiom from ROLEPLAY_SCENARIO ---
+    # The scenario typically quotes both a full scene-setting sentence and the core idiom.
+    # We want the CORE IDIOM: the shortest quoted string that is at least 4 chars and
+    # no more than 8 words (a multi-word fixed phrase, not an entire sentence).
+    # Example scenario quote: '¡Pero tío, déjalas ahí, que te van a costar un ojo de la cara!'
+    # → We pick 'costar un ojo de la cara' which is the fixed idiom at the heart of it.
+    scenario = str(params.get("ROLEPLAY_SCENARIO", ""))
+    quoted_candidates = re.findall(r"'([^']{4,})'", scenario)
+    # Filter to phrase-length candidates (≤ 8 words) to avoid capturing full sentences
+    phrase_candidates = [c.strip() for c in quoted_candidates if len(c.split()) <= 8]
+    # Also consider the full list as fallback if no phrase-length candidates exist
+    target_idiom = ""
+    if phrase_candidates:
+        # Among phrase-length candidates, prefer the one most likely to be the idiom:
+        # the shortest one that still contains a meaningful chunk (avoids single-word captures)
+        multi_word = [c for c in phrase_candidates if len(c.split()) >= 2]
+        if multi_word:
+            target_idiom = min(multi_word, key=len).strip().lower()
+        else:
+            target_idiom = min(phrase_candidates, key=len).strip().lower()
+    elif quoted_candidates:
+        # Fallback: use the shortest overall candidate
+        target_idiom = min(quoted_candidates, key=len).strip().lower()
+
+    part1_text = str(script.get("DIALOGUE_PART_1", "")).lower()
+    part4_text = str(script.get("DIALOGUE_PART_4", ""))
+
+    # --- Gate 1: Full idiom form in DIALOGUE_PART_1 ---
+    if target_idiom and target_idiom not in part1_text:
+        errors.append(
+            f"IDIOMATIC GATE 1: Full idiom form '{target_idiom}' not found in "
+            f"DIALOGUE_PART_1. PERSON_TWO must drop the complete idiomatic form "
+            f"(never truncated) when introducing the expression."
+        )
+
+    # --- Gate 2: PERSON_ONE uses the idiom in DIALOGUE_PART_4 ---
+    # Parse P1's turn: it appears before the first \nPERSON_TWO line.
+    # P1's line begins with "PERSON_ONE" tag.
+    part4_lines = part4_text.split("\n")
+    p1_line_in_part4 = ""
+    for line in part4_lines:
+        if line.strip().upper().startswith("PERSON_ONE"):
+            p1_line_in_part4 = line.lower()
+            break
+
+    if target_idiom and target_idiom not in p1_line_in_part4:
+        errors.append(
+            f"IDIOMATIC GATE 2 (Error #4 \u2014 No Usage Modeling): PERSON_ONE does not "
+            f"use the idiom '{target_idiom}' in an original sentence in DIALOGUE_PART_4. "
+            f"P1's breakthrough MUST be an active, natural use of the full idiom \u2014 "
+            f"not a question, not a confirmation, not a meta-comment about its meaning."
+        )
+
+    return errors
+
+
+
 def handle_prompt(
     state_manager: StateManager,
     script_id: str,
@@ -357,6 +438,12 @@ def handle_prompt(
                         "title", "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"
                     ]
                 ]
+
+                # Idiomatic expression quality gates (Error #4: usage modeling)
+                idiomatic_errors = []
+                if str(params.get("SPECIAL_TREATMENT", "")).strip().lower() == "idiomatic":
+                    idiomatic_errors = validate_idiomatic_roleplay(script_field, params)
+
                 needs_retry = (
                     (spoken_words > max_limit or spoken_words < min_limit)
                     or has_narrator_in_dialogue
@@ -365,6 +452,7 @@ def handle_prompt(
                     or missing_hook
                     or bool(missing_parts)
                     or bool(illegal_keys)
+                    or bool(idiomatic_errors)
                 )
                 if needs_retry:
                     reasons = []
@@ -382,6 +470,8 @@ def handle_prompt(
                         reasons.append("NARRATOR placed inside dialogue")
                     if ends_with_unresolved_question:
                         reasons.append("DIALOGUE_PART_4 ended with unresolved question")
+                    if idiomatic_errors:
+                        reasons.extend(idiomatic_errors)
 
                     print(f"[{script_number}/{total}] Validation check failed: {'; '.join(reasons)}. Retrying generation...")
                     retry_prompt = prompt + (
@@ -390,6 +480,10 @@ def handle_prompt(
                         f"2. Total spoken words across all sections (excluding title) MUST be STRICTLY between {min_limit} and {max_limit} words for a 60-80s max runtime.\n"
                         f"3. Strict alternating speaker turns: PERSON_ONE then PERSON_TWO in every dialogue part.\n"
                         f"4. The target expression / phonetic word MUST be explicitly spoken in DIALOGUE_PART_1."
+                        + (
+                            f"\n5. IDIOMATIC ARC FIX REQUIRED: {'; '.join(idiomatic_errors)}"
+                            if idiomatic_errors else ""
+                        )
                     )
                     try:
                         retry_raw = generate_response(retry_prompt)

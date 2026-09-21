@@ -45,7 +45,7 @@ class TestCSVSchemas(unittest.TestCase):
         with csv_path.open("r", encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader)
-            expected = ["ID", "ROLEPLAY_SCENARIO", "SUBJECT", "LEXICAL_FIELD", "EMOTIONAL_TRIGGER"]
+            expected = ["ID", "ROLEPLAY_SCENARIO", "SUBJECT", "LEXICAL_FIELD", "EMOTIONAL_TRIGGER", "SPECIAL_TREATMENT"]
             self.assertEqual(header, expected)
             rows = list(reader)
             self.assertGreaterEqual(len(rows), 1)

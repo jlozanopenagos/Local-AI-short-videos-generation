@@ -1,3 +1,3 @@
-ID,ROLEPLAY_SCENARIO,SUBJECT,LEXICAL_FIELD,EMOTIONAL_TRIGGER
-ER01,"Backstage at a community theater 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",Theater Superstition,Theatre & Acting,Anxiety to Relief
-ER02,"In a kitchen covered in flour at midnight: two roommates attempting to bake a 3-tier birthday cake; one panics as the cake slides lopsidedly, while the amateur baker friend confidently flips an apron saying 'Don't stress, decorating this will be a piece of cake!'",Baking Disaster,Kitchen & Cooking,Stress to Confidence
+ID,ROLEPLAY_SCENARIO,SUBJECT,LEXICAL_FIELD,EMOTIONAL_TRIGGER,SPECIAL_TREATMENT
+ER01,"Backstage at a community theater 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",Theater Superstition,Theatre & Acting,Anxiety to Relief,idiomatic
+ER02,"In a kitchen covered in flour at midnight: two roommates attempting to bake a 3-tier birthday cake; one panics as the cake slides lopsidedly, while the amateur baker friend confidently flips an apron saying 'Don't stress, decorating this will be a piece of cake!'",Baking Disaster,Kitchen & Cooking,Stress to Confidence,idiomatic

@@ -198,6 +198,59 @@ def build_prompt(params: dict) -> str:
   * In DIALOGUE_PART_3: Both characters clearly demonstrate the two sounds with relatable banter.
   * In DIALOGUE_PART_4: PERSON_ONE has the humorous breakthrough and PERSON_TWO drops the punchline."""
 
+        # ---------------------------------------------------------------
+        # SPECIAL TREATMENT: idiomatic arc (Error #4 fix — usage modeling)
+        # ---------------------------------------------------------------
+        special_treatment = str(effective_params.get("SPECIAL_TREATMENT", "")).strip().lower()
+        idiomatic_arc_inst = ""
+        if special_treatment == "idiomatic":
+            idiomatic_arc_inst = """
+-----------------------------
+SPECIAL TREATMENT: IDIOMATIC EXPRESSION — MANDATORY ARC (READ CAREFULLY)
+-----------------------------
+This roleplay teaches a FIXED, NON-COMPOSITIONAL IDIOM whose meaning cannot be guessed
+from its individual words (e.g. 'break a leg', 'costar un ojo de la cara', 'poser un lapin',
+'C'est pas la mer à boire'). The pedagogical arc is DIFFERENT from a phonetic lesson.
+
+MANDATORY 4-PART IDIOMATIC ARC:
+- DIALOGUE_PART_1 (Premise & Trigger):
+  * PERSON_ONE sets the scene (their problem, anxiety, or situation).
+  * PERSON_TWO drops the COMPLETE idiom in FULL IDIOMATIC FORM — never truncate it.
+    ❌ WRONG: 'eso te va a costar un ojo' / 'c'est la mer à boire'
+    ✅ RIGHT:  'eso te va a costar un ojo de la cara' / 'c'est pas la mer à boire'
+
+- DIALOGUE_PART_2 (Literal Image Reaction — The Comic Engine):
+  * PERSON_ONE reacts with GENUINE SURPRISE to the LITERAL IMAGE of the idiom
+    (the rabbit, the eye, the sea, the leg). This comic confusion is the hook.
+  * PERSON_TWO gives EXACTLY ONE SHORT SENTENCE of real meaning — then moves on.
+    ❌ BANNED: Multi-sentence dictionary explanations ('Es una expresión. Significa que X.
+      Se usa cuando Y. En España también dicen Z.')
+    ✅ RIGHT: 'Significa que es carísimo, nada más.' — one sentence, done.
+
+- DIALOGUE_PART_3 (Usage Modeling — NEW Example in the Wild):
+  * PERSON_TWO uses the COMPLETE idiom in a BRAND NEW real-life sentence
+    (a different situation from DIALOGUE_PART_1 — new context, same idiom).
+  * PERSON_ONE attempts their own usage or testing in a new context.
+    ❌ BANNED: Continuing to ask 'So it means X?' or 'Is it used when Y?'
+    ✅ RIGHT: P2 says 'El restaurante del centro me costó un ojo de la cara.',
+             P1 tests: 'Entonces si invitamos a diez personas…'
+
+- DIALOGUE_PART_4 (THE USAGE BREAKTHROUGH — CRITICAL QUALITY GATE):
+  * PERSON_ONE MUST use the COMPLETE FULL IDIOM in an ORIGINAL, NEW SENTENCE of their own.
+    This is the equivalent of the EXPRESSION format's 'example' key — the proof of learning.
+  * PERSON_ONE's line is NOT a question, NOT a meta-comment, NOT 'Oh so it means X!'.
+    It IS a spontaneous, natural use of the idiom in a new situation.
+    ❌ BANNED P1 lines: 'Ya sé qué significa.' / '¡Ahora lo entiendo!' / '¿O sea que es muy caro?'
+    ✅ REQUIRED P1 lines: 'Si invito a toda la familia a cenar fuera, me va a costar un ojo de la cara.'
+  * PERSON_TWO reacts with humor, surprise, or a sharp punchline to P1's successful usage.
+
+BANNED IN ALL IDIOMATIC ROLEPLAYS (ZERO TOLERANCE):
+❌ P2 giving more than 1 sentence of definition/explanation in DIALOGUE_PART_2.
+❌ DIALOGUE_PART_3 continuing the explanation instead of modeling new usage.
+❌ P1 ending DIALOGUE_PART_4 with a question or a nodding confirmation instead of active usage.
+❌ Using a shortened/truncated form of the idiom anywhere in the dialogue.
+"""
+
         extra_instructions.append(f"""
 -----------------------------
 MANDATORY ROLEPLAY DIVERSITY & ANTI-CLICHE RULES (60-80s RUNTIME):
@@ -213,6 +266,7 @@ MANDATORY ROLEPLAY DIVERSITY & ANTI-CLICHE RULES (60-80s RUNTIME):
   * PERSON_ONE must NEVER open DIALOGUE_PART_1 by using the target expression about themselves.
   * ZERO hallucinated quotes: A character must NEVER say "Wait, you said X" unless the other character literally said X in the preceding turn.
 {stress_inst}
+{idiomatic_arc_inst}
 - ZERO TOLERANCE FOR BETS & TUTOR TROPES:
   * DO NOT start with "Free [coffee/food/pizza] on the line..." or "Bet you [X] bucks..."!
   * DO NOT make characters act like a polite teacher and confused student!
@@ -232,7 +286,10 @@ MANDATORY ROLEPLAY DIVERSITY & ANTI-CLICHE RULES (60-80s RUNTIME):
 """)
 
     # Build the param string dynamically (excluding internal/redundant fields)
-    ignored_keys = {"ID", "STATUS"}
+    # SPECIAL_TREATMENT is excluded from the param_str — it has already been consumed by
+    # the prompt builder above to inject type-specific arc instructions. Sending it raw
+    # to the LLM as a data field adds noise without pedagogical value.
+    ignored_keys = {"ID", "STATUS", "SPECIAL_TREATMENT"}
     if video_type not in ["FUN_FACTS", "FUNFACTS"]:
         ignored_keys.add("FORMAT")
     param_str = "\n".join([f"{k}: {v}" for k, v in effective_params.items() if v and k not in ignored_keys])
