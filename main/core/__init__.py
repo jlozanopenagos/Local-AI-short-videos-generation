@@ -31,6 +31,7 @@ from .expression_db import (
 from .cli_prompt import (
     prompt_production_mode,
     prompt_group_range,
+    prompt_fun_facts_mode,
 )
 
 # Ensure core directory is also in sys.path for direct module discovery
@@ -48,5 +49,6 @@ __all__ = [
     "is_expression_done",
     "prompt_production_mode",
     "prompt_group_range",
+    "prompt_fun_facts_mode",
 ]
 

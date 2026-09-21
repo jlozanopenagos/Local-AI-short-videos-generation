@@ -921,6 +921,27 @@ def main() -> int:
     parser.add_argument("--auto", action="store_true", help="Auto-generate scripts without interactive terminal prompts")
     parser.add_argument("--script-input", type=str, default=None, help="Path to text file containing raw script to format")
     parser.add_argument("--force", action="store_true", help="Force regeneration even if script is already generated")
+    parser.add_argument(
+        "--fun-facts",
+        "--fun-facts-only",
+        dest="fun_facts_only",
+        action="store_true",
+        help="Only generate scripts for Fun Facts videos (e.g. EF01, FF01, SF01, IF01)"
+    )
+    parser.add_argument(
+        "--video-type",
+        type=str,
+        default=None,
+        choices=["expression", "game", "roleplay", "fun_facts", "all"],
+        help="Filter generation to specific video type (e.g. fun_facts)"
+    )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default=None,
+        choices=["all", "english", "french", "spanish", "italian"],
+        help="Filter generation to specific language (default: all)"
+    )
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -934,18 +955,29 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    # Production Mode Selection: Mass-produce, Specific Script ID, or Number Range Group
-    from core.cli_prompt import prompt_production_mode, prompt_group_range
-    target_script_ids, selected_mode = prompt_production_mode(
-        stage_title="Part A: Video Scripts",
-        asset_name="scripts",
-        timeout=10.0,
-        script_id_arg=args.script_id,
-        auto=args.auto,
-        require_existing_state=False,
-        base_dir=base_dir,
-        return_mode=True,
-    )
+    # Production Mode Selection: Mass-produce, Specific Script ID, Number Range Group, or Fun Facts Only
+    from core.cli_prompt import prompt_production_mode, prompt_group_range, prompt_fun_facts_mode
+
+    is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
+
+    if is_cli_fun_facts and not args.script_id:
+        print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
+        target_script_ids = None
+        selected_mode = "fun_facts"
+    else:
+        target_script_ids, selected_mode = prompt_production_mode(
+            stage_title="Part A: Video Scripts",
+            asset_name="scripts",
+            timeout=10.0,
+            script_id_arg=args.script_id,
+            auto=args.auto,
+            require_existing_state=False,
+            base_dir=base_dir,
+            return_mode=True,
+            allow_fun_facts_mode=True,
+        )
+        if is_cli_fun_facts:
+            selected_mode = "fun_facts"
 
     while True:
         # Load prompts from CSV and filter using Pipeline Status Tracker
@@ -953,6 +985,33 @@ def main() -> int:
         if not queued_prompts:
             print("No prompts found in input CSV queues.")
             return 0
+
+        # Determine target video type filter
+        target_video_type = None
+        if selected_mode == "fun_facts" or args.fun_facts_only:
+            target_video_type = "fun_facts"
+        elif args.video_type and args.video_type.lower() != "all":
+            target_video_type = args.video_type.lower()
+
+        if target_video_type:
+            if target_video_type == "fun_facts":
+                queued_prompts = [
+                    p for p in queued_prompts
+                    if p.get("VIDEO_TYPE", "").upper() in ("FUN_FACTS", "FUNFACTS")
+                    or (len(p.get("ID", "")) >= 2 and p["ID"][1].upper() == "F")
+                ]
+            else:
+                queued_prompts = [
+                    p for p in queued_prompts
+                    if p.get("VIDEO_TYPE", "").upper() == target_video_type.upper()
+                ]
+
+        # Filter by language if specified via CLI
+        if args.language and args.language.lower() != "all":
+            queued_prompts = [
+                p for p in queued_prompts
+                if p.get("TARGET_LANGUAGE", "").lower() == args.language.lower()
+            ]
 
         if target_script_ids:
             target_set = set(target_script_ids)
@@ -970,26 +1029,45 @@ def main() -> int:
                         if target_script_ids:
                             continue
                     return 0
+                elif selected_mode == "fun_facts" and not args.auto:
+                    try:
+                        retry_more = input("\nWould you like to try another Fun Facts selection? [y/N]: ").strip().lower()
+                    except (KeyboardInterrupt, EOFError):
+                        return 0
+                    if retry_more in ("y", "yes"):
+                        target_script_ids = prompt_fun_facts_mode(require_existing_state=False, base_dir=base_dir)
+                        if target_script_ids:
+                            continue
+                    return 0
                 return 1
         else:
             try:
                 from core.status_tracker import get_status_tracker
                 tracker = get_status_tracker(base_dir)
-                pending_rows = tracker.get_pending_scripts("script_generation")
+                pending_rows = tracker.get_pending_scripts(
+                    "script_generation",
+                    video_type=target_video_type,
+                    language=args.language if args.language and args.language.lower() != "all" else None,
+                    force=args.force
+                )
                 pending_ids = {r["ID"] for r in pending_rows}
                 prompts_to_process = [p for p in queued_prompts if p["ID"] in pending_ids]
             except Exception:
                 prompts_to_process = queued_prompts
 
         if not prompts_to_process:
-            print(f"All {len(queued_prompts)} video scripts across all queues have already been generated! (0 pending)")
-            if selected_mode == "group_range" and not args.auto:
+            type_label = f" ({target_video_type.upper()})" if target_video_type else ""
+            print(f"All {len(queued_prompts)} video scripts{type_label} across all queues have already been generated! (0 pending)")
+            if selected_mode in ("group_range", "fun_facts") and not args.auto:
                 try:
-                    create_more = input("\nDo you want to create another group of scripts? [y/N]: ").strip().lower()
+                    create_more = input("\nDo you want to select another group or scope of scripts? [y/N]: ").strip().lower()
                 except (KeyboardInterrupt, EOFError):
                     return 0
                 if create_more in ("y", "yes"):
-                    target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
+                    if selected_mode == "fun_facts":
+                        target_script_ids = prompt_fun_facts_mode(require_existing_state=False, base_dir=base_dir)
+                    else:
+                        target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
                     if target_script_ids:
                         continue
             return 0
@@ -1009,8 +1087,8 @@ def main() -> int:
 
         print(f"\n[Completed] Finished generating {total} script(s)!")
 
-        # If in group_range mode, ask if the user wants to create more scripts
-        if selected_mode == "group_range" and not args.auto:
+        # If in group_range or fun_facts mode, ask if the user wants to create more scripts
+        if selected_mode in ("group_range", "fun_facts") and not args.auto:
             try:
                 create_more = input("\nDo you want to create more scripts? [y/N]: ").strip().lower()
             except (KeyboardInterrupt, EOFError):
@@ -1018,7 +1096,10 @@ def main() -> int:
                 break
 
             if create_more in ("y", "yes"):
-                target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
+                if selected_mode == "fun_facts":
+                    target_script_ids = prompt_fun_facts_mode(require_existing_state=False, base_dir=base_dir)
+                else:
+                    target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
                 if target_script_ids:
                     continue
                 else:
