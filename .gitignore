@@ -70,6 +70,8 @@ main/database/*.csv
 
 # --- Proprietary Input CSV Queues & Archives ---
 # Keep your curated prompts and content library private.
+scripts_to_change.csv
+**/scripts_to_change.csv
 input/csv/**/*.csv
 !input/csv/**/*.sample.csv
 
