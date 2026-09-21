@@ -49,6 +49,31 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - PERSON_ONE sets the scene (their problem, situation, anxiety, or error). PERSON_TWO then drops the idiom or phonetic observation naturally. PERSON_ONE reacts to hearing it.
      - PERSON_ONE must NEVER self-diagnose by using the target expression about themselves in their own opening line (e.g. ❌ *"J'ai le cafard"*, ❌ *"Creo que estoy frito"*, ❌ *"I think I need to break a leg here"*).
    - **False Friend / Confusion Direction (Mandatory)**: When the scenario describes a false friend confusion: PERSON_ONE MUST make the described mistake in `DIALOGUE_PART_1` — using the wrong word in a natural sentence. PERSON_TWO reacts authentically to the mistake they just heard. Never invert this direction.
+   - **`SPECIAL_TREATMENT` — Expression Classification (Optional Column)**:
+     Each ROLEPLAY row may carry a `SPECIAL_TREATMENT` value that classifies the target expression under **one mutually exclusive primary lens**. The value drives a type-specific instruction block injected by `prompt_builder.py` **before** the standard arc rules:
+
+     | Value | Primary Lens | Prototypical Examples |
+     |---|---|---|
+     | `idiomatic` | Fixed multi-word phrase with figurative, non-compositional meaning | *break a leg*, *costar un ojo de la cara*, *poser un lapin*, *C'est pas la mer à boire* |
+     | `phonetic` | Stress-shift, heteronym, or minimal pair contrast | *REcord vs reCORD*, *anno vs ano*, *PERmit vs perMIT* |
+     | `false_friend` | Cross-language false cognate trap | *embarrassed/embarazada*, *attendre/assister*, *parenti/genitori* |
+     | *(blank)* | LLM decides best approach (default behavior, no change) | — |
+
+     **Rule**: One expression, one lens. An expression is classified by how a learner would **primarily** struggle with it — never combine types.
+
+     **Mandatory Idiomatic Arc** (active when `SPECIAL_TREATMENT=idiomatic`):
+     This arc exists to fix **Error #4 — No Usage Modeling**: the most common quality failure in idiomatic roleplays, where P1 only nods along while P2 explains, but never uses the idiom themselves.
+     - `DIALOGUE_PART_1`: P2 drops the **complete, untruncated** idiom form (❌ *"costar un ojo"*, ✅ *"costar un ojo de la cara"*).
+     - `DIALOGUE_PART_2`: P1 reacts to the **literal image** of the idiom (the comic engine). P2 gives **exactly one sentence** of real meaning — then the conversation moves on. Multi-sentence dictionary explanations are banned.
+     - `DIALOGUE_PART_3`: P2 uses the idiom in a **brand-new real-life sentence**. P1 attempts their own use in a new context (usage modeling begins).
+     - `DIALOGUE_PART_4` (**Critical Quality Gate**): **P1 MUST use the complete idiom in an original sentence of their own** — not a question, not a meta-comment, not a confirmation. This is the proof of learning, equivalent to the EXPRESSION format's `example` key.
+
+     **Automated Quality Gate**: `validate_idiomatic_roleplay()` in `_A_video_scripts/main.py` checks two conditions post-generation when `SPECIAL_TREATMENT=idiomatic`:
+     1. Full idiom form appears verbatim in `DIALOGUE_PART_1`.
+     2. `PERSON_ONE`'s line in `DIALOGUE_PART_4` contains the idiom in active use.
+     Failure triggers an **auto-retry** with explicit `IDIOMATIC ARC FIX REQUIRED` instructions appended to the retry prompt.
+
+     **`SPECIAL_TREATMENT` is consumed by the prompt builder and excluded from the raw LLM parameter string** — it shapes the prompt architecture, not the LLM's content input.
    - **Factual Accuracy for Heteronym Verb Forms (Mandatory)**: When demonstrating noun/verb pairs, PERSON_TWO must use each form with its correct real-world meaning and syntactic pattern (e.g. *obJECT* always takes preposition *TO*; *proJECT* means to cast/throw forward, not to plan; *conTRACT* means to shrink/tighten, not to sign).
    - **Word Stress & Minimal Pair Notation for TTS**: For heteronyms/homographs, stressed syllables **must be capitalized** in the text (e.g. `REcord` vs `reCORD`, `PROject` vs `proJECT`, `CONtract` vs `conTRACT`). Double consonants and minimal pairs are emphasized acoustically in dialogue.
    - **Language Purity in Dialogue (Strict — All Languages)**: ALL text inside `DIALOGUE_PART_1` through `DIALOGUE_PART_4` must be 100% in TARGET_LANGUAGE. Foreign words — including English fillers (*"Precisely"*, *"Wait"*, *"Right"*) inside non-English scripts — are strictly forbidden. Use target-language equivalents (*"Exactement"*, *"Attends"*, *"Espera"*, *"Esatto"*).
@@ -127,7 +152,8 @@ Input queues in `input/csv/<language>/expressions_list/` are streamlined to cont
   `ID,EXPRESSION,CONTEXT,SUBJECT,LEXICAL_FIELD`
   *(Clean Target-Language Standard: The `EXPRESSION` column strictly contains target-language contrast pairs or native expressions like `blessé vs béni` or `embarazada vs avergonzada`, while `CONTEXT` provides concrete test sentences with blanks (`___`) where the expression is used).*
 - **ROLEPLAY (`*_READY_PROMPTS_ROLEPLAY.csv`)**:
-  `ID,ROLEPLAY_SCENARIO,SUBJECT,LEXICAL_FIELD,EMOTIONAL_TRIGGER`
+  `ID,ROLEPLAY_SCENARIO,SUBJECT,LEXICAL_FIELD,EMOTIONAL_TRIGGER,SPECIAL_TREATMENT`
+  *(Optional `SPECIAL_TREATMENT` column classifies the expression under one mutually exclusive pedagogical lens — see ROLEPLAY section above for valid values and arc rules.)*
 - **FUN_FACTS (`*_READY_PROMPTS_FUN_FACTS.csv`)**:
   `ID,TOPIC,PILLAR,FORMAT,FACT_DETAILS,HOOK_ANGLE,EMOTIONAL_TRIGGER`
 
@@ -144,7 +170,7 @@ To protect the creator's proprietary prompt libraries and production assets:
 - Canonical schema templates are maintained in `input/csv/sample_templates/`:
   - `EXPRESSION.sample.csv`: Schema for the 5-section micro-story storytelling format.
   - `GAME.sample.csv`: Schema for educational trivia challenges and clean contrast pairs.
-  - `ROLEPLAY.sample.csv`: Schema for 3-speaker peer dialogue scenarios.
+  - `ROLEPLAY.sample.csv`: Schema for 3-speaker peer dialogue scenarios. Includes `SPECIAL_TREATMENT` column — see valid values (`idiomatic`, `phonetic`, `false_friend`, blank) in the ROLEPLAY section above.
   - `FUN_FACTS.sample.csv`: Schema for 6 viral language curiosity formats.
   - `CALL_TO_ACTIONS.sample.csv`: Schema for randomized outro engagement lines.
 - Complete documentation on CSV columns and validation rules is available in `input/csv/README.md`.

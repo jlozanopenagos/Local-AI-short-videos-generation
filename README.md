@@ -72,7 +72,7 @@ py main/video_creation/_G_video_assembly/main.py
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 80 automated tests (unit, integration, contracts, security)
+# Run all 93 automated tests (unit, integration, contracts, security)
 py test/run_tests.py
 
 # Run specific layers
@@ -101,3 +101,24 @@ py main/tools/auditing/status_scraper.py
 - **[main/README.md](main/README.md)**: Full operational manual, narrative engineering principles, 4 content formats, hardware optimization guide, and modifier ecosystem.
 - **[main/AGENTS.md](main/AGENTS.md)**: System architecture, agent guidelines, prompt rules, and developer directives.
 - **[test/README.md](test/README.md)**: QA engineering principles, test suite structure, and CI test runner guide.
+
+---
+
+## Recent Changes
+
+### `feature/idiomatic-roleplay` — ROLEPLAY Expression Classification System
+
+Added a `SPECIAL_TREATMENT` column to `READY_PROMPTS_ROLEPLAY.csv` to classify each expression under one **mutually exclusive** pedagogical lens:
+
+| Value | When to use |
+|---|---|
+| `idiomatic` | Fixed multi-word figurative phrase (*break a leg*, *costar un ojo de la cara*, *poser un lapin*) |
+| `phonetic` | Stress-shift / heteronym / minimal pair (*REcord vs reCORD*) |
+| `false_friend` | Cross-language false cognate (*embarrassed / embarazada*) |
+| *(blank)* | Default — LLM decides (no change to existing behavior) |
+
+**Why**: Analysis of 60 generated scripts identified that idiomatic roleplays consistently failed one quality test — **Error #4 (No Usage Modeling)**: P1 would nod along while P2 explained, but never use the idiom themselves. The fix enforces a mandatory 4-part arc where **P1 must use the complete idiom in an original sentence by `DIALOGUE_PART_4`**.
+
+**How to use**: Add `SPECIAL_TREATMENT=idiomatic` to any ROLEPLAY CSV row where the expression is a multi-word idiom, then regenerate with `--force`. The system auto-retries if the quality gates are not met.
+
+All changes are on branch `feature/idiomatic-roleplay`. See [main/AGENTS.md](main/AGENTS.md) for full technical details.

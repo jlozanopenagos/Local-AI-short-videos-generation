@@ -33,10 +33,12 @@ for p in [str(PROJECT_ROOT), str(MAIN_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
+# pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.prompts.prompt_builder import (
     build_prompt,
     validate_params,
 )
+# pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.main import validate_idiomatic_roleplay
 
 
