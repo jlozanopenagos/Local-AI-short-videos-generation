@@ -183,14 +183,14 @@ class TestSheetsFetcher(unittest.TestCase):
                 fetch_sheet_data("https://fake-url.com")
             self.assertIn("Required column 'ID'", str(ctx.exception))
 
-    def test_save_connectivity_data_writes_csv_and_json(self):
-        """Verify records are persisted to CSV and JSON with correct schemas."""
+    def test_save_connectivity_data_writes_csv(self):
+        """Verify records are persisted to CSV in the language/type subfolder."""
         records = [
             {"ID": "FE01", "expression": "Poser un lapin", "script": "Script 1"},
             {"ID": "FE02", "expression": "Avoir le cafard", "script": "Script 2"},
         ]
 
-        csv_path, json_path = save_connectivity_data(
+        csv_path = save_connectivity_data(
             records=records,
             language="french",
             video_type="expression",
@@ -198,11 +198,8 @@ class TestSheetsFetcher(unittest.TestCase):
         )
 
         self.assertTrue(csv_path.exists())
-        self.assertTrue(json_path.exists())
         self.assertEqual(csv_path.name, "french_expression_connectivity.csv")
-        self.assertEqual(json_path.name, "french_expression_connectivity.json")
         self.assertEqual(csv_path.parent, self.test_output_dir / "french" / "expression")
-        self.assertTrue((self.test_output_dir / "french" / "expression" / "connectivity.csv").exists())
 
         # Verify CSV content
         with csv_path.open("r", encoding="utf-8-sig") as f:
@@ -214,15 +211,6 @@ class TestSheetsFetcher(unittest.TestCase):
             self.assertEqual(rows[0]["ID"], "FE01")
             self.assertEqual(rows[0]["expression"], "Poser un lapin")
             self.assertEqual(rows[0]["script"], "Script 1")
-
-        # Verify JSON content
-        with json_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-            self.assertEqual(data["language"], "french")
-            self.assertEqual(data["video_type"], "expression")
-            self.assertEqual(data["count"], 2)
-            self.assertEqual(len(data["records"]), 2)
-            self.assertEqual(data["records"][0]["script"], "Script 1")
 
 
 if __name__ == "__main__":

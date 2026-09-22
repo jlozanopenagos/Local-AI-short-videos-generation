@@ -171,16 +171,13 @@ def save_connectivity_data(
     language: str = "french",
     video_type: str = "expression",
     output_dir: Optional[Path | str] = None,
-) -> Tuple[Path, Path]:
+) -> Path:
     """
-    Saves the fetched records to both CSV and JSON formats inside the connectivity output directory.
-
-    Output files:
-    - <output_dir>/<lang>_<type>_connectivity.csv
-    - <output_dir>/<lang>_<type>_connectivity.json
+    Saves the fetched records to CSV format inside:
+    <output_dir>/<language>/<video_type>/<language>_<video_type>_connectivity.csv
 
     Returns:
-        Tuple[Path, Path]: (csv_path, json_path)
+        Path: Path to the created CSV file.
     """
     lang_clean = language.strip().lower()
     type_clean = video_type.strip().lower()
@@ -192,40 +189,16 @@ def save_connectivity_data(
     )
 
     filename_base = f"{lang_clean}_{type_clean}_connectivity"
-
     csv_path = dest_dir / f"{filename_base}.csv"
-    json_path = dest_dir / f"{filename_base}.json"
-    shorthand_csv = dest_dir / "connectivity.csv"
 
-    # 1. Write CSV
+    # Write CSV
     with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=TARGET_COLUMNS)
         writer.writeheader()
         for rec in records:
             writer.writerow({col: rec.get(col, "") for col in TARGET_COLUMNS})
 
-    # Shorthand connectivity.csv in the same subfolder
-    with shorthand_csv.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=TARGET_COLUMNS)
-        writer.writeheader()
-        for rec in records:
-            writer.writerow({col: rec.get(col, "") for col in TARGET_COLUMNS})
-
-    # 2. Write JSON
-    with json_path.open("w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "language": lang_clean,
-                "video_type": type_clean,
-                "count": len(records),
-                "records": records,
-            },
-            f,
-            indent=2,
-            ensure_ascii=False
-        )
-
-    return csv_path, json_path
+    return csv_path
 
 
 def sync_sheet(
@@ -267,7 +240,7 @@ def sync_sheet(
     records = fetch_sheet_data(endpoint_url)
     print(f"   [OK] Successfully fetched {len(records)} record(s) from sheet.")
 
-    csv_file, json_file = save_connectivity_data(
+    csv_file = save_connectivity_data(
         records=records,
         language=resolved_lang,
         video_type=resolved_type,
@@ -275,7 +248,6 @@ def sync_sheet(
     )
 
     print(f"   [SAVED] CSV:  {csv_file}")
-    print(f"   [SAVED] JSON: {json_file}")
 
     return {
         "status": "success",
@@ -283,7 +255,6 @@ def sync_sheet(
         "video_type": resolved_type,
         "count": len(records),
         "csv_path": str(csv_file),
-        "json_path": str(json_file),
         "records": records,
     }
 
@@ -306,6 +277,7 @@ def sync_all_sheets(
         from connectivity.endpoints import ENDPOINT_REGISTRY
     except (ImportError, ModuleNotFoundError):
         try:
+            # pyrefly: ignore [missing-import]
             from main.connectivity.endpoints import ENDPOINT_REGISTRY
         except (ImportError, ModuleNotFoundError):
             from endpoints import ENDPOINT_REGISTRY
