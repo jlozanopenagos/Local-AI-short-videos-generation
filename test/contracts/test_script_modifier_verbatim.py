@@ -11,6 +11,7 @@ if str(MAIN_DIR) not in sys.path:
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
+# pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.script_modifier import (
     try_direct_script_parse,
     parse_user_script_into_sections,

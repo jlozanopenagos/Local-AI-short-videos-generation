@@ -225,10 +225,14 @@ def process_scripts(
     collected: Dict[Tuple[str, str], List[Dict[str, str]]] = {
         (l, t): [] for l in languages for t in types
     }
+    seen_ids: Dict[Tuple[str, str], set] = {
+        (l, t): set() for l in languages for t in types
+    }
 
     if state_dir.exists():
         for state_file in sorted(state_dir.rglob("script_*.json")):
-            if not state_file.is_file():
+            # Ignore non-files and sample templates (e.g. script_state.sample.json)
+            if not state_file.is_file() or ".sample" in state_file.name:
                 continue
 
             try:
@@ -249,6 +253,16 @@ def process_scripts(
             if lang not in languages or vtype not in types:
                 continue
 
+            key = (lang, vtype)
+            if key not in collected:
+                collected[key] = []
+                seen_ids[key] = set()
+
+            # Deduplicate by script_id per category
+            if script_id in seen_ids[key]:
+                continue
+            seen_ids[key].add(script_id)
+
             expression = extract_expression_from_state(state)
             script_dict = parse_raw_script(state)
             formatted_script = (
@@ -261,10 +275,6 @@ def process_scripts(
                 else ""
             )
 
-            key = (lang, vtype)
-            if key not in collected:
-                collected[key] = []
-
             collected[key].append(
                 {
                     "ID": script_id,
@@ -272,6 +282,7 @@ def process_scripts(
                     "script": formatted_script,
                 }
             )
+
 
     stats = {}
     print("=" * 65)
