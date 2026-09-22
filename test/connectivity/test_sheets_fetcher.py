@@ -29,12 +29,14 @@ if str(REPO_ROOT) not in sys.path:
 
 # pyrefly: ignore [missing-import]
 try:
+    # pyrefly: ignore [missing-import]
     from connectivity.endpoints import (
         get_endpoint,
         register_endpoint,
         list_registered_endpoints,
         DEFAULT_FRENCH_EXPRESSION_URL,
     )
+    # pyrefly: ignore [missing-import]
     from connectivity.sheets_fetcher import (
         fetch_sheet_data,
         save_connectivity_data,
@@ -88,6 +90,35 @@ class TestSheetsFetcher(unittest.TestCase):
         self.assertEqual(lang, "spanish")
         self.assertEqual(vtype, "expression")
         self.assertEqual(url, new_url)
+
+    def test_option_a_extract_spreadsheet_id_from_url_and_id(self):
+        """Verify extract_spreadsheet_id correctly parses Google Sheet URLs and raw IDs."""
+        from connectivity.endpoints import extract_spreadsheet_id
+        url = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit#gid=0"
+        self.assertEqual(extract_spreadsheet_id(url), "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
+
+        raw_id = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+        self.assertEqual(extract_spreadsheet_id(raw_id), "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
+
+        # Web App URLs should not be treated as spreadsheet IDs
+        webapp = "https://script.google.com/macros/s/AKfycbx.../exec"
+        self.assertIsNone(extract_spreadsheet_id(webapp))
+
+    def test_option_a_build_fetch_url_routes_through_master(self):
+        """Verify Option A: Sheet ID routes through MASTER_WEBAPP_URL with ?id= and &sheet=."""
+        from connectivity.endpoints import build_fetch_url, MASTER_WEBAPP_URL
+        sheet_id = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+        resolved = build_fetch_url(sheet_id, tab="English_Scripts")
+        self.assertIn(f"id={sheet_id}", resolved)
+        self.assertIn("sheet=English_Scripts", resolved)
+        self.assertTrue(resolved.startswith(MASTER_WEBAPP_URL))
+
+    def test_option_a_get_endpoint_with_sheet_id(self):
+        """Verify get_endpoint supports passing sheet_id directly."""
+        lang, vtype, url = get_endpoint(language="english", video_type="expression", sheet_id="1MyTestSheetId12345")
+        self.assertEqual(lang, "english")
+        self.assertEqual(vtype, "expression")
+        self.assertIn("id=1MyTestSheetId12345", url)
 
     def test_fetch_sheet_data_parses_json_payload(self):
         """Verify fetching extracts and normalizes the 3 target columns (ID, expression, script)."""

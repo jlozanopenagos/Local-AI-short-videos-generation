@@ -62,7 +62,7 @@ def resolve_connectivity_output_dir(custom_dir: Optional[Path | str] = None) -> 
     return fallback_target
 
 
-def fetch_sheet_data(endpoint_url: str, timeout: float = 30.0) -> List[Dict[str, str]]:
+def fetch_sheet_data(endpoint_url: str, timeout: float = 60.0) -> List[Dict[str, str]]:
     """
     Fetches data from the Google Apps Script Web App endpoint.
     Automatically follows HTTP 302 redirects to script.googleusercontent.com.
@@ -212,12 +212,14 @@ def sync_sheet(
     video_type: Optional[str] = None,
     url: Optional[str] = None,
     output_dir: Optional[Path | str] = None,
+    sheet_id: Optional[str] = None,
+    tab: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     High-level modular orchestration function:
-    1. Resolves target endpoint URL.
+    1. Resolves target endpoint URL (supporting single Master Web App + dynamic sheet IDs).
     2. Fetches data with automatic 302 redirect handling.
-    3. Normalizes 'ID', 'expression', 'SCRIPT_CHANGED' columns.
+    3. Normalizes 'ID', 'expression', 'script' columns.
     4. Saves to D:\\AI\\output\\connectivity (or fallback).
 
     Returns:
@@ -227,6 +229,8 @@ def sync_sheet(
         language=language,
         video_type=video_type,
         custom_url=url,
+        sheet_id=sheet_id,
+        tab=tab,
     )
 
     # Reconfigure streams if supported to prevent Windows charmap encoding errors

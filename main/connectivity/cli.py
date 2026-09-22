@@ -56,6 +56,18 @@ def main() -> int:
         help="Custom Google Apps Script Web App URL override"
     )
     parser.add_argument(
+        "--sheet-id", "-s",
+        type=str,
+        default=None,
+        help="Google Spreadsheet ID or URL to query via the Master Web App"
+    )
+    parser.add_argument(
+        "--tab",
+        type=str,
+        default=None,
+        help="Specific sheet/tab name inside the spreadsheet"
+    )
+    parser.add_argument(
         "--output-dir", "-o",
         type=str,
         default=None,
@@ -89,7 +101,8 @@ def main() -> int:
             print("No endpoints registered.")
         for ep in endpoints:
             print(f"  * {ep['language'].capitalize()} - {ep['video_type'].upper()}:")
-            print(f"    {ep['url']}")
+            print(f"    Target:   {ep.get('target', ep.get('url', ''))}")
+            print(f"    Endpoint: {ep.get('resolved_url', ep.get('url', ''))}")
         print("=======================================================\n")
         return 0
 
@@ -99,6 +112,8 @@ def main() -> int:
             video_type=args.video_type,
             url=args.url,
             output_dir=args.output_dir,
+            sheet_id=args.sheet_id,
+            tab=args.tab,
         )
         print(f"\n[SUCCESS] Connectivity sync complete! Fetched {result['count']} items.")
         return 0

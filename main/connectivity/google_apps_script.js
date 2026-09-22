@@ -20,16 +20,26 @@
 
 function doGet(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // Allow optional ?sheet=SheetName parameter, otherwise use the active/first sheet
+    let ss;
+
+    // 1. Open specific spreadsheet by ID if passed (?id=... or ?spreadsheet_id=...),
+    //    otherwise default to the active/container spreadsheet.
+    const targetId = (e && e.parameter) ? (e.parameter.id || e.parameter.spreadsheet_id || e.parameter.sheet_id) : null;
+    if (targetId && String(targetId).trim()) {
+      ss = SpreadsheetApp.openById(String(targetId).trim());
+    } else {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+    }
+
+    // 2. Allow optional ?sheet= or ?tab= parameter, otherwise use active/first tab
     let sheet;
-    if (e && e.parameter && e.parameter.sheet) {
-      sheet = ss.getSheetByName(e.parameter.sheet);
+    const tabName = (e && e.parameter) ? (e.parameter.sheet || e.parameter.tab) : null;
+    if (tabName && String(tabName).trim()) {
+      sheet = ss.getSheetByName(String(tabName).trim());
       if (!sheet) {
         return createJsonResponse({
           status: "error",
-          message: "Sheet '" + e.parameter.sheet + "' not found in spreadsheet."
+          message: "Sheet tab '" + tabName + "' not found in spreadsheet: " + ss.getName()
         }, 404);
       }
     } else {
@@ -95,6 +105,7 @@ function doGet(e) {
 
     return createJsonResponse({
       status: "success",
+      spreadsheet_name: ss ? ss.getName() : "Unknown",
       sheet_name: sheet.getName(),
       count: records.length,
       timestamp: new Date().toISOString(),
