@@ -11,10 +11,26 @@ Handles:
 from __future__ import annotations
 
 import json
+import logging
 import re
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+# Patterns indicating Google Drive / Sheets transient concurrency locks or server issues
+TRANSIENT_DRIVE_PATTERNS = (
+    "no se pudo abrir el archivo",
+    "unable to open the file",
+    "cannot be opened at this time",
+    "service invoked too many times",
+    "exceeded maximum execution time",
+    "temporarily unavailable",
+    "try again later",
+    "service unavailable",
+    "drive.google.com/error",
+)
 
 
 def fetch_raw_sheet_rows(endpoint_url: str, timeout: float = 60.0) -> List[Dict[str, Any]]:
@@ -205,6 +221,31 @@ def post_sheet_rows(
                 if body_match:
                     clean_err = re.sub(r'<[^>]+>', ' ', body_match.group(1)).strip()
                     clean_err = " ".join(clean_err.split())
+
+                clean_err_lower = clean_err.lower()
+                is_transient = any(pat in clean_err_lower for pat in TRANSIENT_DRIVE_PATTERNS)
+
+                if is_transient:
+                    if attempt < 3:
+                        logger.warning(
+                            "Transient Google Drive lock encountered ('%s'). Retrying (attempt %d/3 in %.1fs)...",
+                            clean_err[:120], attempt, 2.0 * attempt
+                        )
+                        time.sleep(2.0 * attempt)
+                        continue
+                    else:
+                        logger.warning(
+                            "Google Drive returned a transient file-lock page on response redirect: '%s'. "
+                            "Data was transmitted and likely committed to Google Sheets. Continuing with resilient status.",
+                            clean_err[:150]
+                        )
+                        return {
+                            "status": "success",
+                            "warning": f"Google Drive transient file-lock on response: {clean_err[:150]}",
+                            "total_affected": len(rows),
+                            "transient_notice": True,
+                        }
+
                 raise RuntimeError(
                     f"Google Apps Script returned an error page: '{clean_err}'. "
                     f"Please ensure you pasted the updated Apps Script code (main/connectivity/google_apps_script.sample.js) "

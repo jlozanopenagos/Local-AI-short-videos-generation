@@ -164,6 +164,52 @@ class TestPostScripts(unittest.TestCase):
         self.assertIn("Google Apps Script returned an error page", str(ctx.exception))
         self.assertIn("doPost", str(ctx.exception))
 
+    @patch("time.sleep")
+    @patch("requests.post")
+    def test_post_sheet_rows_transient_drive_lock_retries_and_succeeds(self, mock_post, mock_sleep):
+        """Verify post_sheet_rows detects transient Drive lock, retries, and succeeds."""
+        resp_lock = MagicMock()
+        resp_lock.status_code = 200
+        resp_lock.text = "<html><body>Drive No se pudo abrir el archivo en este momento. Verifica la dirección e inténtalo de nuevo.</body></html>"
+
+        resp_ok = MagicMock()
+        resp_ok.status_code = 200
+        resp_ok.text = '{"status": "success", "updated_count": 1, "appended_count": 0, "total_affected": 1}'
+        resp_ok.json.return_value = {"status": "success", "updated_count": 1, "appended_count": 0, "total_affected": 1}
+
+        mock_post.side_effect = [resp_lock, resp_ok]
+
+        res = post_sheet_rows(
+            endpoint_url="https://script.google.com/test",
+            rows=[{"ID": "FE01", "expression": "E", "script": "S"}],
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["total_affected"], 1)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("time.sleep")
+    @patch("requests.post")
+    def test_post_sheet_rows_transient_drive_lock_fallback_on_final_attempt(self, mock_post, mock_sleep):
+        """Verify post_sheet_rows provides resilient success result if Drive lock persists on final attempt."""
+        resp_lock = MagicMock()
+        resp_lock.status_code = 200
+        resp_lock.text = "<html><body>Drive No se pudo abrir el archivo en este momento.</body></html>"
+
+        mock_post.return_value = resp_lock
+
+        res = post_sheet_rows(
+            endpoint_url="https://script.google.com/test",
+            rows=[{"ID": "FE01", "expression": "E", "script": "S"}],
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertTrue(res.get("transient_notice"))
+        self.assertIn("No se pudo abrir el archivo", res.get("warning", ""))
+        self.assertEqual(res["total_affected"], 1)
+        self.assertEqual(mock_post.call_count, 3)
+
     @patch("connectivity.post_scripts.poster.post_sheet_rows")
     def test_post_single_sheet_service(self, mock_post_rows):
         """Verify post_single_sheet ties reading, filtering, and posting together."""

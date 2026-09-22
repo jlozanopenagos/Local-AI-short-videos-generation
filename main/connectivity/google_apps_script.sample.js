@@ -114,6 +114,10 @@ function doPost(e) {
       sheet.appendRow(Object.values(item));
     });
 
+    // Flush pending changes to prevent Google Drive redirect lock issues
+    SpreadsheetApp.flush();
+    Utilities.sleep(300);
+
     return createJsonResponse({
       status: "success",
       message: "Data processed successfully",

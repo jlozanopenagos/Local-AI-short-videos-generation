@@ -63,6 +63,8 @@ def build_suite(layer_filter: str = "all") -> unittest.TestSuite:
         layers_to_run.append(("Contract & Schema Tests", TEST_DIR / "contracts"))
     if layer_filter in ("all", "security"):
         layers_to_run.append(("Security & Privacy Tests", TEST_DIR / "security"))
+    if layer_filter in ("all", "connectivity"):
+        layers_to_run.append(("Connectivity Tests", TEST_DIR / "connectivity"))
 
     for name, directory in layers_to_run:
         if directory.exists():
@@ -82,6 +84,7 @@ def main():
     parser.add_argument("--integration", action="store_true", help="Run Layer 2: Integration Tests")
     parser.add_argument("--contract", "--contracts", dest="contract", action="store_true", help="Run Layer 3: Contract Tests")
     parser.add_argument("--security", action="store_true", help="Run Layer 4: Security Tests")
+    parser.add_argument("--connectivity", action="store_true", help="Run Layer 5: Connectivity Tests")
     parser.add_argument("-v", "--verbose", action="store_true", default=True, help="Verbose output")
     args = parser.parse_args()
 
@@ -95,6 +98,8 @@ def main():
         active_filters.append("contract")
     if args.security:
         active_filters.append("security")
+    if args.connectivity:
+        active_filters.append("connectivity")
 
     target_layer = active_filters[0] if len(active_filters) == 1 else "all"
 

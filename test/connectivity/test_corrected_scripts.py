@@ -160,7 +160,8 @@ class TestCorrectedScriptsFetcher(unittest.TestCase):
         mock_resp.read.return_value = json.dumps(mock_payload).encode("utf-8")
         mock_resp.__enter__.return_value = mock_resp
 
-        with patch("urllib.request.urlopen", return_value=mock_resp):
+        with patch("connectivity.corrected_scripts.fetcher.get_endpoint", return_value=("french", "expression", "https://script.google.com/macros/s/MOCK_ENDPOINT/exec?id=mock_sheet_id")), \
+             patch("urllib.request.urlopen", return_value=mock_resp):
             out_path, count = fetch_and_save_corrected_scripts(
                 language="french",
                 video_type="expression",
