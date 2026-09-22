@@ -27,7 +27,9 @@ sys.path.insert(0, str(MAIN_DIR))
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
+# pyrefly: ignore [missing-import]
 from connectivity.core.client import post_sheet_rows
+# pyrefly: ignore [missing-import]
 from connectivity.post_scripts.poster import (
     filter_scripts,
     get_source_csv_path,
