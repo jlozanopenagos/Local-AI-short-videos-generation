@@ -60,10 +60,11 @@ function doGet(e) {
     const rawHeaders = data[0];
     const headers = rawHeaders.map(h => String(h || "").trim());
 
-    // Locate target columns case-insensitively (columns A, B, C: ID, expression, script)
+    // Locate target columns case-insensitively (columns A, B, C, D: ID, expression, script, SCRIPT_CHANGED)
     let idColIdx = -1;
     let expressionColIdx = -1;
     let scriptColIdx = -1;
+    let scriptChangedColIdx = -1;
 
     for (let i = 0; i < headers.length; i++) {
       const normalized = headers[i].toUpperCase();
@@ -71,15 +72,18 @@ function doGet(e) {
         idColIdx = i;
       } else if (normalized === "EXPRESSION" || normalized === "TOPIC" || normalized === "SUBJECT") {
         expressionColIdx = i;
-      } else if (normalized === "SCRIPT" || normalized === "SCRIPT_CHANGED" || normalized === "NEW_SCRIPT") {
+      } else if (normalized === "SCRIPT") {
         scriptColIdx = i;
+      } else if (normalized === "SCRIPT_CHANGED" || normalized === "SCRIPT CHANGED" || normalized === "NEW_SCRIPT" || normalized === "CORRECTED_SCRIPT") {
+        scriptChangedColIdx = i;
       }
     }
 
-    // Fallbacks to default columns A (0), B (1), C (2) if not matched by name
+    // Fallbacks to default columns A (0), B (1), C (2), D (3) if not matched by name
     if (idColIdx === -1 && headers.length > 0) idColIdx = 0;
     if (expressionColIdx === -1 && headers.length > 1) expressionColIdx = 1;
     if (scriptColIdx === -1 && headers.length > 2) scriptColIdx = 2;
+    if (scriptChangedColIdx === -1 && headers.length > 3) scriptChangedColIdx = 3;
 
     const records = [];
 
@@ -95,11 +99,13 @@ function doGet(e) {
 
       const exprVal = expressionColIdx !== -1 ? String(row[expressionColIdx] || "").trim() : "";
       const scriptVal = scriptColIdx !== -1 ? String(row[scriptColIdx] || "").trim() : "";
+      const scriptChangedVal = scriptChangedColIdx !== -1 ? String(row[scriptChangedColIdx] || "").trim() : "";
 
       records.push({
         ID: idVal,
         expression: exprVal,
-        script: scriptVal
+        script: scriptVal,
+        SCRIPT_CHANGED: scriptChangedVal
       });
     }
 

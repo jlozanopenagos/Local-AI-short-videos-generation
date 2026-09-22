@@ -68,6 +68,7 @@ class TestSheetsFetcher(unittest.TestCase):
 
     def test_endpoint_resolution_defaults_to_french_expression(self):
         """Verify default resolution points to French Expression target."""
+        # pyrefly: ignore [missing-import]
         from connectivity.endpoints import build_fetch_url
         lang, vtype, url = get_endpoint()
         self.assertEqual(lang, "french")

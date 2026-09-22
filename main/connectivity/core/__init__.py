@@ -1,6 +1,5 @@
 """
-endpoints.py — Root forwarder for connectivity.core.endpoints.
-Maintains backward compatibility with all imports of `from connectivity.endpoints import ...`.
+core — Core endpoints registry, URL building, and HTTP client for Google Sheets.
 """
 
 from connectivity.core.endpoints import (
@@ -15,6 +14,10 @@ from connectivity.core.endpoints import (
     ENDPOINT_REGISTRY,
     ALIAS_MAP,
 )
+from connectivity.core.client import (
+    fetch_raw_sheet_rows,
+    normalize_sheet_rows,
+)
 
 __all__ = [
     "get_endpoint",
@@ -27,4 +30,6 @@ __all__ = [
     "DEFAULT_ENGLISH_EXPRESSION_URL",
     "ENDPOINT_REGISTRY",
     "ALIAS_MAP",
+    "fetch_raw_sheet_rows",
+    "normalize_sheet_rows",
 ]
