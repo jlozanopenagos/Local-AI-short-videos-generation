@@ -22,6 +22,18 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 # Add project root, video_creation, and module directory to path for robust imports
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
@@ -199,7 +211,156 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
     if len(labeled_dict) >= 2:
         return {k: " ".join(v).strip() for k, v in labeled_dict.items() if " ".join(v).strip()}
 
+    # Check for multi-paragraph or structured final script
+    direct_structured = parse_user_script_into_sections(cleaned, video_type)
+    if direct_structured:
+        return direct_structured
+
     return None
+
+
+def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optional[Dict[str, str]]:
+    """
+    Parses a user-provided final script into canonical section keys based on
+    paragraph breaks, dialogue structure, and quiz patterns.
+    Ensures 0 words are rewritten or altered.
+    """
+    vtype = video_type.upper()
+    lines = [line.strip() for line in raw_script.split("\n") if line.strip()]
+    if not lines:
+        return None
+
+    parsed: Dict[str, str] = {}
+
+    if vtype == "EXPRESSION":
+        if len(lines) == 5:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": lines[2],
+                "example": lines[3],
+                "payoff": lines[4],
+            }
+        elif len(lines) == 4:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": lines[1],
+                "example": lines[2],
+                "payoff": lines[3],
+            }
+        elif len(lines) > 5:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": "\n\n".join(lines[2:-2]),
+                "example": lines[-2],
+                "payoff": lines[-1],
+            }
+        elif len(lines) >= 3:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": lines[1],
+                "example": lines[2],
+                "payoff": lines[-1],
+            }
+
+    elif vtype == "GAME":
+        if len(lines) == 5:
+            parsed = {
+                "hook": lines[0],
+                "challenge": lines[1],
+                "pressure": lines[2],
+                "answer": lines[3],
+                "explanation": lines[4],
+            }
+        else:
+            hook = lines[0]
+            pressure_idx = -1
+            for i in range(1, len(lines)):
+                l_lower = lines[i].lower()
+                if any(w in l_lower for w in ("second", "clock", "compte", "rebours", "freeze", "décide", "decide", "tiempo", "segundo", "tempo", "chrono")):
+                    pressure_idx = i
+                    break
+
+            if pressure_idx != -1 and pressure_idx + 1 < len(lines):
+                challenge = "\n".join(lines[1:pressure_idx])
+                pressure = lines[pressure_idx]
+                answer = lines[pressure_idx + 1]
+                explanation = "\n".join(lines[pressure_idx + 2:]) if pressure_idx + 2 < len(lines) else answer
+                parsed = {
+                    "hook": hook,
+                    "challenge": challenge,
+                    "pressure": pressure,
+                    "answer": answer,
+                    "explanation": explanation,
+                }
+            elif len(lines) >= 4:
+                parsed = {
+                    "hook": lines[0],
+                    "challenge": "\n".join(lines[1:-3]) if len(lines) > 4 else lines[1],
+                    "pressure": lines[-3] if len(lines) > 3 else lines[-1],
+                    "answer": lines[-2] if len(lines) > 2 else lines[-1],
+                    "explanation": lines[-1],
+                }
+
+    elif vtype == "ROLEPLAY":
+        hook = lines[0]
+        last_line = lines[-1]
+        if not last_line.upper().startswith(("PERSON_ONE", "PERSON_TWO", "PERSON 1", "PERSON 2")):
+            payoff = last_line
+            body_lines = lines[1:-1]
+        else:
+            payoff = ""
+            body_lines = lines[1:]
+
+        pairs = []
+        current_pair = []
+        for bl in body_lines:
+            if bl.upper().startswith(("PERSON_ONE", "PERSON 1", "PERSON_TWO", "PERSON 2")):
+                current_pair.append(bl)
+                if len(current_pair) == 2:
+                    pairs.append("\n".join(current_pair))
+                    current_pair = []
+            else:
+                if current_pair:
+                    current_pair[-1] += "\n" + bl
+                else:
+                    pairs.append(bl)
+        if current_pair:
+            pairs.append("\n".join(current_pair))
+
+        while len(pairs) < 4:
+            pairs.append(pairs[-1] if pairs else "PERSON_ONE: ...\nPERSON_TWO: ...")
+
+        parsed = {
+            "hook": hook,
+            "DIALOGUE_PART_1": pairs[0],
+            "DIALOGUE_PART_2": pairs[1],
+            "DIALOGUE_PART_3": pairs[2],
+            "DIALOGUE_PART_4": "\n\n".join(pairs[3:]),
+            "PAYOFF": payoff or (lines[-1] if len(lines) > 1 else hook),
+        }
+
+    elif vtype in ("FUN_FACTS", "FUNFACTS"):
+        if len(lines) >= 4:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": "\n".join(lines[2:-2]) if len(lines) > 4 else lines[2],
+                "payoff": "\n".join(lines[-2:]) if len(lines) > 4 else lines[-1],
+            }
+        elif len(lines) >= 2:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": lines[1],
+                "payoff": lines[-1],
+            }
+
+    return parsed if parsed else None
+
 
 
 def build_structuring_prompt(
@@ -354,16 +515,38 @@ def format_script_with_llm(
     )
 
     print("🤖 Prompting LLM to structure state JSON and metadata...")
-    raw_response = generate_response(prompt, temperature=0.2)
-    parsed_json = extract_json_from_llm(raw_response)
+    parsed_json: Dict[str, Any] = {}
+    script_field: Dict[str, Any] = {}
 
-    script_field = parsed_json.get("script")
-    if not isinstance(script_field, dict):
-        raise ValueError("LLM response did not contain a valid 'script' object.")
+    try:
+        raw_response = generate_response(prompt, temperature=0.2)
+        parsed_json = extract_json_from_llm(raw_response)
+        script_field = parsed_json.get("script") or {}
+        if not isinstance(script_field, dict):
+            script_field = {}
+    except Exception as llm_err:
+        if direct_parsed:
+            print(f"⚠️ LLM response error ({llm_err}). Constructing state JSON directly from user sections.")
+            script_field = dict(direct_parsed)
+            parsed_json = {
+                "video_type": video_type.upper(),
+                "language": target_language,
+                "category": existing_content_metadata.get("category", "Language Learning"),
+                "subcategory": existing_content_metadata.get("subcategory", "Idioms & Vocabulary"),
+                "topic": expression_or_topic,
+                "learning_objective": f"Learn the authentic usage of {expression_or_topic}",
+                "target_expression": expression_or_topic,
+                "difficulty": "Intermediate",
+                "emotion": "Curiosity & Surprise",
+                "related_content": [],
+                "character_personalities": {"Narrator": STATIC_NARRATOR_PERSONALITY},
+            }
+        else:
+            raise
 
-    # If the user passed directly labeled sections, prefer the user's exact text for the sections
+    # If the user passed directly structured sections or paragraphs, enforce user's exact text
     if direct_parsed:
-        print("✓ Verified direct user section labels — applying exact user sections.")
+        print("✓ Verified direct user section structure — applying exact user text.")
         for k, v in direct_parsed.items():
             script_field[k] = v
 
@@ -408,7 +591,7 @@ def format_script_with_llm(
 
     # For GAME, ensure chalkboard_exercise exists
     if video_type.upper() == "GAME":
-        if "chalkboard_exercise" not in parsed_json:
+        if "chalkboard_exercise" not in parsed_json or not parsed_json.get("chalkboard_exercise"):
             challenge_text = script_field.get("challenge", "")
             parsed_json["chalkboard_exercise"] = challenge_text
 
@@ -417,11 +600,19 @@ def format_script_with_llm(
         parsed_json["character_personalities"] = {}
     parsed_json["character_personalities"]["Narrator"] = STATIC_NARRATOR_PERSONALITY
 
+    # For ROLEPLAY, ensure character personalities exist
+    if video_type.upper() == "ROLEPLAY":
+        if "PERSON_ONE" not in parsed_json["character_personalities"]:
+            parsed_json["character_personalities"]["PERSON_ONE"] = "Expressive, animated, relatable conversational partner experiencing the scenario."
+        if "PERSON_TWO" not in parsed_json["character_personalities"]:
+            parsed_json["character_personalities"]["PERSON_TWO"] = "Knowledgeable, natural native speaker offering authentic cultural guidance."
+
     parsed_json["script"] = script_field
     parsed_json["video_type"] = video_type.upper()
     parsed_json["language"] = target_language
 
     return parsed_json, script_field
+
 
 
 def modify_video_script(

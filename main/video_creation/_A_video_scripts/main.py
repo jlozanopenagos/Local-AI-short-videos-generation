@@ -1088,16 +1088,27 @@ def process_scripts_to_change_from_csv(
         print(f"\n📄 Loading script changes from: {csv_file.name}")
         
         rows = []
+        raw_text = ""
         try:
-            with csv_file.open("r", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames or []
-                rows = list(reader)
-        except UnicodeDecodeError:
-            with csv_file.open("r", encoding="latin-1") as f:
-                reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames or []
-                rows = list(reader)
+            raw_text = csv_file.read_text(encoding="utf-8-sig", errors="replace")
+        except Exception:
+            try:
+                raw_text = csv_file.read_text(encoding="latin-1", errors="replace")
+            except Exception as read_err:
+                print(f"❌ Error reading '{csv_file.name}': {read_err}", file=sys.stderr)
+                total_failed += 1
+                continue
+
+        # Clean manual CSV formatting quirks:
+        # 1. Trailing comma after closing quote: '",\n' -> '"\n'
+        cleaned_text = re.sub(r'"[ \t]*,[ \t]*\r?\n', '"\n', raw_text)
+        # 2. Spaces after comma before opening quote: ', "' -> ',"'
+        cleaned_text = re.sub(r',[ \t]+"', ',"', cleaned_text)
+
+        import io
+        reader = csv.DictReader(io.StringIO(cleaned_text), skipinitialspace=True)
+        fieldnames = reader.fieldnames or []
+        rows = list(reader)
 
         # Detect ID and NEW_SCRIPT columns (case-insensitive)
         id_col = next((c for c in fieldnames if c.strip().upper() == "ID"), None)
