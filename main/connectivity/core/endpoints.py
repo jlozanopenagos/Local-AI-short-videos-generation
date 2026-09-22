@@ -149,16 +149,27 @@ ALIAS_MAP: Dict[str, Tuple[str, str]] = {
 }
 
 
-def extract_spreadsheet_id(val: str) -> Optional[str]:
+def extract_spreadsheet_id(val: Any) -> Optional[str]:
     """
     Extracts the Google Spreadsheet ID from either:
     - A full Google Sheets URL: https://docs.google.com/spreadsheets/d/<ID>/edit...
+    - A URL with query param ?id=<ID> (e.g. Master Web App router URL)
     - A direct alphanumeric ID string.
-    Returns None if it is a Google Apps Script Web App URL or empty.
+    Returns None if no ID could be determined.
     """
-    if not val or not val.strip():
+    if not val:
         return None
+    if isinstance(val, (tuple, list)) and len(val) > 0:
+        val = val[-1]
+    if not isinstance(val, str) or not val.strip():
+        return None
+
     val_clean = val.strip()
+
+    # Check query param ?id=... or &id=...
+    param_match = re.search(r"[?&]id=([a-zA-Z0-9-_]+)", val_clean)
+    if param_match:
+        return param_match.group(1)
 
     if "script.google.com" in val_clean:
         return None
@@ -171,6 +182,7 @@ def extract_spreadsheet_id(val: str) -> Optional[str]:
         return val_clean
 
     return None
+
 
 
 def build_fetch_url(target: str, tab: Optional[str] = None) -> str:

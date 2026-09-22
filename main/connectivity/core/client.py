@@ -135,3 +135,106 @@ def normalize_sheet_rows(raw_rows: List[Dict[str, Any]]) -> List[Dict[str, str]]
             normalized_records.append(record)
 
     return normalized_records
+
+
+def post_sheet_rows(
+    endpoint_url: str,
+    rows: List[Dict[str, Any]],
+    spreadsheet_id: Optional[str] = None,
+    sheet_tab: Optional[str] = None,
+    timeout: float = 60.0
+) -> Dict[str, Any]:
+    """
+    Sends rows to Google Apps Script Web App (doPost) to update Columns A, B, and C.
+    Automatically follows HTTP 302 redirects to script.googleusercontent.com.
+    Retries up to 3 times on transient network drops with backoff.
+
+    Args:
+        endpoint_url: Web App execution URL
+        rows: List of dicts with keys 'ID', 'expression', 'script'
+        spreadsheet_id: Optional target spreadsheet ID
+        sheet_tab: Optional tab name
+        timeout: Request timeout in seconds
+
+    Returns:
+        Dict[str, Any]: Response from Google Apps Script with updated/appended counts.
+    """
+    import time
+    import requests
+
+    if not endpoint_url or not endpoint_url.strip():
+        raise ValueError("No endpoint URL provided for Google Sheets client.")
+
+    if not rows:
+        return {
+            "status": "success",
+            "message": "No rows to post.",
+            "updated_count": 0,
+            "appended_count": 0,
+            "total_affected": 0,
+        }
+
+    payload: Dict[str, Any] = {
+        "action": "update_scripts",
+        "rows": rows,
+    }
+    if spreadsheet_id and spreadsheet_id.strip():
+        payload["spreadsheet_id"] = spreadsheet_id.strip()
+    if sheet_tab and sheet_tab.strip():
+        payload["sheet"] = sheet_tab.strip()
+
+    url = endpoint_url.strip()
+    last_error: Optional[Exception] = None
+
+    for attempt in range(1, 4):
+        try:
+            resp = requests.post(
+                url,
+                json=payload,
+                headers={"User-Agent": "LingoVerse-Shorts-Automation/1.0"},
+                timeout=timeout,
+                allow_redirects=True,
+            )
+
+            raw_text = resp.text
+
+            # Check if an HTML error page was returned
+            if raw_text.lstrip().startswith(("<", "<!DOCTYPE")):
+                body_match = re.search(r'<body[^>]*>(.*?)</body>', raw_text, re.IGNORECASE | re.DOTALL)
+                clean_err = raw_text[:200]
+                if body_match:
+                    clean_err = re.sub(r'<[^>]+>', ' ', body_match.group(1)).strip()
+                    clean_err = " ".join(clean_err.split())
+                raise RuntimeError(
+                    f"Google Apps Script returned an error page: '{clean_err}'. "
+                    f"Please ensure you pasted the updated Apps Script code (main/connectivity/google_apps_script.js) "
+                    f"with 'doPost' into Extensions > Apps Script and deployed a New version."
+                )
+
+            if resp.status_code not in (200, 201):
+                raise ValueError(f"HTTP Error {resp.status_code} received from Google Apps Script endpoint: {raw_text[:300]}")
+
+            try:
+                data = resp.json()
+            except Exception as je:
+                raise ValueError(f"Endpoint returned non-JSON response: {je}. Preview: {raw_text[:200]}") from je
+
+            if isinstance(data, dict):
+                if data.get("status") == "error":
+                    raise RuntimeError(f"Google Apps Script reported an error: {data.get('message')}")
+                return data
+
+            raise ValueError(f"Unexpected JSON response from endpoint: expected dict, got {type(data).__name__}")
+
+        except (requests.RequestException, RuntimeError, ValueError) as err:
+            last_error = err
+            if isinstance(err, RuntimeError) and "Google Apps Script returned an error page" in str(err):
+                # Don't retry configuration/deployment errors
+                raise err
+            if attempt < 3:
+                time.sleep(1.5 * attempt)
+            else:
+                raise ConnectionError(f"Could not update Google Sheets endpoint: {err}") from err
+
+    raise ConnectionError(f"Could not update Google Sheets endpoint: {last_error}")
+

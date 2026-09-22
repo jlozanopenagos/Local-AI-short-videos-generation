@@ -39,6 +39,15 @@ from connectivity.corrected_scripts.fetcher import (
     fetch_all_sheets_corrected_scripts,
     load_ids_from_csv,
 )
+from connectivity.post_scripts.poster import (
+    DEFAULT_SCRIPTS_TO_SEE_DIR,
+    get_source_csv_path,
+    load_source_scripts_csv,
+    parse_range_spec,
+    filter_scripts,
+    post_single_sheet,
+    post_all_sheets,
+)
 
 TARGET_COLUMNS = SYNC_TARGET_COLUMNS
 
@@ -70,4 +79,13 @@ __all__ = [
     "fetch_and_save_corrected_scripts",
     "fetch_all_sheets_corrected_scripts",
     "load_ids_from_csv",
+    # Post Scripts (Feature 3)
+    "DEFAULT_SCRIPTS_TO_SEE_DIR",
+    "get_source_csv_path",
+    "load_source_scripts_csv",
+    "parse_range_spec",
+    "filter_scripts",
+    "post_single_sheet",
+    "post_all_sheets",
 ]
+

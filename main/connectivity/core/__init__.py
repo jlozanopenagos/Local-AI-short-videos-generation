@@ -17,6 +17,7 @@ from connectivity.core.endpoints import (
 from connectivity.core.client import (
     fetch_raw_sheet_rows,
     normalize_sheet_rows,
+    post_sheet_rows,
 )
 
 __all__ = [
@@ -32,4 +33,6 @@ __all__ = [
     "ALIAS_MAP",
     "fetch_raw_sheet_rows",
     "normalize_sheet_rows",
+    "post_sheet_rows",
 ]
+
