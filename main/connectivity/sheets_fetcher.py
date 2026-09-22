@@ -1,7 +1,7 @@
 """
 sheets_fetcher.py — Fetch and process data from Google Sheets Apps Script Web App endpoints.
 
-Fetches 3 target columns: 'ID', 'expression', 'SCRIPT_CHANGED'
+Fetches 3 target columns: 'ID', 'expression', 'script'
 Saves output to: D:\\AI\\output\\connectivity (or configured OUTPUT_DIR / connectivity)
 """
 
@@ -26,13 +26,14 @@ try:
     from connectivity.endpoints import get_endpoint, DEFAULT_FRENCH_EXPRESSION_URL
 except (ImportError, ModuleNotFoundError):
     try:
+        # pyrefly: ignore [missing-import]
         from main.connectivity.endpoints import get_endpoint, DEFAULT_FRENCH_EXPRESSION_URL
     except (ImportError, ModuleNotFoundError):
         from endpoints import get_endpoint, DEFAULT_FRENCH_EXPRESSION_URL
 
 
-# Default expected columns
-TARGET_COLUMNS = ["ID", "expression", "SCRIPT_CHANGED"]
+# Default expected columns (Columns A, B, C)
+TARGET_COLUMNS = ["ID", "expression", "script"]
 
 
 def resolve_connectivity_output_dir(custom_dir: Optional[Path | str] = None) -> Path:
@@ -132,11 +133,11 @@ def fetch_sheet_data(endpoint_url: str, timeout: float = 30.0) -> List[Dict[str,
         if not isinstance(row, dict):
             continue
 
-        # Case-insensitive lookup for the 3 target columns
+        # Case-insensitive lookup for the 3 target columns (ID, expression, script)
         record: Dict[str, str] = {
             "ID": "",
             "expression": "",
-            "SCRIPT_CHANGED": "",
+            "script": "",
         }
 
         for k, v in row.items():
@@ -147,8 +148,8 @@ def fetch_sheet_data(endpoint_url: str, timeout: float = 30.0) -> List[Dict[str,
                 record["ID"] = val.upper()
             elif k_upper in ("EXPRESSION", "TOPIC", "SUBJECT"):
                 record["expression"] = val
-            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT CHANGED", "NEW_SCRIPT", "SCRIPT"):
-                record["SCRIPT_CHANGED"] = val
+            elif k_upper in ("SCRIPT", "SCRIPT_CHANGED", "SCRIPT CHANGED", "NEW_SCRIPT"):
+                record["script"] = val
 
         # Retain row only if ID is present
         if record["ID"]:

@@ -50,29 +50,26 @@ function doGet(e) {
     const rawHeaders = data[0];
     const headers = rawHeaders.map(h => String(h || "").trim());
 
-    // Locate target columns case-insensitively
+    // Locate target columns case-insensitively (columns A, B, C: ID, expression, script)
     let idColIdx = -1;
     let expressionColIdx = -1;
-    let scriptChangedColIdx = -1;
+    let scriptColIdx = -1;
 
     for (let i = 0; i < headers.length; i++) {
       const normalized = headers[i].toUpperCase();
       if (normalized === "ID") {
         idColIdx = i;
-      } else if (normalized === "EXPRESSION") {
+      } else if (normalized === "EXPRESSION" || normalized === "TOPIC" || normalized === "SUBJECT") {
         expressionColIdx = i;
-      } else if (normalized === "SCRIPT_CHANGED" || normalized === "SCRIPT CHANGED" || normalized === "NEW_SCRIPT") {
-        scriptChangedColIdx = i;
+      } else if (normalized === "SCRIPT" || normalized === "SCRIPT_CHANGED" || normalized === "NEW_SCRIPT") {
+        scriptColIdx = i;
       }
     }
 
-    if (idColIdx === -1) {
-      return createJsonResponse({
-        status: "error",
-        message: "Required column 'ID' was not found in sheet headers.",
-        found_headers: headers
-      }, 400);
-    }
+    // Fallbacks to default columns A (0), B (1), C (2) if not matched by name
+    if (idColIdx === -1 && headers.length > 0) idColIdx = 0;
+    if (expressionColIdx === -1 && headers.length > 1) expressionColIdx = 1;
+    if (scriptColIdx === -1 && headers.length > 2) scriptColIdx = 2;
 
     const records = [];
 
@@ -87,12 +84,12 @@ function doGet(e) {
       }
 
       const exprVal = expressionColIdx !== -1 ? String(row[expressionColIdx] || "").trim() : "";
-      const scriptChangedVal = scriptChangedColIdx !== -1 ? String(row[scriptChangedColIdx] || "").trim() : "";
+      const scriptVal = scriptColIdx !== -1 ? String(row[scriptColIdx] || "").trim() : "";
 
       records.push({
         ID: idVal,
         expression: exprVal,
-        SCRIPT_CHANGED: scriptChangedVal
+        script: scriptVal
       });
     }
 

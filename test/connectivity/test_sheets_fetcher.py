@@ -4,7 +4,7 @@ test_sheets_fetcher.py — Senior QA Unit Tests for Google Sheets Connectivity.
 Verifies:
 1. Endpoint resolution and modular registry.
 2. HTTP GET fetching, redirect handling, and JSON parsing.
-3. Column extraction and normalization for 'ID', 'expression', 'SCRIPT_CHANGED'.
+3. Column extraction and normalization for 'ID', 'expression', 'script'.
 4. CSV and JSON disk persistence in the connectivity output directory.
 """
 
@@ -90,7 +90,7 @@ class TestSheetsFetcher(unittest.TestCase):
         self.assertEqual(url, new_url)
 
     def test_fetch_sheet_data_parses_json_payload(self):
-        """Verify fetching extracts and normalizes the 3 target columns."""
+        """Verify fetching extracts and normalizes the 3 target columns (ID, expression, script)."""
         mock_payload = {
             "status": "success",
             "count": 2,
@@ -98,7 +98,7 @@ class TestSheetsFetcher(unittest.TestCase):
                 {
                     "ID": "FE01",
                     "expression": "Poser un lapin",
-                    "SCRIPT_CHANGED": "New script for Poser un lapin",
+                    "script": "New script for Poser un lapin",
                 },
                 {
                     "id": "fe02",
@@ -109,7 +109,7 @@ class TestSheetsFetcher(unittest.TestCase):
                     # Empty row - should be filtered out
                     "ID": "",
                     "expression": "",
-                    "SCRIPT_CHANGED": "",
+                    "script": "",
                 }
             ]
         }
@@ -125,12 +125,12 @@ class TestSheetsFetcher(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0]["ID"], "FE01")
         self.assertEqual(records[0]["expression"], "Poser un lapin")
-        self.assertEqual(records[0]["SCRIPT_CHANGED"], "New script for Poser un lapin")
+        self.assertEqual(records[0]["script"], "New script for Poser un lapin")
 
-        # Check normalization of lowercase keys
+        # Check normalization of lowercase keys and legacy script_changed alias
         self.assertEqual(records[1]["ID"], "FE02")
         self.assertEqual(records[1]["expression"], "Avoir le cafard")
-        self.assertEqual(records[1]["SCRIPT_CHANGED"], "New script for Avoir le cafard")
+        self.assertEqual(records[1]["script"], "New script for Avoir le cafard")
 
     def test_fetch_sheet_data_handles_error_status(self):
         """Verify RuntimeError is raised when Google Apps Script returns error status."""
@@ -152,8 +152,8 @@ class TestSheetsFetcher(unittest.TestCase):
     def test_save_connectivity_data_writes_csv_and_json(self):
         """Verify records are persisted to CSV and JSON with correct schemas."""
         records = [
-            {"ID": "FE01", "expression": "Poser un lapin", "SCRIPT_CHANGED": "Script 1"},
-            {"ID": "FE02", "expression": "Avoir le cafard", "SCRIPT_CHANGED": "Script 2"},
+            {"ID": "FE01", "expression": "Poser un lapin", "script": "Script 1"},
+            {"ID": "FE02", "expression": "Avoir le cafard", "script": "Script 2"},
         ]
 
         csv_path, json_path = save_connectivity_data(
@@ -172,10 +172,12 @@ class TestSheetsFetcher(unittest.TestCase):
         with csv_path.open("r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             self.assertEqual(reader.fieldnames, TARGET_COLUMNS)
+            self.assertEqual(reader.fieldnames, ["ID", "expression", "script"])
             rows = list(reader)
             self.assertEqual(len(rows), 2)
             self.assertEqual(rows[0]["ID"], "FE01")
             self.assertEqual(rows[0]["expression"], "Poser un lapin")
+            self.assertEqual(rows[0]["script"], "Script 1")
 
         # Verify JSON content
         with json_path.open("r", encoding="utf-8") as f:
@@ -184,6 +186,7 @@ class TestSheetsFetcher(unittest.TestCase):
             self.assertEqual(data["video_type"], "expression")
             self.assertEqual(data["count"], 2)
             self.assertEqual(len(data["records"]), 2)
+            self.assertEqual(data["records"][0]["script"], "Script 1")
 
 
 if __name__ == "__main__":
