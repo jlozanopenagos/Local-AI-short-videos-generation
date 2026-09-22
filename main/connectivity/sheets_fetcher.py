@@ -286,3 +286,73 @@ def sync_sheet(
         "json_path": str(json_file),
         "records": records,
     }
+
+
+def sync_all_sheets(
+    language: Optional[str] = None,
+    video_type: Optional[str] = None,
+    output_dir: Optional[Path | str] = None,
+) -> Dict[str, Any]:
+    """
+    Syncs multiple Google Sheets in batch.
+    - If language and video_type are None or 'all': syncs all registered sheets.
+    - If language is specified and video_type is None/'all': syncs all video types for that language.
+    - If video_type is specified and language is None/'all': syncs all languages for that video type.
+
+    Returns:
+        Dict[str, Any]: Summary containing totals, succeeded list, and failed list.
+    """
+    try:
+        from connectivity.endpoints import ENDPOINT_REGISTRY
+    except (ImportError, ModuleNotFoundError):
+        try:
+            from main.connectivity.endpoints import ENDPOINT_REGISTRY
+        except (ImportError, ModuleNotFoundError):
+            from endpoints import ENDPOINT_REGISTRY
+
+    # Determine targets
+    targets: List[Tuple[str, str]] = []
+    lang_filter = language.strip().lower() if language and language.strip().lower() != "all" else None
+    type_filter = video_type.strip().lower() if video_type and video_type.strip().lower() != "all" else None
+
+    for (l, t), url in sorted(ENDPOINT_REGISTRY.items()):
+        if not url:
+            continue
+        if lang_filter and l != lang_filter:
+            continue
+        if type_filter and t != type_filter:
+            continue
+        targets.append((l, t))
+
+    print(f"\n=======================================================")
+    print(f"  BATCH GOOGLE SHEETS SYNC: {len(targets)} sheet(s) queued")
+    print(f"=======================================================")
+
+    results = []
+    failed = []
+    total_records = 0
+
+    for idx, (l, t) in enumerate(targets, 1):
+        print(f"\n[{idx}/{len(targets)}] Syncing {l.capitalize()} - {t.upper()}...")
+        try:
+            res = sync_sheet(language=l, video_type=t, output_dir=output_dir)
+            results.append(res)
+            total_records += res.get("count", 0)
+        except Exception as e:
+            print(f"   [ERROR] Failed to sync {l} - {t}: {e}", file=sys.stderr)
+            failed.append({"language": l, "video_type": t, "error": str(e)})
+
+    print(f"\n=======================================================")
+    print(f"  BATCH SYNC FINISHED: {len(results)}/{len(targets)} succeeded, {len(failed)} failed.")
+    print(f"  Total records fetched: {total_records}")
+    print(f"=======================================================\n")
+
+    return {
+        "status": "success" if not failed else "partial",
+        "total_sheets": len(targets),
+        "succeeded_count": len(results),
+        "failed_count": len(failed),
+        "total_records": total_records,
+        "results": results,
+        "failed": failed,
+    }

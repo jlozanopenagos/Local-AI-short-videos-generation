@@ -28,26 +28,31 @@ for p in [str(PROJECT_ROOT), str(MAIN_DIR)]:
         sys.path.insert(0, p)
 
 from connectivity.endpoints import list_registered_endpoints, get_endpoint
-from connectivity.sheets_fetcher import sync_sheet, resolve_connectivity_output_dir
+from connectivity.sheets_fetcher import sync_sheet, sync_all_sheets, resolve_connectivity_output_dir
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="LingoVerse Google Sheets Connectivity: Fetch & Sync Script Columns (ID, expression, SCRIPT_CHANGED)"
+        description="LingoVerse Google Sheets Connectivity: Fetch & Sync Script Columns (ID, expression, script)"
+    )
+    parser.add_argument(
+        "--all", "-a",
+        action="store_true",
+        help="Fetch all registered sheets across all languages and video types"
     )
     parser.add_argument(
         "--language", "-l",
         type=str,
-        default="french",
-        choices=["french", "english", "spanish", "italian"],
-        help="Target language (default: french)"
+        default=None,
+        choices=["all", "french", "english", "spanish", "italian"],
+        help="Target language (default: all)"
     )
     parser.add_argument(
         "--video-type", "-t",
         type=str,
-        default="expression",
-        choices=["expression", "roleplay", "game", "fun_facts"],
-        help="Target video type (default: expression)"
+        default=None,
+        choices=["all", "expression", "roleplay", "game", "fun_facts"],
+        help="Target video type (default: all)"
     )
     parser.add_argument(
         "--url", "-u",
@@ -106,17 +111,37 @@ def main() -> int:
         print("=======================================================\n")
         return 0
 
+    # Determine if this is a batch sync (all sheets, or all types for a language, etc.)
+    is_batch = (
+        args.all
+        or (args.language == "all")
+        or (args.video_type == "all")
+        or (not args.language and not args.video_type and not args.url and not args.sheet_id)
+        or (args.language and not args.video_type and not args.url and not args.sheet_id)
+        or (args.video_type and not args.language and not args.url and not args.sheet_id)
+    )
+
     try:
-        result = sync_sheet(
-            language=args.language,
-            video_type=args.video_type,
-            url=args.url,
-            output_dir=args.output_dir,
-            sheet_id=args.sheet_id,
-            tab=args.tab,
-        )
-        print(f"\n[SUCCESS] Connectivity sync complete! Fetched {result['count']} items.")
-        return 0
+        if is_batch:
+            result = sync_all_sheets(
+                language=args.language,
+                video_type=args.video_type,
+                output_dir=args.output_dir,
+            )
+            return 0 if result.get("failed_count", 0) == 0 else 1
+        else:
+            lang = args.language or "french"
+            vtype = args.video_type or "expression"
+            result = sync_sheet(
+                language=lang,
+                video_type=vtype,
+                url=args.url,
+                output_dir=args.output_dir,
+                sheet_id=args.sheet_id,
+                tab=args.tab,
+            )
+            print(f"\n[SUCCESS] Connectivity sync complete! Fetched {result['count']} items.")
+            return 0
     except Exception as e:
         print(f"\n[ERROR] Connectivity sync failed: {e}", file=sys.stderr)
         return 1
