@@ -73,7 +73,7 @@ def fetch_raw_sheet_rows(endpoint_url: str, timeout: float = 60.0) -> List[Dict[
                 clean_err = " ".join(clean_err.split())
                 raise RuntimeError(
                     f"Google Apps Script returned an error page: '{clean_err}'. "
-                    f"Please ensure you pasted the Apps Script code (main/connectivity/google_apps_script.js) "
+                    f"Please ensure you pasted the Apps Script code (main/connectivity/google_apps_script.sample.js) "
                     f"into Extensions > Apps Script and deployed a new version."
                 )
         raise ValueError(f"Endpoint returned invalid JSON: {je}. Preview: {raw_text[:200]}") from je
@@ -207,7 +207,7 @@ def post_sheet_rows(
                     clean_err = " ".join(clean_err.split())
                 raise RuntimeError(
                     f"Google Apps Script returned an error page: '{clean_err}'. "
-                    f"Please ensure you pasted the updated Apps Script code (main/connectivity/google_apps_script.js) "
+                    f"Please ensure you pasted the updated Apps Script code (main/connectivity/google_apps_script.sample.js) "
                     f"with 'doPost' into Extensions > Apps Script and deployed a New version."
                 )
 

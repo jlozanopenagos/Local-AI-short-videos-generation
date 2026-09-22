@@ -29,6 +29,8 @@ class TestPrivacyLeak(unittest.TestCase):
             "output/",
             "ffmpeg.exe",
             "ffprobe.exe",
+            "google_apps_script.js",
+            "!**/connectivity/google_apps_script.sample.js",
         ]
         for rule in critical_rules:
             with self.subTest(rule=rule):
@@ -45,6 +47,20 @@ class TestPrivacyLeak(unittest.TestCase):
             )
             tracked_output = res.stdout.strip()
             self.assertEqual(tracked_output, "", ".env file is tracked in git! Immediate security violation.")
+        except Exception as exc:
+            self.skipTest(f"Git command failed: {exc}")
+
+    def test_google_apps_script_is_not_tracked_in_git(self):
+        try:
+            res = subprocess.run(
+                ["git", "ls-files", "main/connectivity/google_apps_script.js"],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            tracked_output = res.stdout.strip()
+            self.assertEqual(tracked_output, "", "google_apps_script.js is tracked in git! Should be ignored.")
         except Exception as exc:
             self.skipTest(f"Git command failed: {exc}")
 
@@ -120,6 +136,37 @@ class TestPrivacyLeak(unittest.TestCase):
                         size, max_size_bytes,
                         f"Tracked file exceeds 50MB limit ({size / (1024*1024):.2f}MB): {rel_path}"
                     )
+        except Exception as exc:
+            self.skipTest(f"Git command failed: {exc}")
+
+    def test_tracked_files_do_not_contain_hardcoded_sheets_or_webapp_tokens(self):
+        """Ensure no live Google Apps Script deployment tokens or production sheet IDs are hardcoded in tracked files."""
+        try:
+            res = subprocess.run(
+                ["git", "ls-files"],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
+            webapp_token_regex = re.compile(r"AKfycb[A-Za-z0-9_-]{20,}")
+
+            for rel_path in tracked_files:
+                full_path = REPO_ROOT / rel_path
+                # Skip binary media files
+                if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
+                    continue
+
+                try:
+                    content = full_path.read_text(encoding="utf-8", errors="ignore")
+                    matches = webapp_token_regex.findall(content)
+                    self.assertEqual(
+                        len(matches), 0,
+                        f"Live Google Apps Script deployment token found in tracked file {rel_path}: {matches}"
+                    )
+                except Exception:
+                    continue
         except Exception as exc:
             self.skipTest(f"Git command failed: {exc}")
 

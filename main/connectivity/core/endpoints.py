@@ -9,93 +9,45 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Dict, Tuple, Optional, List
+from pathlib import Path
+from typing import Dict, Tuple, Optional, List, Any
 
-# Primary registry of Google Sheets endpoints: (language_lower, video_type_lower) -> Web App URL or Spreadsheet URL/ID
-DEFAULT_ENGLISH_EXPRESSION_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_EXPRESSION_SHEET_ID/edit?gid=1253474145#gid=1253474145"
-)
-DEFAULT_FRENCH_EXPRESSION_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_EXPRESSION_SHEET_ID/edit?gid=388718205#gid=388718205"
-)
-DEFAULT_SPANISH_EXPRESSION_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_EXPRESSION_SHEET_ID/edit?gid=938942305#gid=938942305"
-)
-DEFAULT_ITALIAN_EXPRESSION_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_EXPRESSION_SHEET_ID/edit?gid=1798445539#gid=1798445539"
-)
+# Ensure .env is loaded safely
+try:
+    # pyrefly: ignore [missing-import]
+    from dotenv import load_dotenv
 
-DEFAULT_ENGLISH_GAME_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_GAME_SHEET_ID/edit?gid=797764761#gid=797764761"
-)
-DEFAULT_FRENCH_GAME_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_GAME_SHEET_ID/edit?gid=1568557660#gid=1568557660"
-)
-DEFAULT_SPANISH_GAME_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_GAME_SHEET_ID/edit?gid=619858333#gid=619858333"
-)
-DEFAULT_ITALIAN_GAME_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_GAME_SHEET_ID/edit?gid=2016972632#gid=2016972632"
-)
-
-DEFAULT_ENGLISH_ROLEPLAY_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_ROLEPLAY_SHEET_ID/edit?gid=1652307005#gid=1652307005"
-)
-DEFAULT_FRENCH_ROLEPLAY_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_ROLEPLAY_SHEET_ID/edit?gid=320241190#gid=320241190"
-)
-DEFAULT_SPANISH_ROLEPLAY_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_ROLEPLAY_SHEET_ID/edit?gid=453429196#gid=453429196"
-)
-DEFAULT_ITALIAN_ROLEPLAY_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_ROLEPLAY_SHEET_ID/edit?gid=1330624165#gid=1330624165"
-)
-
-DEFAULT_ENGLISH_FUN_FACTS_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_FUN_FACTS_SHEET_ID/edit?gid=1018300388#gid=1018300388"
-)
-DEFAULT_FRENCH_FUN_FACTS_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_FUN_FACTS_SHEET_ID/edit?gid=326424538#gid=326424538"
-)
-DEFAULT_SPANISH_FUN_FACTS_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_FUN_FACTS_SHEET_ID/edit?gid=1653121820#gid=1653121820"
-)
-DEFAULT_ITALIAN_FUN_FACTS_URL = (
-    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_FUN_FACTS_SHEET_ID/edit?gid=1565936975#gid=1565936975"
-)
+    _main_env = Path(__file__).resolve().parent.parent.parent / ".env"
+    if _main_env.exists():
+        load_dotenv(_main_env)
+    _root_env = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+    if _root_env.exists():
+        load_dotenv(_root_env)
+    load_dotenv()
+except Exception:
+    pass
 
 # The central deployed Google Apps Script Web App URL for Option A dynamic sheet routing
-MASTER_WEBAPP_URL = os.getenv(
-    "SHEETS_MASTER_WEBAPP_URL",
-    "https://script.google.com/macros/s/YOUR_APPS_SCRIPT_WEBAPP_ID/exec"
-)
+MASTER_WEBAPP_URL = os.getenv("SHEETS_MASTER_WEBAPP_URL", "")
+
+
+def _get_env_endpoint(lang: str, vtype: str) -> str:
+    """Retrieve Google Sheet URL or ID from environment variables."""
+    return os.getenv(f"SHEETS_ENDPOINT_{lang.upper()}_{vtype.upper()}", "").strip()
+
 
 # In-memory endpoint dictionary mapping (language, video_type) -> Google Sheet URL or ID
 ENDPOINT_REGISTRY: Dict[Tuple[str, str], str] = {
-    # French
-    ("french", "expression"): os.getenv("SHEETS_ENDPOINT_FRENCH_EXPRESSION", DEFAULT_FRENCH_EXPRESSION_URL),
-    ("french", "roleplay"): os.getenv("SHEETS_ENDPOINT_FRENCH_ROLEPLAY", DEFAULT_FRENCH_ROLEPLAY_URL),
-    ("french", "game"): os.getenv("SHEETS_ENDPOINT_FRENCH_GAME", DEFAULT_FRENCH_GAME_URL),
-    ("french", "fun_facts"): os.getenv("SHEETS_ENDPOINT_FRENCH_FUN_FACTS", DEFAULT_FRENCH_FUN_FACTS_URL),
-
-    # English
-    ("english", "expression"): os.getenv("SHEETS_ENDPOINT_ENGLISH_EXPRESSION", DEFAULT_ENGLISH_EXPRESSION_URL),
-    ("english", "roleplay"): os.getenv("SHEETS_ENDPOINT_ENGLISH_ROLEPLAY", DEFAULT_ENGLISH_ROLEPLAY_URL),
-    ("english", "game"): os.getenv("SHEETS_ENDPOINT_ENGLISH_GAME", DEFAULT_ENGLISH_GAME_URL),
-    ("english", "fun_facts"): os.getenv("SHEETS_ENDPOINT_ENGLISH_FUN_FACTS", DEFAULT_ENGLISH_FUN_FACTS_URL),
-
-    # Spanish
-    ("spanish", "expression"): os.getenv("SHEETS_ENDPOINT_SPANISH_EXPRESSION", DEFAULT_SPANISH_EXPRESSION_URL),
-    ("spanish", "roleplay"): os.getenv("SHEETS_ENDPOINT_SPANISH_ROLEPLAY", DEFAULT_SPANISH_ROLEPLAY_URL),
-    ("spanish", "game"): os.getenv("SHEETS_ENDPOINT_SPANISH_GAME", DEFAULT_SPANISH_GAME_URL),
-    ("spanish", "fun_facts"): os.getenv("SHEETS_ENDPOINT_SPANISH_FUN_FACTS", DEFAULT_SPANISH_FUN_FACTS_URL),
-
-    # Italian
-    ("italian", "expression"): os.getenv("SHEETS_ENDPOINT_ITALIAN_EXPRESSION", DEFAULT_ITALIAN_EXPRESSION_URL),
-    ("italian", "roleplay"): os.getenv("SHEETS_ENDPOINT_ITALIAN_ROLEPLAY", DEFAULT_ITALIAN_ROLEPLAY_URL),
-    ("italian", "game"): os.getenv("SHEETS_ENDPOINT_ITALIAN_GAME", DEFAULT_ITALIAN_GAME_URL),
-    ("italian", "fun_facts"): os.getenv("SHEETS_ENDPOINT_ITALIAN_FUN_FACTS", DEFAULT_ITALIAN_FUN_FACTS_URL),
+    (lang, vtype): _get_env_endpoint(lang, vtype)
+    for lang in ["french", "english", "spanish", "italian"]
+    for vtype in ["expression", "roleplay", "game", "fun_facts"]
 }
+
+# Backward compatibility aliases
+DEFAULT_FRENCH_EXPRESSION_URL = ENDPOINT_REGISTRY.get(("french", "expression"), "")
+DEFAULT_ENGLISH_EXPRESSION_URL = ENDPOINT_REGISTRY.get(("english", "expression"), "")
+DEFAULT_SPANISH_EXPRESSION_URL = ENDPOINT_REGISTRY.get(("spanish", "expression"), "")
+DEFAULT_ITALIAN_EXPRESSION_URL = ENDPOINT_REGISTRY.get(("italian", "expression"), "")
 
 # Comprehensive alias shortcuts
 ALIAS_MAP: Dict[str, Tuple[str, str]] = {

@@ -23,7 +23,7 @@ main/connectivity/
 ├── post_scripts/                        # Feature 3: Post Scripts to Sheets
 │   ├── poster.py                        # Pushes scripts from D:\AI\output\scripts_to_see to Google Sheets (Cols A-C only)
 │   └── __init__.py                      # Package exports
-├── google_apps_script.js                # Master Apps Script (doGet for reading, doPost for in-place writing)
+├── google_apps_script.sample.js         # Canonical Apps Script sample template (doGet & doPost)
 ├── cli.py                               # CLI entry point for Feature 1 (Sync Sheets)
 ├── corrected_scripts_fetching.py        # Interactive CLI for Feature 2 (Fetch Corrected Scripts)
 ├── post_scripts.py                      # Interactive CLI for Feature 3 (Post Scripts to Sheets)
@@ -85,7 +85,7 @@ We use **Option A** dynamic routing: a single deployed Web App script acts as th
 ### Deployment Instructions:
 1. Open your master Google Sheet.
 2. Go to **Extensions > Apps Script**.
-3. Replace the contents of `Code.gs` with the complete code from [`google_apps_script.js`](google_apps_script.js).
+3. Replace the contents of `Code.gs` with the complete code from [`google_apps_script.sample.js`](google_apps_script.sample.js).
 4. Click **Save** (💾).
 5. Click **Deploy > Manage deployments**.
 6. Click the **pencil icon** (Edit) on the active deployment.

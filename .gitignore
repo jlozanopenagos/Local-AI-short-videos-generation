@@ -10,6 +10,12 @@ main/.env
 !.env.example
 !main/.env.example
 
+# --- Google Apps Script Deployment ---
+main/connectivity/google_apps_script.js
+**/connectivity/google_apps_script.js
+!main/connectivity/google_apps_script.sample.js
+!**/connectivity/google_apps_script.sample.js
+
 # --- Oversized Binaries (>100MB) & Windows Executables ---
 # ffmpeg.exe and ffprobe.exe are 138MB+ each and exceed GitHub limits.
 # Keep them locally; the pipeline falls back to system PATH if not in the folder.
