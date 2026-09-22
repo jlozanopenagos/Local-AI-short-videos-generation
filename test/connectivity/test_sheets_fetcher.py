@@ -67,11 +67,12 @@ class TestSheetsFetcher(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def test_endpoint_resolution_defaults_to_french_expression(self):
-        """Verify default resolution points to French Expression URL."""
+        """Verify default resolution points to French Expression target."""
+        from connectivity.endpoints import build_fetch_url
         lang, vtype, url = get_endpoint()
         self.assertEqual(lang, "french")
         self.assertEqual(vtype, "expression")
-        self.assertEqual(url, DEFAULT_FRENCH_EXPRESSION_URL)
+        self.assertEqual(url, build_fetch_url(DEFAULT_FRENCH_EXPRESSION_URL))
 
     def test_endpoint_custom_url_override(self):
         """Verify custom URL override bypasses registry."""
@@ -93,6 +94,7 @@ class TestSheetsFetcher(unittest.TestCase):
 
     def test_option_a_extract_spreadsheet_id_from_url_and_id(self):
         """Verify extract_spreadsheet_id correctly parses Google Sheet URLs and raw IDs."""
+        # pyrefly: ignore [missing-import]
         from connectivity.endpoints import extract_spreadsheet_id
         url = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit#gid=0"
         self.assertEqual(extract_spreadsheet_id(url), "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
@@ -106,6 +108,7 @@ class TestSheetsFetcher(unittest.TestCase):
 
     def test_option_a_build_fetch_url_routes_through_master(self):
         """Verify Option A: Sheet ID routes through MASTER_WEBAPP_URL with ?id= and &sheet=."""
+        # pyrefly: ignore [missing-import]
         from connectivity.endpoints import build_fetch_url, MASTER_WEBAPP_URL
         sheet_id = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
         resolved = build_fetch_url(sheet_id, tab="English_Scripts")
@@ -198,6 +201,8 @@ class TestSheetsFetcher(unittest.TestCase):
         self.assertTrue(json_path.exists())
         self.assertEqual(csv_path.name, "french_expression_connectivity.csv")
         self.assertEqual(json_path.name, "french_expression_connectivity.json")
+        self.assertEqual(csv_path.parent, self.test_output_dir / "french" / "expression")
+        self.assertTrue((self.test_output_dir / "french" / "expression" / "connectivity.csv").exists())
 
         # Verify CSV content
         with csv_path.open("r", encoding="utf-8-sig") as f:

@@ -12,62 +12,150 @@ from typing import Dict, Tuple, Optional, List
 
 # Primary registry of Google Sheets endpoints: (language_lower, video_type_lower) -> Web App URL
 # The provided French sheet URL is configured as default / french expression.
-DEFAULT_FRENCH_EXPRESSION_URL = (
-    "https://script.google.com/macros/s/YOUR_APPS_SCRIPT_WEBAPP_ID/exec"
-)
-
 DEFAULT_ENGLISH_EXPRESSION_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_EXPRESSION_SHEET_ID/edit?gid=1253474145#gid=1253474145"
+)
+
+DEFAULT_FRENCH_EXPRESSION_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_EXPRESSION_SHEET_ID/edit?gid=388718205#gid=388718205"
+)
+DEFAULT_SPANISH_EXPRESSION_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_EXPRESSION_SHEET_ID/edit?gid=938942305#gid=938942305"
+)
+
+DEFAULT_ITALIAN_EXPRESSION_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_EXPRESSION_SHEET_ID/edit?gid=1798445539#gid=1798445539"
+)
+DEFAULT_ENGLISH_GAME_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_GAME_SHEET_ID/edit?gid=797764761#gid=797764761"
+)
+
+DEFAULT_FRENCH_GAME_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_GAME_SHEET_ID/edit?gid=1568557660#gid=1568557660"
+)
+DEFAULT_SPANISH_GAME_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_GAME_SHEET_ID/edit?gid=619858333#gid=619858333"
+)
+
+DEFAULT_ITALIAN_GAME_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_GAME_SHEET_ID/edit?gid=2016972632#gid=2016972632"
+)
+
+DEFAULT_ENGLISH_ROLEPLAY_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_ROLEPLAY_SHEET_ID/edit?gid=1652307005#gid=1652307005"
+)
+
+DEFAULT_FRENCH_ROLEPLAY_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_ROLEPLAY_SHEET_ID/edit?gid=320241190#gid=320241190"
+)
+
+DEFAULT_SPANISH_ROLEPLAY_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_ROLEPLAY_SHEET_ID/edit?gid=453429196#gid=453429196"
+)
+
+DEFAULT_ITALIAN_ROLEPLAY_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_ROLEPLAY_SHEET_ID/edit?gid=1330624165#gid=1330624165"
+)
+
+DEFAULT_ENGLISH_FUN_FACTS_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ENGLISH_FUN_FACTS_SHEET_ID/edit?gid=1018300388#gid=1018300388"
+)
+
+DEFAULT_FRENCH_FUN_FACTS_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_FRENCH_FUN_FACTS_SHEET_ID/edit?gid=326424538#gid=326424538"
+)
+
+DEFAULT_SPANISH_FUN_FACTS_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_SPANISH_FUN_FACTS_SHEET_ID/edit?gid=1653121820#gid=1653121820"
+)
+
+DEFAULT_ITALIAN_FUN_FACTS_URL = (
+    "https://docs.google.com/spreadsheets/d/YOUR_ITALIAN_FUN_FACTS_SHEET_ID/edit?gid=1565936975#gid=1565936975"
+)
+
+# The central deployed Google Apps Script Web App URL for Option A dynamic sheet routing
+MASTER_WEBAPP_URL = os.getenv(
+    "SHEETS_MASTER_WEBAPP_URL",
     "https://script.google.com/macros/s/YOUR_APPS_SCRIPT_WEBAPP_ID/exec"
 )
 
-# In-memory endpoint dictionary
+# In-memory endpoint dictionary mapping (language, video_type) -> Google Sheet URL or ID
 ENDPOINT_REGISTRY: Dict[Tuple[str, str], str] = {
+    # French
     ("french", "expression"): os.getenv("SHEETS_ENDPOINT_FRENCH_EXPRESSION", DEFAULT_FRENCH_EXPRESSION_URL),
-    ("french", "roleplay"): os.getenv("SHEETS_ENDPOINT_FRENCH_ROLEPLAY", ""),
-    ("french", "game"): os.getenv("SHEETS_ENDPOINT_FRENCH_GAME", ""),
-    ("french", "fun_facts"): os.getenv("SHEETS_ENDPOINT_FRENCH_FUN_FACTS", ""),
+    ("french", "roleplay"): os.getenv("SHEETS_ENDPOINT_FRENCH_ROLEPLAY", DEFAULT_FRENCH_ROLEPLAY_URL),
+    ("french", "game"): os.getenv("SHEETS_ENDPOINT_FRENCH_GAME", DEFAULT_FRENCH_GAME_URL),
+    ("french", "fun_facts"): os.getenv("SHEETS_ENDPOINT_FRENCH_FUN_FACTS", DEFAULT_FRENCH_FUN_FACTS_URL),
 
+    # English
     ("english", "expression"): os.getenv("SHEETS_ENDPOINT_ENGLISH_EXPRESSION", DEFAULT_ENGLISH_EXPRESSION_URL),
-    ("english", "roleplay"): os.getenv("SHEETS_ENDPOINT_ENGLISH_ROLEPLAY", ""),
-    ("english", "game"): os.getenv("SHEETS_ENDPOINT_ENGLISH_GAME", ""),
-    ("english", "fun_facts"): os.getenv("SHEETS_ENDPOINT_ENGLISH_FUN_FACTS", ""),
+    ("english", "roleplay"): os.getenv("SHEETS_ENDPOINT_ENGLISH_ROLEPLAY", DEFAULT_ENGLISH_ROLEPLAY_URL),
+    ("english", "game"): os.getenv("SHEETS_ENDPOINT_ENGLISH_GAME", DEFAULT_ENGLISH_GAME_URL),
+    ("english", "fun_facts"): os.getenv("SHEETS_ENDPOINT_ENGLISH_FUN_FACTS", DEFAULT_ENGLISH_FUN_FACTS_URL),
 
-    ("spanish", "expression"): os.getenv("SHEETS_ENDPOINT_SPANISH_EXPRESSION", ""),
-    ("spanish", "roleplay"): os.getenv("SHEETS_ENDPOINT_SPANISH_ROLEPLAY", ""),
-    ("spanish", "game"): os.getenv("SHEETS_ENDPOINT_SPANISH_GAME", ""),
-    ("spanish", "fun_facts"): os.getenv("SHEETS_ENDPOINT_SPANISH_FUN_FACTS", ""),
+    # Spanish
+    ("spanish", "expression"): os.getenv("SHEETS_ENDPOINT_SPANISH_EXPRESSION", DEFAULT_SPANISH_EXPRESSION_URL),
+    ("spanish", "roleplay"): os.getenv("SHEETS_ENDPOINT_SPANISH_ROLEPLAY", DEFAULT_SPANISH_ROLEPLAY_URL),
+    ("spanish", "game"): os.getenv("SHEETS_ENDPOINT_SPANISH_GAME", DEFAULT_SPANISH_GAME_URL),
+    ("spanish", "fun_facts"): os.getenv("SHEETS_ENDPOINT_SPANISH_FUN_FACTS", DEFAULT_SPANISH_FUN_FACTS_URL),
 
-    ("italian", "expression"): os.getenv("SHEETS_ENDPOINT_ITALIAN_EXPRESSION", ""),
-    ("italian", "roleplay"): os.getenv("SHEETS_ENDPOINT_ITALIAN_ROLEPLAY", ""),
-    ("italian", "game"): os.getenv("SHEETS_ENDPOINT_ITALIAN_GAME", ""),
-    ("italian", "fun_facts"): os.getenv("SHEETS_ENDPOINT_ITALIAN_FUN_FACTS", ""),
+    # Italian
+    ("italian", "expression"): os.getenv("SHEETS_ENDPOINT_ITALIAN_EXPRESSION", DEFAULT_ITALIAN_EXPRESSION_URL),
+    ("italian", "roleplay"): os.getenv("SHEETS_ENDPOINT_ITALIAN_ROLEPLAY", DEFAULT_ITALIAN_ROLEPLAY_URL),
+    ("italian", "game"): os.getenv("SHEETS_ENDPOINT_ITALIAN_GAME", DEFAULT_ITALIAN_GAME_URL),
+    ("italian", "fun_facts"): os.getenv("SHEETS_ENDPOINT_ITALIAN_FUN_FACTS", DEFAULT_ITALIAN_FUN_FACTS_URL),
 }
 
-# Alias shortcuts (e.g. 'french', 'fe', 'fr_expression')
+# Comprehensive alias shortcuts (e.g. 'french', 'fe', 'fr_game', 'english_roleplay')
 ALIAS_MAP: Dict[str, Tuple[str, str]] = {
+    # French
     "french": ("french", "expression"),
     "fe": ("french", "expression"),
     "fr": ("french", "expression"),
     "french_expression": ("french", "expression"),
     "french_roleplay": ("french", "roleplay"),
+    "fr_roleplay": ("french", "roleplay"),
     "french_game": ("french", "game"),
+    "fr_game": ("french", "game"),
     "french_fun_facts": ("french", "fun_facts"),
+    "fr_fun_facts": ("french", "fun_facts"),
 
+    # English
     "english": ("english", "expression"),
     "ee": ("english", "expression"),
     "en": ("english", "expression"),
+    "english_expression": ("english", "expression"),
+    "english_roleplay": ("english", "roleplay"),
+    "en_roleplay": ("english", "roleplay"),
+    "english_game": ("english", "game"),
+    "en_game": ("english", "game"),
+    "english_fun_facts": ("english", "fun_facts"),
+    "en_fun_facts": ("english", "fun_facts"),
 
+    # Spanish
     "spanish": ("spanish", "expression"),
     "se": ("spanish", "expression"),
     "es": ("spanish", "expression"),
+    "spanish_expression": ("spanish", "expression"),
+    "spanish_roleplay": ("spanish", "roleplay"),
+    "es_roleplay": ("spanish", "roleplay"),
+    "spanish_game": ("spanish", "game"),
+    "es_game": ("spanish", "game"),
+    "spanish_fun_facts": ("spanish", "fun_facts"),
+    "es_fun_facts": ("spanish", "fun_facts"),
 
+    # Italian
     "italian": ("italian", "expression"),
     "ie": ("italian", "expression"),
     "it": ("italian", "expression"),
+    "italian_expression": ("italian", "expression"),
+    "italian_roleplay": ("italian", "roleplay"),
+    "it_roleplay": ("italian", "roleplay"),
+    "italian_game": ("italian", "game"),
+    "it_game": ("italian", "game"),
+    "italian_fun_facts": ("italian", "fun_facts"),
+    "it_fun_facts": ("italian", "fun_facts"),
 }
-
-
-MASTER_WEBAPP_URL = DEFAULT_FRENCH_EXPRESSION_URL
 
 import re
 

@@ -36,30 +36,38 @@ except (ImportError, ModuleNotFoundError):
 TARGET_COLUMNS = ["ID", "expression", "script"]
 
 
-def resolve_connectivity_output_dir(custom_dir: Optional[Path | str] = None) -> Path:
+def resolve_connectivity_output_dir(
+    custom_dir: Optional[Path | str] = None,
+    language: Optional[str] = None,
+    video_type: Optional[str] = None,
+) -> Path:
     """
-    Resolves the destination directory for connectivity data.
-    Preferred location: D:\\AI\\output\\connectivity
-    Fallback: OUTPUT_DIR / connectivity
+    Resolves the destination directory for connectivity data, organized by language and video type.
+    Preferred location: D:\\AI\\output\\connectivity\\<language>\\<video_type>
+    Fallback: OUTPUT_DIR / connectivity / <language> / <video_type>
     """
     if custom_dir:
-        out = Path(custom_dir).resolve()
-        out.mkdir(parents=True, exist_ok=True)
-        return out
+        base = Path(custom_dir).resolve()
+    else:
+        d_drive_target = Path("D:/AI/output/connectivity")
+        try:
+            if Path("D:/AI/output").exists() or Path("D:/").exists():
+                d_drive_target.mkdir(parents=True, exist_ok=True)
+                base = d_drive_target
+            else:
+                base = OUTPUT_DIR / "connectivity"
+        except Exception:
+            base = OUTPUT_DIR / "connectivity"
 
-    # Check preferred D: drive path
-    d_drive_target = Path("D:/AI/output/connectivity")
-    try:
-        if Path("D:/AI/output").exists() or Path("D:/").exists():
-            d_drive_target.mkdir(parents=True, exist_ok=True)
-            return d_drive_target
-    except Exception:
-        pass
+    if language and video_type:
+        dest = base / language.strip().lower() / video_type.strip().lower()
+    elif language:
+        dest = base / language.strip().lower()
+    else:
+        dest = base
 
-    # Fallback to configured OUTPUT_DIR
-    fallback_target = OUTPUT_DIR / "connectivity"
-    fallback_target.mkdir(parents=True, exist_ok=True)
-    return fallback_target
+    dest.mkdir(parents=True, exist_ok=True)
+    return dest
 
 
 def fetch_sheet_data(endpoint_url: str, timeout: float = 60.0) -> List[Dict[str, str]]:
@@ -174,17 +182,30 @@ def save_connectivity_data(
     Returns:
         Tuple[Path, Path]: (csv_path, json_path)
     """
-    dest_dir = resolve_connectivity_output_dir(output_dir)
-
     lang_clean = language.strip().lower()
     type_clean = video_type.strip().lower()
+
+    dest_dir = resolve_connectivity_output_dir(
+        custom_dir=output_dir,
+        language=lang_clean,
+        video_type=type_clean,
+    )
+
     filename_base = f"{lang_clean}_{type_clean}_connectivity"
 
     csv_path = dest_dir / f"{filename_base}.csv"
     json_path = dest_dir / f"{filename_base}.json"
+    shorthand_csv = dest_dir / "connectivity.csv"
 
     # 1. Write CSV
     with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=TARGET_COLUMNS)
+        writer.writeheader()
+        for rec in records:
+            writer.writerow({col: rec.get(col, "") for col in TARGET_COLUMNS})
+
+    # Shorthand connectivity.csv in the same subfolder
+    with shorthand_csv.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=TARGET_COLUMNS)
         writer.writeheader()
         for rec in records:
