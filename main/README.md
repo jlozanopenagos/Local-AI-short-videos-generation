@@ -14,11 +14,12 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
 5. [Hardware Optimization: Low-VRAM (6GB) Engineering](#hardware-optimization-low-vram-6gb-engineering)
 6. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
 7. [Interactive CLI & Modifier Ecosystem](#interactive-cli--modifier-ecosystem)
-8. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
-9. [Prerequisites & Installation](#prerequisites--installation)
-10. [Configuration & Environment Matrix](#configuration--environment-matrix)
-11. [CLI Operational Reference Manual](#cli-operational-reference-manual)
-12. [Repository Directory Index](#repository-directory-index)
+8. [Google Sheets Connectivity & Publishing Suite](#google-sheets-connectivity--publishing-suite)
+9. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
+10. [Prerequisites & Installation](#prerequisites--installation)
+11. [Configuration & Environment Matrix](#configuration--environment-matrix)
+12. [CLI Operational Reference Manual](#cli-operational-reference-manual)
+13. [Repository Directory Index](#repository-directory-index)
 
 ---
 
@@ -257,6 +258,33 @@ Located in `tools/modifiers/`:
 
 ---
 
+## Google Sheets Connectivity & Publishing Suite
+
+Located in `main/connectivity/`, this modular suite bridges the local video pipeline with external Google Sheets spreadsheets across all 16 language/type matrices using Option A dynamic routing (`?id=<SPREADSHEET_ID>`):
+
+```
+main/connectivity/
+├── core/                           # Endpoints registry & resilient HTTP client (redirects & retries)
+├── sheet_sync/                     # Syncs Columns A-C to local CSV files
+├── corrected_scripts/              # Pulls Column D (SCRIPT_CHANGED) to input/csv/script_to_change/
+├── post_scripts/                   # Pushes review scripts from D:\AI\output\scripts_to_see to Sheets
+├── google_apps_script.js           # Google Apps Script Web App implementation (doGet & doPost)
+└── cli.py                          # Primary connectivity CLI entry point
+```
+
+### 3 Core Capabilities:
+1. **Master Sheet Synchronization (`connectivity/cli.py`)**:
+   Fetches all records from Google Sheets and writes clean, standardized CSV files directly to `D:\AI\output\connectivity\<lang>\<type>\<lang>_<type>_connectivity.csv`.
+2. **Pulling External Corrections (`connectivity/corrected_scripts/corrected_scripts_fetching.py`)**:
+   Scans Column D (`SCRIPT_CHANGED`) for user or external editor revisions. Outputs filtered, non-empty modifications directly into `main/input/csv/script_to_change/<lang>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`. Supports full sheets, ranges (e.g. `01-50`), single IDs, or reading IDs from `input/csv/script_to_change/ids_to_fetch.csv`.
+3. **Safe Script Publishing (`connectivity/post_scripts/post_scripts.py`)**:
+   Publishes review scripts from `D:\AI\output\scripts_to_see` back to Google Sheets.
+   - **Column D Safety Guarantee**: Modifies **ONLY Columns A, B, and C** (`ID`, `EXPRESSION`, `SCRIPT`). Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten**.
+   - Interactive scopes: All sheets, specific sheet (language + type), number range (e.g. `10-20`), or specific ID list.
+   - Supports both in-place updates of existing IDs and automatic appending of new records.
+
+---
+
 ## External Script Doctoring & LLM Ingestion
 
 The repository includes `system_prompts_editor.csv` for human-in-the-loop workflows where scripts are polished using external state-of-the-art LLMs (Claude, ChatGPT, Gemini):
@@ -381,6 +409,18 @@ python tools/auditing/status_scraper.py --samples
 python tools/auditing/audit_all_csvs.py
 ```
 
+### Google Sheets Connectivity Suite
+```bash
+# Feature 1: Synchronize all Google Sheets to local connectivity CSVs
+python connectivity/cli.py
+
+# Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/
+python connectivity/corrected_scripts/corrected_scripts_fetching.py
+
+# Feature 3: Safely publish review scripts from D:\AI\output\scripts_to_see to Google Sheets
+python connectivity/post_scripts/post_scripts.py
+```
+
 ---
 
 ## Repository Directory Index
@@ -394,6 +434,14 @@ shorts_automation/
 │   │   ├── health.py                   # Pre-flight service health assertions (LLM, ComfyUI)
 │   │   ├── settings.py                 # Core path mappings, pauses, and voice maps
 │   │   └── __init__.py
+│   ├── connectivity/                   # Modular Google Sheets integration suite
+│   │   ├── core/                       # Option A endpoints router & resilient HTTP client
+│   │   ├── sheet_sync/                 # Sheet to CSV synchronization service & CLI
+│   │   ├── corrected_scripts/          # Column D (SCRIPT_CHANGED) fetching engine
+│   │   ├── post_scripts/               # Safe script publisher (Columns A-C safe update)
+│   │   ├── google_apps_script.js       # Apps Script Web App implementation (doGet/doPost)
+│   │   ├── cli.py                      # Primary connectivity CLI runner
+│   │   └── README.md                   # Full connectivity manual and deployment guide
 │   ├── core/                           # Shared infrastructure and utilities
 │   │   ├── cli_prompt.py               # Interactive CLI menus with 10s countdown timers
 │   │   ├── expression_db.py            # SQLite + CSV hybrid database implementation
@@ -408,6 +456,7 @@ shorts_automation/
 │   │   ├── csv/
 │   │   │   ├── README.md               # Prompt queue documentation and column schemas
 │   │   │   ├── sample_templates/       # Canonical .sample.csv templates for all 4 formats & CTAs
+│   │   │   ├── script_to_change/       # Replaces existing scripts (populated manually or via connectivity)
 │   │   │   ├── <lang>/expressions_list/# Active prompt queues per format (gitignored for privacy)
 │   │   │   └── <lang>/game_call_to_action_phrases/ # CTA phrase libraries (gitignored for privacy)
 │   │   └── images/                     # Static brand assets

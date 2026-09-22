@@ -97,6 +97,8 @@ py tools/auditing/check_language_mixing.py
 
 #### Export Scripts for Human Review (`scrapper_script.py`)
 Scrapes and unescapes generated scripts from `state/` JSON files into clean, readable CSV files in `OUTPUT_DIR/scripts_to_see/<language>/<type>/<language>_<type>_scripts.csv`.
+- **Deduplication & Sample Filtering**: Automatically ignores `.sample` templates (e.g. `script_state.sample.json`) and tracks seen script IDs per language/type pair, guaranteeing 100% duplicate-free review CSVs.
+- **Feeder for Google Sheets Publishing**: The generated CSV files match the exact schema (`ID,expression,script`) required by `main/connectivity/post_scripts/post_scripts.py` to publish scripts directly to Google Sheets Columns A, B, and C.
 ```bash
 py tools/auditing/scrapper_script.py
 py tools/auditing/scrapper_script.py -l english -t roleplay
@@ -107,7 +109,10 @@ py tools/auditing/scrapper_script.py -l english -t roleplay
 ### 3. Interactive Modifiers (`tools/modifiers/`)
 
 #### Interactive Script Modifier (`script_modifier.py`)
-Interactive utility to modify or repair a video script using a plain text input while strictly preserving the provided script text verbatim. Supports both single-script editing and **Mass Script Changes** (queueing multiple IDs and plain-text scripts before launching LLM batch processing). Enforces canonical key ordering (`title` strictly first key, clean catchy names without generic `: Shorts Guide` suffixes) and automatically synchronizes review CSVs in `output/scripts_to_see/<lang>/<vtype>/` upon every modification.
+Interactive utility to modify or repair a video script using a plain text input while strictly preserving the provided script text verbatim.
+- **Zero-Hallucination Verbatim Ingestion**: When raw text is supplied, `parse_user_script_into_sections()` segments paragraphs into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff`, etc.) and sets them directly into `content_metadata.script`. The LLM is used strictly for metadata/title synthesis and is forbidden from altering spoken text.
+- **Mass Script Changes**: Supports queueing multiple IDs and plain-text scripts before launching LLM batch processing.
+- **Enforces Canonical Standards**: Enforces canonical key ordering (`title` strictly first key, clean catchy names without generic `: Shorts Guide` suffixes) and automatically synchronizes review CSVs in `output/scripts_to_see/<lang>/<vtype>/` upon every modification.
 ```bash
 # Interactive mode (prompts to choose [1] Single Script or [2] Mass Script Changes)
 py tools/modifiers/script_modifier.py

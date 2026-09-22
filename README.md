@@ -16,6 +16,7 @@ shorts_automation/
 ├── .gitignore                          # Global exclusion rules protecting secrets, media & cache
 ├── main/                               # Production pipeline and core applications
 │   ├── config/                         # Central configuration, paths, and health checks
+│   ├── connectivity/                   # Google Sheets integration suite (fetch, sync, safe publish)
 │   ├── core/                           # Shared infrastructure, DB models, state machine
 │   ├── database/                       # Centralized expression stores (SQLite + CSV)
 │   ├── input/                          # Proprietary prompt CSV queues & brand image assets
@@ -72,7 +73,7 @@ py main/video_creation/_G_video_assembly/main.py
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 93 automated tests (unit, integration, contracts, security)
+# Run all 101 automated tests (unit, integration, contracts, security)
 py test/run_tests.py
 
 # Run specific layers
@@ -94,31 +95,44 @@ py main/tools/database/sync_prompts.py
 py main/tools/auditing/status_scraper.py
 ```
 
+### 6. Google Sheets Connectivity Suite
+```powershell
+# Feature 1: Synchronize all Google Sheets to local connectivity CSVs
+py main/connectivity/cli.py
+
+# Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/
+py main/connectivity/corrected_scripts/corrected_scripts_fetching.py
+
+# Feature 3: Safely publish review scripts from D:\AI\output\scripts_to_see to Google Sheets
+py main/connectivity/post_scripts/post_scripts.py
+```
+
 ---
 
 ## Documentation Links
 
 - **[main/README.md](main/README.md)**: Full operational manual, narrative engineering principles, 4 content formats, hardware optimization guide, and modifier ecosystem.
+- **[main/connectivity/README.md](main/connectivity/README.md)**: Google Sheets connectivity manual, Option A routing, Apps Script deployment, and safe publishing rules.
 - **[main/AGENTS.md](main/AGENTS.md)**: System architecture, agent guidelines, prompt rules, and developer directives.
+- **[main/input/csv/README.md](main/input/csv/README.md)**: Prompt queue schemas and `script_to_change` verbatim ingestion guide.
 - **[test/README.md](test/README.md)**: QA engineering principles, test suite structure, and CI test runner guide.
 
 ---
 
 ## Recent Changes
 
-### `feature/idiomatic-roleplay` — ROLEPLAY Expression Classification System
+### `feature/connectivity` — Google Sheets Suite, Verbatim Ingestion & Deduplication
+- **Modular Connectivity Suite (`main/connectivity/`)**:
+  - Modular architecture: `core/`, `sheet_sync/`, `corrected_scripts/`, `post_scripts/`.
+  - Master Web App with Option A routing (`?id=<SPREADSHEET_ID>`) supporting both `doGet` (reads) and `doPost` (in-place updates & appends).
+  - Syncs to `D:\AI\output\connectivity\<lang>\<type>\<lang>_<type>_connectivity.csv`.
+  - Column D safety rule: Publishing via `post_scripts.py` modifies **only Columns A, B, and C**. Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten**.
+- **Zero-Hallucination Verbatim Script Changes (`script_to_change`)**:
+  - `parse_user_script_into_sections()` directly maps user-crafted paragraphs into canonical JSON format keys.
+  - Spoken text is preserved **100% verbatim** in `content_metadata.script` with zero LLM alterations.
+  - CSV parser enhanced with `skipinitialspace=True` and regex comma sanitization to prevent row truncation.
+- **Scraper Deduplication & Sample Exclusion**:
+  - Excluded `.sample` templates in `scrapper_script.py` and enforced unique canonical ID tracking per language/type pair, guaranteeing 100% duplicate-free review CSVs in `D:\AI\output\scripts_to_see`.
+- **Comprehensive Test Suite Expansion**:
+  - 101 automated tests across all 4 QA layers (unit, integration, contracts, security).
 
-Added a `SPECIAL_TREATMENT` column to `READY_PROMPTS_ROLEPLAY.csv` to classify each expression under one **mutually exclusive** pedagogical lens:
-
-| Value | When to use |
-|---|---|
-| `idiomatic` | Fixed multi-word figurative phrase (*break a leg*, *costar un ojo de la cara*, *poser un lapin*) |
-| `phonetic` | Stress-shift / heteronym / minimal pair (*REcord vs reCORD*) |
-| `false_friend` | Cross-language false cognate (*embarrassed / embarazada*) |
-| *(blank)* | Default — LLM decides (no change to existing behavior) |
-
-**Why**: Analysis of 60 generated scripts identified that idiomatic roleplays consistently failed one quality test — **Error #4 (No Usage Modeling)**: P1 would nod along while P2 explained, but never use the idiom themselves. The fix enforces a mandatory 4-part arc where **P1 must use the complete idiom in an original sentence by `DIALOGUE_PART_4`**.
-
-**How to use**: Add `SPECIAL_TREATMENT=idiomatic` to any ROLEPLAY CSV row where the expression is a multi-word idiom, then regenerate with `--force`. The system auto-retries if the quality gates are not met.
-
-All changes are on branch `feature/idiomatic-roleplay`. See [main/AGENTS.md](main/AGENTS.md) for full technical details.
