@@ -264,22 +264,30 @@ Located in `main/connectivity/`, this modular suite bridges the local video pipe
 
 ```
 main/connectivity/
+├── sync_sheets.py                  # Principal Runner 1: Syncs Sheets to _3_columns/ or _4_columns/
+├── fetch_corrected_scripts.py      # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
+├── reconcile_scripts.py            # Principal Runner 3: Audits & reorganizes local scripts against Sheets
+├── post_scripts.py                 # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
+├── cli.py                          # Backward-compatibility alias for sync_sheets.py
+├── corrected_scripts_fetching.py   # Backward-compatibility alias for fetch_corrected_scripts.py
 ├── core/                           # Endpoints registry & resilient HTTP client (redirects & retries)
-├── sheet_sync/                     # Syncs Columns A-C to local CSV files
+├── apps_script/                    # Apps Script Web App implementation (doGet/doPost) & deployment guide
+├── sheet_sync/                     # Syncs Columns A-C (or A:D) to local CSV files
 ├── corrected_scripts/              # Pulls Column D (SCRIPT_CHANGED) to input/csv/script_to_change/
-├── post_scripts/                   # Pushes review scripts from D:\AI\output\scripts_to_see to Sheets
-├── google_apps_script.js           # Google Apps Script Web App implementation (doGet & doPost)
-└── cli.py                          # Primary connectivity CLI entry point
+├── reconcile/                      # Reorganizes local scripts to match Google Sheets order
+└── post_scripts/                   # Safe script publisher to Google Sheets
 ```
 
-### 3 Core Capabilities:
-1. **Master Sheet Synchronization (`connectivity/cli.py`)**:
-   Fetches all records from Google Sheets and writes clean, standardized CSV files directly to `D:\AI\output\connectivity\<lang>\<type>\<lang>_<type>_connectivity.csv`.
-2. **Pulling External Corrections (`connectivity/corrected_scripts/corrected_scripts_fetching.py`)**:
-   Scans Column D (`SCRIPT_CHANGED`) for user or external editor revisions. Outputs filtered, non-empty modifications directly into `main/input/csv/script_to_change/<lang>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`. Supports full sheets, ranges (e.g. `01-50`), single IDs, or reading IDs from `input/csv/script_to_change/ids_to_fetch.csv`.
-3. **Safe Script Publishing (`connectivity/post_scripts/post_scripts.py`)**:
-   Publishes review scripts from `D:\AI\output\scripts_to_see` back to Google Sheets.
-   - **Column D Safety Guarantee**: Modifies **ONLY Columns A, B, and C** (`ID`, `EXPRESSION`, `SCRIPT`). Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten**.
+### 4 Core Capabilities & Principal Runner Scripts:
+1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`, legacy alias `cli.py`)**:
+   Fetches records from Google Sheets and writes standardized CSV files to `D:\AI\output\connectivity\_3_columns\` or `_4_columns\`.
+2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`, legacy alias `corrected_scripts_fetching.py`)**:
+   Scans Column D (`SCRIPT_CHANGED`) for user or external editor revisions. Outputs filtered modifications to `main/input/csv/script_to_change/<lang>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`. Supports full sheets, ranges (e.g. `01-50`), single IDs, or reading IDs from `input/csv/script_to_change/ids_to_fetch.csv`.
+3. **Reconcile & Reorganize Scripts (`connectivity/reconcile_scripts.py`)**:
+   Audits local scripts against Google Sheets order, preserving sheet row sequences and canonical expression names while appending new local entries at the end. Exports clean mass-update CSVs to `D:\AI\output\connectivity\scripts_to_post\`.
+4. **Safe Script Publishing (`connectivity/post_scripts.py`)**:
+   Publishes scripts from `scripts_to_post` (or `scripts_to_see` / `_4_columns`) back to Google Sheets.
+   - **Column D Safety Guarantee**: In standard 3-column mode, modifies **ONLY Columns A, B, and C** (`ID`, `EXPRESSION`, `SCRIPT`). Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten** unless 4-column mode is explicitly selected.
    - Interactive scopes: All sheets, specific sheet (language + type), number range (e.g. `10-20`), or specific ID list.
    - Supports both in-place updates of existing IDs and automatic appending of new records.
 
@@ -419,14 +427,17 @@ python tools/auditing/audit_all_csvs.py
 
 ### Google Sheets Connectivity Suite
 ```bash
-# Feature 1: Synchronize all Google Sheets to local connectivity CSVs
-python connectivity/cli.py
+# Feature 1: Synchronize all Google Sheets to local connectivity CSVs (_3_columns or _4_columns)
+python connectivity/sync_sheets.py --all
 
 # Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/
-python connectivity/corrected_scripts/corrected_scripts_fetching.py
+python connectivity/fetch_corrected_scripts.py
 
-# Feature 3: Safely publish review scripts from D:\AI\output\scripts_to_see to Google Sheets
-python connectivity/post_scripts/post_scripts.py
+# Feature 3: Reconcile & reorganize local scripts against Google Sheets order
+python connectivity/reconcile_scripts.py
+
+# Feature 4: Safely publish scripts from scripts_to_post to Google Sheets
+python connectivity/post_scripts.py
 ```
 
 ---
@@ -443,12 +454,18 @@ shorts_automation/
 │   │   ├── settings.py                 # Core path mappings, pauses, and voice maps
 │   │   └── __init__.py
 │   ├── connectivity/                   # Modular Google Sheets integration suite
+│   │   ├── sync_sheets.py              # Principal Runner 1: Syncs Sheets to CSV (_3_cols / _4_cols)
+│   │   ├── fetch_corrected_scripts.py  # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
+│   │   ├── reconcile_scripts.py        # Principal Runner 3: Audits & reorganizes local scripts
+│   │   ├── post_scripts.py             # Principal Runner 4: Posts scripts to Google Sheets
+│   │   ├── cli.py                      # Backward-compatibility alias for sync_sheets.py
+│   │   ├── corrected_scripts_fetching.py # Backward-compatibility alias for fetch_corrected_scripts.py
 │   │   ├── core/                       # Option A endpoints router & resilient HTTP client
-│   │   ├── sheet_sync/                 # Sheet to CSV synchronization service & CLI
+│   │   ├── apps_script/                # Apps Script Web App implementation & deployment guide
+│   │   ├── sheet_sync/                 # Sheet to CSV synchronization service
 │   │   ├── corrected_scripts/          # Column D (SCRIPT_CHANGED) fetching engine
-│   │   ├── post_scripts/               # Safe script publisher (Columns A-C safe update)
-│   │   ├── google_apps_script.js       # Apps Script Web App implementation (doGet/doPost)
-│   │   ├── cli.py                      # Primary connectivity CLI runner
+│   │   ├── reconcile/                  # Reconcile & reorganization service
+│   │   ├── post_scripts/               # Safe script publisher engine
 │   │   └── README.md                   # Full connectivity manual and deployment guide
 │   ├── core/                           # Shared infrastructure and utilities
 │   │   ├── cli_prompt.py               # Interactive CLI menus with 10s countdown timers

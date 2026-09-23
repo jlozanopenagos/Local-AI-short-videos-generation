@@ -26,6 +26,7 @@ try:
         normalize_sheet_rows,
     )
 except (ImportError, ModuleNotFoundError):
+    # pyrefly: ignore [missing-import]
     from main.connectivity.core import (
         get_endpoint,
         ENDPOINT_REGISTRY,
@@ -34,30 +35,38 @@ except (ImportError, ModuleNotFoundError):
     )
 
 TARGET_COLUMNS = ["ID", "expression", "script"]
+FOUR_COLUMNS = ["ID", "expression", "script", "SCRIPT_CHANGED"]
 
 
 def resolve_connectivity_output_dir(
     custom_dir: Optional[Path | str] = None,
     language: Optional[str] = None,
     video_type: Optional[str] = None,
+    include_script_changed: bool = False,
 ) -> Path:
     """
-    Resolves destination directory for connectivity data, organized by language and video type.
-    Preferred location: D:\\AI\\output\\connectivity\\<language>\\<video_type>
-    Fallback: OUTPUT_DIR / connectivity / <language> / <video_type>
+    Resolves destination directory for connectivity data, organized by column mode, language and video type.
+    Preferred location:
+      - 3 columns: D:\\AI\\output\\connectivity\\_3_columns\\<language>\\<video_type>
+      - 4 columns: D:\\AI\\output\\connectivity\\_4_columns\\<language>\\<video_type>
+    Fallback: OUTPUT_DIR / connectivity / (_3_columns or _4_columns) / <language> / <video_type>
     """
+    col_subdir = "_4_columns" if include_script_changed else "_3_columns"
+
     if custom_dir:
         base = Path(custom_dir).resolve()
+        if base.name not in ("_3_columns", "_4_columns"):
+            base = base / col_subdir
     else:
         d_drive_target = Path("D:/AI/output/connectivity")
         try:
             if Path("D:/AI/output").exists() or Path("D:/").exists():
                 d_drive_target.mkdir(parents=True, exist_ok=True)
-                base = d_drive_target
+                base = d_drive_target / col_subdir
             else:
-                base = OUTPUT_DIR / "connectivity"
+                base = OUTPUT_DIR / "connectivity" / col_subdir
         except Exception:
-            base = OUTPUT_DIR / "connectivity"
+            base = OUTPUT_DIR / "connectivity" / col_subdir
 
     if language and video_type:
         dest = base / language.strip().lower() / video_type.strip().lower()
@@ -71,7 +80,7 @@ def resolve_connectivity_output_dir(
 
 
 def fetch_sheet_data(endpoint_url: str, timeout: float = 60.0) -> List[Dict[str, str]]:
-    """Fetches sheet rows and normalizes target columns (ID, expression, script)."""
+    """Fetches sheet rows and normalizes target columns (ID, expression, script, SCRIPT_CHANGED)."""
     raw_rows = fetch_raw_sheet_rows(endpoint_url, timeout=timeout)
     return normalize_sheet_rows(raw_rows)
 
@@ -81,10 +90,12 @@ def save_connectivity_data(
     language: str = "french",
     video_type: str = "expression",
     output_dir: Optional[Path | str] = None,
+    include_script_changed: bool = False,
+    columns: Optional[List[str]] = None,
 ) -> Path:
     """
     Saves fetched records to CSV format inside:
-    <output_dir>/<language>/<video_type>/<language>_<video_type>_connectivity.csv
+    <output_dir>/<_3_columns or _4_columns>/<language>/<video_type>/<language>_<video_type>_connectivity.csv
     """
     lang_clean = language.strip().lower()
     type_clean = video_type.strip().lower()
@@ -93,16 +104,24 @@ def save_connectivity_data(
         custom_dir=output_dir,
         language=lang_clean,
         video_type=type_clean,
+        include_script_changed=include_script_changed,
     )
 
     filename_base = f"{lang_clean}_{type_clean}_connectivity"
     csv_path = dest_dir / f"{filename_base}.csv"
 
+    if columns is not None:
+        target_cols = columns
+    elif include_script_changed:
+        target_cols = FOUR_COLUMNS
+    else:
+        target_cols = TARGET_COLUMNS
+
     with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=TARGET_COLUMNS)
+        writer = csv.DictWriter(f, fieldnames=target_cols)
         writer.writeheader()
         for rec in records:
-            writer.writerow({col: rec.get(col, "") for col in TARGET_COLUMNS})
+            writer.writerow({col: rec.get(col, "") for col in target_cols})
 
     return csv_path
 
@@ -114,6 +133,7 @@ def sync_sheet(
     output_dir: Optional[Path | str] = None,
     sheet_id: Optional[str] = None,
     tab: Optional[str] = None,
+    include_script_changed: bool = False,
 ) -> Dict[str, Any]:
     """Syncs a single sheet to D:\\AI\\output\\connectivity."""
     resolved_lang, resolved_type, endpoint_url = get_endpoint(
@@ -130,7 +150,9 @@ def sync_sheet(
         except Exception:
             pass
 
+    col_desc = "4 columns (ID, expression, script, SCRIPT_CHANGED)" if include_script_changed else "3 columns (ID, expression, script)"
     print(f"\n[CONNECTIVITY] Connecting to Google Sheets [{resolved_lang.capitalize()} - {resolved_type.upper()}]...")
+    print(f"   Mode:     {col_desc}")
     print(f"   Endpoint: {endpoint_url}")
 
     records = fetch_sheet_data(endpoint_url)
@@ -141,15 +163,19 @@ def sync_sheet(
         language=resolved_lang,
         video_type=resolved_type,
         output_dir=output_dir,
+        include_script_changed=include_script_changed,
     )
 
-    print(f"   [SAVED] CSV:  {csv_file}")
+    col_count = 4 if include_script_changed else 3
+    print(f"   [SAVED] CSV ({col_count} cols): {csv_file}")
 
     return {
         "status": "success",
         "language": resolved_lang,
         "video_type": resolved_type,
         "count": len(records),
+        "columns": FOUR_COLUMNS if include_script_changed else TARGET_COLUMNS,
+        "include_script_changed": include_script_changed,
         "csv_path": str(csv_file),
         "records": records,
     }
@@ -159,6 +185,7 @@ def sync_all_sheets(
     language: Optional[str] = None,
     video_type: Optional[str] = None,
     output_dir: Optional[Path | str] = None,
+    include_script_changed: bool = False,
 ) -> Dict[str, Any]:
     """Syncs multiple Google Sheets in batch."""
     targets: List[Tuple[str, str]] = []
@@ -174,8 +201,10 @@ def sync_all_sheets(
             continue
         targets.append((l, t))
 
+    col_str = "4 columns (ID, expression, script, SCRIPT_CHANGED) -> _4_columns" if include_script_changed else "3 columns (ID, expression, script) -> _3_columns"
     print(f"\n=======================================================")
     print(f"  BATCH GOOGLE SHEETS SYNC: {len(targets)} sheet(s) queued")
+    print(f"  Export Mode: {col_str}")
     print(f"=======================================================")
 
     results = []
@@ -185,7 +214,12 @@ def sync_all_sheets(
     for idx, (l, t) in enumerate(targets, 1):
         print(f"\n[{idx}/{len(targets)}] Syncing {l.capitalize()} - {t.upper()}...")
         try:
-            res = sync_sheet(language=l, video_type=t, output_dir=output_dir)
+            res = sync_sheet(
+                language=l,
+                video_type=t,
+                output_dir=output_dir,
+                include_script_changed=include_script_changed,
+            )
             results.append(res)
             total_records += res.get("count", 0)
         except Exception as e:
@@ -203,6 +237,7 @@ def sync_all_sheets(
         "succeeded_count": len(results),
         "failed_count": len(failed),
         "total_records": total_records,
+        "include_script_changed": include_script_changed,
         "results": results,
         "failed": failed,
     }

@@ -6,48 +6,68 @@ Modular integration layer connecting Google Sheets to the `shorts_automation` pi
 
 ## Architecture Overview
 
-The `main/connectivity` package is partitioned into focused functional submodules:
+The `main/connectivity` package is organized into dedicated functional subpackages, keeping **only the principal executable runner scripts** (and lightweight backward-compatibility aliases) at the root:
 
 ```text
 main/connectivity/
+├── sync_sheets.py                       # Principal Runner 1: Syncs Sheets to _3_columns/ or _4_columns/
+├── fetch_corrected_scripts.py           # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
+├── reconcile_scripts.py                 # Principal Runner 3: Audits & reorganizes local scripts against Sheets
+├── post_scripts.py                      # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
+├── cli.py                               # Backward-compatibility alias for sync_sheets.py
+├── corrected_scripts_fetching.py        # Backward-compatibility alias for fetch_corrected_scripts.py
 ├── core/                                # Shared infrastructure & HTTP client
 │   ├── endpoints.py                     # All 16 endpoints, Option A master router & spreadsheet ID extractor
 │   ├── client.py                        # Resilient HTTP GET & POST client (302 redirects, auto-retries, error parsing)
 │   └── __init__.py                      # Package exports
-├── sheet_sync/                          # Feature 1: Sheet to CSV Sync
-│   ├── sync_service.py                  # Fetches Columns A, B, C into D:\AI\output\connectivity\
+├── apps_script/                         # Google Apps Script Web App source code & deployment
+│   ├── google_apps_script.js            # Active Web App implementation (doGet & doPost) [gitignored]
+│   ├── google_apps_script.sample.js     # Canonical template sample for Code.gs deployment
+│   └── README.md                        # Step-by-step Apps Script Web App deployment guide
+├── sheet_sync/                          # Feature 1 Implementation: Sheet to CSV Sync
+│   ├── sync_service.py                  # Fetches records into D:\AI\output\connectivity\_3_columns or _4_columns
 │   └── __init__.py                      # Package exports
-├── corrected_scripts/                   # Feature 2: Corrected Scripts Fetching
-│   ├── fetcher.py                       # Fetches Column D (SCRIPT_CHANGED) into main/input/csv/script_to_change/
+├── corrected_scripts/                   # Feature 2 Implementation: Corrected Scripts Fetching
+│   ├── fetcher.py                       # Fetches Column D into main/input/csv/script_to_change/
 │   └── __init__.py                      # Package exports
-├── post_scripts/                        # Feature 3: Post Scripts to Sheets
-│   ├── poster.py                        # Pushes scripts from D:\AI\output\scripts_to_see to Google Sheets (Cols A-C only)
+├── reconcile/                           # Feature 3 Implementation: Reconcile & Reorganize
+│   ├── service.py                       # Reorganizes local scripts to match Google Sheets order
 │   └── __init__.py                      # Package exports
-├── google_apps_script.sample.js         # Canonical Apps Script sample template (doGet & doPost)
-├── cli.py                               # CLI entry point for Feature 1 (Sync Sheets)
-├── corrected_scripts_fetching.py        # Interactive CLI for Feature 2 (Fetch Corrected Scripts)
-├── post_scripts.py                      # Interactive CLI for Feature 3 (Post Scripts to Sheets)
+├── post_scripts/                        # Feature 4 Implementation: Post Scripts to Sheets
+│   ├── poster.py                        # Pushes scripts to Google Sheets with 3-col or 4-col options
+│   └── __init__.py                      # Package exports
 └── README.md                            # Comprehensive connectivity manual
 ```
 
 ---
 
-## The 3 Features
+## The 4 Features & Principal Runner Scripts
 
-### 1. Sync Sheets Data (`cli.py`)
-- **Action**: Pulls `ID`, `expression`, and `script` (Columns A, B, C) from Google Sheets.
+### 1. Sync Sheets Data (`sync_sheets.py`)
+- **Action**: Pulls Google Sheets records. Interactively prompts whether to export:
+  - **3 columns**: `ID`, `expression`, `script` (Standard)
+  - **4 columns**: `ID`, `expression`, `script`, `SCRIPT_CHANGED`
 - **Destination**:
-  `D:\AI\output\connectivity\<language>\<video_type>\<language>_<type>_connectivity.csv`
+  - 3 columns: `D:\AI\output\connectivity\_3_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
+  - 4 columns: `D:\AI\output\connectivity\_4_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
 - **Usage**:
   ```powershell
-  # Sync all 16 sheets in batch mode:
-  py main/connectivity/cli.py --all
+  # Interactive mode (asks whether to include 4th column):
+  py main/connectivity/sync_sheets.py --all
+
+  # Explicitly export 4 columns (bypasses prompt):
+  py main/connectivity/sync_sheets.py --all --four-columns
+
+  # Explicitly export standard 3 columns (bypasses prompt):
+  py main/connectivity/sync_sheets.py --all --three-columns
 
   # Sync specific sheet:
-  py main/connectivity/cli.py -l french -t expression
+  py main/connectivity/sync_sheets.py -l french -t expression
+
+  # (Backward-compatibility alias: py main/connectivity/cli.py also supported)
   ```
 
-### 2. Fetch Corrected Scripts (`corrected_scripts_fetching.py`)
+### 2. Fetch Corrected Scripts (`fetch_corrected_scripts.py`)
 - **Action**: Extracts Column D (`SCRIPT_CHANGED`) and exports rows that have corrections.
 - **Destination**:
   `C:\AI\shorts_automation\main\input\csv\script_to_change\<language>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`.
@@ -60,17 +80,52 @@ main/connectivity/
   - `[2] All Sheets`: fetches across all 16 sheets.
 - **Usage**:
   ```powershell
-  py main/connectivity/corrected_scripts_fetching.py
+  py main/connectivity/fetch_corrected_scripts.py
+
+  # (Backward-compatibility alias: py main/connectivity/corrected_scripts_fetching.py also supported)
   ```
 
-### 3. Post Scripts to Google Sheets (`post_scripts.py`)
-- **Action**: Reads script files from `D:\AI\output\scripts_to_see\<language>\<video_type>\<language>_<type>_scripts.csv` and updates Google Sheets.
-- **Safety Guarantee**: Affects **ONLY** Columns A (`ID`), B (`expression`), and C (`script`). Column D (`SCRIPT_CHANGED`) and any subsequent columns are **never touched or overwritten**.
+### 3. Reconcile & Reorganize Scripts (`reconcile_scripts.py`)
+- **Action**: Audits and reconciles local scripts (`D:\AI\output\scripts_to_see`) against Google Sheets connectivity data (`D:\AI\output\connectivity\_3_columns`).
+- **Ordering & Preservation Rules**:
+  - Strictly preserves Google Sheets row order.
+  - Keeps Google Sheets canonical expression names when local has scenario notes or variants.
+  - Appends new local entries (not found in Google Sheets, such as `FF06`–`FF15`) to the end of the file.
+  - Preserves Google Sheets entries not in local in place.
+- **Output Destination**:
+  - Saves clean, mass-update-ready CSVs to `D:\AI\output\connectivity\scripts_to_post\<language>\<type>\<lang>_<type>_scripts.csv`.
+  - Seamlessly recognized by `post_scripts.py` as the top-priority source folder.
 - **Interactive Options**:
-  - `[1] Specific Sheet — All entries`
-  - `[2] Specific Sheet — By Range` (e.g. `10-20`)
-  - `[3] Specific Sheet — By ID(s)` (e.g. `FE01, FE05`)
-  - `[4] ALL Sheets — All 16 sheets in one batch`
+  - `[1] Check & audit differences across all 16 sheets (Dry Run)`
+  - `[2] Reorganize ALL 16 sheets and save to scripts_to_post`
+  - `[3] Check & reorganize a specific sheet`
+  - `[4] Reorganize ALL sheets and immediately launch post_scripts.py`
+  - `[0] Exit`
+- **Usage**:
+  ```powershell
+  py main/connectivity/reconcile_scripts.py
+  py main/connectivity/reconcile_scripts.py --dry-run
+  py main/connectivity/reconcile_scripts.py --all
+  ```
+
+### 4. Post Scripts to Google Sheets (`post_scripts.py`)
+- **Action**: Reads script files from `D:\AI\output\connectivity\scripts_to_post` (or fallback `scripts_to_see` / `_4_columns`) and updates Google Sheets.
+- **Safety Guarantee**: In standard mode (choice 1), affects **ONLY** Columns A (`ID`), B (`expression`), and C (`script`). Column D (`SCRIPT_CHANGED`) is strictly preserved untouched unless option 2 (4 columns) is explicitly chosen.
+- **Interactive Options**:
+  - `[1] Update a specific sheet (all entries)`
+	- `1) ID, expression, script columns`
+	- `2) ID, expression, script and script_changed columns`
+  - `[2] Update a specific sheet by range (e.g. 10-20)`
+	- `1) ID, expression, script columns`
+	- `2) ID, expression, script and script_changed columns`
+  - `[3] Update a specific sheet by ID(s) (e.g. FE01, FE05)`
+	- `1) ID, expression, script columns`
+	- `2) ID, expression, script and script_changed columns`
+  - `[4] Update ALL languages and types (all 16 sheets)`
+	- `1) ID, expression, script columns`
+	- `2) ID, expression, script and script_changed columns`
+  - `[0] Exit`
+- **Shortcuts**: Supports compound inputs directly on the menu prompt (e.g., `1.1` for operation 1 with 3 columns, `1.2` or `4.2` for 4 columns).
 - **Usage**:
   ```powershell
   py main/connectivity/post_scripts.py
@@ -85,12 +140,13 @@ We use **Option A** dynamic routing: a single deployed Web App script acts as th
 ### Deployment Instructions:
 1. Open your master Google Sheet.
 2. Go to **Extensions > Apps Script**.
-3. Replace the contents of `Code.gs` with the complete code from [`google_apps_script.sample.js`](google_apps_script.sample.js).
+3. Replace the contents of `Code.gs` with the complete code from [`apps_script/google_apps_script.sample.js`](apps_script/google_apps_script.sample.js).
 4. Click **Save** (💾).
 5. Click **Deploy > Manage deployments**.
 6. Click the **pencil icon** (Edit) on the active deployment.
 7. Under **Version**, select **New version**.
 8. Click **Deploy**.
+For detailed setup instructions, see [`apps_script/README.md`](apps_script/README.md).
 
 ---
 
@@ -107,7 +163,11 @@ from connectivity import fetch_and_save_corrected_scripts, fetch_all_sheets_corr
 fetch_and_save_corrected_scripts(language="french", video_type="expression", mode="all")
 fetch_all_sheets_corrected_scripts()
 
-# 3. Post scripts to Google Sheets (Columns A, B, C)
+# 3. Reconcile and reorganize scripts to follow Google Sheets order
+from connectivity import reconcile_sheet_data, reconcile_single_sheet, reconcile_all_sheets
+summary = reconcile_all_sheets()  # saves to D:\AI\output\connectivity\scripts_to_post
+
+# 4. Post scripts to Google Sheets (Columns A, B, C or A:D)
 from connectivity import post_single_sheet, post_all_sheets
 post_single_sheet(language="french", video_type="expression", mode="range", range_spec="01-20")
 post_all_sheets()

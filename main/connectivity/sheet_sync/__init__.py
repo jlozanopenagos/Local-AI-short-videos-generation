@@ -9,6 +9,7 @@ from connectivity.sheet_sync.sync_service import (
     fetch_sheet_data,
     resolve_connectivity_output_dir,
     TARGET_COLUMNS,
+    FOUR_COLUMNS,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "fetch_sheet_data",
     "resolve_connectivity_output_dir",
     "TARGET_COLUMNS",
+    "FOUR_COLUMNS",
 ]

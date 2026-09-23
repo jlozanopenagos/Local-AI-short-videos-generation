@@ -38,7 +38,7 @@ input/csv/
 ### 0. SCRIPT TO CHANGE (`script_to_change/*.csv`)
 - **Columns**: `ID,NEW_SCRIPT`
 - **Purpose**: Modifies existing scripts using human-crafted or externally edited text. Canonical `ID` determines target language and video format.
-- **Automated Ingestion via Connectivity**: Can be populated directly from Google Sheets Column D (`SCRIPT_CHANGED`) via `main/connectivity/corrected_scripts/corrected_scripts_fetching.py`.
+- **Automated Ingestion via Connectivity**: Can be populated directly from Google Sheets Column D (`SCRIPT_CHANGED`) via `main/connectivity/fetch_corrected_scripts.py`.
 - **Targeted ID Filtering Templates**:
   - `script_to_change/model_ids_to_fetch.csv`: Reference template schema (`ID`).
   - `script_to_change/ids_to_fetch.csv`: Active list of IDs to fetch from Google Sheets when running Option 4 (CSV ID list).

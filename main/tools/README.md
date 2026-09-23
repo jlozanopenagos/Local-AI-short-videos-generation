@@ -98,7 +98,7 @@ py tools/auditing/check_language_mixing.py
 #### Export Scripts for Human Review (`scrapper_script.py`)
 Scrapes and unescapes generated scripts from `state/` JSON files into clean, readable CSV files in `OUTPUT_DIR/scripts_to_see/<language>/<type>/<language>_<type>_scripts.csv`.
 - **Deduplication & Sample Filtering**: Automatically ignores `.sample` templates (e.g. `script_state.sample.json`) and tracks seen script IDs per language/type pair, guaranteeing 100% duplicate-free review CSVs.
-- **Feeder for Google Sheets Publishing**: The generated CSV files match the exact schema (`ID,expression,script`) required by `main/connectivity/post_scripts/post_scripts.py` to publish scripts directly to Google Sheets Columns A, B, and C.
+- **Feeder for Google Sheets Publishing**: The generated CSV files match the exact schema (`ID,expression,script`) required by `main/connectivity/post_scripts.py` to publish scripts directly to Google Sheets Columns A, B, and C.
 ```bash
 py tools/auditing/scrapper_script.py
 py tools/auditing/scrapper_script.py -l english -t roleplay

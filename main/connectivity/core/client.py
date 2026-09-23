@@ -89,7 +89,7 @@ def fetch_raw_sheet_rows(endpoint_url: str, timeout: float = 60.0) -> List[Dict[
                 clean_err = " ".join(clean_err.split())
                 raise RuntimeError(
                     f"Google Apps Script returned an error page: '{clean_err}'. "
-                    f"Please ensure you pasted the Apps Script code (main/connectivity/google_apps_script.sample.js) "
+                    f"Please ensure you pasted the Apps Script code (main/connectivity/apps_script/google_apps_script.sample.js) "
                     f"into Extensions > Apps Script and deployed a new version."
                 )
         raise ValueError(f"Endpoint returned invalid JSON: {je}. Preview: {raw_text[:200]}") from je
@@ -139,7 +139,7 @@ def normalize_sheet_rows(raw_rows: List[Dict[str, Any]]) -> List[Dict[str, str]]
                 record["expression"] = val
             elif k_upper in ("SCRIPT", "ORIGINAL_SCRIPT"):
                 record["script"] = val
-            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
+            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT_CHNAGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
                 record["SCRIPT_CHANGED"] = val
 
         # Fallback script to SCRIPT_CHANGED if original script is empty
@@ -158,18 +158,20 @@ def post_sheet_rows(
     rows: List[Dict[str, Any]],
     spreadsheet_id: Optional[str] = None,
     sheet_tab: Optional[str] = None,
+    include_script_changed: bool = False,
     timeout: float = 60.0
 ) -> Dict[str, Any]:
     """
-    Sends rows to Google Apps Script Web App (doPost) to update Columns A, B, and C.
+    Sends rows to Google Apps Script Web App (doPost) to update Columns A, B, and C (and optionally D).
     Automatically follows HTTP 302 redirects to script.googleusercontent.com.
     Retries up to 3 times on transient network drops with backoff.
 
     Args:
         endpoint_url: Web App execution URL
-        rows: List of dicts with keys 'ID', 'expression', 'script'
+        rows: List of dicts with keys 'ID', 'expression', 'script' (and optionally 'SCRIPT_CHANGED')
         spreadsheet_id: Optional target spreadsheet ID
         sheet_tab: Optional tab name
+        include_script_changed: If True, also updates Column D (SCRIPT_CHANGED)
         timeout: Request timeout in seconds
 
     Returns:
@@ -193,6 +195,7 @@ def post_sheet_rows(
     payload: Dict[str, Any] = {
         "action": "update_scripts",
         "rows": rows,
+        "include_script_changed": include_script_changed,
     }
     if spreadsheet_id and spreadsheet_id.strip():
         payload["spreadsheet_id"] = spreadsheet_id.strip()
@@ -248,7 +251,7 @@ def post_sheet_rows(
 
                 raise RuntimeError(
                     f"Google Apps Script returned an error page: '{clean_err}'. "
-                    f"Please ensure you pasted the updated Apps Script code (main/connectivity/google_apps_script.sample.js) "
+                    f"Please ensure you pasted the updated Apps Script code (main/connectivity/apps_script/google_apps_script.sample.js) "
                     f"with 'doPost' into Extensions > Apps Script and deployed a New version."
                 )
 

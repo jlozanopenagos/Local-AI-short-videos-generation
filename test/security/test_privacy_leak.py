@@ -53,7 +53,7 @@ class TestPrivacyLeak(unittest.TestCase):
     def test_google_apps_script_is_not_tracked_in_git(self):
         try:
             res = subprocess.run(
-                ["git", "ls-files", "main/connectivity/google_apps_script.js"],
+                ["git", "ls-files", "main/connectivity/google_apps_script.js", "main/connectivity/apps_script/google_apps_script.js"],
                 cwd=str(REPO_ROOT),
                 capture_output=True,
                 text=True,

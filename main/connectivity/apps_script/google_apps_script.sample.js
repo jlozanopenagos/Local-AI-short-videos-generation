@@ -79,6 +79,7 @@ function doGet(e) {
 
 /**
  * Handles HTTP POST requests to write or update rows in Google Sheets.
+ * Supports include_script_changed (boolean) in payload to write 4 columns vs 3.
  */
 function doPost(e) {
   try {

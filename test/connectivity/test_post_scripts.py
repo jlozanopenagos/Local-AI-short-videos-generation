@@ -34,9 +34,11 @@ from connectivity.post_scripts.poster import (
     filter_scripts,
     get_source_csv_path,
     load_source_scripts_csv,
+    parse_operation_input,
     parse_range_spec,
     post_all_sheets,
     post_single_sheet,
+    prompt_column_option,
 )
 
 
@@ -235,6 +237,124 @@ class TestPostScripts(unittest.TestCase):
         self.assertEqual(res["total_in_csv"], 25)
         self.assertEqual(res["updated_count"], 5)
         mock_post_rows.assert_called_once()
+
+    def test_load_source_scripts_csv_with_four_columns(self):
+        """Verify load_source_scripts_csv parses SCRIPT_CHANGED when include_script_changed=True."""
+        four_col_csv = self.base_path / "french_expression_4cols.csv"
+        with four_col_csv.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["ID", "expression", "script", "SCRIPT_CHANGED"])
+            writer.writeheader()
+            writer.writerow({
+                "ID": "FE01",
+                "expression": "Bonjour",
+                "script": "Script 1",
+                "SCRIPT_CHANGED": "Script 1 Changed",
+            })
+
+        # When include_script_changed is True
+        rows_4 = load_source_scripts_csv(four_col_csv, include_script_changed=True)
+        self.assertEqual(len(rows_4), 1)
+        self.assertEqual(rows_4[0]["ID"], "FE01")
+        self.assertEqual(rows_4[0]["expression"], "Bonjour")
+        self.assertEqual(rows_4[0]["script"], "Script 1")
+        self.assertEqual(rows_4[0]["SCRIPT_CHANGED"], "Script 1 Changed")
+
+        # When include_script_changed is False
+        rows_3 = load_source_scripts_csv(four_col_csv, include_script_changed=False)
+        self.assertEqual(len(rows_3), 1)
+        self.assertNotIn("SCRIPT_CHANGED", rows_3[0])
+
+    @patch("requests.post")
+    def test_post_sheet_rows_with_include_script_changed(self, mock_post):
+        """Verify post_sheet_rows passes include_script_changed=True in POST payload."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = json.dumps({"status": "success", "updated_count": 1, "appended_count": 0, "total_affected": 1})
+        mock_response.json.return_value = {"status": "success", "updated_count": 1, "appended_count": 0, "total_affected": 1}
+        mock_post.return_value = mock_response
+
+        rows = [{"ID": "FE01", "expression": "Test", "script": "Script", "SCRIPT_CHANGED": "Changed"}]
+        res = post_sheet_rows(
+            endpoint_url="https://script.google.com/test",
+            rows=rows,
+            include_script_changed=True,
+        )
+        self.assertEqual(res["status"], "success")
+        call_kwargs = mock_post.call_args[1]
+        self.assertTrue(call_kwargs["json"]["include_script_changed"])
+
+    @patch("connectivity.post_scripts.poster.post_sheet_rows")
+    def test_post_single_sheet_with_include_script_changed(self, mock_post_rows):
+        """Verify post_single_sheet forwards include_script_changed to post_sheet_rows."""
+        mock_post_rows.return_value = {
+            "status": "success",
+            "updated_count": 1,
+            "appended_count": 0,
+            "total_affected": 1,
+        }
+
+        # Create a sample 4-column CSV
+        sample_4col = self.base_path / "french" / "expression" / "french_expression_scripts.csv"
+        with sample_4col.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["ID", "expression", "script", "SCRIPT_CHANGED"])
+            writer.writeheader()
+            writer.writerow({
+                "ID": "FE01",
+                "expression": "Test",
+                "script": "Script",
+                "SCRIPT_CHANGED": "Changed",
+            })
+
+        res = post_single_sheet(
+            language="french",
+            video_type="expression",
+            mode="all",
+            source_dir=self.base_path,
+            include_script_changed=True,
+        )
+        self.assertEqual(res["status"], "success")
+        self.assertTrue(res["include_script_changed"])
+        mock_post_rows.assert_called_once()
+        self.assertTrue(mock_post_rows.call_args[1]["include_script_changed"])
+
+    def test_parse_operation_input(self):
+        """Verify parse_operation_input handles single and compound operation inputs."""
+        self.assertEqual(parse_operation_input(""), ("1", None))
+        self.assertEqual(parse_operation_input("1"), ("1", None))
+        self.assertEqual(parse_operation_input("2"), ("2", None))
+        self.assertEqual(parse_operation_input("3"), ("3", None))
+        self.assertEqual(parse_operation_input("4"), ("4", None))
+        self.assertEqual(parse_operation_input("0"), ("0", None))
+
+        # Compound inputs (choice 1 -> False (3 cols), choice 2 -> True (4 cols))
+        self.assertEqual(parse_operation_input("1.1"), ("1", False))
+        self.assertEqual(parse_operation_input("1.2"), ("1", True))
+        self.assertEqual(parse_operation_input("1 1"), ("1", False))
+        self.assertEqual(parse_operation_input("1 2"), ("1", True))
+        self.assertEqual(parse_operation_input("2-1"), ("2", False))
+        self.assertEqual(parse_operation_input("2-2"), ("2", True))
+        self.assertEqual(parse_operation_input("3,2"), ("3", True))
+        self.assertEqual(parse_operation_input("4:2"), ("4", True))
+
+        # Invalid inputs
+        self.assertIsNone(parse_operation_input("5"))
+        self.assertIsNone(parse_operation_input("invalid"))
+        self.assertIsNone(parse_operation_input("1.3"))
+
+    def test_prompt_column_option(self):
+        """Verify prompt_column_option correctly handles user input."""
+        with patch("builtins.input", return_value=""):
+            self.assertFalse(prompt_column_option())
+
+        with patch("builtins.input", return_value="1"):
+            self.assertFalse(prompt_column_option())
+
+        with patch("builtins.input", return_value="2"):
+            self.assertTrue(prompt_column_option())
+
+        # Invalid then valid
+        with patch("builtins.input", side_effect=["invalid", "2"]):
+            self.assertTrue(prompt_column_option())
 
 
 if __name__ == "__main__":

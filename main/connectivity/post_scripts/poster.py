@@ -22,26 +22,77 @@ from connectivity.core.endpoints import (
 )
 from connectivity.core.client import post_sheet_rows
 
-# Default source directory for scripts to see
+# Default source directories for scripts
 DEFAULT_SCRIPTS_TO_SEE_DIR = Path(r"D:\AI\output\scripts_to_see")
+DEFAULT_SCRIPTS_TO_POST_DIR = Path(r"D:\AI\output\connectivity\scripts_to_post")
 
 
-def get_source_csv_path(language: str, video_type: str, base_dir: Optional[Path] = None) -> Path:
+def get_source_csv_path(
+    language: str,
+    video_type: str,
+    base_dir: Optional[Path] = None,
+    include_script_changed: bool = False,
+) -> Path:
     """
-    Returns the expected CSV path for a language and video type in scripts_to_see.
-    Example: D:\\AI\\output\\scripts_to_see\\french\\expression\\french_expression_scripts.csv
+    Returns the expected CSV path for a language and video type.
+    Priority:
+    - If base_dir is explicitly given, look inside base_dir.
+    - If include_script_changed is True:
+      1. Check D:\\AI\\output\\connectivity\\_4_columns\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
+      2. Check D:\\AI\\output\\connectivity\\scripts_to_post\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
+      3. Check D:\\AI\\output\\scripts_to_see\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
+      4. Check D:\\AI\\output\\connectivity\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
+    - If include_script_changed is False:
+      1. Check D:\\AI\\output\\connectivity\\scripts_to_post\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
+      2. Check D:\\AI\\output\\scripts_to_see\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
+      3. Check D:\\AI\\output\\connectivity\\_3_columns\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
+      4. Check D:\\AI\\output\\connectivity\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
     """
-    root = Path(base_dir) if base_dir else DEFAULT_SCRIPTS_TO_SEE_DIR
     lang = language.strip().lower()
     vtype = video_type.strip().lower()
-    return root / lang / vtype / f"{lang}_{vtype}_scripts.csv"
+
+    if base_dir:
+        root = Path(base_dir)
+        candidate_scripts = root / lang / vtype / f"{lang}_{vtype}_scripts.csv"
+        candidate_conn = root / lang / vtype / f"{lang}_{vtype}_connectivity.csv"
+        if candidate_scripts.exists():
+            return candidate_scripts
+        if candidate_conn.exists():
+            return candidate_conn
+        return candidate_scripts
+
+    if include_script_changed:
+        candidates = [
+            Path(r"D:\AI\output\connectivity\_4_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            DEFAULT_SCRIPTS_TO_POST_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
+            DEFAULT_SCRIPTS_TO_SEE_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
+            Path(r"D:\AI\output\connectivity") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+        ]
+        for c in candidates:
+            if c.exists():
+                return c
+        return candidates[0]
+    else:
+        candidates = [
+            DEFAULT_SCRIPTS_TO_POST_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
+            DEFAULT_SCRIPTS_TO_SEE_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
+            Path(r"D:\AI\output\connectivity\_3_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            Path(r"D:\AI\output\connectivity") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+        ]
+        for c in candidates:
+            if c.exists():
+                return c
+        return candidates[0]
 
 
-def load_source_scripts_csv(csv_path: Path | str) -> List[Dict[str, str]]:
+def load_source_scripts_csv(
+    csv_path: Path | str,
+    include_script_changed: bool = False,
+) -> List[Dict[str, str]]:
     """
-    Loads and normalizes script rows from a CSV in scripts_to_see.
+    Loads and normalizes script rows from a CSV in scripts_to_see or connectivity.
     Uses 'utf-8-sig' to automatically handle UTF-8 BOM.
-    Guarantees output keys: 'ID', 'expression', 'script'.
+    Guarantees output keys: 'ID', 'expression', 'script' (and 'SCRIPT_CHANGED' if include_script_changed).
     """
     path = Path(csv_path)
     if not path.exists():
@@ -55,6 +106,9 @@ def load_source_scripts_csv(csv_path: Path | str) -> List[Dict[str, str]]:
 
         for row in reader:
             record: Dict[str, str] = {"ID": "", "expression": "", "script": ""}
+            if include_script_changed:
+                record["SCRIPT_CHANGED"] = ""
+
             for k, v in row.items():
                 if not k:
                     continue
@@ -67,6 +121,9 @@ def load_source_scripts_csv(csv_path: Path | str) -> List[Dict[str, str]]:
                     record["expression"] = v_clean
                 elif k_clean in ("SCRIPT", "ORIGINAL_SCRIPT", "TEXT"):
                     record["script"] = v_clean
+                elif k_clean in ("SCRIPT_CHANGED", "SCRIPT_CHNAGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
+                    if include_script_changed:
+                        record["SCRIPT_CHANGED"] = v_clean
 
             if record["ID"]:
                 rows.append(record)
@@ -89,6 +146,53 @@ def parse_range_spec(range_spec: str) -> Tuple[int, int]:
     if start_val > end_val:
         start_val, end_val = end_val, start_val
     return start_val, end_val
+
+
+def parse_operation_input(raw_input_str: str) -> Optional[Tuple[str, Optional[bool]]]:
+    """
+    Parses an operation selection string.
+    Supports:
+      - Single digit: "1", "2", "3", "4", "0" -> returns (op, None)
+      - Compound syntax: "1.1", "1.2", "1 1", "1 2", "1-1", "1-2", "2.1", "4.2", etc.
+        -> returns (op, bool) where bool is True if 4 columns (choice 2), False if 3 columns (choice 1).
+      - Invalid input -> returns None
+    """
+    s = raw_input_str.strip()
+    if not s:
+        return ("1", None)
+
+    match = re.match(r"^([0-4])(?:[\.\s,\-_/:]+([1-2]))?$", s)
+    if not match:
+        return None
+
+    op = match.group(1)
+    sub = match.group(2)
+    if sub is None:
+        return (op, None)
+    return (op, sub == "2")
+
+
+def prompt_column_option(operation_title: str = "") -> bool:
+    """
+    Prompts the user to choose between:
+      1) ID, expression, script columns (3 columns)
+      2) ID, expression, script and script_changed columns (4 columns)
+
+    Returns:
+      False for 3 columns, True for 4 columns.
+    """
+    if operation_title:
+        print(f"\nConfiguring columns for: {operation_title}")
+    print("Select columns to post:")
+    print("  [1] ID, expression, script columns")
+    print("  [2] ID, expression, script and script_changed columns")
+    while True:
+        choice = input("Enter choice (1-2) [default: 1]: ").strip()
+        if not choice or choice == "1":
+            return False
+        elif choice == "2":
+            return True
+        print("Invalid choice. Please enter 1 or 2.")
 
 
 def filter_scripts(
@@ -173,17 +277,24 @@ def post_single_sheet(
     ids: Optional[List[str]] = None,
     source_dir: Optional[Path] = None,
     endpoint_url: Optional[str] = None,
+    include_script_changed: bool = False,
     timeout: float = 60.0,
 ) -> Dict[str, Any]:
     """
     Posts scripts for a single sheet (language and video type) to Google Sheets.
-    Affects only Columns A, B, and C. Preserves Column D.
+    If include_script_changed is False, affects only Columns A, B, and C (preserving Column D).
+    If include_script_changed is True, updates Columns A, B, C, and D (SCRIPT_CHANGED).
 
     Returns:
         Dict[str, Any]: Summary of operation including counts and target details.
     """
-    csv_path = get_source_csv_path(language, video_type, base_dir=source_dir)
-    all_rows = load_source_scripts_csv(csv_path)
+    csv_path = get_source_csv_path(
+        language,
+        video_type,
+        base_dir=source_dir,
+        include_script_changed=include_script_changed,
+    )
+    all_rows = load_source_scripts_csv(csv_path, include_script_changed=include_script_changed)
 
     filtered_rows = filter_scripts(
         all_rows,
@@ -197,6 +308,7 @@ def post_single_sheet(
             "status": "success",
             "language": language,
             "video_type": video_type,
+            "include_script_changed": include_script_changed,
             "csv_path": str(csv_path),
             "total_in_csv": len(all_rows),
             "filtered_count": 0,
@@ -227,6 +339,7 @@ def post_single_sheet(
         endpoint_url=post_url,
         rows=filtered_rows,
         spreadsheet_id=spreadsheet_id,
+        include_script_changed=include_script_changed,
         timeout=timeout,
     )
 
@@ -234,6 +347,7 @@ def post_single_sheet(
         "status": "success",
         "language": lang_key,
         "video_type": type_key,
+        "include_script_changed": include_script_changed,
         "csv_path": str(csv_path),
         "spreadsheet_id": spreadsheet_id,
         "post_url": post_url,
@@ -248,10 +362,11 @@ def post_single_sheet(
 
 def post_all_sheets(
     source_dir: Optional[Path] = None,
+    include_script_changed: bool = False,
     timeout: float = 60.0,
 ) -> Dict[str, Any]:
     """
-    Posts all rows from all 16 scripts_to_see CSVs to their corresponding Google Sheets.
+    Posts all rows from all 16 CSVs to their corresponding Google Sheets.
     """
     results: List[Dict[str, Any]] = []
     total_updated = 0
@@ -266,6 +381,7 @@ def post_all_sheets(
                 video_type=vtype,
                 mode="all",
                 source_dir=source_dir,
+                include_script_changed=include_script_changed,
                 timeout=timeout,
             )
             results.append(res)
@@ -284,6 +400,7 @@ def post_all_sheets(
         "total_sheets": len(ENDPOINT_REGISTRY),
         "successful_sheets": len(results),
         "failed_sheets": len(errors),
+        "include_script_changed": include_script_changed,
         "total_posted": total_posted,
         "total_updated": total_updated,
         "total_appended": total_appended,
