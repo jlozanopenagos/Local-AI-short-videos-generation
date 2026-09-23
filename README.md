@@ -63,17 +63,17 @@ pip install -r main/requirements.txt
 # Run the master orchestrator
 py main/main.py
 
-# Run individual generation stages
-py main/video_creation/_A_video_scripts/main.py
-py main/video_creation/_B_voice_generation/main.py
-py main/video_creation/_C_image_generation/main.py
-py main/video_creation/_G_video_assembly/main.py
+# Run individual generation stages (with interactive 10s countdown or CLI flags)
+py main/video_creation/_A_video_scripts/main.py --script-id EE01 --force
+py main/video_creation/_B_voice_generation/main.py --auto
+py main/video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/batch.csv
+py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ```
 
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 131 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 138 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers

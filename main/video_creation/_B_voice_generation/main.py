@@ -312,9 +312,40 @@ def process_script(
     return False
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--script-id", type=str, default=None)
-    parser.add_argument("--force", action="store_true")
+    parser = argparse.ArgumentParser(description="LingoVerse Shorts Voice Generator (Qwen3-TTS)")
+    parser.add_argument("--script-id", type=str, default=None, help="Target specific script ID(s) (e.g. EE01, FG02 or comma-separated)")
+    parser.add_argument("--force", action="store_true", help="Force regeneration even if voice is already generated")
+    parser.add_argument("--auto", action="store_true", help="Auto-generate without interactive terminal prompts")
+    parser.add_argument(
+        "--fun-facts",
+        "--fun-facts-only",
+        dest="fun_facts_only",
+        action="store_true",
+        help="Only voice Fun Facts scripts (e.g. EF01, FF01, SF01, IF01)"
+    )
+    parser.add_argument(
+        "--video-type",
+        type=str,
+        default=None,
+        choices=["expression", "game", "roleplay", "fun_facts", "all"],
+        help="Filter generation to specific video type"
+    )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default=None,
+        choices=["all", "english", "french", "spanish", "italian"],
+        help="Filter generation to specific language"
+    )
+    parser.add_argument(
+        "--from-csv",
+        "--csv-list",
+        dest="csv_list",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts listed in CSV (default checks input/csv/voice_to_change/)"
+    )
     args = parser.parse_args()
     
     base_dir = BASE_DIR
@@ -334,68 +365,152 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    # Production Mode Selection: Mass-produce (default in 10s) or Specific Script ID
+    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, or CSV List
     # pyrefly: ignore [missing-import]
-    from core.cli_prompt import prompt_production_mode
-    target_script_ids = prompt_production_mode(
-        stage_title="Part B: Voice Generation",
-        asset_name="voiceovers / audio files",
-        timeout=10.0,
-        script_id_arg=args.script_id,
-        require_existing_state=True,
-        base_dir=base_dir,
-    )
-        
-    voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
-    
-    # Query pending scripts via Pipeline Status Tracker
-    try:
-        # pyrefly: ignore [missing-import]
-        from core.status_tracker import get_status_tracker
-        tracker = get_status_tracker(base_dir)
-        pending_rows = tracker.get_pending_scripts("voice_generation", script_id=target_script_ids, force=args.force)
-        pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
-        if target_script_ids:
-            pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
-    except Exception:
-        # Fallback to direct state manager inspection
-        all_scripts = state_manager.get_all_scripts()
-        pending = []
-        for script in all_scripts:
-            script_id = script.get("id")
-            if target_script_ids and script_id not in target_script_ids:
-                continue
-                
-            # pyrefly: ignore [missing-import]
-            from core.expression_db import is_expression_done
-            if is_expression_done(script_id):
-                continue
+    from core.cli_prompt import prompt_production_mode, prompt_group_range, prompt_fun_facts_mode
 
-            status = script.get("status", {})
-            if status.get("script_generation") == "done":
-                if args.force or status.get("voice_generation") != "done":
-                    pending.append(script)
-                    
-    if not pending:
-        print("No pending video scripts for voice generation.")
-        return 0
-        
-    print(f"Found {len(pending)} pending script(s) for voice generation.")
-    
-    success_count = 0
-    for script in pending:
+    is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
+
+    if is_cli_fun_facts and not args.script_id and args.csv_list is None:
+        print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
+        target_script_ids = None
+        selected_mode = "fun_facts"
+    else:
+        target_script_ids, selected_mode = prompt_production_mode(
+            stage_title="Part B: Voice Generation",
+            asset_name="voiceovers / audio files",
+            timeout=10.0,
+            script_id_arg=args.script_id,
+            auto=args.auto,
+            require_existing_state=True,
+            base_dir=base_dir,
+            return_mode=True,
+            allow_fun_facts_mode=True,
+            allow_csv_list_mode=True,
+            csv_folder_name="voice_to_change",
+            csv_path_arg=args.csv_list,
+        )
+        if is_cli_fun_facts:
+            selected_mode = "fun_facts"
+
+    voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
+
+    while True:
+        # Determine target video type filter
+        target_video_type = None
+        if selected_mode == "fun_facts" or args.fun_facts_only:
+            target_video_type = "fun_facts"
+        elif args.video_type and args.video_type.lower() != "all":
+            target_video_type = args.video_type.lower()
+
+        target_language = args.language if args.language and args.language.lower() != "all" else None
+
+        # Query pending scripts via Pipeline Status Tracker
         try:
-            if process_script(script, state_manager, comfy_client, voice_manager, args.force, base_dir):
-                success_count += 1
+            # pyrefly: ignore [missing-import]
+            from core.status_tracker import get_status_tracker
+            tracker = get_status_tracker(base_dir)
+            pending_rows = tracker.get_pending_scripts(
+                "voice_generation",
+                script_id=target_script_ids,
+                language=target_language,
+                video_type=target_video_type,
+                force=args.force
+            )
+            pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
+            if target_script_ids:
+                pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
+        except Exception:
+            all_scripts = state_manager.get_all_scripts()
+            pending = []
+            for script in all_scripts:
+                script_id = script.get("id")
+                if target_script_ids and script_id not in target_script_ids:
+                    continue
+                if target_language:
+                    slang = (script.get("content_metadata", {}).get("language") or "").lower()
+                    if slang != target_language.lower():
+                        continue
+                if target_video_type:
+                    svtype = (script.get("content_metadata", {}).get("video_type") or "").lower()
+                    if target_video_type == "fun_facts" and svtype not in ("fun_facts", "funfacts"):
+                        continue
+                    elif target_video_type != "fun_facts" and svtype != target_video_type:
+                        continue
+                    
+                # pyrefly: ignore [missing-import]
+                from core.expression_db import is_expression_done
+                if is_expression_done(script_id):
+                    continue
+
+                status = script.get("status", {})
+                if status.get("script_generation") == "done":
+                    if args.force or status.get("voice_generation") != "done":
+                        pending.append(script)
+
+        if not pending:
+            scope_label = f" ({target_video_type.upper()})" if target_video_type else ""
+            if target_script_ids:
+                print(f"None of the target script(s) are pending for voice generation (already voiced or missing state). Use --force to regenerate.")
             else:
-                print(f"Failed to generate voice for script ID {script['id']}.", file=sys.stderr)
-                return 1
-        except Exception as exc:
-            print(f"Unexpected error processing script ID {script['id']}: {exc}", file=sys.stderr)
-            traceback.print_exc()
-            return 1
+                print(f"No pending video scripts for voice generation{scope_label}.")
+
+            if selected_mode in ("group_range", "fun_facts") and not args.auto:
+                try:
+                    create_more = input("\nDo you want to select another group or scope of scripts? [y/N]: ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    return 0
+                if create_more in ("y", "yes"):
+                    if selected_mode == "fun_facts":
+                        target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                    else:
+                        target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
+                    if target_script_ids:
+                        continue
+            return 0
             
-    print(f"Process complete. Successfully voiced {success_count} script(s).")
+        print(f"\nFound {len(pending)} pending script(s) for voice generation:")
+        print(f"Target IDs: {', '.join([s['id'] for s in pending[:12]])}{'...' if len(pending) > 12 else ''}\n")
+        
+        success_count = 0
+        for i, script in enumerate(pending, start=1):
+            try:
+                print(f"[{i}/{len(pending)}] Processing Script ID: {script['id']} for Voice...")
+                if process_script(script, state_manager, comfy_client, voice_manager, args.force, base_dir):
+                    success_count += 1
+                else:
+                    print(f"Failed to generate voice for script ID {script['id']}.", file=sys.stderr)
+                    return 1
+            except Exception as exc:
+                print(f"Unexpected error processing script ID {script['id']}: {exc}", file=sys.stderr)
+                traceback.print_exc()
+                return 1
+                
+        print(f"\n[Completed] Process complete. Successfully voiced {success_count} script(s).")
+
+        # If in group_range or fun_facts mode, prompt whether to process more
+        if selected_mode in ("group_range", "fun_facts") and not args.auto:
+            try:
+                create_more = input("\nDo you want to voice more scripts? [y/N]: ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print("\nFinished voice generation session.")
+                break
+
+            if create_more in ("y", "yes"):
+                if selected_mode == "fun_facts":
+                    target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                else:
+                    target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
+                if target_script_ids:
+                    continue
+                else:
+                    break
+            else:
+                print("\nFinished voice generation session.")
+                break
+        else:
+            break
+
     return 0
 
 if __name__ == "__main__":

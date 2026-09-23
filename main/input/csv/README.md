@@ -20,6 +20,10 @@ input/csv/
 │   ├── model_ids_to_fetch.csv     # Model reference template for ID filtering
 │   ├── ids_to_fetch.csv           # Active ID list for targeted Google Sheets sync
 │   └── <lang>_<type>_script_to_change.csv # Auto-generated from Google Sheets Column D
+├── voice_to_change/               # CSV queues for targeted voice generation (_B_voice_generation)
+│   └── model_ids_to_voice.sample.csv # Template with ID column
+├── image_to_change/               # CSV queues for targeted image generation (_C_image_generation)
+│   └── model_ids_to_image.sample.csv # Template with ID column
 ├── sample_templates/              # Reusable schema templates
 │   ├── READY_PROMPTS_EXPRESSION.sample.csv
 │   ├── READY_PROMPTS_GAME.sample.csv
@@ -41,6 +45,18 @@ input/csv/
 - **Verbatim Ingestion Guarantee**: Paragraphs are parsed directly into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff` for Expression; `hook`, `challenge`, `pressure`, `answer`, `explanation` for Game; `hook`, `DIALOGUE_PART_1`..`4`, `PAYOFF` for Roleplay; `hook`, `setup`, `discovery`, `payoff` for Fun Facts). Spoken text is injected **100% verbatim** into `content_metadata.script` with zero LLM paraphrasing or summarization.
 - **State Rule**: Automatically updates the state JSON property from `"script_generation": "done"` to `"pending"` BEFORE generating new metadata, and invalidates downstream stages (`voice_generation`, `image_generation`, `video_assembly`).
 - **Robust CSV Parsing**: Sanitizes multiline quoted text and spaces after commas before quotes (`skipinitialspace=True`) to prevent truncation or malformed rows.
+
+### 0b. VOICE TO CHANGE (`voice_to_change/*.csv`)
+- **Columns**: `ID` (e.g. `ID` or `script_id`)
+- **Purpose**: Target specific scripts for voiceover synthesis (`_B_voice_generation/main.py`) using a dedicated CSV batch file or CLI option `--from-csv`.
+- **Isolation Guarantee**: Kept separate from script changes and image queues so creators can selectively regenerate audio without altering visual or text queues.
+- **State Validation**: Pipeline automatically verifies that `state/<lang>/<type>/script_<ID>.json` exists before queuing.
+
+### 0c. IMAGE TO CHANGE (`image_to_change/*.csv`)
+- **Columns**: `ID` (e.g. `ID` or `script_id`)
+- **Purpose**: Target specific scripts for image generation (`_C_image_generation/main.py`) using a dedicated CSV batch file or CLI option `--from-csv`.
+- **Isolation Guarantee**: Kept separate from script changes and voice queues so visual assets can be regenerated independently.
+- **State Validation**: Pipeline automatically verifies that `state/<lang>/<type>/script_<ID>.json` exists before queuing.
 
 ### 1. EXPRESSION
 - **Filename**: `<LANG>_READY_PROMPTS_EXPRESSION.csv`

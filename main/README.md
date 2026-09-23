@@ -373,14 +373,22 @@ python main.py
 # Part A: Script Generation
 python video_creation/_A_video_scripts/main.py
 python video_creation/_A_video_scripts/main.py --script-id EE01 --force
+python video_creation/_A_video_scripts/main.py --fun-facts --language english
+python video_creation/_A_video_scripts/main.py --from-csv input/csv/script_to_change/my_list.csv
 
 # Part B: Voice Generation (TTS)
 python video_creation/_B_voice_generation/main.py
-python video_creation/_B_voice_generation/main.py --script-id EE01
+python video_creation/_B_voice_generation/main.py --script-id EE01 --force
+python video_creation/_B_voice_generation/main.py --auto
+python video_creation/_B_voice_generation/main.py --fun-facts --language spanish
+python video_creation/_B_voice_generation/main.py --from-csv input/csv/voice_to_change/voice_batch.csv
 
 # Part C: Scene Image Generation
 python video_creation/_C_image_generation/main.py
-python video_creation/_C_image_generation/main.py --script-id EE01 --seed 42
+python video_creation/_C_image_generation/main.py --script-id EE01 --seed 42 --force
+python video_creation/_C_image_generation/main.py --auto
+python video_creation/_C_image_generation/main.py --video-type roleplay
+python video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/image_batch.csv
 
 # Part D: Standing Music Bank Generation
 python video_creation/_D_music_generation/main.py --language english --video-type expression
@@ -457,6 +465,8 @@ shorts_automation/
 │   │   │   ├── README.md               # Prompt queue documentation and column schemas
 │   │   │   ├── sample_templates/       # Canonical .sample.csv templates for all 4 formats & CTAs
 │   │   │   ├── script_to_change/       # Replaces existing scripts (populated manually or via connectivity)
+│   │   │   ├── voice_to_change/        # Targeted audio regeneration queues for _B_voice_generation
+│   │   │   ├── image_to_change/        # Targeted scene illustration queues for _C_image_generation
 │   │   │   ├── <lang>/expressions_list/# Active prompt queues per format (gitignored for privacy)
 │   │   │   └── <lang>/game_call_to_action_phrases/ # CTA phrase libraries (gitignored for privacy)
 │   │   └── images/                     # Static brand assets

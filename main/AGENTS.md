@@ -263,11 +263,16 @@ All workflow stages and shared templates are organized inside the `video_creatio
 
 > **Execution Flow & Interactive Generation Mode**:
 > 1. **Pre-flight Service Verification**: When `main.py` of any stage is executed, it first performs connection checks via `config/health.py` (`require_services`) asserting that required backends (LLM, ComfyUI) are online and responsive before proceeding.
-> 2. **Interactive Mode Selection (10s Countdown)**: After services are verified, each stage presents an interactive console prompt via `core/cli_prompt.py`:
+> 2. **Harmonized Interactive Mode Selection (10s Countdown)**: After services are verified, stages `_A`, `_B`, and `_C` present a unified interactive console prompt via `core/cli_prompt.py`:
 >    - `[1] Mass-produce all pending assets` (automatically selected if the 10-second timer expires with no input).
 >    - `[2] Select specific script(s) by ID`: Prompts for Script IDs (single or comma-separated e.g. `EE01, EE02`), validates that the script state JSON exists in `state/`, prompts `Add another script to produce? [y/N]: `, and queues all specified scripts for execution.
->    - `[3] Number Range Groups (e.g. 10 - 20)`: In `_A_video_scripts` (and script creation workflows), prompts for a numeric start and end range. It automatically expands the range across active queues for `EXPRESSION`, `GAME`, and `ROLE_PLAY` (e.g. `EE10..EE20`, `EG10..EG20`, `ER10..ER20`), executes the batch, and prompts whether to run another group or exit (excluding FUN_FACTS).
->    - **CLI Override**: Passing `--script-id <ID1,ID2...>` on the command line immediately targets those IDs and bypasses the interactive prompt.
+>    - `[3] Number Range Groups (e.g. 10 - 20)`: Prompts for language selection and numeric start/end range (e.g. `10-20`), executes the batch across selected language(s), and prompts whether to run another group without restarting the process.
+>    - `[4] Fun Facts only`: Filters production strictly to Fun Facts scripts (`EF`, `FF`, `SF`, `IF`), offering all languages or specific language range.
+>    - `[5] Target scripts from CSV list`: Reads IDs from dedicated, cleanly isolated CSV queue folders:
+>      - Stage A: `input/csv/script_to_change/` (script text modification & repair)
+>      - Stage B: `input/csv/voice_to_change/` (voiceover audio regeneration)
+>      - Stage C: `input/csv/image_to_change/` (scene illustration regeneration)
+>    - **CLI Overrides**: Passing `--script-id <ID1,ID2...>`, `--auto`, `--fun-facts`, or `--from-csv [PATH]` on the command line immediately triggers targeted execution and bypasses the interactive timer.
 > 3. **Modular Execution**: Stages can be run individually, via root `main.py` (which orchestrates Part A & B with an interactive checkpoint review), or queued in automated batches.
 
 ### Stage Details & CLI Commands (inside `video_creation/`):
@@ -296,10 +301,10 @@ All workflow stages and shared templates are organized inside the `video_creatio
    - **Automated ROLEPLAY Validation & Repair**: Validates mandatory 7-key structure, rejects illegal keys, detects narrator intrusion inside dialogue parts, catches unresolved questions in `DIALOGUE_PART_4`, and enforces the 145–180 word budget with automatic retry.
    - **Automated FUN_FACTS Validation & Repair**: Validates mandatory `hook` and `payoff` sections, rejects illegal keys not in the authorized set, and enforces the 95–135 word budget with automatic retry.
    - **Resilient JSON Parsing**: Multi-strategy extraction via direct parse, `JSONDecoder.raw_decode`, balanced bracket scan, and regex fallback — all with `strict=False` to tolerate unescaped newlines in multi-line string fields.
-   - **Interactive Modes**: Supports `[1] Mass-produce`, `[2] Specific Script IDs`, and `[3] Number Range Groups` (e.g. 10 - 20) with interactive loop. For `FUN_FACTS`, also supports external script ingestion with automated section segmentation and word calibration.
+   - **Interactive Modes**: Supports `[1] Mass-produce`, `[2] Specific Script IDs`, `[3] Number Range Groups`, `[4] Fun Facts only`, and `[5] Change scripts from CSV` (`script_to_change/`).
    - Automatically injects `character_personalities` and builds rich YouTube metadata (`title`, `description`, `tags`, `hashtags`).
    - **Robotic Payoff Sanitizer**: Automatically detects and replaces generic robotic filler phrases in payoffs (e.g. *"Follow for more essential idioms and comments below!"*) with randomly selected CTA phrases from the call-to-action CSV library.
-   - **Command**: `py video_creation/_A_video_scripts/main.py [--script-id <ID>] [--auto] [--force] [--script-input <FILE>]`
+   - **Command**: `py video_creation/_A_video_scripts/main.py [--script-id <ID>] [--auto] [--force] [--script-input <FILE>] [--fun-facts] [--from-csv [PATH]]`
    - **Interactive Tool**: `script_modifier.py` (`py tools/modifiers/script_modifier.py` or `py video_creation/_A_video_scripts/script_modifier.py`) allows single-script and **Mass Script Changes** plain-text ingestion (queueing multiple IDs and custom scripts before launching LLM batch formatting) while strictly keeping user script text verbatim. Enforces canonical key ordering (`title` strictly first key, followed by standard section sequences without generic `: Shorts Guide` suffixes) and automatically synchronizes review CSVs in `output/scripts_to_see/<lang>/<vtype>/` upon every modification.
    - **Script Doctoring Tool**: `system_prompts_editor.csv` — a companion CSV containing per-video-type system prompts for an external LLM script doctor (e.g. ChatGPT/Claude). Each row defines the doctoring principles for a video type (EXPRESSION, ROLEPLAY, GAME, FUN_FACTS): language mirroring, substantive script elevation, ban on generic formulas, word budget enforcement, and format-specific structural rules. Used for external script polishing workflows.
 
@@ -313,14 +318,16 @@ All workflow stages and shared templates are organized inside the `video_creatio
      - Automatically infers dramatic acting tone per turn (`infer_dialogue_emotion`), passing explicit acting directives to Qwen3-TTS.
      - Prevents dead silence via dynamic token limits (`max_new_tokens = max(96, min(240, words * 12))`) and `repetition_penalty = 1.15`.
      - Automatically trims dead trailing air (`trim_trailing_silence`) and concatenates segments with tight YouTube Shorts pauses (0.20s dialogue, 0.40s section, 2.20s pressure pause).
+   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, and CSV lists from `input/csv/voice_to_change/`.
    - **Interactive Tool**: `voice_modifier.py` allows testing, manual voice casting, and quick regeneration per script.
-   - **Command**: `py video_creation/_B_voice_generation/main.py [--script-id <ID>] [--force]`
+   - **Command**: `py video_creation/_B_voice_generation/main.py [--script-id <ID>] [--force] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]]`
 
 3. **`video_creation/_C_image_generation`**:
    - Generates high-quality vertical visuals (576x1024) for each script scene using local ComfyUI workflow `video_creation/workflows/AcademiaSD_Z-Image_v05.json`.
    - Outputs saved to `output/video_assets/<language>/<video_type>/script_<ID>/images/`.
+   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, and CSV lists from `input/csv/image_to_change/`.
    - **Interactive Tool**: `image_modifier.py` allows interactive scene recreation, prompt steering/refinement, and live editing of chalkboard exercises.
-   - **Command**: `py video_creation/_C_image_generation/main.py [--script-id <ID>] [--force] [--seed <INT>]`
+   - **Command**: `py video_creation/_C_image_generation/main.py [--script-id <ID>] [--force] [--seed <INT>] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]]`
 
 4. **`video_creation/_D_music_generation` (Standing Music Bank)**:
    - Eliminates wasteful per-script audio generation by maintaining a **Standing Music Bank** in `<OUTPUT_DIR>/bank_music/<language>/<video_type>/`.
@@ -372,6 +379,7 @@ All workflow stages and shared templates are organized inside the `video_creatio
 | `main/tools/` | Dedicated CLI utilities organized into 5 functional subfolders: <ul><li>**`database/`**: `db.py` (DB & CSV manager), `sync_prompts.py` (queue sync), `assign_ids.py` (canonical ID assigner)</li><li>**`auditing/`**: `status_scraper.py` (pipeline status compiler), `json_health_checker.py` (JSON audit/repair), `check_language_mixing.py` (multilingual contamination check), `scrapper_script.py` (script review exporter)</li><li>**`modifiers/`**: `script_modifier.py` (verbatim single & mass script repair, canonical title ordering, auto review CSV sync), `voice_modifier.py` (voice audition & recasting), `image_modifier.py` (scene recreation & chalkboard editor), `subtitles_modifier.py` (subtitle timing & ASS editor)</li><li>**`prompt_builders/`**: `build_all_multilingual_prompts.py` (cross-language queue builder), `localize_fun_facts.py` (Fun Facts target language localizer), `adapt_english_prompts.py` (English queue adapter)</li><li>**`maintenance/`**: `migrate_remove_music_state.py` (music state migrator)</li></ul> |
 | `main/database/` | Centralized expression tracking: `database/expressions.sample.csv` (reference schema), `database/expressions.db` (SQLite, gitignored), and auto-synced per-language CSVs (`database/<lang>_expressions.csv`: `english`, `french`, `spanish`, `italian`, gitignored). Schema: `ID,EXPRESSION,CONTEXT,VIDEO_TYPE,STATUS`. Manages master completion status (`PENDING` vs `DONE`). |
 | `main/connectivity/` | Modular Google Sheets integration suite: <ul><li>**`core/`**: `endpoints.py` (Option A master router, 16 endpoints), `client.py` (resilient HTTP client with 302 redirects & retries)</li><li>**`sheet_sync/`**: `sync_service.py` & `cli.py` (syncs Columns A, B, C to `D:\AI\output\connectivity\`)</li><li>**`corrected_scripts/`**: `fetcher.py` & `corrected_scripts_fetching.py` (pulls Column D `SCRIPT_CHANGED` to `input/csv/script_to_change/`)</li><li>**`post_scripts/`**: `poster.py` & `post_scripts.py` (posts scripts to Google Sheets affecting ONLY Columns A-C, preserving Column D)</li><li>**`google_apps_script.js`**: Web App implementation for `doGet` (read) and `doPost` (in-place update & append)</li></ul> |
+| `main/input/csv/` | Prompt & batch queue root: `sample_templates/` (schemas), `<lang>/expressions_list/` (prompts), `script_to_change/` (Stage A text changes), `voice_to_change/` (Stage B audio regeneration queues), `image_to_change/` (Stage C image regeneration queues). |
 | `main/state/<language>/<video_type>/script_<ID>.json` | State machine artifact tracking stage status, metadata, character personalities, and asset paths using structured IDs. |
 | `main/state/pipeline_status.csv` | Centralized pipeline status manifest tracking generation progress for all 1,224 video prompts across all 6 stages (`script_generation_status`, `voice_generation_status`, `image_generation_status`, `music_generation_status`, `thumbnail_generation_status`, `video_assembly_status`). |
 | `main/system_prompts_editor.csv` | Per-video-type system prompts for external LLM script doctoring (EXPRESSION, ROLEPLAY, GAME, FUN_FACTS). Defines doctoring principles, word budgets, structural rules, and anti-cliché constraints for script polishing workflows. |
