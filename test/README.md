@@ -17,7 +17,8 @@ test/
 ├── unit/                   # Layer 1: Fast deterministic unit tests (0 network/GPU calls)
 ├── integration/            # Layer 2: Component interaction & workflow integration tests
 ├── contracts/              # Layer 3: Data contract & schema conformance tests
-└── security/               # Layer 4: Privacy, leak detection & security regression tests
+├── security/               # Layer 4: Privacy, leak detection & security regression tests
+└── connectivity/           # Layer 5: Google Sheets integration & data contract tests
 ```
 
 ---
@@ -25,7 +26,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **101 automated tests** across all 4 QA layers with zero external dependencies in ~4 seconds:
+Executes all **131 automated tests** across all 5 QA layers with zero external dependencies in ~4 seconds:
 ```bash
 py test/run_tests.py
 ```
@@ -43,6 +44,9 @@ py test/run_tests.py --contract
 
 # Security & privacy regression tests only
 py test/run_tests.py --security
+
+# Connectivity tests only
+py test/run_tests.py --connectivity
 ```
 
 ### 3. Run via Standard Python Unittest

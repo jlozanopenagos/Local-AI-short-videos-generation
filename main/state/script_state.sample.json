@@ -1,7 +1,7 @@
 {
     "id": "EE01",
     "status": {
-        "script_generation": "done",
+        "script_generation": "pending",
         "voice_generation": "pending",
         "image_generation": "pending",
         "thumbnail_generation": "pending",

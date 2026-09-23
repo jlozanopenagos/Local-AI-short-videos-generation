@@ -172,7 +172,7 @@ class StateManager:
         scripts = []
         seen_ids = set()
         for file_path in sorted(self.state_dir.rglob("script_*.json")):
-            if file_path.is_file():
+            if file_path.is_file() and ".sample" not in file_path.name.lower() and "sample" not in file_path.name.lower():
                 try:
                     with file_path.open("r", encoding="utf-8") as f:
                         data = json.load(f)

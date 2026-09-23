@@ -215,17 +215,17 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 Real-time audit compiled via `py tools/auditing/status_scraper.py` and `py tools/database/db.py stats`:
 
 - **Total Video Prompts Tracked**: 1,224 across 16 synchronized CSV queues.
-- **Part A (Script Generation)**: **277 / 1,224 (22.6% Complete)** across active production batches:
-  - **English**: 142 / 372 scripts generated (112 Expression, 15 Game, 15 Roleplay)
-  - **French**: 45 / 270 scripts generated (15 Expression, 15 Game, 15 Roleplay)
-  - **Spanish**: 45 / 279 scripts generated (15 Expression, 15 Game, 15 Roleplay)
-  - **Italian**: 45 / 303 scripts generated (15 Expression, 15 Game, 15 Roleplay)
-  - **Breakdown by Format**: `EXPRESSION`: 157 | `GAME`: 60 | `ROLEPLAY`: 60 | `FUN_FACTS`: 0
-  - **Pending Scripts**: 947 prompt rows in queue awaiting LLM generation.
+- **Part A (Script Generation)**: **1,176 / 1,224 (96.1% Complete)** across active production batches:
+  - **English**: 372 / 372 scripts generated (100% Complete)
+  - **French**: 270 / 270 scripts generated (100% Complete)
+  - **Italian**: 303 / 303 scripts generated (100% Complete)
+  - **Spanish**: 231 / 279 scripts generated (82.8% Complete)
+  - **Breakdown by Format**: `EXPRESSION`: 388 / 388 (100%) | `GAME`: 388 / 388 (100%) | `FUN_FACTS`: 60 / 60 (100%) | `ROLEPLAY`: 340 / 388 (87.6%)
+  - **Pending Scripts**: 48 prompt rows in queue awaiting LLM generation (all in Spanish Roleplay).
 - **Proof-of-Concept Pilot Videos (End-to-End Operational)**:
-  - `EE01` (English Expression #1 - *Break a leg*): 100% complete (Script, Voice, Image, Music, Thumbnail, Assembly)
-  - `EG01` (English Game #1 - *Break a leg*): 100% complete (Script, Voice, Image, Music, Thumbnail, Assembly)
-  - `ER01` (English Roleplay #1 - *Break a leg*): 100% complete (Script, Voice, Image, Music, Assembly)
+  - `EE01` (English Expression #1 - *Break a leg*): 100% complete assets on disk (Script, Voice, Image, Music, Thumbnail, Assembly)
+  - `EG01` (English Game #1 - *Break a leg*): 100% complete assets on disk (Script, Voice, Image, Music, Thumbnail, Assembly)
+  - `ER01` (English Roleplay #1 - *Break a leg*): 100% complete assets on disk (Script, Voice, Image, Music, Assembly)
 - **Standing Music Bank (`_D_music_generation`)**: **160 / 160 (100.0% Complete)** across all 16 categories in `<OUTPUT_DIR>/bank_music/` (10 curated tracks each for 4 languages × 4 formats).
 - **Pending Downstream Production**: 1,221 videos awaiting audio synthesis (`_B`), scene images (`_C`), thumbnails (`_F`), and final rendering (`_G`).
 - **Master Expression Database**: 1,224 records in `database/expressions.db` (all initialized to `PENDING`).
@@ -375,7 +375,7 @@ All workflow stages and shared templates are organized inside the `video_creatio
 | `main/state/<language>/<video_type>/script_<ID>.json` | State machine artifact tracking stage status, metadata, character personalities, and asset paths using structured IDs. |
 | `main/state/pipeline_status.csv` | Centralized pipeline status manifest tracking generation progress for all 1,224 video prompts across all 6 stages (`script_generation_status`, `voice_generation_status`, `image_generation_status`, `music_generation_status`, `thumbnail_generation_status`, `video_assembly_status`). |
 | `main/system_prompts_editor.csv` | Per-video-type system prompts for external LLM script doctoring (EXPRESSION, ROLEPLAY, GAME, FUN_FACTS). Defines doctoring principles, word budgets, structural rules, and anti-cliché constraints for script polishing workflows. |
-| `test/` | Complete QA test layer: unit tests (`test/unit/`), integration tests (`test/integration/`), contract validations (`test/contracts/`), security checks (`test/security/`), runner (`test/run_tests.py`), and pytest config (`test/pytest.ini`). |
+| `test/` | Complete QA test layer: unit tests (`test/unit/`), integration tests (`test/integration/`), contract validations (`test/contracts/`), security checks (`test/security/`), connectivity tests (`test/connectivity/`), runner (`test/run_tests.py`), and pytest config (`test/pytest.ini`). |
 | `output/` (configured via `OUTPUT_DIR` in `.env`) | External output location configured via `OUTPUT_DIR` in `.env` (can point to `./output` or secondary high-capacity drive like `D:\AI\output`). Contains `scripts_to_see/<lang>/<kind>/<lang>_<kind>_scripts.csv` and `video_assets/<language>/<video_type>/script_<ID>/`. |
 
 ---

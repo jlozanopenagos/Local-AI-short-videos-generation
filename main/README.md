@@ -487,6 +487,7 @@ shorts_automation/
 │   ├── .env.example                    # Environment variable configuration template
 │   └── README.md                       # Comprehensive pipeline manual (this document)
 └── test/                               # Isolated QA test suite and validation layer
+    ├── connectivity/                   # Google Sheets integration & data contract tests
     ├── contracts/                      # CSV, JSON, and prompt schema contract tests
     ├── integration/                    # DB, status tracker, and mock service health tests
     ├── security/                       # Secrets, privacy, and oversized binary leak detection

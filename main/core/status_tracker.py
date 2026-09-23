@@ -123,6 +123,8 @@ class PipelineStatusTracker:
         # 2. Inspect all existing state JSON files
         if self.state_dir.exists():
             for state_file in sorted(self.state_dir.rglob("script_*.json")):
+                if ".sample" in state_file.name.lower() or "sample" in state_file.name.lower():
+                    continue
                 sid = state_file.stem.replace("script_", "").strip().upper()
                 if not sid:
                     continue

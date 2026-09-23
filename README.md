@@ -73,7 +73,7 @@ py main/video_creation/_G_video_assembly/main.py
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 101 automated tests (unit, integration, contracts, security)
+# Run all 131 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers
@@ -81,6 +81,7 @@ py test/run_tests.py --unit
 py test/run_tests.py --integration
 py test/run_tests.py --contract
 py test/run_tests.py --security
+py test/run_tests.py --connectivity
 ```
 
 ### 5. Expression Database & CLI Tools
@@ -134,5 +135,5 @@ py main/connectivity/post_scripts/post_scripts.py
 - **Scraper Deduplication & Sample Exclusion**:
   - Excluded `.sample` templates in `scrapper_script.py` and enforced unique canonical ID tracking per language/type pair, guaranteeing 100% duplicate-free review CSVs in `D:\AI\output\scripts_to_see`.
 - **Comprehensive Test Suite Expansion**:
-  - 101 automated tests across all 4 QA layers (unit, integration, contracts, security).
+  - 131 automated tests across all 5 QA layers (unit, integration, contracts, security, connectivity).
 

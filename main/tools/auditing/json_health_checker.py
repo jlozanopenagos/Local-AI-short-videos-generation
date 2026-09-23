@@ -248,7 +248,7 @@ def main() -> int:
             return 1
         state_files = [target_path]
     else:
-        state_files = sorted(state_dir.rglob("script_*.json"))
+        state_files = [f for f in sorted(state_dir.rglob("script_*.json")) if ".sample" not in f.name.lower() and "sample" not in f.name.lower()]
 
     if args.language:
         l_filter = args.language.lower()
