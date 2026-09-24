@@ -99,6 +99,71 @@ class TestScriptModifierVerbatim(unittest.TestCase):
         self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
         self.assertEqual(parsed["PAYOFF"], "When the lights go up, knowing the right words turns panic into power.")
 
+    def test_roleplay_user_case1_standard_unlabeled_narrator(self):
+        script = (
+            "Backstage chaos! A nervous actor is losing their mind over a forgotten line just thirty seconds before the show starts.\n\n"
+            "PERSON_ONE (Panicked): I totally forgot my line! I'm going to freeze right here and ruin everything!\n"
+            "PERSON_TWO (Calm): Relax. Just remember what I told you: Break a leg!\n\n"
+            "PERSON_ONE (Baffled): Break a leg? What is that supposed to mean? Are you telling me I should physically hurt myself?\n"
+            "PERSON_TWO (Smirking): Nah, it's theater slang. It's the ultimate way to wish someone massive luck.\n\n"
+            "PERSON_ONE (Relieved): So it's a superstition? It means good luck, right? I feel a little better now.\n"
+            "PERSON_TWO (Chuckling): Exactly. You just need to own the stage and give it everything you've got.\n\n"
+            "PERSON_ONE (Determined): Okay, okay. I'm going out there. I won't mess up this final scene.\n"
+            "PERSON_TWO (Encouraging): Go crush it! Now get out there and show them how it's done.\n\n"
+            "When the lights go up, knowing the right words can turn pure panic into pure performance energy. Speak with confidence and own the moment. What would you say instead? Drop your version below!"
+        )
+        parsed = try_direct_script_parse(script, "ROLEPLAY")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed["hook"], "Backstage chaos! A nervous actor is losing their mind over a forgotten line just thirty seconds before the show starts.")
+        self.assertIn("PERSON_ONE (Panicked)", parsed["DIALOGUE_PART_1"])
+        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_1"])
+        self.assertIn("PERSON_ONE (Baffled)", parsed["DIALOGUE_PART_2"])
+        self.assertIn("PERSON_TWO (Smirking)", parsed["DIALOGUE_PART_2"])
+        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
+        self.assertIn("PERSON_TWO (Chuckling)", parsed["DIALOGUE_PART_3"])
+        self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
+        self.assertIn("PERSON_TWO (Encouraging)", parsed["DIALOGUE_PART_4"])
+        self.assertEqual(
+            parsed["PAYOFF"],
+            "When the lights go up, knowing the right words can turn pure panic into pure performance energy. Speak with confidence and own the moment. What would you say instead? Drop your version below!"
+        )
+
+    def test_roleplay_user_case2_explicit_narrator_and_5_turns(self):
+        script = (
+            "Narrator: Are you making this common pronunciation mistake at work? Let us look at the confusing word permit.\n"
+            "PERSON_ONE (Confident): Okay, I finally received the official perMIT from the city to start building our new office.\n"
+            "PERSON_TWO (Helpful): Wait a second. You are using the action verb pronunciation. For the official document, you must say PERmit.\n"
+            "PERSON_ONE (Confused): Really? Are they not pronounced exactly the same way? I always thought they were just identical words.\n"
+            "PERSON_TWO (Calm): They are spelled exactly the same, but the syllable stress changes. The noun is PERmit. The action verb is perMIT.\n"
+            "PERSON_ONE (Relieved): Oh, that makes total sense now! I will go show them the PERmit and start the project today.\n"
+            "Narrator: Master this syllable stress rule to sound completely natural in your next office meeting. Subscribe for more daily English pronunciation tips!"
+        )
+        parsed = try_direct_script_parse(script, "ROLEPLAY")
+        self.assertIsNotNone(parsed)
+        # Narrator prefix must be cleanly stripped so TTS voice does not speak "Narrator:"
+        self.assertEqual(
+            parsed["hook"],
+            "Are you making this common pronunciation mistake at work? Let us look at the confusing word permit."
+        )
+        self.assertFalse(parsed["hook"].lower().startswith("narrator"))
+        self.assertEqual(
+            parsed["PAYOFF"],
+            "Master this syllable stress rule to sound completely natural in your next office meeting. Subscribe for more daily English pronunciation tips!"
+        )
+        self.assertFalse(parsed["PAYOFF"].lower().startswith("narrator"))
+
+        # Check turn distribution across 4 dialogue parts (5 turns distributed as 2, 1, 1, 1)
+        self.assertIn("PERSON_ONE (Confident)", parsed["DIALOGUE_PART_1"])
+        self.assertIn("PERSON_TWO (Helpful)", parsed["DIALOGUE_PART_1"])
+        self.assertIn("PERSON_ONE (Confused)", parsed["DIALOGUE_PART_2"])
+        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_3"])
+        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_4"])
+
+        # Crucial: verify no turn is duplicated between parts
+        self.assertNotEqual(parsed["DIALOGUE_PART_3"], parsed["DIALOGUE_PART_4"])
+        self.assertNotIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
+        self.assertNotIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_4"])
+
     def test_find_available_ready_scripts_csvs(self):
         """Verify find_available_ready_scripts_csvs finds and prioritizes ready_scripts_to_work_with CSVs."""
         with tempfile.TemporaryDirectory() as tmp_dir:
