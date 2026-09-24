@@ -268,6 +268,7 @@ main/connectivity/
 ├── fetch_corrected_scripts.py      # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
 ├── reconcile_scripts.py            # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                 # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
+├── scan_ready_scripts.py           # Principal Runner 5: Scans ready scripts and exports by date
 ├── cli.py                          # Backward-compatibility alias for sync_sheets.py
 ├── corrected_scripts_fetching.py   # Backward-compatibility alias for fetch_corrected_scripts.py
 ├── core/                           # Endpoints registry & resilient HTTP client (redirects & retries)
@@ -275,10 +276,11 @@ main/connectivity/
 ├── sheet_sync/                     # Syncs Columns A-C (or A:D) to local CSV files
 ├── corrected_scripts/              # Pulls Column D (SCRIPT_CHANGED) to input/csv/script_to_change/
 ├── reconcile/                      # Reorganizes local scripts to match Google Sheets order
-└── post_scripts/                   # Safe script publisher to Google Sheets
+├── post_scripts/                   # Safe script publisher to Google Sheets
+└── ready_scripts/                  # Scans ready scripts and groups by script_date
 ```
 
-### 4 Core Capabilities & Principal Runner Scripts:
+### 5 Core Capabilities & Principal Runner Scripts:
 1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`, legacy alias `cli.py`)**:
    Fetches records from Google Sheets and writes standardized CSV files to `D:\AI\output\connectivity\_3_columns\` or `_4_columns\`.
 2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`, legacy alias `corrected_scripts_fetching.py`)**:
@@ -290,6 +292,8 @@ main/connectivity/
    - **Column D Safety Guarantee**: In standard 3-column mode, modifies **ONLY Columns A, B, and C** (`ID`, `EXPRESSION`, `SCRIPT`). Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten** unless 4-column mode is explicitly selected.
    - Interactive scopes: All sheets, specific sheet (language + type), number range (e.g. `10-20`), or specific ID list.
    - Supports both in-place updates of existing IDs and automatic appending of new records.
+5. **Scan Ready Scripts by Date (`connectivity/scan_ready_scripts.py`)**:
+   Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked. Skips completed videos (`video_ready == True`). Exports grouped `ID, expression` records into daily CSV files in `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (or `undated_ready_scripts.csv` if date is blank).
 
 ---
 
@@ -438,6 +442,9 @@ python connectivity/reconcile_scripts.py
 
 # Feature 4: Safely publish scripts from scripts_to_post to Google Sheets
 python connectivity/post_scripts.py
+
+# Feature 5: Scan ready scripts across all sheets and export daily tracking CSVs
+python connectivity/scan_ready_scripts.py --all
 ```
 
 ---
@@ -458,6 +465,7 @@ shorts_automation/
 │   │   ├── fetch_corrected_scripts.py  # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
 │   │   ├── reconcile_scripts.py        # Principal Runner 3: Audits & reorganizes local scripts
 │   │   ├── post_scripts.py             # Principal Runner 4: Posts scripts to Google Sheets
+│   │   ├── scan_ready_scripts.py       # Principal Runner 5: Scans ready scripts and exports by date
 │   │   ├── cli.py                      # Backward-compatibility alias for sync_sheets.py
 │   │   ├── corrected_scripts_fetching.py # Backward-compatibility alias for fetch_corrected_scripts.py
 │   │   ├── core/                       # Option A endpoints router & resilient HTTP client
@@ -466,6 +474,7 @@ shorts_automation/
 │   │   ├── corrected_scripts/          # Column D (SCRIPT_CHANGED) fetching engine
 │   │   ├── reconcile/                  # Reconcile & reorganization service
 │   │   ├── post_scripts/               # Safe script publisher engine
+│   │   ├── ready_scripts/              # Ready scripts scanner & date exporter
 │   │   └── README.md                   # Full connectivity manual and deployment guide
 │   ├── core/                           # Shared infrastructure and utilities
 │   │   ├── cli_prompt.py               # Interactive CLI menus with 10s countdown timers

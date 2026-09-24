@@ -14,6 +14,7 @@ main/connectivity/
 ├── fetch_corrected_scripts.py           # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
 ├── reconcile_scripts.py                 # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                      # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
+├── scan_ready_scripts.py                # Principal Runner 5: Scans ready scripts and exports by date
 ├── cli.py                               # Backward-compatibility alias for sync_sheets.py
 ├── corrected_scripts_fetching.py        # Backward-compatibility alias for fetch_corrected_scripts.py
 ├── core/                                # Shared infrastructure & HTTP client
@@ -36,12 +37,15 @@ main/connectivity/
 ├── post_scripts/                        # Feature 4 Implementation: Post Scripts to Sheets
 │   ├── poster.py                        # Pushes scripts to Google Sheets with 3-col or 4-col options
 │   └── __init__.py                      # Package exports
+├── ready_scripts/                       # Feature 5 Implementation: Scan Ready Scripts by Date
+│   ├── scanner.py                       # Filters Columns E-H and exports daily tracking CSVs
+│   └── __init__.py                      # Package exports
 └── README.md                            # Comprehensive connectivity manual
 ```
 
 ---
 
-## The 4 Features & Principal Runner Scripts
+## The 5 Features & Principal Runner Scripts
 
 ### 1. Sync Sheets Data (`sync_sheets.py`)
 - **Action**: Pulls Google Sheets records. Interactively prompts whether to export:
@@ -126,9 +130,22 @@ main/connectivity/
 	- `2) ID, expression, script and script_changed columns`
   - `[0] Exit`
 - **Shortcuts**: Supports compound inputs directly on the menu prompt (e.g., `1.1` for operation 1 with 3 columns, `1.2` or `4.2` for 4 columns).
+### 5. Scan Ready Scripts by Date (`scan_ready_scripts.py`)
+- **Action**: Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked.
+- **Exclusion Rule**: If `video_ready` is checked (`TRUE`), the ID is strictly **SKIPPED** (video is already done).
+- **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to `YYYY-MM-DD`).
+- **Missing Date Fallback**: If `script_ready` is checked but `script_date` is blank, saves records to `undated_ready_scripts.csv` and prints a warning in the terminal so no items are lost.
+- **Destination**:
+  `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
+- **Interactive Options**:
+  - `[1] Scan ALL 16 Google Sheets and export by date (Default)`
+  - `[2] Scan a specific sheet`
+  - `[0] Exit`
 - **Usage**:
   ```powershell
-  py main/connectivity/post_scripts.py
+  py main/connectivity/scan_ready_scripts.py
+  py main/connectivity/scan_ready_scripts.py --all
+  py main/connectivity/scan_ready_scripts.py -l french -t expression
   ```
 
 ---
@@ -171,4 +188,10 @@ summary = reconcile_all_sheets()  # saves to D:\AI\output\connectivity\scripts_t
 from connectivity import post_single_sheet, post_all_sheets
 post_single_sheet(language="french", video_type="expression", mode="range", range_spec="01-20")
 post_all_sheets()
+
+# 5. Scan ready scripts and export by date
+from connectivity import scan_sheet_ready_scripts, scan_all_sheets_ready_scripts, save_ready_scripts_by_date
+summary = scan_all_sheets_ready_scripts()
+save_ready_scripts_by_date(summary["date_groups"])  # saves to D:\AI\output\connectivity\ready_scripts
 ```
+

@@ -60,7 +60,12 @@ function doGet(e) {
       const record = {};
       headers.forEach((header, colIdx) => {
         if (header) {
-          record[header] = row[colIdx];
+          const val = row[colIdx];
+          if (val instanceof Date) {
+            record[header] = Utilities.formatDate(val, Session.getScriptTimeZone() || "UTC", "yyyy-MM-dd");
+          } else {
+            record[header] = val;
+          }
         }
       });
       records.push(record);

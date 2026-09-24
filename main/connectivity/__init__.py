@@ -68,6 +68,16 @@ from connectivity.reconcile.service import (
     reconcile_single_sheet,
     save_reconciled_csv,
 )
+from connectivity.ready_scripts.scanner import (
+    DEFAULT_READY_SCRIPTS_DIR,
+    resolve_ready_scripts_output_dir,
+    is_checkbox_checked,
+    normalize_date_str,
+    filter_ready_scripts,
+    scan_sheet_ready_scripts,
+    scan_all_sheets_ready_scripts,
+    save_ready_scripts_by_date,
+)
 
 TARGET_COLUMNS = SYNC_TARGET_COLUMNS
 FOUR_COLUMNS = SYNC_FOUR_COLUMNS
@@ -117,5 +127,15 @@ __all__ = [
     "reconcile_single_sheet",
     "reconcile_all_sheets",
     "save_reconciled_csv",
+    # Ready Scripts Scanner (Feature 5)
+    "DEFAULT_READY_SCRIPTS_DIR",
+    "resolve_ready_scripts_output_dir",
+    "is_checkbox_checked",
+    "normalize_date_str",
+    "filter_ready_scripts",
+    "scan_sheet_ready_scripts",
+    "scan_all_sheets_ready_scripts",
+    "save_ready_scripts_by_date",
 ]
+
 
