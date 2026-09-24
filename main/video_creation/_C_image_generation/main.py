@@ -6,11 +6,12 @@ import traceback
 from pathlib import Path
 import logging
 
-# Add project root, video_creation, and module directory to path for robust imports
+# Add project root, video_creation, core, and module directory to path for robust imports
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-for p in [str(PROJECT_ROOT), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
+CORE_DIR = PROJECT_ROOT / "core"
+for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -310,12 +311,20 @@ def main() -> int:
 
     # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
     # pyrefly: ignore [missing-import]
-    from core.cli_prompt import (
-        prompt_production_mode,
-        prompt_group_range,
-        prompt_fun_facts_mode,
-        prompt_ready_scripts_mode,
-    )
+    try:
+        from core.cli_prompt import (
+            prompt_production_mode,
+            prompt_group_range,
+            prompt_fun_facts_mode,
+            prompt_ready_scripts_mode,
+        )
+    except (ImportError, ModuleNotFoundError):
+        from cli_prompt import (
+            prompt_production_mode,
+            prompt_group_range,
+            prompt_fun_facts_mode,
+            prompt_ready_scripts_mode,
+        )
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
 

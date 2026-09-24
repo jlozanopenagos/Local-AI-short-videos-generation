@@ -190,6 +190,7 @@ class TestCLICSVMode(unittest.TestCase):
             err_f = p / "error_report.csv"
             err_f.write_text("ID,error\n", encoding="utf-8")
 
+            # pyrefly: ignore [missing-import]
             from core.cli_prompt import find_ready_scripts_csvs
             found = find_ready_scripts_csvs(p)
             found_names = [f.name for f in found]
@@ -202,6 +203,7 @@ class TestCLICSVMode(unittest.TestCase):
 
     def test_prompt_ready_scripts_mode_from_file(self):
         """Verify prompt_ready_scripts_mode loads IDs from ready scripts CSV directly."""
+        # pyrefly: ignore [missing-import]
         from core.cli_prompt import prompt_ready_scripts_mode
         with tempfile.TemporaryDirectory() as tmp_dir:
             csv_path = Path(tmp_dir) / "2026-09-23_ready_scripts.csv"
