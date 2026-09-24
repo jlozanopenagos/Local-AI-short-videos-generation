@@ -15,7 +15,28 @@ if str(REPO_ROOT) not in sys.path:
 from video_creation._A_video_scripts.script_modifier import (
     try_direct_script_parse,
     parse_user_script_into_sections,
+    find_available_ready_scripts_csvs,
+    load_scripts_from_csv,
 )
+
+
+class MockStateManager:
+    def script_exists(self, script_id: str) -> bool:
+        return script_id.upper() in ("FE01", "SG02")
+
+    def get_script_state(self, script_id: str) -> dict:
+        return {
+            "prompt_params": {
+                "EXPRESSION": "avoir le cafard",
+                "TARGET_LANGUAGE": "French",
+                "VIDEO_TYPE": "EXPRESSION",
+            },
+            "content_metadata": {
+                "topic": "avoir le cafard",
+                "language": "French",
+                "video_type": "EXPRESSION",
+            },
+        }
 
 
 class TestScriptModifierVerbatim(unittest.TestCase):
@@ -77,6 +98,65 @@ class TestScriptModifierVerbatim(unittest.TestCase):
         self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
         self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
         self.assertEqual(parsed["PAYOFF"], "When the lights go up, knowing the right words turns panic into power.")
+
+    def test_find_available_ready_scripts_csvs(self):
+        """Verify find_available_ready_scripts_csvs finds and prioritizes ready_scripts_to_work_with CSVs."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir)
+            f1 = p / "2026-09-23_ready_scripts_to_work_with.csv"
+            f1.write_text("ID,SCRIPT_CHANGE\n", encoding="utf-8")
+            f2 = p / "undated_ready_scripts_to_work_with.csv"
+            f2.write_text("ID,SCRIPT_CHANGE\n", encoding="utf-8")
+            err_f = p / "error_report.csv"
+            err_f.write_text("ID,problem\n", encoding="utf-8")
+            other_f = p / "2026-09-23_ready_scripts.csv"
+            other_f.write_text("ID,expression\n", encoding="utf-8")
+
+            found = find_available_ready_scripts_csvs(p)
+            found_names = [f.name for f in found]
+
+            self.assertIn("2026-09-23_ready_scripts_to_work_with.csv", found_names)
+            self.assertIn("undated_ready_scripts_to_work_with.csv", found_names)
+            self.assertIn("2026-09-23_ready_scripts.csv", found_names)
+            self.assertNotIn("error_report.csv", found_names)
+            # work_with files should precede standard files
+            self.assertTrue(found_names.index("2026-09-23_ready_scripts_to_work_with.csv") < found_names.index("2026-09-23_ready_scripts.csv"))
+
+    def test_load_scripts_from_csv_valid_and_filtering(self):
+        """Verify load_scripts_from_csv validates IDs, skips blanks/duplicates/missing state."""
+        mock_sm = MockStateManager()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "2026-09-23_ready_scripts_to_work_with.csv"
+            csv_content = (
+                "ID,SCRIPT_CHANGE\n"
+                "FE01,\"Voici un nouveau script complet pour FE01.\"\n"
+                "FE02,\"\" \n" # blank -> skip
+                "ZZ99,\"Script for non-existent ID\"\n" # not in state -> skip
+                "FE01,\"Duplicate script for FE01\"\n" # duplicate -> skip
+                "SG02,\"Nuevo guion en espanol para SG02.\"\n"
+            )
+            csv_path.write_text(csv_content, encoding="utf-8-sig")
+
+            results = load_scripts_from_csv(csv_path, mock_sm) # type: ignore
+            self.assertEqual(len(results), 2)
+            self.assertEqual(results[0][0], "FE01")
+            self.assertEqual(results[0][1], "Voici un nouveau script complet pour FE01.")
+            self.assertEqual(results[1][0], "SG02")
+            self.assertEqual(results[1][1], "Nuevo guion en espanol para SG02.")
+
+    def test_load_scripts_from_csv_alternative_headers(self):
+        """Verify load_scripts_from_csv recognizes SCRIPT_CHANGED and NEW_SCRIPT headers."""
+        mock_sm = MockStateManager()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "test_alt.csv"
+            csv_content = "ID,SCRIPT_CHANGED\nFE01,\"Script content here\"\n"
+            csv_path.write_text(csv_content, encoding="utf-8")
+
+            results = load_scripts_from_csv(csv_path, mock_sm) # type: ignore
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0][0], "FE01")
+            self.assertEqual(results[0][1], "Script content here")
+
 
 if __name__ == "__main__":
     unittest.main()

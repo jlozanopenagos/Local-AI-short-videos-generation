@@ -509,6 +509,7 @@ class TestReadyScriptsScanner(unittest.TestCase):
     def test_prompt_export_work_with_scripts_not_atty(self):
         """Verify prompt returns False when sys.stdin is not a tty."""
         try:
+            # pyrefly: ignore [missing-import]
             from connectivity.scan_ready_scripts import prompt_export_work_with_scripts
         except ImportError:
             from main.connectivity.scan_ready_scripts import prompt_export_work_with_scripts
@@ -518,6 +519,7 @@ class TestReadyScriptsScanner(unittest.TestCase):
     def test_prompt_export_work_with_scripts_tty_yes(self):
         """Verify prompt returns True when user types 'y'."""
         try:
+            # pyrefly: ignore [missing-import]
             from connectivity.scan_ready_scripts import prompt_export_work_with_scripts
         except ImportError:
             from main.connectivity.scan_ready_scripts import prompt_export_work_with_scripts
@@ -527,6 +529,7 @@ class TestReadyScriptsScanner(unittest.TestCase):
     def test_prompt_export_work_with_scripts_tty_no(self):
         """Verify prompt returns False when user types 'n'."""
         try:
+            # pyrefly: ignore [missing-import]
             from connectivity.scan_ready_scripts import prompt_export_work_with_scripts
         except ImportError:
             from main.connectivity.scan_ready_scripts import prompt_export_work_with_scripts
