@@ -133,8 +133,8 @@ main/connectivity/
 ### 5. Scan Ready Scripts by Date (`scan_ready_scripts.py`)
 - **Action**: Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked.
 - **Exclusion Rule**: If `video_ready` is checked (`TRUE`), the ID is strictly **SKIPPED** (video is already done).
-- **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to `YYYY-MM-DD`).
-- **Missing Date Fallback**: If `script_ready` is checked but `script_date` is blank, saves records to `undated_ready_scripts.csv` and prints a warning in the terminal so no items are lost.
+- **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to canonical `YYYY-MM-DD`). Supports both 4-digit (`2026-09-23`) and 2-digit (`23/09/26`) year notations across `/`, `-`, and `.` separators.
+- **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, saves records to `undated_ready_scripts.csv` and prints a warning alert. When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from `undated_ready_scripts.csv` (and removes the file once all items are resolved).
 - **Destination**:
   `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
 - **Interactive Options**:

@@ -73,7 +73,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 138 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 167 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers
@@ -98,14 +98,20 @@ py main/tools/auditing/status_scraper.py
 
 ### 6. Google Sheets Connectivity Suite
 ```powershell
-# Feature 1: Synchronize all Google Sheets to local connectivity CSVs
-py main/connectivity/cli.py
+# Feature 1: Synchronize Google Sheets to local connectivity CSVs (3 or 4 columns)
+py main/connectivity/sync_sheets.py
 
 # Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/
-py main/connectivity/corrected_scripts/corrected_scripts_fetching.py
+py main/connectivity/fetch_corrected_scripts.py
 
-# Feature 3: Safely publish review scripts from D:\AI\output\scripts_to_see to Google Sheets
-py main/connectivity/post_scripts/post_scripts.py
+# Feature 3: Reconcile local scripts to match Google Sheets order into scripts_to_post/
+py main/connectivity/reconcile_scripts.py
+
+# Feature 4: Safely publish scripts to Google Sheets (3-col or 4-col options)
+py main/connectivity/post_scripts.py
+
+# Feature 5: Scan ready scripts (Columns E-H) and export daily CSVs by date
+py main/connectivity/scan_ready_scripts.py --all
 ```
 
 ---
@@ -122,18 +128,20 @@ py main/connectivity/post_scripts/post_scripts.py
 
 ## Recent Changes
 
-### `feature/connectivity` — Google Sheets Suite, Verbatim Ingestion & Deduplication
+### Google Sheets Suite, Modular Architecture & Ready Scripts Scanner
 - **Modular Connectivity Suite (`main/connectivity/`)**:
-  - Modular architecture: `core/`, `sheet_sync/`, `corrected_scripts/`, `post_scripts/`.
-  - Master Web App with Option A routing (`?id=<SPREADSHEET_ID>`) supporting both `doGet` (reads) and `doPost` (in-place updates & appends).
-  - Syncs to `D:\AI\output\connectivity\<lang>\<type>\<lang>_<type>_connectivity.csv`.
-  - Column D safety rule: Publishing via `post_scripts.py` modifies **only Columns A, B, and C**. Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten**.
-- **Zero-Hallucination Verbatim Script Changes (`script_to_change`)**:
-  - `parse_user_script_into_sections()` directly maps user-crafted paragraphs into canonical JSON format keys.
-  - Spoken text is preserved **100% verbatim** in `content_metadata.script` with zero LLM alterations.
-  - CSV parser enhanced with `skipinitialspace=True` and regex comma sanitization to prevent row truncation.
-- **Scraper Deduplication & Sample Exclusion**:
-  - Excluded `.sample` templates in `scrapper_script.py` and enforced unique canonical ID tracking per language/type pair, guaranteeing 100% duplicate-free review CSVs in `D:\AI\output\scripts_to_see`.
+  - Organized into dedicated packages: `core/`, `apps_script/`, `sheet_sync/`, `corrected_scripts/`, `reconcile/`, `post_scripts/`, `ready_scripts/`.
+  - 5 principal root runners: `sync_sheets.py`, `fetch_corrected_scripts.py`, `reconcile_scripts.py`, `post_scripts.py`, `scan_ready_scripts.py`.
+  - Master Web App with Option A dynamic routing (`?id=<SPREADSHEET_ID>`) supporting both `doGet` (reads Columns A–H) and `doPost` (in-place updates & appends).
+  - 3-column (`_3_columns`) and 4-column (`_4_columns`) export and publishing modes.
+- **Ready Scripts Scanner (`scan_ready_scripts.py`)**:
+  - Filters rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is unchecked.
+  - Automatically skips completed videos (`video_ready == True`).
+  - Groups records by `script_date` into daily files: `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv`.
+  - Robust 2-digit (`23/09/26`) and 4-digit date normalization across slash, dash, and dot formats.
+  - Automatic fallback to `undated_ready_scripts.csv` and auto-pruning once dates are filled in Google Sheets.
+- **Reconciliation Engine (`reconcile_scripts.py`)**:
+  - Audits local `scripts_to_see` against Google Sheets canonical order, preserving sheet ordering and appending new local entries.
 - **Comprehensive Test Suite Expansion**:
-  - 131 automated tests across all 5 QA layers (unit, integration, contracts, security, connectivity).
+  - 167 automated tests passing across all 5 QA layers (unit, integration, contracts, security, connectivity).
 
