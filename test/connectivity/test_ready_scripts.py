@@ -90,6 +90,17 @@ class TestReadyScriptsScanner(unittest.TestCase):
         self.assertEqual(normalize_date_str("23-09-2026"), "2026-09-23")
         self.assertEqual(normalize_date_str("05/10/2026"), "2026-10-05")
 
+    def test_normalize_date_str_two_digit_years(self):
+        """Verify 2-digit year representations (e.g. 23/09/26, 23-09-26, 23.09.26)."""
+        self.assertEqual(normalize_date_str("23/09/26"), "2026-09-23")
+        self.assertEqual(normalize_date_str("23-09-26"), "2026-09-23")
+        self.assertEqual(normalize_date_str("23.09.26"), "2026-09-23")
+        self.assertEqual(normalize_date_str("23/9/26"), "2026-09-23")
+        self.assertEqual(normalize_date_str("05/10/26"), "2026-10-05")
+        self.assertEqual(normalize_date_str("9/23/26"), "2026-09-23")
+        # DD-MM-YY parses with day first
+        self.assertEqual(normalize_date_str("26-09-23"), "2023-09-26")
+
     def test_normalize_date_str_empty_or_invalid(self):
         """Verify empty or invalid date strings return empty string."""
         self.assertEqual(normalize_date_str(""), "")
@@ -246,6 +257,58 @@ class TestReadyScriptsScanner(unittest.TestCase):
             # Updated in-place
             fe01_row = next(r for r in rows if r["ID"] == "FE01")
             self.assertEqual(fe01_row["expression"], "avoir le cafard (revised)")
+
+    def test_save_ready_scripts_pruning_undated_when_dated(self):
+        """Verify that when an undated item is subsequently given a date, it is pruned from undated_ready_scripts.csv."""
+        # Run 1: FE01 is undated
+        batch_1 = {
+            "undated": [
+                {"ID": "FE01", "expression": "avoir le cafard"},
+                {"ID": "FE02", "expression": "poser un lapin"},
+            ]
+        }
+        save_ready_scripts_by_date(batch_1, output_dir=self.output_dir)
+        undated_file = self.output_dir / "undated_ready_scripts.csv"
+        self.assertTrue(undated_file.exists())
+        with undated_file.open("r", encoding="utf-8-sig") as f:
+            self.assertEqual(len(list(csv.DictReader(f))), 2)
+
+        # Run 2: FE01 is now dated (2026-09-23), FE02 is still undated
+        batch_2 = {
+            "2026-09-23": [
+                {"ID": "FE01", "expression": "avoir le cafard"},
+            ],
+            "undated": [
+                {"ID": "FE02", "expression": "poser un lapin"},
+            ],
+        }
+        save_ready_scripts_by_date(batch_2, output_dir=self.output_dir)
+
+        # Dated file should have FE01
+        dated_file = self.output_dir / "2026-09-23_ready_scripts.csv"
+        self.assertTrue(dated_file.exists())
+        with dated_file.open("r", encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["ID"], "FE01")
+
+        # Undated file should now only have FE02
+        with undated_file.open("r", encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["ID"], "FE02")
+
+        # Run 3: FE02 is now also dated (2026-09-23)
+        batch_3 = {
+            "2026-09-23": [
+                {"ID": "FE01", "expression": "avoir le cafard"},
+                {"ID": "FE02", "expression": "poser un lapin"},
+            ],
+        }
+        save_ready_scripts_by_date(batch_3, output_dir=self.output_dir)
+
+        # Undated file should now be removed since all undated items were resolved
+        self.assertFalse(undated_file.exists())
 
     def test_scan_sheet_ready_scripts_mocked(self):
         """Verify scan_sheet_ready_scripts fetches from endpoint and filters accurately."""

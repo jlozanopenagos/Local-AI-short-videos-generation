@@ -94,7 +94,7 @@ def normalize_date_str(val: Any) -> str:
         return ""
 
     # ISO format match (e.g. 2026-09-23T...)
-    iso_match = re.match(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:T|\s|$)", val_str)
+    iso_match = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:T|\s|$)", val_str)
     if iso_match:
         year, month, day = int(iso_match.group(1)), int(iso_match.group(2)), int(iso_match.group(3))
         try:
@@ -103,14 +103,26 @@ def normalize_date_str(val: Any) -> str:
         except ValueError:
             pass
 
-    # Try standard string date formats
+    # Try standard string date formats (both 4-digit and 2-digit years)
     for fmt in (
         "%Y-%m-%d",
         "%Y/%m/%d",
+        "%Y.%m.%d",
         "%d/%m/%Y",
         "%m/%d/%Y",
         "%d-%m-%Y",
         "%m-%d-%Y",
+        "%d.%m.%Y",
+        "%m.%d.%Y",
+        "%d/%m/%y",
+        "%m/%d/%y",
+        "%d-%m-%y",
+        "%m-%d-%y",
+        "%d.%m.%y",
+        "%m.%d.%y",
+        "%y-%m-%d",
+        "%y/%m/%d",
+        "%y.%m.%d",
     ):
         try:
             parsed = datetime.datetime.strptime(val_str, fmt).date()
@@ -118,18 +130,37 @@ def normalize_date_str(val: Any) -> str:
         except (ValueError, TypeError):
             continue
 
-    # RegEx fallback for slash or dash dates: e.g. 23/09/2026 or 09/23/2026
-    slash_match = re.match(r"^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$", val_str)
+    # RegEx fallback for slash, dash, or dot dates with year at end: e.g. 23/09/26, 23/09/2026, 09/23/26
+    slash_match = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$", val_str)
     if slash_match:
-        p1, p2, year = int(slash_match.group(1)), int(slash_match.group(2)), int(slash_match.group(3))
+        p1, p2, raw_year = int(slash_match.group(1)), int(slash_match.group(2)), int(slash_match.group(3))
+        if raw_year < 100:
+            year = 2000 + raw_year if raw_year <= 69 else 1900 + raw_year
+        else:
+            year = raw_year
+
         # If p1 > 12, it must be DD/MM/YYYY
         if p1 > 12 and p2 <= 12:
             day, month = p1, p2
         elif p2 > 12 and p1 <= 12:
             month, day = p1, p2
         else:
-            # Default to DD/MM/YYYY
+            # Default to DD/MM/YYYY (standard in spreadsheets for Latin America/Europe/UK)
             day, month = p1, p2
+        try:
+            d = datetime.date(year, month, day)
+            return d.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    # RegEx fallback for year at beginning: e.g. 26/09/23 or 2026.09.23
+    year_first_match = re.match(r"^(\d{2,4})[-/.](\d{1,2})[-/.](\d{1,2})$", val_str)
+    if year_first_match:
+        raw_year, month, day = int(year_first_match.group(1)), int(year_first_match.group(2)), int(year_first_match.group(3))
+        if raw_year < 100:
+            year = 2000 + raw_year if raw_year <= 69 else 1900 + raw_year
+        else:
+            year = raw_year
         try:
             d = datetime.date(year, month, day)
             return d.strftime("%Y-%m-%d")
@@ -342,6 +373,15 @@ def save_ready_scripts_by_date(
     target_dir = resolve_ready_scripts_output_dir(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
 
+    # Collect all IDs that have a valid date in this batch
+    all_dated_ids: set[str] = {
+        str(r["ID"]).strip().upper()
+        for d, recs in date_groups.items()
+        if d != "undated"
+        for r in recs
+        if r.get("ID")
+    }
+
     saved_files: Dict[str, Dict[str, Any]] = {}
 
     for date_key, records in date_groups.items():
@@ -365,6 +405,9 @@ def save_ready_scripts_by_date(
                     reader = csv.DictReader(f)
                     for row in reader:
                         rid = str(row.get("ID", "")).strip().upper()
+                        # If this is undated file, exclude any IDs that now have dates
+                        if date_key == "undated" and rid in all_dated_ids:
+                            continue
                         if rid:
                             existing_records.append({
                                 "ID": rid,
@@ -380,6 +423,8 @@ def save_ready_scripts_by_date(
         for rec in records:
             rid = rec["ID"]
             expr = rec["expression"]
+            if date_key == "undated" and rid in all_dated_ids:
+                continue
             merged_map[rid] = expr
             if rid not in seen_ids:
                 seen_ids.add(rid)
@@ -390,6 +435,15 @@ def save_ready_scripts_by_date(
                     if ex["ID"] == rid:
                         ex["expression"] = expr
                         break
+
+        # If undated file has no remaining records, remove it if it exists
+        if date_key == "undated" and not existing_records:
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                except OSError:
+                    pass
+            continue
 
         # Write merged records
         with file_path.open("w", encoding="utf-8-sig", newline="") as f:
@@ -405,6 +459,32 @@ def save_ready_scripts_by_date(
             "new_items_added": len(records),
             "is_undated": (date_key == "undated"),
         }
+
+    # Post-check: If "undated" was not in date_groups, prune any newly dated IDs from existing undated file
+    if "undated" not in date_groups:
+        undated_path = target_dir / "undated_ready_scripts.csv"
+        if undated_path.exists():
+            remaining_undated: List[Dict[str, str]] = []
+            try:
+                with undated_path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        rid = str(row.get("ID", "")).strip().upper()
+                        if rid and rid not in all_dated_ids:
+                            remaining_undated.append({
+                                "ID": rid,
+                                "expression": str(row.get("expression", "")).strip(),
+                            })
+                if remaining_undated:
+                    with undated_path.open("w", encoding="utf-8-sig", newline="") as f:
+                        writer = csv.DictWriter(f, fieldnames=["ID", "expression"])
+                        writer.writeheader()
+                        for r in remaining_undated:
+                            writer.writerow(r)
+                else:
+                    undated_path.unlink()
+            except Exception:
+                pass
 
     return {
         "status": "success",
