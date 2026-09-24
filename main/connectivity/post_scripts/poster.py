@@ -63,6 +63,7 @@ def get_source_csv_path(
 
     if include_script_changed:
         candidates = [
+            Path(r"D:\AI\output\connectivity\synced_sheets\_4_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
             Path(r"D:\AI\output\connectivity\_4_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
             DEFAULT_SCRIPTS_TO_POST_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
             DEFAULT_SCRIPTS_TO_SEE_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
@@ -76,6 +77,7 @@ def get_source_csv_path(
         candidates = [
             DEFAULT_SCRIPTS_TO_POST_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
             DEFAULT_SCRIPTS_TO_SEE_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
+            Path(r"D:\AI\output\connectivity\synced_sheets\_3_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
             Path(r"D:\AI\output\connectivity\_3_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
             Path(r"D:\AI\output\connectivity") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
         ]

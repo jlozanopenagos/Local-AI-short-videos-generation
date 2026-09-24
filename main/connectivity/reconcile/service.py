@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 DEFAULT_SCRIPTS_TO_SEE_DIR = Path(r"D:\AI\output\scripts_to_see")
-DEFAULT_CONNECTIVITY_DIR = Path(r"D:\AI\output\connectivity\_3_columns")
+DEFAULT_CONNECTIVITY_DIR = Path(r"D:\AI\output\connectivity\synced_sheets\_3_columns")
 DEFAULT_SCRIPTS_TO_POST_DIR = Path(r"D:\AI\output\connectivity\scripts_to_post")
 
 LANGUAGES = ["french", "spanish", "english", "italian"]
@@ -230,7 +230,19 @@ def reconcile_single_sheet(
     vtype = video_type.strip().lower()
 
     s_dir = Path(scripts_dir) if scripts_dir else DEFAULT_SCRIPTS_TO_SEE_DIR
-    c_dir = Path(connectivity_dir) if connectivity_dir else DEFAULT_CONNECTIVITY_DIR
+    if connectivity_dir:
+        c_dir = Path(connectivity_dir)
+        if (c_dir / "synced_sheets" / "_3_columns").exists():
+            c_dir = c_dir / "synced_sheets" / "_3_columns"
+        elif (c_dir / "_3_columns").exists():
+            c_dir = c_dir / "_3_columns"
+    else:
+        if DEFAULT_CONNECTIVITY_DIR.exists():
+            c_dir = DEFAULT_CONNECTIVITY_DIR
+        elif Path(r"D:\AI\output\connectivity\_3_columns").exists():
+            c_dir = Path(r"D:\AI\output\connectivity\_3_columns")
+        else:
+            c_dir = DEFAULT_CONNECTIVITY_DIR
     o_dir = Path(output_dir) if output_dir else DEFAULT_SCRIPTS_TO_POST_DIR
 
     local_path = s_dir / lang / vtype / f"{lang}_{vtype}_scripts.csv"

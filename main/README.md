@@ -264,7 +264,7 @@ Located in `main/connectivity/`, this modular suite bridges the local video pipe
 
 ```
 main/connectivity/
-├── sync_sheets.py                  # Principal Runner 1: Syncs Sheets to _3_columns/ or _4_columns/
+├── sync_sheets.py                  # Principal Runner 1: Syncs Sheets to synced_sheets/_3_columns/ or _4_columns/
 ├── fetch_corrected_scripts.py      # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
 ├── reconcile_scripts.py            # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                 # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
@@ -282,7 +282,7 @@ main/connectivity/
 
 ### 5 Core Capabilities & Principal Runner Scripts:
 1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`, legacy alias `cli.py`)**:
-   Fetches records from Google Sheets and writes standardized CSV files to `D:\AI\output\connectivity\_3_columns\` or `_4_columns\`.
+   Fetches records from Google Sheets and writes standardized CSV files to `D:\AI\output\connectivity\synced_sheets\_3_columns\` or `_4_columns\`.
 2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`, legacy alias `corrected_scripts_fetching.py`)**:
    Scans Column D (`SCRIPT_CHANGED`) for user or external editor revisions. Outputs filtered modifications to `main/input/csv/script_to_change/<lang>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`. Supports full sheets, ranges (e.g. `01-50`), single IDs, or reading IDs from `input/csv/script_to_change/ids_to_fetch.csv`.
 3. **Reconcile & Reorganize Scripts (`connectivity/reconcile_scripts.py`)**:
@@ -431,7 +431,7 @@ python tools/auditing/audit_all_csvs.py
 
 ### Google Sheets Connectivity Suite
 ```bash
-# Feature 1: Synchronize all Google Sheets to local connectivity CSVs (_3_columns or _4_columns)
+# Feature 1: Synchronize all Google Sheets to local connectivity CSVs (synced_sheets/_3_columns or _4_columns)
 python connectivity/sync_sheets.py --all
 
 # Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/

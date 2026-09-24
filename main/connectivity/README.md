@@ -10,7 +10,7 @@ The `main/connectivity` package is organized into dedicated functional subpackag
 
 ```text
 main/connectivity/
-├── sync_sheets.py                       # Principal Runner 1: Syncs Sheets to _3_columns/ or _4_columns/
+├── sync_sheets.py                       # Principal Runner 1: Syncs Sheets to synced_sheets/_3_columns/ or _4_columns/
 ├── fetch_corrected_scripts.py           # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
 ├── reconcile_scripts.py                 # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                      # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
@@ -26,7 +26,7 @@ main/connectivity/
 │   ├── google_apps_script.sample.js     # Canonical template sample for Code.gs deployment
 │   └── README.md                        # Step-by-step Apps Script Web App deployment guide
 ├── sheet_sync/                          # Feature 1 Implementation: Sheet to CSV Sync
-│   ├── sync_service.py                  # Fetches records into D:\AI\output\connectivity\_3_columns or _4_columns
+│   ├── sync_service.py                  # Fetches records into D:\AI\output\connectivity\synced_sheets\_3_columns or _4_columns
 │   └── __init__.py                      # Package exports
 ├── corrected_scripts/                   # Feature 2 Implementation: Corrected Scripts Fetching
 │   ├── fetcher.py                       # Fetches Column D into main/input/csv/script_to_change/
@@ -52,8 +52,8 @@ main/connectivity/
   - **3 columns**: `ID`, `expression`, `script` (Standard)
   - **4 columns**: `ID`, `expression`, `script`, `SCRIPT_CHANGED`
 - **Destination**:
-  - 3 columns: `D:\AI\output\connectivity\_3_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
-  - 4 columns: `D:\AI\output\connectivity\_4_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
+  - 3 columns: `D:\AI\output\connectivity\synced_sheets\_3_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
+  - 4 columns: `D:\AI\output\connectivity\synced_sheets\_4_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
 - **Usage**:
   ```powershell
   # Interactive mode (asks whether to include 4th column):
@@ -90,7 +90,7 @@ main/connectivity/
   ```
 
 ### 3. Reconcile & Reorganize Scripts (`reconcile_scripts.py`)
-- **Action**: Audits and reconciles local scripts (`D:\AI\output\scripts_to_see`) against Google Sheets connectivity data (`D:\AI\output\connectivity\_3_columns`).
+- **Action**: Audits and reconciles local scripts (`D:\AI\output\scripts_to_see`) against Google Sheets connectivity data (`D:\AI\output\connectivity\synced_sheets\_3_columns`).
 - **Ordering & Preservation Rules**:
   - Strictly preserves Google Sheets row order.
   - Keeps Google Sheets canonical expression names when local has scenario notes or variants.

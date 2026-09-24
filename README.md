@@ -133,7 +133,7 @@ py main/connectivity/scan_ready_scripts.py --all
   - Organized into dedicated packages: `core/`, `apps_script/`, `sheet_sync/`, `corrected_scripts/`, `reconcile/`, `post_scripts/`, `ready_scripts/`.
   - 5 principal root runners: `sync_sheets.py`, `fetch_corrected_scripts.py`, `reconcile_scripts.py`, `post_scripts.py`, `scan_ready_scripts.py`.
   - Master Web App with Option A dynamic routing (`?id=<SPREADSHEET_ID>`) supporting both `doGet` (reads Columns A–H) and `doPost` (in-place updates & appends).
-  - 3-column (`_3_columns`) and 4-column (`_4_columns`) export and publishing modes.
+  - 3-column (`_3_columns`) and 4-column (`_4_columns`) export modes grouped under `synced_sheets/`.
 - **Ready Scripts Scanner (`scan_ready_scripts.py`)**:
   - Filters rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is unchecked.
   - Automatically skips completed videos (`video_ready == True`).

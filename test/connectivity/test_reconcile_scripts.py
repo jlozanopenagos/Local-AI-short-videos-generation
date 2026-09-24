@@ -172,7 +172,7 @@ class TestReconcileScripts(unittest.TestCase):
     def test_reconcile_single_sheet_end_to_end(self):
         """Verify reconcile_single_sheet reads, reconciles, and saves to output directory."""
         s_dir = self.base_path / "scripts_to_see"
-        c_dir = self.base_path / "connectivity" / "_3_columns"
+        c_dir = self.base_path / "connectivity" / "synced_sheets" / "_3_columns"
         o_dir = self.base_path / "connectivity" / "scripts_to_post"
 
         local_file = s_dir / "french" / "expression" / "french_expression_scripts.csv"

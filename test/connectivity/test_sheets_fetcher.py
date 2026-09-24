@@ -201,7 +201,7 @@ class TestSheetsFetcher(unittest.TestCase):
 
         self.assertTrue(csv_path.exists())
         self.assertEqual(csv_path.name, "french_expression_connectivity.csv")
-        self.assertEqual(csv_path.parent, self.test_output_dir / "_3_columns" / "french" / "expression")
+        self.assertEqual(csv_path.parent, self.test_output_dir / "synced_sheets" / "_3_columns" / "french" / "expression")
 
         # Verify CSV content
         with csv_path.open("r", encoding="utf-8-sig") as f:
@@ -231,7 +231,7 @@ class TestSheetsFetcher(unittest.TestCase):
 
         self.assertTrue(csv_path.exists())
         self.assertEqual(csv_path.name, "french_expression_connectivity.csv")
-        self.assertEqual(csv_path.parent, self.test_output_dir / "_4_columns" / "french" / "expression")
+        self.assertEqual(csv_path.parent, self.test_output_dir / "synced_sheets" / "_4_columns" / "french" / "expression")
 
         # Verify 4 columns CSV content
         with csv_path.open("r", encoding="utf-8-sig") as f:

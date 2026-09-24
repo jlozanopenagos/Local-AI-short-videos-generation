@@ -58,8 +58,8 @@ def prompt_include_script_changed() -> bool:
     print("      GOOGLE SHEETS SYNC — COLUMN CONFIGURATION")
     print("=" * 62)
     print("Select columns to export:")
-    print("  [1] 3 columns: ID, expression, script (Standard) -> _3_columns/")
-    print("  [2] 4 columns: ID, expression, script, SCRIPT_CHANGED -> _4_columns/")
+    print("  [1] 3 columns: ID, expression, script (Standard) -> synced_sheets/_3_columns/")
+    print("  [2] 4 columns: ID, expression, script, SCRIPT_CHANGED -> synced_sheets/_4_columns/")
     print("-" * 62)
     while True:
         try:
@@ -133,7 +133,7 @@ def main() -> int:
         action="store_true",
         dest="three_columns",
         default=False,
-        help="Export only 3 standard columns (ID, expression, script) (saves to _3_columns/), skipping terminal prompt"
+        help="Export only 3 standard columns (ID, expression, script) (saves to synced_sheets/_3_columns/), skipping terminal prompt"
     )
     parser.add_argument(
         "--yes", "-y",

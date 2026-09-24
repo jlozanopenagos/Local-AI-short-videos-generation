@@ -55,18 +55,22 @@ def resolve_connectivity_output_dir(
 
     if custom_dir:
         base = Path(custom_dir).resolve()
-        if base.name not in ("_3_columns", "_4_columns"):
+        if base.name in ("_3_columns", "_4_columns"):
+            pass
+        elif base.name == "synced_sheets":
             base = base / col_subdir
+        else:
+            base = base / "synced_sheets" / col_subdir
     else:
-        d_drive_target = Path("D:/AI/output/connectivity")
+        d_drive_target = Path("D:/AI/output/connectivity/synced_sheets")
         try:
             if Path("D:/AI/output").exists() or Path("D:/").exists():
                 d_drive_target.mkdir(parents=True, exist_ok=True)
                 base = d_drive_target / col_subdir
             else:
-                base = OUTPUT_DIR / "connectivity" / col_subdir
+                base = OUTPUT_DIR / "connectivity" / "synced_sheets" / col_subdir
         except Exception:
-            base = OUTPUT_DIR / "connectivity" / col_subdir
+            base = OUTPUT_DIR / "connectivity" / "synced_sheets" / col_subdir
 
     if language and video_type:
         dest = base / language.strip().lower() / video_type.strip().lower()
@@ -201,7 +205,7 @@ def sync_all_sheets(
             continue
         targets.append((l, t))
 
-    col_str = "4 columns (ID, expression, script, SCRIPT_CHANGED) -> _4_columns" if include_script_changed else "3 columns (ID, expression, script) -> _3_columns"
+    col_str = "4 columns (ID, expression, script, SCRIPT_CHANGED) -> synced_sheets/_4_columns" if include_script_changed else "3 columns (ID, expression, script) -> synced_sheets/_3_columns"
     print(f"\n=======================================================")
     print(f"  BATCH GOOGLE SHEETS SYNC: {len(targets)} sheet(s) queued")
     print(f"  Export Mode: {col_str}")
