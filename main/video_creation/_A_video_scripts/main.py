@@ -1113,13 +1113,13 @@ def process_scripts_to_change_from_csv(
         # Detect ID and NEW_SCRIPT columns (case-insensitive)
         id_col = next((c for c in fieldnames if c.strip().upper() == "ID"), None)
         script_col = next(
-            (c for c in fieldnames if c.strip().upper() in ("NEW_SCRIPT", "SCRIPT", "NEW_SCRIPT_TEXT")),
+            (c for c in fieldnames if c.strip().upper() in ("NEW_SCRIPT", "SCRIPT", "NEW_SCRIPT_TEXT", "SCRIPT_CHANGE", "SCRIPT_CHANGED")),
             None
         )
 
         if not id_col or not script_col:
             print(
-                f"❌ Error: '{csv_file.name}' is missing required columns ('ID', 'NEW_SCRIPT'). "
+                f"❌ Error: '{csv_file.name}' is missing required columns ('ID', 'NEW_SCRIPT'/'SCRIPT_CHANGE'). "
                 f"Found headers: {fieldnames}",
                 file=sys.stderr
             )

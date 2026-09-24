@@ -36,6 +36,7 @@ from connectivity.ready_scripts.scanner import (
     DEFAULT_READY_SCRIPTS_DIR,
     resolve_ready_scripts_output_dir,
     save_ready_scripts_by_date,
+    save_ready_scripts_to_work_with_by_date,
     scan_all_sheets_ready_scripts,
     scan_sheet_ready_scripts,
 )
@@ -107,7 +108,68 @@ def select_video_type() -> str:
         print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
 
-def run_all_sheets_flow(output_dir: Optional[Path] = None) -> None:
+def prompt_export_work_with_scripts() -> bool:
+    """Prompt the user via terminal whether they also want to generate a CSV with ID and SCRIPT_CHANGE."""
+    if not sys.stdin.isatty():
+        return False
+    try:
+        choice = (
+            input(
+                "\nDo you also want to create a CSV with ID and SCRIPT_CHANGE (ready_scripts_to_work_with)? [y/N]: "
+            )
+            .strip()
+            .lower()
+        )
+        return choice in ("y", "yes")
+    except (KeyboardInterrupt, EOFError):
+        return False
+
+
+def export_work_with_scripts_if_requested(
+    date_groups: dict,
+    output_dir: Optional[Path] = None,
+    work_with_flag: Optional[bool] = None,
+) -> None:
+    """Export <date>_ready_scripts_to_work_with.csv and error_report.csv if requested."""
+    if not date_groups:
+        return
+
+    should_export = work_with_flag
+    if should_export is None:
+        should_export = prompt_export_work_with_scripts()
+
+    if not should_export:
+        return
+
+    dest_dir = resolve_ready_scripts_output_dir(output_dir)
+    print("\n" + "-" * 66)
+    print(" [EXPORTING] Generating ready_scripts_to_work_with CSV(s)...")
+    res = save_ready_scripts_to_work_with_by_date(date_groups, output_dir=dest_dir)
+
+    print("\n" + "=" * 66)
+    print(" [SUCCESS] Ready scripts to work with exported!")
+    print("=" * 66)
+    for d_key, f_info in res.get("saved_files", {}).items():
+        if f_info.get("is_undated"):
+            print(f"  [SAVED] {f_info['file_name']:<40} : {f_info['total_items']} script(s) [UNDATED]")
+        else:
+            print(f"  [SAVED] {f_info['file_name']:<40} : {f_info['total_items']} script(s)")
+        print(f"          -> {f_info['file_path']}")
+
+    if res.get("errors_count", 0) > 0:
+        print(f"\n  [!] WARNING: {res['errors_count']} script(s) had an empty SCRIPT_CHANGE column.")
+        print(f"      Logged into error report: {res.get('error_file')}")
+        for err in res.get("errors", [])[:5]:
+            print(f"        - ID {err['ID']}: {err['problem']}")
+        if res.get("errors_count", 0) > 5:
+            print(f"        ... and {res['errors_count'] - 5} more.")
+    print("=" * 66)
+
+
+def run_all_sheets_flow(
+    output_dir: Optional[Path] = None,
+    work_with_flag: Optional[bool] = None,
+) -> None:
     dest_dir = resolve_ready_scripts_output_dir(output_dir)
     print("\n[STARTING] Scanning all 16 Google Sheets for ready scripts...")
     print(f"           Destination: {dest_dir}\n")
@@ -163,8 +225,16 @@ def run_all_sheets_flow(output_dir: Optional[Path] = None) -> None:
         print("      They were saved into 'undated_ready_scripts.csv' so no tracking data is lost.")
     print("=" * 66)
 
+    # Prompt or export ready_scripts_to_work_with
+    export_work_with_scripts_if_requested(
+        date_groups, output_dir=dest_dir, work_with_flag=work_with_flag
+    )
 
-def run_single_sheet_flow(output_dir: Optional[Path] = None) -> None:
+
+def run_single_sheet_flow(
+    output_dir: Optional[Path] = None,
+    work_with_flag: Optional[bool] = None,
+) -> None:
     lang = select_language()
     vtype = select_video_type()
     dest_dir = resolve_ready_scripts_output_dir(output_dir)
@@ -205,6 +275,11 @@ def run_single_sheet_flow(output_dir: Optional[Path] = None) -> None:
         print(f"      -> {f_info['file_path']}")
     print("=" * 66)
 
+    # Prompt or export ready_scripts_to_work_with
+    export_work_with_scripts_if_requested(
+        date_groups, output_dir=dest_dir, work_with_flag=work_with_flag
+    )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -231,6 +306,20 @@ def main() -> None:
         default=None,
         help="Custom destination directory (default: D:\\AI\\output\\connectivity\\ready_scripts)",
     )
+    work_group = parser.add_mutually_exclusive_group()
+    work_group.add_argument(
+        "-w", "--work-with",
+        dest="work_with",
+        action="store_true",
+        default=None,
+        help="Also export ready_scripts_to_work_with.csv (ID, SCRIPT_CHANGE) without prompting",
+    )
+    work_group.add_argument(
+        "--no-work-with",
+        dest="work_with",
+        action="store_false",
+        help="Do not export ready_scripts_to_work_with.csv",
+    )
 
     args = parser.parse_args()
     custom_dest = Path(args.output_dir) if args.output_dir else None
@@ -239,7 +328,7 @@ def main() -> None:
     # CLI flag mode
     if args.all:
         print_banner(resolved_dest)
-        run_all_sheets_flow(output_dir=custom_dest)
+        run_all_sheets_flow(output_dir=custom_dest, work_with_flag=args.work_with)
         return
 
     if args.language and args.video_type:
@@ -256,6 +345,9 @@ def main() -> None:
                 saved = save_ready_scripts_by_date(date_groups, output_dir=custom_dest)
                 for d_k, info in saved.get("saved_files", {}).items():
                     print(f" [SAVED] {info['file_name']} -> {info['file_path']}")
+                export_work_with_scripts_if_requested(
+                    date_groups, output_dir=custom_dest, work_with_flag=args.work_with
+                )
         except Exception as e:
             print(f"[ERROR] Scan failed: {e}", file=sys.stderr)
             sys.exit(1)
@@ -272,10 +364,10 @@ def main() -> None:
         try:
             choice = input("\nEnter choice (0-2) [default: 1]: ").strip()
             if not choice or choice == "1":
-                run_all_sheets_flow(output_dir=custom_dest)
+                run_all_sheets_flow(output_dir=custom_dest, work_with_flag=args.work_with)
                 break
             elif choice == "2":
-                run_single_sheet_flow(output_dir=custom_dest)
+                run_single_sheet_flow(output_dir=custom_dest, work_with_flag=args.work_with)
                 break
             elif choice == "0":
                 print("Exiting.")

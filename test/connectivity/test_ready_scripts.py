@@ -36,6 +36,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 try:
+    # pyrefly: ignore [missing-import]
     from connectivity.ready_scripts.scanner import (
         DEFAULT_READY_SCRIPTS_DIR,
         filter_ready_scripts,
@@ -43,6 +44,7 @@ try:
         normalize_date_str,
         resolve_ready_scripts_output_dir,
         save_ready_scripts_by_date,
+        save_ready_scripts_to_work_with_by_date,
         scan_all_sheets_ready_scripts,
         scan_sheet_ready_scripts,
     )
@@ -54,6 +56,7 @@ except (ImportError, ModuleNotFoundError):
         normalize_date_str,
         resolve_ready_scripts_output_dir,
         save_ready_scripts_by_date,
+        save_ready_scripts_to_work_with_by_date,
         scan_all_sheets_ready_scripts,
         scan_sheet_ready_scripts,
     )
@@ -393,6 +396,142 @@ class TestReadyScriptsScanner(unittest.TestCase):
         self.assertIn("2026-09-23", summary["date_groups"])
         grouped_ids = [r["ID"] for r in summary["date_groups"]["2026-09-23"]]
         self.assertEqual(grouped_ids, ["FE01", "SG05"])
+
+    def test_save_ready_scripts_to_work_with_by_date_and_schema(self):
+        """Verify save_ready_scripts_to_work_with_by_date writes clean CSV with ID,SCRIPT_CHANGE."""
+        date_groups = {
+            "2026-09-23": [
+                {"ID": "FE01", "script_change": "Voici une nouvelle explication..."},
+                {"ID": "SG02", "script_change": "Un autre script..."},
+            ],
+            "undated": [
+                {"ID": "ER03", "script_change": "Undated change..."},
+            ],
+        }
+
+        save_res = save_ready_scripts_to_work_with_by_date(date_groups, output_dir=self.output_dir)
+        self.assertEqual(save_res["total_files"], 2)
+        self.assertEqual(save_res["errors_count"], 0)
+
+        dated_file = self.output_dir / "2026-09-23_ready_scripts_to_work_with.csv"
+        self.assertTrue(dated_file.exists())
+        with dated_file.open("r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            self.assertEqual(reader.fieldnames, ["ID", "SCRIPT_CHANGE"])
+            rows = list(reader)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["ID"], "FE01")
+            self.assertEqual(rows[0]["SCRIPT_CHANGE"], "Voici une nouvelle explication...")
+
+        undated_file = self.output_dir / "undated_ready_scripts_to_work_with.csv"
+        self.assertTrue(undated_file.exists())
+        with undated_file.open("r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            self.assertEqual(reader.fieldnames, ["ID", "SCRIPT_CHANGE"])
+            rows = list(reader)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["ID"], "ER03")
+
+    def test_save_ready_scripts_to_work_with_error_report_and_recovery(self):
+        """Verify missing SCRIPT_CHANGE goes to error_report.csv and is pruned when resolved."""
+        # Batch 1: FE01 is valid, FE02 is missing SCRIPT_CHANGE
+        batch_1 = {
+            "2026-09-23": [
+                {"ID": "FE01", "script_change": "Valid script"},
+                {"ID": "FE02", "script_change": ""},  # missing!
+            ]
+        }
+        res_1 = save_ready_scripts_to_work_with_by_date(batch_1, output_dir=self.output_dir)
+        self.assertEqual(res_1["errors_count"], 1)
+
+        # Dated file should ONLY contain FE01
+        dated_file = self.output_dir / "2026-09-23_ready_scripts_to_work_with.csv"
+        self.assertTrue(dated_file.exists())
+        with dated_file.open("r", encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["ID"], "FE01")
+
+        # error_report.csv should exist and contain FE02
+        error_file = self.output_dir / "error_report.csv"
+        self.assertTrue(error_file.exists())
+        with error_file.open("r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            self.assertEqual(reader.fieldnames, ["ID", "problem"])
+            err_rows = list(reader)
+            self.assertEqual(len(err_rows), 1)
+            self.assertEqual(err_rows[0]["ID"], "FE02")
+
+        # Batch 2: User fixes FE02 in Google Sheets, now running again
+        batch_2 = {
+            "2026-09-23": [
+                {"ID": "FE01", "script_change": "Valid script"},
+                {"ID": "FE02", "script_change": "Fixed now!"},
+            ]
+        }
+        res_2 = save_ready_scripts_to_work_with_by_date(batch_2, output_dir=self.output_dir)
+        self.assertEqual(res_2["errors_count"], 0)
+
+        # Dated file should now contain both FE01 and FE02
+        with dated_file.open("r", encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+            self.assertEqual(len(rows), 2)
+            ids = [r["ID"] for r in rows]
+            self.assertIn("FE01", ids)
+            self.assertIn("FE02", ids)
+
+        # error_report.csv should be removed because all errors are resolved
+        self.assertFalse(error_file.exists())
+
+    def test_save_ready_scripts_to_work_with_pruning_undated(self):
+        """Verify undated_ready_scripts_to_work_with.csv prunes items when dated."""
+        batch_1 = {
+            "undated": [
+                {"ID": "FE01", "script_change": "Undated script 1"},
+                {"ID": "FE02", "script_change": "Undated script 2"},
+            ]
+        }
+        save_ready_scripts_to_work_with_by_date(batch_1, output_dir=self.output_dir)
+        undated_file = self.output_dir / "undated_ready_scripts_to_work_with.csv"
+        self.assertTrue(undated_file.exists())
+
+        # Batch 2: Both now dated
+        batch_2 = {
+            "2026-09-23": [
+                {"ID": "FE01", "script_change": "Dated script 1"},
+                {"ID": "FE02", "script_change": "Dated script 2"},
+            ]
+        }
+        save_ready_scripts_to_work_with_by_date(batch_2, output_dir=self.output_dir)
+        # Undated file should be removed
+        self.assertFalse(undated_file.exists())
+
+    def test_prompt_export_work_with_scripts_not_atty(self):
+        """Verify prompt returns False when sys.stdin is not a tty."""
+        try:
+            from connectivity.scan_ready_scripts import prompt_export_work_with_scripts
+        except ImportError:
+            from main.connectivity.scan_ready_scripts import prompt_export_work_with_scripts
+        with patch("sys.stdin.isatty", return_value=False):
+            self.assertFalse(prompt_export_work_with_scripts())
+
+    def test_prompt_export_work_with_scripts_tty_yes(self):
+        """Verify prompt returns True when user types 'y'."""
+        try:
+            from connectivity.scan_ready_scripts import prompt_export_work_with_scripts
+        except ImportError:
+            from main.connectivity.scan_ready_scripts import prompt_export_work_with_scripts
+        with patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="y"):
+            self.assertTrue(prompt_export_work_with_scripts())
+
+    def test_prompt_export_work_with_scripts_tty_no(self):
+        """Verify prompt returns False when user types 'n'."""
+        try:
+            from connectivity.scan_ready_scripts import prompt_export_work_with_scripts
+        except ImportError:
+            from main.connectivity.scan_ready_scripts import prompt_export_work_with_scripts
+        with patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="n"):
+            self.assertFalse(prompt_export_work_with_scripts())
 
 
 if __name__ == "__main__":
