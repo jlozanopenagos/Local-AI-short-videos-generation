@@ -346,6 +346,15 @@ def main() -> int:
         default=None,
         help="Target scripts listed in CSV (default checks input/csv/voice_to_change/)"
     )
+    parser.add_argument(
+        "--from-ready-scripts",
+        "--ready-scripts",
+        dest="ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+    )
     args = parser.parse_args()
     
     base_dir = BASE_DIR
@@ -365,13 +374,18 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, or CSV List
+    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
     # pyrefly: ignore [missing-import]
-    from core.cli_prompt import prompt_production_mode, prompt_group_range, prompt_fun_facts_mode
+    from core.cli_prompt import (
+        prompt_production_mode,
+        prompt_group_range,
+        prompt_fun_facts_mode,
+        prompt_ready_scripts_mode,
+    )
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
 
-    if is_cli_fun_facts and not args.script_id and args.csv_list is None:
+    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None:
         print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
         target_script_ids = None
         selected_mode = "fun_facts"
@@ -389,6 +403,8 @@ def main() -> int:
             allow_csv_list_mode=True,
             csv_folder_name="voice_to_change",
             csv_path_arg=args.csv_list,
+            allow_ready_scripts_mode=True,
+            ready_scripts_path_arg=args.ready_scripts_csv,
         )
         if is_cli_fun_facts:
             selected_mode = "fun_facts"

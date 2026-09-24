@@ -458,6 +458,174 @@ def prompt_csv_list_mode(
     return ids
 
 
+def find_ready_scripts_csvs(search_dir: Optional[Path] = None) -> List[Path]:
+    """
+    Finds all ready_scripts CSV files in the destination directory, sorted newest first.
+    Prioritizes standard <date>_ready_scripts.csv over work_with files.
+    """
+    if search_dir is None:
+        try:
+            from connectivity.ready_scripts.scanner import resolve_ready_scripts_output_dir
+            target_dir = resolve_ready_scripts_output_dir()
+        except Exception:
+            target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
+    else:
+        target_dir = search_dir
+
+    if not target_dir.exists():
+        return []
+
+    standard_files = sorted(
+        [
+            f for f in target_dir.glob("*.csv")
+            if "to_work_with" not in f.name.lower() and "error_report" not in f.name.lower() and "ready_scripts" in f.name.lower()
+        ],
+        key=lambda p: p.stat().st_mtime if p.exists() else 0,
+        reverse=True,
+    )
+    work_with_files = sorted(
+        [
+            f for f in target_dir.glob("*ready_scripts_to_work_with*.csv")
+            if "error_report" not in f.name.lower()
+        ],
+        key=lambda p: p.stat().st_mtime if p.exists() else 0,
+        reverse=True,
+    )
+    other_csvs = sorted(
+        [
+            f for f in target_dir.glob("*.csv")
+            if f not in standard_files and f not in work_with_files and "error_report" not in f.name.lower()
+        ],
+        key=lambda p: p.stat().st_mtime if p.exists() else 0,
+        reverse=True,
+    )
+    return standard_files + work_with_files + other_csvs
+
+
+def prompt_ready_scripts_mode(
+    base_dir: Optional[Path] = None,
+    search_dir: Optional[Path] = None,
+    csv_path_arg: Optional[str] = None,
+    require_existing_state: bool = False,
+    auto: bool = False,
+) -> Optional[List[str]]:
+    """
+    Loads target script IDs from a ready_scripts CSV file (e.g. <date>_ready_scripts.csv).
+    If csv_path_arg is specified, reads directly from that path.
+    Otherwise, inspects ready_scripts/ directory and prompts user to choose.
+    """
+    if search_dir is None:
+        try:
+            from connectivity.ready_scripts.scanner import resolve_ready_scripts_output_dir
+            target_dir = resolve_ready_scripts_output_dir()
+        except Exception:
+            target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
+    else:
+        target_dir = search_dir
+
+    selected_csv: Optional[Path] = None
+
+    if csv_path_arg and str(csv_path_arg).strip():
+        raw_p = Path(csv_path_arg.strip().strip('"').strip("'"))
+        if raw_p.is_file():
+            selected_csv = raw_p
+        elif (target_dir / raw_p.name).is_file():
+            selected_csv = target_dir / raw_p.name
+        else:
+            print(f"[Error] Specified ready scripts CSV '{csv_path_arg}' was not found.", file=sys.stderr)
+            return None
+    else:
+        found_csvs = find_ready_scripts_csvs(target_dir)
+
+        if not found_csvs:
+            if auto or not sys.stdin.isatty():
+                print(f"[Warning] No ready scripts CSV files found in '{target_dir}'.")
+                return None
+            print("\n" + "-" * 60)
+            print(f"  NO READY SCRIPTS CSV FILES IN {target_dir}")
+            print("-" * 60)
+            print(f"Could not find any ready scripts CSV files in {target_dir}.")
+            try:
+                custom_path = input("Enter custom CSV path (or press Enter to cancel): ").strip().strip('"').strip("'")
+            except (KeyboardInterrupt, EOFError):
+                return None
+            if custom_path:
+                cp = Path(custom_path).resolve()
+                if cp.is_file():
+                    selected_csv = cp
+                else:
+                    print(f"[Error] File not found: {cp}")
+                    return None
+            else:
+                return None
+        elif len(found_csvs) == 1 and (auto or not sys.stdin.isatty()):
+            selected_csv = found_csvs[0]
+        else:
+            if auto or not sys.stdin.isatty():
+                selected_csv = found_csvs[0]
+            else:
+                print("\n" + "-" * 60)
+                print(f"  SELECT READY SCRIPTS CSV ({target_dir})")
+                print("-" * 60)
+                print(f"Available ready scripts CSV file(s) in {target_dir}:")
+                for idx, cf in enumerate(found_csvs, start=1):
+                    default_tag = " [Default]" if idx == 1 else ""
+                    print(f"  [{idx}] {cf.name}{default_tag}")
+                custom_opt = str(len(found_csvs) + 1)
+                print(f"  [{custom_opt}] Enter custom CSV path")
+                print("-" * 60)
+                try:
+                    choice = input(f"Choice [1-{custom_opt}] (default: 1): ").strip()
+                except (KeyboardInterrupt, EOFError):
+                    print("\nOperation cancelled by user.")
+                    return None
+
+                if choice in ("", "1"):
+                    selected_csv = found_csvs[0]
+                elif choice.isdigit() and 1 <= int(choice) <= len(found_csvs):
+                    selected_csv = found_csvs[int(choice) - 1]
+                elif choice == custom_opt or choice.upper() == "C":
+                    try:
+                        custom_path = input("Enter custom CSV path: ").strip().strip('"').strip("'")
+                    except (KeyboardInterrupt, EOFError):
+                        return None
+                    cp = Path(custom_path).resolve()
+                    if cp.is_file():
+                        selected_csv = cp
+                    else:
+                        print(f"[Error] File not found: {cp}")
+                        return None
+                else:
+                    selected_csv = found_csvs[0]
+
+    if not selected_csv or not selected_csv.is_file():
+        print("[Error] No valid CSV file selected.")
+        return None
+
+    ids = load_ids_from_csv(selected_csv)
+    if not ids:
+        print(f"[Warning] No script IDs found in '{selected_csv.name}' (ensure file has an 'ID' column).")
+        return None
+
+    if require_existing_state:
+        valid_ids = []
+        missing_ids = []
+        for sid in ids:
+            if _check_script_state_exists(sid, base_dir):
+                valid_ids.append(sid)
+            else:
+                missing_ids.append(sid)
+        if missing_ids:
+            print(f"[Warning] Note: {len(missing_ids)} ID(s) do not have state JSON files yet: {', '.join(missing_ids[:5])}{'...' if len(missing_ids) > 5 else ''}")
+        if not valid_ids:
+            print(f"[Error] None of the {len(ids)} script IDs in '{selected_csv.name}' have an existing script state in 'state/'.")
+            return None
+        ids = valid_ids
+
+    print(f"\n[Ready Scripts Queue] Loaded {len(ids)} target script ID(s) from '{selected_csv.name}': {', '.join(ids[:8])}{'...' if len(ids) > 8 else ''}\n")
+    return ids
+
+
 def prompt_production_mode(
     stage_title: str,
     asset_name: str,
@@ -472,6 +640,8 @@ def prompt_production_mode(
     allow_csv_list_mode: bool = False,
     csv_folder_name: str = "script_to_change",
     csv_path_arg: Optional[str] = None,
+    allow_ready_scripts_mode: bool = False,
+    ready_scripts_path_arg: Optional[str] = None,
 ) -> Union[Optional[List[str]], Tuple[Optional[List[str]], str]]:
     """
     Prompts the user in the terminal to choose between:
@@ -481,6 +651,7 @@ def prompt_production_mode(
       [4] Fun Facts only (produce only Fun Facts scripts, if allow_fun_facts_mode is True)
       [5] Change script(s) from CSV (if allow_script_to_change_mode is True)
           OR Select script(s) from CSV list (if allow_csv_list_mode is True)
+      [6] From Ready Scripts CSV (<date>_ready_scripts.csv, if allow_ready_scripts_mode is True)
 
     Args:
         stage_title: Human-readable stage title (e.g. "Part B: Voice Generation").
@@ -490,18 +661,32 @@ def prompt_production_mode(
         auto: If True, bypasses prompt and defaults to mass-produce (or script_id_arg).
         require_existing_state: If True, checks that state/<lang>/<type>/script_<ID>.json exists before queueing.
         base_dir: Base project directory for state checks.
-        return_mode: If True, returns (target_ids, mode) tuple where mode is 'mass', 'specific', 'group_range', 'fun_facts', 'script_to_change', or 'csv_list'.
+        return_mode: If True, returns (target_ids, mode) tuple where mode is 'mass', 'specific', 'group_range', 'fun_facts', 'script_to_change', 'csv_list', or 'ready_scripts'.
         allow_fun_facts_mode: If True, adds Option for Fun Facts only production.
         allow_script_to_change_mode: If True, adds Option for changing scripts from CSV in input/csv/script_to_change.
         allow_csv_list_mode: If True, adds Option for selecting scripts from CSV list in input/csv/<csv_folder_name>.
         csv_folder_name: Subfolder inside input/csv/ to check for CSV list mode (e.g. 'voice_to_change', 'image_to_change').
         csv_path_arg: Optional explicit CSV path provided via command line.
+        allow_ready_scripts_mode: If True, adds Option for targeting scripts from <date>_ready_scripts.csv.
+        ready_scripts_path_arg: Optional explicit ready_scripts CSV path provided via command line.
 
     Returns:
         Optional[List[str]] or Tuple[Optional[List[str]], str]:
             - None or (None, 'mass'): Proceed with mass-production of all pending scripts.
             - List[str] or (List[str], mode): Canonical Script IDs to process in order.
     """
+    if ready_scripts_path_arg is not None:
+        ready_ids = prompt_ready_scripts_mode(
+            base_dir=base_dir,
+            csv_path_arg=ready_scripts_path_arg if ready_scripts_path_arg.strip() else None,
+            require_existing_state=require_existing_state,
+            auto=auto,
+        )
+        if ready_ids:
+            return (ready_ids, "ready_scripts") if return_mode else ready_ids
+        else:
+            return (None, "mass") if return_mode else None
+
     if csv_path_arg is not None:
         csv_ids = prompt_csv_list_mode(
             base_dir=base_dir,
@@ -539,6 +724,9 @@ def prompt_production_mode(
     change_csv_choice = str(len(valid_choices) + 1)
     if allow_script_to_change_mode or allow_csv_list_mode:
         valid_choices.append(change_csv_choice)
+    ready_scripts_choice = str(len(valid_choices) + 1)
+    if allow_ready_scripts_mode:
+        valid_choices.append(ready_scripts_choice)
 
     print("\n" + "=" * 65)
     print(f"  {stage_title.upper()}")
@@ -553,6 +741,8 @@ def prompt_production_mode(
         print(f"  [{change_csv_choice}] Change script(s) from CSV (input/csv/script_to_change)")
     elif allow_csv_list_mode:
         print(f"  [{change_csv_choice}] Select script(s) from CSV list (input/csv/{csv_folder_name})")
+    if allow_ready_scripts_mode:
+        print(f"  [{ready_scripts_choice}] From Ready Scripts CSV (<date>_ready_scripts.csv)")
     print("-" * 65)
 
     choice = _timed_choice(timeout=timeout, default="1", valid_choices=tuple(valid_choices))
@@ -593,6 +783,19 @@ def prompt_production_mode(
             return (csv_ids, "csv_list") if return_mode else csv_ids
         else:
             print("[Warning] No valid script IDs loaded from CSV. Defaulting to mass-production.\n")
+            return (None, "mass") if return_mode else None
+
+    if allow_ready_scripts_mode and choice == ready_scripts_choice:
+        ready_ids = prompt_ready_scripts_mode(
+            base_dir=base_dir,
+            csv_path_arg=ready_scripts_path_arg,
+            require_existing_state=require_existing_state,
+            auto=auto,
+        )
+        if ready_ids:
+            return (ready_ids, "ready_scripts") if return_mode else ready_ids
+        else:
+            print("[Warning] No valid script IDs loaded from Ready Scripts CSV. Defaulting to mass-production.\n")
             return (None, "mass") if return_mode else None
 
     # Choice == "2": Interactive queue construction

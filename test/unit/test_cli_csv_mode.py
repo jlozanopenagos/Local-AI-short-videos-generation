@@ -179,6 +179,75 @@ class TestCLICSVMode(unittest.TestCase):
         args3 = p.parse_args(["--csv-list", "input/csv/voice_to_change/batch.csv"])
         self.assertEqual(args3.csv_list, "input/csv/voice_to_change/batch.csv")
 
+    def test_find_ready_scripts_csvs(self):
+        """Verify find_ready_scripts_csvs finds files and prioritizes standard ready_scripts."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir)
+            f1 = p / "2026-09-23_ready_scripts.csv"
+            f1.write_text("ID,expression\nEE01,Test\n", encoding="utf-8")
+            f2 = p / "2026-09-23_ready_scripts_to_work_with.csv"
+            f2.write_text("ID,SCRIPT_CHANGE\nEE01,Test\n", encoding="utf-8")
+            err_f = p / "error_report.csv"
+            err_f.write_text("ID,error\n", encoding="utf-8")
+
+            from core.cli_prompt import find_ready_scripts_csvs
+            found = find_ready_scripts_csvs(p)
+            found_names = [f.name for f in found]
+
+            self.assertIn("2026-09-23_ready_scripts.csv", found_names)
+            self.assertIn("2026-09-23_ready_scripts_to_work_with.csv", found_names)
+            self.assertNotIn("error_report.csv", found_names)
+            # Standard ready_scripts file must come before to_work_with
+            self.assertTrue(found_names.index("2026-09-23_ready_scripts.csv") < found_names.index("2026-09-23_ready_scripts_to_work_with.csv"))
+
+    def test_prompt_ready_scripts_mode_from_file(self):
+        """Verify prompt_ready_scripts_mode loads IDs from ready scripts CSV directly."""
+        from core.cli_prompt import prompt_ready_scripts_mode
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "2026-09-23_ready_scripts.csv"
+            csv_path.write_text("ID,expression\nEE01,Phrase one\nEE02,Phrase two\n", encoding="utf-8")
+
+            ids = prompt_ready_scripts_mode(
+                search_dir=Path(tmp_dir),
+                csv_path_arg=str(csv_path),
+                require_existing_state=False
+            )
+            self.assertEqual(ids, ["EE01", "EE02"])
+
+    def test_prompt_production_mode_choice_6_ready_scripts(self):
+        """Verify prompt_production_mode offers Option 6 when allow_ready_scripts_mode is True."""
+        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
+             patch("core.cli_prompt._timed_choice", return_value="6"), \
+             patch("core.cli_prompt.prompt_ready_scripts_mode", return_value=["EE01", "EE02", "EE03"]):
+            result, mode = prompt_production_mode(
+                stage_title="Part B: Voice Generation",
+                asset_name="voices",
+                allow_fun_facts_mode=True,
+                allow_csv_list_mode=True,
+                allow_ready_scripts_mode=True,
+                return_mode=True,
+            )
+            self.assertEqual(mode, "ready_scripts")
+            self.assertEqual(result, ["EE01", "EE02", "EE03"])
+
+    def test_cli_flags_parsing_ready_scripts(self):
+        """Verify argument parser parses --from-ready-scripts and --ready-scripts flags."""
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--from-ready-scripts",
+            "--ready-scripts",
+            dest="ready_scripts_csv",
+            nargs="?",
+            const="",
+            default=None,
+        )
+
+        args1 = parser.parse_args(["--from-ready-scripts"])
+        self.assertEqual(args1.ready_scripts_csv, "")
+
+        args2 = parser.parse_args(["--ready-scripts", "D:/AI/output/connectivity/ready_scripts/2026-09-23_ready_scripts.csv"])
+        self.assertEqual(args2.ready_scripts_csv, "D:/AI/output/connectivity/ready_scripts/2026-09-23_ready_scripts.csv")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,9 @@ from .cli_prompt import (
     prompt_production_mode,
     prompt_group_range,
     prompt_fun_facts_mode,
+    prompt_csv_list_mode,
+    prompt_ready_scripts_mode,
+    find_ready_scripts_csvs,
 )
 
 # Ensure core directory is also in sys.path for direct module discovery
@@ -50,5 +53,8 @@ __all__ = [
     "prompt_production_mode",
     "prompt_group_range",
     "prompt_fun_facts_mode",
+    "prompt_csv_list_mode",
+    "prompt_ready_scripts_mode",
+    "find_ready_scripts_csvs",
 ]
 
