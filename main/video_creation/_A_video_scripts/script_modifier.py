@@ -24,6 +24,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -1379,6 +1380,8 @@ def interactive_main():
             success_count += 1
         else:
             failed_ids.append(s_id)
+        # Breather cooldown between batch items so LLM slots return cleanly to idle ("go ahead, don't stop")
+        time.sleep(0.3)
 
     print("\n" + "=" * 68)
     print(f"🏁 Batch Modification Complete: {success_count}/{total} succeeded.")

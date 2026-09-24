@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,13 @@ import requests
 from .workflow_converter import convert_workflow
 
 logger = logging.getLogger(__name__)
+
+def _safe_print(text: str, file=None, flush: bool = True) -> None:
+    target = file or sys.stdout
+    try:
+        print(text, file=target, flush=flush)
+    except UnicodeEncodeError:
+        print(text.encode("ascii", errors="replace").decode("ascii"), file=target, flush=flush)
 
 
 # ── Node IDs in AcademiaSD_Z-Image.json (confirmed from workflow inspection) ──
@@ -52,7 +60,7 @@ class ImageComfyClient:
         self,
         api_url: str,
         workflow_path: Path,
-        poll_timeout: int = 300,
+        poll_timeout: int = 90,
         poll_interval: float = 2.0,
     ) -> None:
         self.api_url       = api_url.rstrip("/")
@@ -66,6 +74,57 @@ class ImageComfyClient:
         """Check if ComfyUI is reachable."""
         from config import check_comfy_connection
         check_comfy_connection(self.api_url, raise_on_error=True)
+
+    def free_memory(self, unload_models: bool = False) -> bool:
+        """Forces ComfyUI to clear VRAM cache."""
+        url = f"{self.api_url}/free"
+        payload = {"unload_models": unload_models, "free_memory": True}
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            return resp.status_code == 200
+        except Exception as e:
+            logger.warning("Could not free memory via API: %s", e)
+            return False
+
+    def interrupt(self) -> bool:
+        """Interrupts currently executing prompt in ComfyUI."""
+        url = f"{self.api_url}/interrupt"
+        try:
+            resp = requests.post(url, timeout=5)
+            return resp.status_code == 200
+        except Exception as e:
+            logger.warning("Could not interrupt ComfyUI execution: %s", e)
+            return False
+
+    def clear_queue(self) -> bool:
+        """Clears all pending items in ComfyUI queue."""
+        url = f"{self.api_url}/queue"
+        try:
+            resp = requests.post(url, json={"clear": True}, timeout=5)
+            return resp.status_code == 200
+        except Exception as e:
+            logger.warning("Could not clear ComfyUI queue: %s", e)
+            return False
+
+    def ensure_clean_slate(self) -> None:
+        """Checks if ComfyUI has stuck running or pending tasks and cleans them up."""
+        try:
+            resp = requests.get(f"{self.api_url}/queue", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                running = data.get("queue_running", [])
+                pending = data.get("queue_pending", [])
+                if running or pending:
+                    logger.warning(
+                        "[Watchdog] Detected %d running / %d pending tasks in ComfyUI queue. Cleaning slate...",
+                        len(running), len(pending)
+                    )
+                    self.interrupt()
+                    self.clear_queue()
+                    self.free_memory()
+                    time.sleep(1.0)
+        except Exception:
+            pass
 
     # ── Workflow loading ──────────────────────────────────────────────────────
 
@@ -186,23 +245,35 @@ class ImageComfyClient:
         data = response.json()
         return data.get(prompt_id)
 
-    def _poll_for_completion(self, prompt_id: str) -> dict[str, Any]:
+    def _poll_for_completion(
+        self,
+        prompt_id: str,
+        timeout_seconds: int | None = None,
+        heartbeat_interval: float = 5.0,
+    ) -> dict[str, Any]:
         """
         Block until ComfyUI finishes executing prompt_id and return its history.
-
-        Raises TimeoutError if the generation does not finish within
-        ``self.poll_timeout`` seconds.
+        Logs regular heartbeat progress and raises TimeoutError if stalled.
         """
-        deadline = time.time() + self.poll_timeout
-        while time.time() < deadline:
+        limit = timeout_seconds or self.poll_timeout
+        start_time = time.time()
+        last_heartbeat = start_time
+
+        while time.time() - start_time < limit:
             history = self._get_history(prompt_id)
             if history:
                 return history
+
+            now = time.time()
+            if now - last_heartbeat >= heartbeat_interval:
+                elapsed = int(now - start_time)
+                _safe_print(f"  [ComfyUI Image] Generating... ({elapsed}s elapsed)")
+                last_heartbeat = now
+
             time.sleep(self.poll_interval)
 
         raise TimeoutError(
-            f"Generation timed out after {self.poll_timeout}s "
-            f"(prompt_id={prompt_id})."
+            f"Generation timed out after {limit}s (prompt_id={prompt_id})."
         )
 
     def _find_image_output(
@@ -267,57 +338,69 @@ class ImageComfyClient:
         steps: int = 6,
         width: int = 576,
         height: int = 1024,
+        max_retries: int = 3,
+        stall_timeout: int = 90,
     ) -> Path:
         """
-        Run the full Z-Image-Turbo generation pipeline for a single image.
-
-        Parameters
-        ----------
-        prompt_text:
-            The detailed visual description produced by the prompt builder.
-        filename_prefix:
-            Filename prefix written by SaveImage (e.g. ``"Z-Image/script_1"``).
-        dest_path:
-            Local path where the downloaded image will be saved.
-        seed:
-            Explicit seed for reproducibility. Defaults to a random value.
-        steps:
-            Number of generation steps (default 6).
-
-        Returns
-        -------
-        Path
-            The path of the saved image (same as ``dest_path``).
+        Run the full Z-Image-Turbo generation pipeline for a single image with auto-retry and watchdog.
         """
-        if seed is None:
-            seed = random.randint(1, 10**15)
+        self.ensure_clean_slate()
 
-        logger.info(
-            "Preparing generation — prefix='%s' seed=%d", filename_prefix, seed
-        )
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            cur_seed = seed if seed is not None else random.randint(1, 10**15)
+            logger.info(
+                "Preparing generation (attempt %d/%d) — prefix='%s' seed=%d",
+                attempt, max_retries, filename_prefix, cur_seed,
+            )
 
-        wf = self._prepare_workflow(
-            prompt_text=prompt_text,
-            filename_prefix=filename_prefix,
-            seed=seed,
-            steps=steps,
-            width=width,
-            height=height,
-        )
+            wf = self._prepare_workflow(
+                prompt_text=prompt_text,
+                filename_prefix=filename_prefix,
+                seed=cur_seed,
+                steps=steps,
+                width=width,
+                height=height,
+            )
 
-        logger.info("Queuing prompt…")
-        prompt_id = self._queue_prompt(wf)
-        logger.info("Queued — prompt_id=%s", prompt_id)
+            try:
+                logger.info("Queuing prompt…")
+                prompt_id = self._queue_prompt(wf)
+                logger.info("Queued — prompt_id=%s. Polling...", prompt_id)
 
-        logger.info("Polling for completion (timeout=%ds)…", self.poll_timeout)
-        history = self._poll_for_completion(prompt_id)
+                history = self._poll_for_completion(prompt_id, timeout_seconds=stall_timeout)
+                filename, subfolder, file_type = self._find_image_output(history)
+                logger.info("Generation complete — output file: %s", filename)
 
-        filename, subfolder, file_type = self._find_image_output(history)
-        logger.info("Generation complete — output file: %s", filename)
+                self._download_image(filename, subfolder, file_type, dest_path)
+                time.sleep(0.3)  # Cooldown breather
+                return dest_path
 
-        self._download_image(filename, subfolder, file_type, dest_path)
+            except TimeoutError as te:
+                last_error = te
+                _safe_print(
+                    f"[Watchdog] ComfyUI image generation stalled (> {stall_timeout}s). Auto-interrupting...",
+                )
+                self.interrupt()
+                self.free_memory()
+                time.sleep(1.5)
+                if attempt < max_retries:
+                    _safe_print(
+                        f"[Watchdog] Retrying image generation (attempt {attempt + 1}/{max_retries})... "
+                        f"\"Go ahead, don't stop!\"",
+                    )
+            except Exception as exc:
+                last_error = exc
+                if attempt < max_retries:
+                    logger.warning(
+                        "ComfyUI generation error (%s). Retrying (attempt %d/%d)...",
+                        exc, attempt + 1, max_retries,
+                    )
+                    self.interrupt()
+                    self.free_memory()
+                    time.sleep(1.5)
 
-        return dest_path
+        raise last_error or RuntimeError("Failed to generate image after retries.")
 
 
 # ── Node IDs for flux1_dev_uso_reference_image_gen.json (API format) ──────────
@@ -381,36 +464,70 @@ class ChalkboardComfyClient(ImageComfyClient):
         steps: int = 20,
         width: int = 576,
         height: int = 1024,
+        max_retries: int = 3,
+        stall_timeout: int = 240,
     ) -> Path:
         import shutil
-        if seed is None:
-            seed = random.randint(1, 10**15)
 
-        ref_name = f"ref_{reference_image_path.name}"
-        comfy_input_path = self.comfy_input_dir / ref_name
-        shutil.copy2(reference_image_path, comfy_input_path)
+        self.ensure_clean_slate()
 
-        wf = self._prepare_flux_workflow(
-            prompt_text=prompt_text,
-            filename_prefix=filename_prefix,
-            reference_image_name=ref_name,
-            seed=seed,
-            steps=steps,
-            width=width,
-            height=height,
-        )
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            cur_seed = seed if seed is not None else random.randint(1, 10**15)
 
-        prompt_id = self._queue_prompt(wf)
-        history = self._poll_for_completion(prompt_id)
+            ref_name = f"ref_{reference_image_path.name}"
+            comfy_input_path = self.comfy_input_dir / ref_name
+            shutil.copy2(reference_image_path, comfy_input_path)
 
-        filename, subfolder, file_type = self._find_image_output(history)
-        self._download_image(filename, subfolder, file_type, dest_path)
+            wf = self._prepare_flux_workflow(
+                prompt_text=prompt_text,
+                filename_prefix=filename_prefix,
+                reference_image_name=ref_name,
+                seed=cur_seed,
+                steps=steps,
+                width=width,
+                height=height,
+            )
 
-        try:
-            if comfy_input_path.exists():
-                comfy_input_path.unlink()
-        except Exception as e:
-            logger.warning(f"Could not delete temp reference image {comfy_input_path}: {e}")
+            try:
+                prompt_id = self._queue_prompt(wf)
+                history = self._poll_for_completion(prompt_id, timeout_seconds=stall_timeout)
 
-        return dest_path
+                filename, subfolder, file_type = self._find_image_output(history)
+                self._download_image(filename, subfolder, file_type, dest_path)
+
+                try:
+                    if comfy_input_path.exists():
+                        comfy_input_path.unlink()
+                except Exception as e:
+                    logger.warning(f"Could not delete temp reference image {comfy_input_path}: {e}")
+
+                time.sleep(0.3)
+                return dest_path
+
+            except TimeoutError as te:
+                last_error = te
+                _safe_print(
+                    f"[Watchdog] ComfyUI chalkboard generation stalled (> {stall_timeout}s). Auto-interrupting...",
+                )
+                self.interrupt()
+                self.free_memory()
+                time.sleep(1.5)
+                if attempt < max_retries:
+                    _safe_print(
+                        f"[Watchdog] Retrying chalkboard generation (attempt {attempt + 1}/{max_retries})... "
+                        f"\"Go ahead, don't stop!\"",
+                    )
+            except Exception as exc:
+                last_error = exc
+                if attempt < max_retries:
+                    logger.warning(
+                        "ComfyUI chalkboard error (%s). Retrying (attempt %d/%d)...",
+                        exc, attempt + 1, max_retries,
+                    )
+                    self.interrupt()
+                    self.free_memory()
+                    time.sleep(1.5)
+
+        raise last_error or RuntimeError("Failed to generate chalkboard image after retries.")
 

@@ -13,7 +13,7 @@ from pathlib import Path
 TEST_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TEST_DIR.parent
 MAIN_DIR = REPO_ROOT / "main"
-for p in [str(REPO_ROOT), str(MAIN_DIR), str(TEST_DIR)]:
+for p in [str(TEST_DIR), str(MAIN_DIR), str(REPO_ROOT)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 

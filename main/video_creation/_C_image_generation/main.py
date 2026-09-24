@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import shutil
+import time
 import traceback
 from pathlib import Path
 import logging
@@ -213,6 +214,7 @@ def process_script(
                 height=IMAGE_DEFAULT_HEIGHT,
             )
             print(f"✓ Image saved: {result_path}")
+            time.sleep(0.3)  # Cooldown between scene images ("go ahead, don't stop")
         except Exception as exc:
             logger.error("[%s] Unexpected generation error on %s: %s", script_id, section_name, exc)
             success = False
@@ -445,6 +447,7 @@ def main() -> int:
                 print(f"[{i}/{len(pending)}] Processing Script ID: {script.get('id', '')} for Images...")
                 if process_script(script, state_manager, comfy_client, prompt_builder, args.force, args.seed, base_dir):
                     success_count += 1
+                    time.sleep(0.3)  # Cooldown between script image sets ("go ahead, don't stop")
                 else:
                     print(f"Failed to generate images for script ID {script.get('id', '')}.", file=sys.stderr)
                     return 1

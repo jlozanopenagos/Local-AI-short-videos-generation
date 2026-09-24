@@ -1,5 +1,6 @@
 import argparse
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -513,6 +514,7 @@ def main() -> int:
                 print(f"[{i}/{len(pending)}] Processing Script ID: {script['id']} for Voice...")
                 if process_script(script, state_manager, comfy_client, voice_manager, args.force, base_dir):
                     success_count += 1
+                    time.sleep(0.3)  # Cooldown between scripts ("go ahead, don't stop")
                 else:
                     print(f"Failed to generate voice for script ID {script['id']}.", file=sys.stderr)
                     return 1
