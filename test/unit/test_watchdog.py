@@ -71,7 +71,6 @@ class TestWatchdog(unittest.TestCase):
         called_urls = [call.args[0] for call in mock_post.call_args_list]
         self.assertTrue(any("interrupt" in u for u in called_urls))
         self.assertTrue(any("queue" in u for u in called_urls))
-        self.assertTrue(any("free" in u for u in called_urls))
 
     @patch.object(ComfyClient, "_load_template", return_value={})
     @patch("video_creation._B_voice_generation.core.comfy_client.time.sleep")
@@ -81,7 +80,6 @@ class TestWatchdog(unittest.TestCase):
         client._prepare_workflow = MagicMock(return_value={})
         client.queue_prompt = MagicMock(return_value="prompt-test")
         client.interrupt = MagicMock(return_value=True)
-        client.free_memory = MagicMock(return_value=True)
         client.download_file = MagicMock()
 
         success_history = {
@@ -112,7 +110,6 @@ class TestWatchdog(unittest.TestCase):
 
         self.assertEqual(res, dest_path)
         client.interrupt.assert_called_once()
-        client.free_memory.assert_called_once()
         self.assertEqual(client.queue_prompt.call_count, 2)
 
     # ── ComfyUI Image Client Watchdog Tests ───────────────────────────────────
@@ -125,7 +122,6 @@ class TestWatchdog(unittest.TestCase):
         client._prepare_workflow = MagicMock(return_value={})
         client._queue_prompt = MagicMock(return_value="prompt-img")
         client.interrupt = MagicMock(return_value=True)
-        client.free_memory = MagicMock(return_value=True)
         client._download_image = MagicMock()
 
         success_history = {
@@ -149,7 +145,6 @@ class TestWatchdog(unittest.TestCase):
 
         self.assertEqual(res, dest_path)
         client.interrupt.assert_called_once()
-        client.free_memory.assert_called_once()
         self.assertEqual(client._queue_prompt.call_count, 2)
 
 

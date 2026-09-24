@@ -47,7 +47,7 @@ class ComfyClient:
         """Interrupts any currently executing workflow in ComfyUI immediately."""
         url = f"{self.api_url}/interrupt"
         try:
-            resp = requests.post(url, timeout=5)
+            resp = requests.post(url, timeout=15)
             return resp.status_code == 200
         except Exception as e:
             print(f"Warning: Could not interrupt ComfyUI execution: {e}")
@@ -57,7 +57,7 @@ class ComfyClient:
         """Clears all pending items in ComfyUI's queue."""
         url = f"{self.api_url}/queue"
         try:
-            resp = requests.post(url, json={"clear": True}, timeout=5)
+            resp = requests.post(url, json={"clear": True}, timeout=15)
             return resp.status_code == 200
         except Exception as e:
             print(f"Warning: Could not clear ComfyUI queue: {e}")
@@ -66,7 +66,7 @@ class ComfyClient:
     def ensure_clean_slate(self) -> None:
         """Checks if ComfyUI has stuck running or pending tasks and cleans them up."""
         try:
-            resp = requests.get(f"{self.api_url}/queue", timeout=5)
+            resp = requests.get(f"{self.api_url}/queue", timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
                 running = data.get("queue_running", [])
@@ -75,7 +75,6 @@ class ComfyClient:
                     _safe_print(f"[Watchdog] Detected {len(running)} running / {len(pending)} pending tasks in ComfyUI queue. Cleaning slate...")
                     self.interrupt()
                     self.clear_queue()
-                    self.free_memory()
                     time.sleep(1.0)
         except Exception:
             pass
@@ -160,31 +159,34 @@ class ComfyClient:
         """
         url = f"{self.api_url}/prompt"
         payload = {"prompt": workflow}
-        
-        response = requests.post(url, json=payload, timeout=60)
+
+        response = requests.post(url, json=payload, timeout=120)
         response.raise_for_status()
-        
+
         data = response.json()
         if "prompt_id" not in data:
             raise KeyError(f"Failed to queue prompt, server returned: {data}")
-            
+
         return data["prompt_id"]
 
     def get_history(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves history for the specific prompt execution."""
         url = f"{self.api_url}/history/{prompt_id}"
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
-        
-        data = response.json()
-        if prompt_id in data:
-            return data[prompt_id]
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if prompt_id in data:
+                return data[prompt_id]
+        except Exception:
+            # Temporary socket delay or server busy during heavy tensor calculation
+            return None
         return None
 
     def poll_for_completion(
         self,
         prompt_id: str,
-        timeout_seconds: int = 90,
+        timeout_seconds: int = 300,
         poll_interval: float = 1.0,
         heartbeat_interval: float = 5.0,
     ) -> Dict[str, Any]:
@@ -199,7 +201,7 @@ class ComfyClient:
             now = time.time()
             if now - last_heartbeat >= heartbeat_interval:
                 elapsed = int(now - start_time)
-                print(f"  ⏳ [ComfyUI Voice] Generating... ({elapsed}s elapsed)", flush=True)
+                _safe_print(f"  [ComfyUI Voice] Generating... ({elapsed}s elapsed)")
                 last_heartbeat = now
 
             time.sleep(poll_interval)
@@ -240,7 +242,7 @@ class ComfyClient:
         dest_path: Path,
         seed: int = None,
         max_retries: int = 3,
-        stall_timeout: int = 90,
+        stall_timeout: int = 300,
     ) -> Path:
         """Executes the voice cloning pipeline for a single segment with auto-retry and watchdog.
         Returns the path to the downloaded audio file.
@@ -320,7 +322,6 @@ class ComfyClient:
                     f"[Watchdog] ComfyUI voice generation stalled (> {stall_timeout}s). Auto-interrupting...",
                 )
                 self.interrupt()
-                self.free_memory()
                 time.sleep(1.5)
                 if attempt < max_retries:
                     _safe_print(
@@ -334,7 +335,6 @@ class ComfyClient:
                         f"[Watchdog] ComfyUI voice generation error ({exc}). Retrying (attempt {attempt + 1}/{max_retries})...",
                     )
                     self.interrupt()
-                    self.free_memory()
                     time.sleep(1.5)
 
         raise last_error or RuntimeError("Failed to generate voice segment after retries.")

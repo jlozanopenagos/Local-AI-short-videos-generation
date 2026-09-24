@@ -60,7 +60,7 @@ class ImageComfyClient:
         self,
         api_url: str,
         workflow_path: Path,
-        poll_timeout: int = 90,
+        poll_timeout: int = 180,
         poll_interval: float = 2.0,
     ) -> None:
         self.api_url       = api_url.rstrip("/")
@@ -90,7 +90,7 @@ class ImageComfyClient:
         """Interrupts currently executing prompt in ComfyUI."""
         url = f"{self.api_url}/interrupt"
         try:
-            resp = requests.post(url, timeout=5)
+            resp = requests.post(url, timeout=15)
             return resp.status_code == 200
         except Exception as e:
             logger.warning("Could not interrupt ComfyUI execution: %s", e)
@@ -100,7 +100,7 @@ class ImageComfyClient:
         """Clears all pending items in ComfyUI queue."""
         url = f"{self.api_url}/queue"
         try:
-            resp = requests.post(url, json={"clear": True}, timeout=5)
+            resp = requests.post(url, json={"clear": True}, timeout=15)
             return resp.status_code == 200
         except Exception as e:
             logger.warning("Could not clear ComfyUI queue: %s", e)
@@ -109,7 +109,7 @@ class ImageComfyClient:
     def ensure_clean_slate(self) -> None:
         """Checks if ComfyUI has stuck running or pending tasks and cleans them up."""
         try:
-            resp = requests.get(f"{self.api_url}/queue", timeout=5)
+            resp = requests.get(f"{self.api_url}/queue", timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
                 running = data.get("queue_running", [])
@@ -121,7 +121,6 @@ class ImageComfyClient:
                     )
                     self.interrupt()
                     self.clear_queue()
-                    self.free_memory()
                     time.sleep(1.0)
         except Exception:
             pass
@@ -218,7 +217,7 @@ class ImageComfyClient:
         payload = {"prompt": workflow}
 
         try:
-            response = requests.post(url, json=payload, timeout=60)
+            response = requests.post(url, json=payload, timeout=120)
             if not response.ok:
                 logger.error(f"ComfyUI Error: {response.text}")
             response.raise_for_status()
@@ -238,12 +237,14 @@ class ImageComfyClient:
 
     def _get_history(self, prompt_id: str) -> dict[str, Any] | None:
         """Return the history entry for prompt_id, or None if not ready."""
-        url      = f"{self.api_url}/history/{prompt_id}"
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-
-        data = response.json()
-        return data.get(prompt_id)
+        url = f"{self.api_url}/history/{prompt_id}"
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            return data.get(prompt_id)
+        except Exception:
+            return None
 
     def _poll_for_completion(
         self,
@@ -382,7 +383,6 @@ class ImageComfyClient:
                     f"[Watchdog] ComfyUI image generation stalled (> {stall_timeout}s). Auto-interrupting...",
                 )
                 self.interrupt()
-                self.free_memory()
                 time.sleep(1.5)
                 if attempt < max_retries:
                     _safe_print(
@@ -397,7 +397,6 @@ class ImageComfyClient:
                         exc, attempt + 1, max_retries,
                     )
                     self.interrupt()
-                    self.free_memory()
                     time.sleep(1.5)
 
         raise last_error or RuntimeError("Failed to generate image after retries.")
@@ -511,7 +510,6 @@ class ChalkboardComfyClient(ImageComfyClient):
                     f"[Watchdog] ComfyUI chalkboard generation stalled (> {stall_timeout}s). Auto-interrupting...",
                 )
                 self.interrupt()
-                self.free_memory()
                 time.sleep(1.5)
                 if attempt < max_retries:
                     _safe_print(
@@ -526,7 +524,6 @@ class ChalkboardComfyClient(ImageComfyClient):
                         exc, attempt + 1, max_retries,
                     )
                     self.interrupt()
-                    self.free_memory()
                     time.sleep(1.5)
 
         raise last_error or RuntimeError("Failed to generate chalkboard image after retries.")
