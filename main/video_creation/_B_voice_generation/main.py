@@ -378,6 +378,7 @@ def main() -> int:
     # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
     # pyrefly: ignore [missing-import]
     try:
+        # pyrefly: ignore [missing-import]
         from core.cli_prompt import (
             prompt_production_mode,
             prompt_group_range,
@@ -385,6 +386,7 @@ def main() -> int:
             prompt_ready_scripts_mode,
         )
     except (ImportError, ModuleNotFoundError):
+        # pyrefly: ignore [missing-import]
         from cli_prompt import (
             prompt_production_mode,
             prompt_group_range,
@@ -432,8 +434,12 @@ def main() -> int:
 
         # Query pending scripts via Pipeline Status Tracker
         try:
-            # pyrefly: ignore [missing-import]
-            from core.status_tracker import get_status_tracker
+            try:
+                # pyrefly: ignore [missing-import]
+                from core.status_tracker import get_status_tracker
+            except (ImportError, ModuleNotFoundError):
+                # pyrefly: ignore [missing-import]
+                from status_tracker import get_status_tracker
             tracker = get_status_tracker(base_dir)
             pending_rows = tracker.get_pending_scripts(
                 "voice_generation",
@@ -463,8 +469,12 @@ def main() -> int:
                     elif target_video_type != "fun_facts" and svtype != target_video_type:
                         continue
                     
-                # pyrefly: ignore [missing-import]
-                from core.expression_db import is_expression_done
+                try:
+                    # pyrefly: ignore [missing-import]
+                    from core.expression_db import is_expression_done
+                except (ImportError, ModuleNotFoundError):
+                    # pyrefly: ignore [missing-import]
+                    from expression_db import is_expression_done
                 if is_expression_done(script_id):
                     continue
 
