@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-CLI entrypoint for interactive scene recreation, prompt modification, and live chalkboard editing.
+CLI entrypoint forwarding to the canonical image modifier in video_creation._C_image_generation.
+Allows interactive scene recreation, prompt steering, and chalkboard editing.
 """
 import sys
 from pathlib import Path
 
-# Add project root and video_creation to sys.path
+# Ensure shorts_automation directory is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-video_creation_dir = PROJECT_ROOT / "video_creation"
-for p in [str(PROJECT_ROOT), str(video_creation_dir)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from video_creation._C_image_generation.image_modifier import main
 
 if __name__ == "__main__":
-    sys.exit(main() or 0)
+    sys.exit(main())
