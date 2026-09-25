@@ -318,16 +318,16 @@ All workflow stages and shared templates are organized inside the `video_creatio
      - Automatically infers dramatic acting tone per turn (`infer_dialogue_emotion`), passing explicit acting directives to Qwen3-TTS.
      - Prevents dead silence via dynamic token limits (`max_new_tokens = max(96, min(240, words * 12))`) and `repetition_penalty = 1.15`.
      - Automatically trims dead trailing air (`trim_trailing_silence`) and concatenates segments with tight YouTube Shorts pauses (0.20s dialogue, 0.40s section, 2.20s pressure pause).
-   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, and CSV lists from `input/csv/voice_to_change/`.
+   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, CSV lists from `input/csv/voice_to_change/`, and Ready Scripts CSV from `D:\AI\output\connectivity\ready_scripts/<date>_ready_scripts.csv`.
    - **Interactive Tool**: `voice_modifier.py` allows testing, manual voice casting, and quick regeneration per script.
-   - **Command**: `py video_creation/_B_voice_generation/main.py [--script-id <ID>] [--force] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]]`
+   - **Command**: `py video_creation/_B_voice_generation/main.py [--script-id <ID>] [--force] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]] [--from-ready-scripts [PATH]]`
 
 3. **`video_creation/_C_image_generation`**:
    - Generates high-quality vertical visuals (576x1024) for each script scene using local ComfyUI workflow `video_creation/workflows/AcademiaSD_Z-Image_v05.json`.
    - Outputs saved to `output/video_assets/<language>/<video_type>/script_<ID>/images/`.
-   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, and CSV lists from `input/csv/image_to_change/`.
+   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, CSV lists from `input/csv/image_to_change/`, and Ready Scripts CSV from `D:\AI\output\connectivity\ready_scripts/<date>_ready_scripts.csv`.
    - **Interactive Tool**: `image_modifier.py` allows interactive scene recreation, prompt steering/refinement, and live editing of chalkboard exercises.
-   - **Command**: `py video_creation/_C_image_generation/main.py [--script-id <ID>] [--force] [--seed <INT>] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]]`
+   - **Command**: `py video_creation/_C_image_generation/main.py [--script-id <ID>] [--force] [--seed <INT>] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]] [--from-ready-scripts [PATH]]`
 
 4. **`video_creation/_D_music_generation` (Standing Music Bank)**:
    - Eliminates wasteful per-script audio generation by maintaining a **Standing Music Bank** in `<OUTPUT_DIR>/bank_music/<language>/<video_type>/`.

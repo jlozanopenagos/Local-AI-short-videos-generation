@@ -2,15 +2,17 @@ import argparse
 import os
 import sys
 import shutil
+import time
 import traceback
 from pathlib import Path
 import logging
 
-# Add project root, video_creation, and module directory to path for robust imports
+# Add project root, video_creation, core, and module directory to path for robust imports
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-for p in [str(PROJECT_ROOT), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
+CORE_DIR = PROJECT_ROOT / "core"
+for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -212,6 +214,7 @@ def process_script(
                 height=IMAGE_DEFAULT_HEIGHT,
             )
             print(f"✓ Image saved: {result_path}")
+            time.sleep(0.3)  # Cooldown between scene images ("go ahead, don't stop")
         except Exception as exc:
             logger.error("[%s] Unexpected generation error on %s: %s", script_id, section_name, exc)
             success = False
@@ -260,6 +263,15 @@ def main() -> int:
         default=None,
         help="Target scripts listed in CSV (default checks input/csv/image_to_change/)"
     )
+    parser.add_argument(
+        "--from-ready-scripts",
+        "--ready-scripts",
+        dest="ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+    )
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -299,13 +311,28 @@ def main() -> int:
         return 1
     print("=" * 60 + "\n")
 
-    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, or CSV List
+    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
     # pyrefly: ignore [missing-import]
-    from core.cli_prompt import prompt_production_mode, prompt_group_range, prompt_fun_facts_mode
+    try:
+        # pyrefly: ignore [missing-import]
+        from core.cli_prompt import (
+            prompt_production_mode,
+            prompt_group_range,
+            prompt_fun_facts_mode,
+            prompt_ready_scripts_mode,
+        )
+    except (ImportError, ModuleNotFoundError):
+        # pyrefly: ignore [missing-import]
+        from cli_prompt import (
+            prompt_production_mode,
+            prompt_group_range,
+            prompt_fun_facts_mode,
+            prompt_ready_scripts_mode,
+        )
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
 
-    if is_cli_fun_facts and not args.script_id and args.csv_list is None:
+    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None:
         print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
         target_script_ids = None
         selected_mode = "fun_facts"
@@ -323,6 +350,8 @@ def main() -> int:
             allow_csv_list_mode=True,
             csv_folder_name="image_to_change",
             csv_path_arg=args.csv_list,
+            allow_ready_scripts_mode=True,
+            ready_scripts_path_arg=args.ready_scripts_csv,
         )
         if is_cli_fun_facts:
             selected_mode = "fun_facts"
@@ -339,8 +368,12 @@ def main() -> int:
 
         # Query pending scripts via Pipeline Status Tracker
         try:
-            # pyrefly: ignore [missing-import]
-            from core.status_tracker import get_status_tracker
+            try:
+                # pyrefly: ignore [missing-import]
+                from core.status_tracker import get_status_tracker
+            except (ImportError, ModuleNotFoundError):
+                # pyrefly: ignore [missing-import]
+                from status_tracker import get_status_tracker
             tracker = get_status_tracker(base_dir)
             pending_rows = tracker.get_pending_scripts(
                 "image_generation",
@@ -370,8 +403,12 @@ def main() -> int:
                     elif target_video_type != "fun_facts" and svtype != target_video_type:
                         continue
 
-                # pyrefly: ignore [missing-import]
-                from core.expression_db import is_expression_done
+                try:
+                    # pyrefly: ignore [missing-import]
+                    from core.expression_db import is_expression_done
+                except (ImportError, ModuleNotFoundError):
+                    # pyrefly: ignore [missing-import]
+                    from expression_db import is_expression_done
                 if is_expression_done(script_id):
                     continue
 
@@ -410,6 +447,7 @@ def main() -> int:
                 print(f"[{i}/{len(pending)}] Processing Script ID: {script.get('id', '')} for Images...")
                 if process_script(script, state_manager, comfy_client, prompt_builder, args.force, args.seed, base_dir):
                     success_count += 1
+                    time.sleep(0.3)  # Cooldown between script image sets ("go ahead, don't stop")
                 else:
                     print(f"Failed to generate images for script ID {script.get('id', '')}.", file=sys.stderr)
                     return 1

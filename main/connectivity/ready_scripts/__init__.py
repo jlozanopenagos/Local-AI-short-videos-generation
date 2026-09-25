@@ -11,6 +11,7 @@ from connectivity.ready_scripts.scanner import (
     scan_sheet_ready_scripts,
     scan_all_sheets_ready_scripts,
     save_ready_scripts_by_date,
+    save_ready_scripts_to_work_with_by_date,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "scan_sheet_ready_scripts",
     "scan_all_sheets_ready_scripts",
     "save_ready_scripts_by_date",
+    "save_ready_scripts_to_work_with_by_date",
 ]

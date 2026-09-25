@@ -13,8 +13,10 @@ must accurately represent the target language's educational context.
 from __future__ import annotations
 
 import logging
+import time
 
 # pyrefly: ignore [missing-import]
+import httpx
 from openai import OpenAI, OpenAIError
 
 logger = logging.getLogger(__name__)
@@ -492,13 +494,22 @@ class VisualPromptBuilder:
         api_key: str,
         model_name: str,
         request_timeout: float = 120.0,
+        chunk_timeout: float = 25.0,
     ) -> None:
+        timeout = httpx.Timeout(
+            connect=10.0,
+            read=chunk_timeout,
+            write=15.0,
+            pool=15.0,
+        )
         self._client = OpenAI(
             base_url=api_base_url,
             api_key=api_key if api_key else "llama",
-            timeout=request_timeout,
+            timeout=timeout,
         )
         self._model = model_name
+        self._chunk_timeout = chunk_timeout
+        self._wall_timeout = request_timeout
 
 
     def check_connection(self) -> None:
@@ -516,9 +527,12 @@ class VisualPromptBuilder:
         speakers_gender: dict = None,
         video_type: str = "EXPRESSION",
         character_personalities: dict = None,
+        max_retries: int = 3,
     ) -> str:
         """
         Generate a single Z-Image-Turbo visual prompt for a specific script scene.
+        Uses token streaming with an active watchdog to prevent stalls and auto-recovers
+        if the LLM server or slot gets stuck ("go ahead, don't stop").
 
         Parameters
         ----------
@@ -539,6 +553,8 @@ class VisualPromptBuilder:
             Type of video (EXPRESSION, ROLEPLAY, GAME).
         character_personalities:
             Dictionary mapping character names to personality and emotional roles.
+        max_retries:
+            Maximum number of retry attempts on stall or timeout.
 
         Returns
         -------
@@ -547,10 +563,8 @@ class VisualPromptBuilder:
 
         Raises
         ------
-        OpenAIError
-            If the LLM request fails.
-        ValueError
-            If the LLM returns an empty response.
+        OpenAIError / RuntimeError
+            If the LLM request fails after retries.
         """
         language, subject, situation = _parse_label(label)
         user_context = _build_user_context(
@@ -571,28 +585,67 @@ class VisualPromptBuilder:
             script_id, language, subject, situation,
         )
 
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": _VISUAL_DIRECTOR_SYSTEM_PROMPT},
-                {"role": "user",   "content": user_context},
-            ],
-            max_tokens=1000,
-        )
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            stream = None
+            start_t = time.time()
+            collected: list[str] = []
+            try:
+                stream = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": _VISUAL_DIRECTOR_SYSTEM_PROMPT},
+                        {"role": "user",   "content": user_context},
+                    ],
+                    max_tokens=1000,
+                    stream=True,
+                )
 
-        content = response.choices[0].message.content
-        if not content or not content.strip():
-            raise ValueError(
-                f"[{script_id}] LLM returned an empty visual prompt."
-            )
+                for chunk in stream:
+                    if time.time() - start_t > self._wall_timeout:
+                        raise TimeoutError(
+                            f"LLM visual prompt exceeded wall timeout ({self._wall_timeout:.0f}s)"
+                        )
 
-        visual_prompt = content.strip()
-        logger.info(
-            "[%s] Visual prompt generated (%d chars).", script_id, len(visual_prompt)
-        )
-        logger.debug("[%s] Prompt preview: %s…", script_id, visual_prompt[:120])
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    content = delta.content if delta else None
+                    if content:
+                        collected.append(content)
 
-        return visual_prompt
+                visual_prompt = "".join(collected).strip()
+                if not visual_prompt:
+                    raise ValueError(f"[{script_id}] LLM returned an empty visual prompt.")
+
+                logger.info(
+                    "[%s] Visual prompt generated (%d chars).", script_id, len(visual_prompt)
+                )
+                logger.debug("[%s] Prompt preview: %s…", script_id, visual_prompt[:120])
+                time.sleep(0.2)  # Slot cooldown
+                return visual_prompt
+
+            except Exception as exc:
+                last_error = exc
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except Exception:
+                        pass
+
+                elapsed = int(time.time() - start_t)
+                if attempt < max_retries:
+                    logger.warning(
+                        "[%s] LLM generation stalled/failed (%s) after %ds. "
+                        "Auto-recovering slot and retrying (attempt %d/%d)... Go ahead, don't stop!",
+                        script_id, exc, elapsed, attempt + 1, max_retries,
+                    )
+                    time.sleep(0.8 * attempt)
+                else:
+                    logger.error(
+                        "[%s] Failed to generate visual prompt for %s after %d attempts: %s",
+                        script_id, scene_name, max_retries, exc,
+                    )
+
+        raise last_error or RuntimeError(f"[{script_id}] Failed to generate visual prompt.")
 
     @staticmethod
     def build_chalkboard_prompt(exercise_text: str) -> str:

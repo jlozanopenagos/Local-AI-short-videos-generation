@@ -244,10 +244,18 @@ def filter_ready_scripts(raw_records: List[Dict[str, Any]]) -> Dict[str, Any]:
         normalized_date = normalize_date_str(raw_date)
         date_key = normalized_date if normalized_date else "undated"
 
+        # Extract SCRIPT_CHANGE (Column D)
+        script_change_val = ""
+        for k in ("SCRIPT_CHANGE", "SCRIPT_CHANGED", "script_change", "script_changed", "NEW_SCRIPT", "new_script"):
+            if k in row and row[k] is not None:
+                script_change_val = str(row[k]).strip()
+                break
+
         ready_records.append({
             "ID": id_val,
             "expression": expr_val,
             "script_date": date_key,
+            "script_change": script_change_val,
         })
 
     return {
@@ -491,4 +499,223 @@ def save_ready_scripts_by_date(
         "output_dir": str(target_dir),
         "saved_files": saved_files,
         "total_files": len(saved_files),
+    }
+
+
+def save_ready_scripts_to_work_with_by_date(
+    date_groups: Dict[str, List[Dict[str, str]]],
+    output_dir: Optional[Path | str] = None,
+) -> Dict[str, Any]:
+    """
+    Saves ready script records containing ID and SCRIPT_CHANGE into:
+    <YYYY-MM-DD>_ready_scripts_to_work_with.csv
+    (or undated_ready_scripts_to_work_with.csv if date is blank).
+
+    Schema: ID, SCRIPT_CHANGE
+
+    Error handling:
+    If a ready script has an empty SCRIPT_CHANGE column in Google Sheets,
+    it is logged to 'error_report.csv' in the same folder with columns: ID, problem.
+
+    Deduplication: Merges with existing IDs in the target file to avoid duplicates on multiple runs.
+    Auto-pruning: Prunes resolved IDs from undated and error_report files when updated.
+
+    Returns:
+        Dict mapping date keys to file save information and error reporting statistics.
+    """
+    target_dir = resolve_ready_scripts_output_dir(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # Collect all IDs that have a valid date in this batch
+    all_dated_ids: set[str] = {
+        str(r["ID"]).strip().upper()
+        for d, recs in date_groups.items()
+        if d != "undated"
+        for r in recs
+        if r.get("ID")
+    }
+
+    # Separate records into valid (with SCRIPT_CHANGE) vs missing SCRIPT_CHANGE
+    valid_groups: Dict[str, List[Dict[str, str]]] = {}
+    new_errors: List[Dict[str, str]] = []
+    all_valid_ids: set[str] = set()
+
+    for date_key, records in date_groups.items():
+        valid_groups[date_key] = []
+        for rec in records:
+            rid = str(rec.get("ID", "")).strip().upper()
+            if not rid:
+                continue
+            s_change = str(rec.get("script_change", "")).strip()
+            if not s_change:
+                new_errors.append({
+                    "ID": rid,
+                    "problem": "SCRIPT_CHANGE column is empty in Google Sheets",
+                })
+            else:
+                all_valid_ids.add(rid)
+                valid_groups[date_key].append({
+                    "ID": rid,
+                    "SCRIPT_CHANGE": s_change,
+                })
+
+    saved_files: Dict[str, Dict[str, Any]] = {}
+
+    for date_key, records in valid_groups.items():
+        if not records:
+            # Check if an undated file exists and needs cleanup
+            if date_key == "undated":
+                u_path = target_dir / "undated_ready_scripts_to_work_with.csv"
+                if u_path.exists():
+                    try:
+                        u_path.unlink()
+                    except OSError:
+                        pass
+            continue
+
+        if date_key == "undated":
+            file_name = "undated_ready_scripts_to_work_with.csv"
+        else:
+            file_name = f"{date_key}_ready_scripts_to_work_with.csv"
+
+        file_path = target_dir / file_name
+
+        existing_records: List[Dict[str, str]] = []
+        seen_ids = set()
+
+        if file_path.exists():
+            try:
+                with file_path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        rid = str(row.get("ID", "")).strip().upper()
+                        if date_key == "undated" and rid in all_dated_ids:
+                            continue
+                        if rid:
+                            existing_records.append({
+                                "ID": rid,
+                                "SCRIPT_CHANGE": str(row.get("SCRIPT_CHANGE") or row.get("script_change") or row.get("SCRIPT_CHANGED") or "").strip(),
+                            })
+                            seen_ids.add(rid)
+            except Exception:
+                existing_records = []
+                seen_ids = set()
+
+        # Update existing records or append new records
+        merged_map: Dict[str, str] = {r["ID"]: r["SCRIPT_CHANGE"] for r in existing_records}
+        for rec in records:
+            rid = rec["ID"]
+            sc_val = rec["SCRIPT_CHANGE"]
+            if date_key == "undated" and rid in all_dated_ids:
+                continue
+            merged_map[rid] = sc_val
+            if rid not in seen_ids:
+                seen_ids.add(rid)
+                existing_records.append({"ID": rid, "SCRIPT_CHANGE": sc_val})
+            else:
+                for ex in existing_records:
+                    if ex["ID"] == rid:
+                        ex["SCRIPT_CHANGE"] = sc_val
+                        break
+
+        # If undated file has no remaining records, remove it if it exists
+        if date_key == "undated" and not existing_records:
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                except OSError:
+                    pass
+            continue
+
+        # Sort records by ID
+        existing_records.sort(key=lambda r: r["ID"])
+
+        # Write merged records
+        with file_path.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["ID", "SCRIPT_CHANGE"])
+            writer.writeheader()
+            for r in existing_records:
+                writer.writerow(r)
+
+        saved_files[date_key] = {
+            "file_path": str(file_path),
+            "file_name": file_name,
+            "total_items": len(existing_records),
+            "new_items_added": len(records),
+            "is_undated": (date_key == "undated"),
+        }
+
+    # Post-check: If "undated" was not in valid_groups, prune any newly dated IDs from existing undated file
+    if "undated" not in valid_groups:
+        undated_path = target_dir / "undated_ready_scripts_to_work_with.csv"
+        if undated_path.exists():
+            remaining_undated: List[Dict[str, str]] = []
+            try:
+                with undated_path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        rid = str(row.get("ID", "")).strip().upper()
+                        if rid and rid not in all_dated_ids:
+                            remaining_undated.append({
+                                "ID": rid,
+                                "SCRIPT_CHANGE": str(row.get("SCRIPT_CHANGE") or row.get("script_change") or "").strip(),
+                            })
+                if remaining_undated:
+                    remaining_undated.sort(key=lambda r: r["ID"])
+                    with undated_path.open("w", encoding="utf-8-sig", newline="") as f:
+                        writer = csv.DictWriter(f, fieldnames=["ID", "SCRIPT_CHANGE"])
+                        writer.writeheader()
+                        for r in remaining_undated:
+                            writer.writerow(r)
+                else:
+                    undated_path.unlink()
+            except Exception:
+                pass
+
+    # Error report handling (error_report.csv in same folder)
+    error_path = target_dir / "error_report.csv"
+    existing_errors: Dict[str, str] = {}
+    if error_path.exists():
+        try:
+            with error_path.open("r", encoding="utf-8-sig", newline="", errors="replace") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    rid = str(row.get("ID", "")).strip().upper()
+                    prob = str(row.get("problem", "")).strip()
+                    if rid:
+                        existing_errors[rid] = prob
+        except Exception:
+            existing_errors = {}
+
+    # Merge new errors
+    for err in new_errors:
+        existing_errors[err["ID"]] = err["problem"]
+
+    # Prune errors that have now been resolved (have valid SCRIPT_CHANGE)
+    for vid in all_valid_ids:
+        existing_errors.pop(vid, None)
+
+    # Write or remove error_report.csv
+    if existing_errors:
+        sorted_errors = sorted(existing_errors.items(), key=lambda x: x[0])
+        with error_path.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["ID", "problem"])
+            writer.writeheader()
+            for eid, eprob in sorted_errors:
+                writer.writerow({"ID": eid, "problem": eprob})
+    else:
+        if error_path.exists():
+            try:
+                error_path.unlink()
+            except OSError:
+                pass
+
+    return {
+        "status": "success",
+        "output_dir": str(target_dir),
+        "saved_files": saved_files,
+        "total_files": len(saved_files),
+        "errors_count": len(existing_errors),
+        "error_file": str(error_path) if existing_errors else None,
+        "errors": [{"ID": k, "problem": v} for k, v in existing_errors.items()],
     }

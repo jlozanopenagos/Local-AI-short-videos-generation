@@ -2,25 +2,31 @@
 """
 video_creation/_A_video_scripts/script_modifier.py
 
-Standalone interactive utility to update a video script from plain text.
+Standalone interactive utility to update video scripts from plain text or CSV.
+Modes:
+1. Single Script (modify 1 video script interactively)
+2. Mass Script Changes (queue multiple scripts by ID, then process all with LLM)
+3. From Ready Scripts CSV (import ID & SCRIPT_CHANGE from ready_scripts_to_work_with.csv)
+
 Workflow:
-1. Prompts for the Video ID (e.g. EE01, FG05, SR02, IF01) and loads existing state.
-2. Prompts for the new plain text script (via multiline terminal paste or file path).
-3. Uses the LLM to format and structure the whole JSON file of the video while strictly
-   preserving the user's script text verbatim (zero rewriting or word alteration).
-4. Updates content_metadata, metadata (YouTube title, description, tags, etc.), resets
-   downstream stages if desired, and saves back to state/<lang>/<video_type>/script_<ID>.json.
+- Uses the LLM to format and structure the whole JSON file of each video while strictly
+  preserving the user's script text verbatim (zero rewriting or word alteration).
+- Updates content_metadata, metadata (YouTube title, description, tags, etc.), resets
+  downstream stages if desired, and saves back to state/<lang>/<video_type>/script_<ID>.json.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -61,6 +67,22 @@ try:
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
     from state_manager import StateManager, resolve_lang_and_type
+
+try:
+    from connectivity.ready_scripts.scanner import (
+        DEFAULT_READY_SCRIPTS_DIR,
+        resolve_ready_scripts_output_dir,
+    )
+except (ImportError, ModuleNotFoundError):
+    DEFAULT_READY_SCRIPTS_DIR = Path(r"D:\AI\output\connectivity\ready_scripts")
+
+    def resolve_ready_scripts_output_dir(output_dir: Optional[Path | str] = None) -> Path:
+        if output_dir:
+            return Path(output_dir)
+        env_output = os.getenv("OUTPUT_DIR", "").strip()
+        if env_output:
+            return Path(env_output) / "connectivity" / "ready_scripts"
+        return DEFAULT_READY_SCRIPTS_DIR
 
 try:
     from video_creation._A_video_scripts.core.metadata_builder import build_metadata
@@ -147,6 +169,18 @@ def extract_json_from_llm(raw_text: str) -> dict:
     raise ValueError(f"Could not parse valid JSON from LLM response. Raw output preview:\n{cleaned[:300]}")
 
 
+def clean_narrator_prefix(text: str) -> str:
+    """Strips leading 'Narrator:' or 'Narrateur:' prefixes so TTS voices only speak the narration text."""
+    if not text:
+        return ""
+    return re.sub(
+        r"^(?:narrator|narrateur|narratore|narrador|voiceover|vo|host)(?:\s*\([^)]*\))?\s*[:：]\s*",
+        "",
+        text.strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+
+
 def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str, str]]:
     """
     Checks if the user already provided valid JSON or labeled text sections directly.
@@ -178,6 +212,7 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
         "DIALOGUE_PART_1": re.compile(r"^(?:dialogue[_\s]part[_\s]1|dialogue[_\s]1|part[_\s]1)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "DIALOGUE_PART_2": re.compile(r"^(?:dialogue[_\s]part[_\s]2|dialogue[_\s]2|part[_\s]2)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "DIALOGUE_PART_3": re.compile(r"^(?:dialogue[_\s]part[_\s]3|dialogue[_\s]3|part[_\s]3)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "DIALOGUE_PART_4": re.compile(r"^(?:dialogue[_\s]part[_\s]4|dialogue[_\s]4|part[_\s]4)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "PAYOFF": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "challenge": re.compile(r"^(?:challenge|défi|desafío|sfida|question)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "pressure": re.compile(r"^(?:pressure|pression|presión|pressione|countdown)\s*[:：]\s*(.*)$", re.IGNORECASE),
@@ -209,7 +244,11 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
 
     # Check if we found at least 2 distinct recognized section headers
     if len(labeled_dict) >= 2:
-        return {k: " ".join(v).strip() for k, v in labeled_dict.items() if " ".join(v).strip()}
+        res = {k: " ".join(v).strip() for k, v in labeled_dict.items() if " ".join(v).strip()}
+        for k in ("hook", "payoff", "PAYOFF"):
+            if k in res:
+                res[k] = clean_narrator_prefix(res[k])
+        return res
 
     # Check for multi-paragraph or structured final script
     direct_structured = parse_user_script_into_sections(cleaned, video_type)
@@ -217,6 +256,67 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
         return direct_structured
 
     return None
+
+
+def partition_turns_into_four_parts(turns: List[str]) -> List[str]:
+    """
+    Distributes N dialogue turns across 4 dialogue parts without duplicating any turn.
+    Guarantees:
+    - 0 turns are duplicated
+    - 0 turns are lost
+    - All turns are preserved in exact sequence
+    """
+    n = len(turns)
+    if n == 0:
+        return ["", "", "", ""]
+    if n == 1:
+        return [turns[0], "", "", ""]
+    if n == 2:
+        return [turns[0], turns[1], "", ""]
+    if n == 3:
+        return [turns[0], turns[1], turns[2], ""]
+    if n == 4:
+        return [turns[0], turns[1], turns[2], turns[3]]
+    if n == 5:
+        # Part 1 has first exchange (2 turns), Parts 2, 3, 4 have 1 turn each
+        return [
+            "\n".join(turns[0:2]),
+            turns[2],
+            turns[3],
+            turns[4],
+        ]
+    if n == 6:
+        # Parts 1 & 2 have 2 turns each, Parts 3 & 4 have 1 turn each
+        return [
+            "\n".join(turns[0:2]),
+            "\n".join(turns[2:4]),
+            turns[4],
+            turns[5],
+        ]
+    if n == 7:
+        # Parts 1, 2, 3 have 2 turns each, Part 4 has 1 turn
+        return [
+            "\n".join(turns[0:2]),
+            "\n".join(turns[2:4]),
+            "\n".join(turns[4:6]),
+            turns[6],
+        ]
+    if n == 8:
+        # Standard: exactly 2 turns per part
+        return [
+            "\n".join(turns[0:2]),
+            "\n".join(turns[2:4]),
+            "\n".join(turns[4:6]),
+            "\n".join(turns[6:8]),
+        ]
+    # n > 8:
+    # First 3 parts get 2 turns each, Part 4 gets all remaining turns
+    return [
+        "\n".join(turns[0:2]),
+        "\n".join(turns[2:4]),
+        "\n".join(turns[4:6]),
+        "\n".join(turns[6:]),
+    ]
 
 
 def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optional[Dict[str, str]]:
@@ -306,42 +406,54 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 }
 
     elif vtype == "ROLEPLAY":
-        hook = lines[0]
-        last_line = lines[-1]
-        if not last_line.upper().startswith(("PERSON_ONE", "PERSON_TWO", "PERSON 1", "PERSON 2")):
-            payoff = last_line
-            body_lines = lines[1:-1]
-        else:
-            payoff = ""
-            body_lines = lines[1:]
+        char_pattern = re.compile(
+            r"^(?:PERSON|CHARACTER)[_\s]*(?:ONE|TWO|1|2)\b", re.IGNORECASE
+        )
+        char_indices = [i for i, l in enumerate(lines) if char_pattern.match(l)]
 
-        pairs = []
-        current_pair = []
-        for bl in body_lines:
-            if bl.upper().startswith(("PERSON_ONE", "PERSON 1", "PERSON_TWO", "PERSON 2")):
-                current_pair.append(bl)
-                if len(current_pair) == 2:
-                    pairs.append("\n".join(current_pair))
-                    current_pair = []
-            else:
-                if current_pair:
-                    current_pair[-1] += "\n" + bl
+        if char_indices:
+            first_char_idx = char_indices[0]
+            last_char_idx = char_indices[-1]
+
+            hook_lines = lines[:first_char_idx]
+            hook = clean_narrator_prefix("\n".join(hook_lines))
+
+            payoff_lines = lines[last_char_idx + 1 :]
+            payoff = clean_narrator_prefix("\n".join(payoff_lines))
+
+            turns: List[str] = []
+            current_turn: List[str] = []
+            for l in lines[first_char_idx : last_char_idx + 1]:
+                if char_pattern.match(l):
+                    if current_turn:
+                        turns.append("\n".join(current_turn))
+                    current_turn = [l]
                 else:
-                    pairs.append(bl)
-        if current_pair:
-            pairs.append("\n".join(current_pair))
+                    if current_turn:
+                        current_turn.append(l)
+            if current_turn:
+                turns.append("\n".join(current_turn))
 
-        while len(pairs) < 4:
-            pairs.append(pairs[-1] if pairs else "PERSON_ONE: ...\nPERSON_TWO: ...")
-
-        parsed = {
-            "hook": hook,
-            "DIALOGUE_PART_1": pairs[0],
-            "DIALOGUE_PART_2": pairs[1],
-            "DIALOGUE_PART_3": pairs[2],
-            "DIALOGUE_PART_4": "\n\n".join(pairs[3:]),
-            "PAYOFF": payoff or (lines[-1] if len(lines) > 1 else hook),
-        }
+            parts = partition_turns_into_four_parts(turns)
+            parsed = {
+                "hook": hook or (lines[0] if lines else ""),
+                "DIALOGUE_PART_1": parts[0],
+                "DIALOGUE_PART_2": parts[1],
+                "DIALOGUE_PART_3": parts[2],
+                "DIALOGUE_PART_4": parts[3],
+                "PAYOFF": payoff or (lines[-1] if len(lines) > 1 else hook),
+            }
+        else:
+            hook = clean_narrator_prefix(lines[0])
+            last_line = clean_narrator_prefix(lines[-1])
+            parsed = {
+                "hook": hook,
+                "DIALOGUE_PART_1": "\n".join(lines[1:-1]) if len(lines) > 2 else (lines[1] if len(lines) > 1 else ""),
+                "DIALOGUE_PART_2": "",
+                "DIALOGUE_PART_3": "",
+                "DIALOGUE_PART_4": "",
+                "PAYOFF": last_line if len(lines) > 1 else hook,
+            }
 
     elif vtype in ("FUN_FACTS", "FUNFACTS"):
         if len(lines) >= 4:
@@ -388,9 +500,11 @@ Required "script" object structure for ROLEPLAY:
     "DIALOGUE_PART_4": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
     "PAYOFF": "Narrator closing explanation and memorable takeaway..."
 }
-Note on Character Dialogue:
+Note on Character Dialogue & Narration:
+- In "hook" and "PAYOFF", do NOT include the prefix "Narrator:" or "Voiceover:" because the TTS narrator voice speaks these sections automatically.
 - Must have character dialogue lines prefixed with PERSON_ONE (Acting Tone): and PERSON_TWO (Acting Tone):
 - Do NOT insert the Narrator into DIALOGUE_PART_1, 2, 3, or 4.
+- Distribute character dialogue turns across DIALOGUE_PART_1 through DIALOGUE_PART_4 without duplicating any lines. If there are 5 turns, put the first 2 in DIALOGUE_PART_1 and 1 in each remaining part.
 - In "character_personalities", infer distinct personalities for PERSON_ONE and PERSON_TWO based on their dialogue.
 """
     elif vtype == "GAME":
@@ -588,6 +702,11 @@ def format_script_with_llm(
             ordered_script[sk] = sv
 
     script_field = ordered_script
+
+    # Clean narrator prefixes from hook and payoff so TTS voices don't speak "Narrator:"
+    for k in ("hook", "payoff", "PAYOFF"):
+        if k in script_field and isinstance(script_field[k], str):
+            script_field[k] = clean_narrator_prefix(script_field[k])
 
     # For GAME, ensure chalkboard_exercise exists
     if video_type.upper() == "GAME":
@@ -799,14 +918,136 @@ def prompt_for_script_input(
     return raw_script if raw_script else None
 
 
+def find_available_ready_scripts_csvs(search_dir: Optional[Path] = None) -> List[Path]:
+    """Finds all ready_scripts_to_work_with CSV files in the destination directory."""
+    target_dir = search_dir or resolve_ready_scripts_output_dir()
+    if not target_dir.exists():
+        return []
+    work_with_files = list(target_dir.glob("*ready_scripts_to_work_with*.csv"))
+    other_files = [
+        f
+        for f in target_dir.glob("*.csv")
+        if f not in work_with_files and "error_report" not in f.name.lower()
+    ]
+    work_with_files.sort(
+        key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True
+    )
+    other_files.sort(
+        key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True
+    )
+    return work_with_files + other_files
+
+
+def load_scripts_from_csv(
+    csv_path: Path, state_manager: StateManager
+) -> List[Tuple[str, str]]:
+    """
+    Parses a CSV file containing ID and SCRIPT_CHANGE columns,
+    validates each script ID against state/, and returns a list of (script_id, raw_script_text).
+    """
+    if not csv_path.is_file():
+        print(f"❌ File not found: {csv_path}", file=sys.stderr)
+        return []
+
+    try:
+        raw_text = csv_path.read_text(encoding="utf-8-sig", errors="replace")
+    except Exception:
+        try:
+            raw_text = csv_path.read_text(encoding="latin-1", errors="replace")
+        except Exception as e2:
+            print(f"❌ Error reading '{csv_path.name}': {e2}", file=sys.stderr)
+            return []
+
+    # Clean manual CSV formatting quirks
+    cleaned_text = re.sub(r'"[ \t]*,[ \t]*\r?\n', '"\n', raw_text)
+    cleaned_text = re.sub(r',[ \t]+"', ',"', cleaned_text)
+
+    reader = csv.DictReader(io.StringIO(cleaned_text), skipinitialspace=True)
+    fieldnames = reader.fieldnames or []
+    rows = list(reader)
+
+    # Detect ID and SCRIPT_CHANGE / NEW_SCRIPT columns (case-insensitive)
+    id_col = next(
+        (c for c in fieldnames if c.strip().upper() in ("ID", "SCRIPT_ID")),
+        None,
+    )
+    script_col = next(
+        (
+            c
+            for c in fieldnames
+            if c.strip().upper()
+            in (
+                "SCRIPT_CHANGE",
+                "SCRIPT_CHANGED",
+                "NEW_SCRIPT",
+                "SCRIPT",
+                "NEW_SCRIPT_TEXT",
+            )
+        ),
+        None,
+    )
+
+    if not id_col or not script_col:
+        print(
+            f"❌ Error: '{csv_path.name}' is missing required columns ('ID', 'SCRIPT_CHANGE'). "
+            f"Found headers: {fieldnames}",
+            file=sys.stderr,
+        )
+        return []
+
+    if not rows:
+        print(f"⚠️ Warning: '{csv_path.name}' is empty (no data rows).")
+        return []
+
+    scripts_to_modify: List[Tuple[str, str]] = []
+    print(f"\n📂 Parsing {csv_path.name} ({len(rows)} row(s) found)...")
+    for r_idx, row in enumerate(rows, start=1):
+        raw_id = str(row.get(id_col, "")).strip().upper()
+        s_id = raw_id.replace("SCRIPT_", "").replace(".JSON", "").strip()
+        raw_script = str(row.get(script_col, "")).strip()
+
+        if not s_id:
+            continue
+        if not raw_script:
+            print(f"  ⚠️ Row {r_idx} [{s_id}]: SCRIPT_CHANGE is blank — skipping.")
+            continue
+        if not state_manager.script_exists(s_id):
+            print(
+                f"  ❌ Row {r_idx} [{s_id}]: ID does not exist in state/ directory — skipping."
+            )
+            continue
+        if any(s[0] == s_id for s in scripts_to_modify):
+            print(
+                f"  ⚠️ Row {r_idx} [{s_id}]: Duplicate ID in CSV — keeping first occurrence."
+            )
+            continue
+
+        current_state = state_manager.get_script_state(s_id)
+        lang, vtype = resolve_lang_and_type(s_id, current_state)
+        topic = (
+            current_state.get("prompt_params", {}).get("EXPRESSION")
+            or current_state.get("prompt_params", {}).get("TOPIC")
+            or current_state.get("content_metadata", {}).get("topic")
+            or s_id
+        )
+        words = count_words(raw_script)
+        scripts_to_modify.append((s_id, raw_script))
+        print(
+            f"  ✓ [{s_id}] {lang.upper()}/{vtype.upper()} — \"{topic}\" (~{words} words)"
+        )
+
+    return scripts_to_modify
+
+
 def interactive_main():
-    """Interactive CLI workflow supporting single or batch (mass) script modification."""
+    """Interactive CLI workflow supporting single, batch (mass), or CSV-driven script modification."""
     parser = argparse.ArgumentParser(
         description="LingoVerse Script Modifier — Update script from plain text while keeping text verbatim."
     )
     parser.add_argument("--script-id", help="Video ID (or comma-separated IDs) to modify (e.g. EE01 or EE01,FG02)")
     parser.add_argument("--script-file", help="Path to plain text file containing the new script")
     parser.add_argument("--script-text", help="Direct script text string (for testing/scripting)")
+    parser.add_argument("--csv", help="Path to ready_scripts_to_work_with CSV file to modify in batch")
     parser.add_argument("--mass", "--batch", action="store_true", help="Launch directly into Mass Script Modification mode")
     parser.add_argument("--reset-downstream", action="store_true", help="Automatically reset downstream stages to pending")
     parser.add_argument("--keep-downstream", action="store_true", help="Keep current downstream stage statuses intact")
@@ -819,6 +1060,14 @@ def interactive_main():
 
     state_manager = StateManager(BASE_DIR)
     scripts_to_modify: list[Tuple[str, str]] = []  # List of (script_id, raw_script_text)
+
+    # 0. Direct CSV execution if --csv was passed
+    if args.csv:
+        csv_file = Path(args.csv)
+        scripts_to_modify = load_scripts_from_csv(csv_file, state_manager)
+        if not scripts_to_modify:
+            print(f"❌ No valid scripts to modify found in CSV: {args.csv}", file=sys.stderr)
+            return 1
 
     # 1. Non-interactive direct execution if arguments were passed
     if args.script_id:
@@ -860,10 +1109,16 @@ def interactive_main():
             print("Select modification mode:")
             print("  [1] Single Script (modify 1 video script)")
             print("  [2] Mass Script Changes (queue multiple scripts by ID, then process all with LLM)")
+            print("  [3] From Ready Scripts CSV (import ID & SCRIPT_CHANGE from ready_scripts_to_work_with.csv)")
             print("-" * 68)
             try:
-                choice = input("Choice [1/2] (default [1]): ").strip()
-                mode = "2" if choice == "2" else "1"
+                choice = input("Choice [1/2/3] (default [1]): ").strip()
+                if choice == "2":
+                    mode = "2"
+                elif choice == "3":
+                    mode = "3"
+                else:
+                    mode = "1"
             except (EOFError, KeyboardInterrupt):
                 print("\nOperation cancelled by user.")
                 return 0
@@ -915,7 +1170,7 @@ def interactive_main():
                 return 1
             scripts_to_modify.append((target_id, raw_script))
 
-        else:
+        elif mode == "2":
             # --- Mass Script Changes Mode ---
             print("\n" + "=" * 68)
             print("📦 MASS SCRIPT MODIFICATION MODE")
@@ -979,6 +1234,95 @@ def interactive_main():
                     print("\nFinished queuing scripts.")
                     break
 
+        elif mode == "3":
+            # --- Ready Scripts CSV Mode ---
+            print("\n" + "=" * 68)
+            print("📑 READY SCRIPTS CSV IMPORT MODE")
+            print("====================================================================")
+            print("Import ID and SCRIPT_CHANGE from ready_scripts_to_work_with CSV files.")
+            ready_dir = resolve_ready_scripts_output_dir()
+            print(f"Search Directory: {ready_dir}")
+            print("-" * 68)
+
+            available_files = find_available_ready_scripts_csvs(ready_dir)
+            selected_csv: Optional[Path] = None
+
+            if available_files:
+                print(f"Found ready scripts CSV file(s) in {ready_dir}:")
+                for f_idx, f_path in enumerate(available_files, 1):
+                    default_tag = " [Default]" if f_idx == 1 else ""
+                    print(f"  [{f_idx}] {f_path.name}{default_tag}")
+                print("  [C] Enter custom CSV file path")
+                print("-" * 68)
+
+                while not selected_csv:
+                    try:
+                        choice = input(
+                            f"Select file (1-{len(available_files)}, or C) [default: 1]: "
+                        ).strip()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nOperation cancelled by user.")
+                        return 0
+
+                    if not choice or choice == "1":
+                        selected_csv = available_files[0]
+                        break
+                    if choice.upper() == "C":
+                        try:
+                            custom_path = (
+                                input("Enter full path to CSV file: ")
+                                .strip()
+                                .strip('"')
+                                .strip("'")
+                            )
+                            if custom_path:
+                                selected_csv = Path(custom_path)
+                            else:
+                                print("No path entered. Exiting.")
+                                return 0
+                        except (EOFError, KeyboardInterrupt):
+                            print("\nOperation cancelled by user.")
+                            return 0
+                        break
+                    try:
+                        idx_num = int(choice)
+                        if 1 <= idx_num <= len(available_files):
+                            selected_csv = available_files[idx_num - 1]
+                            break
+                        else:
+                            print(
+                                f"Invalid number. Please enter 1 to {len(available_files)}."
+                            )
+                    except ValueError:
+                        p = Path(choice.strip('"').strip("'"))
+                        if p.is_file():
+                            selected_csv = p
+                            break
+                        print("Invalid choice. Please select a valid number or enter 'C'.")
+            else:
+                print(f"No ready scripts CSV files found in {ready_dir}.")
+                try:
+                    custom_path = (
+                        input("Enter path to ready_scripts_to_work_with CSV file: ")
+                        .strip()
+                        .strip('"')
+                        .strip("'")
+                    )
+                    if custom_path:
+                        selected_csv = Path(custom_path)
+                    else:
+                        print("No path entered. Exiting.")
+                        return 0
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperation cancelled by user.")
+                    return 0
+
+            if selected_csv:
+                scripts_to_modify = load_scripts_from_csv(selected_csv, state_manager)
+                if not scripts_to_modify:
+                    print("❌ No valid scripts queued from CSV. Exiting.")
+                    return 1
+
     if not scripts_to_modify:
         print("\nNo scripts queued for modification. Exiting.")
         return 0
@@ -1036,6 +1380,8 @@ def interactive_main():
             success_count += 1
         else:
             failed_ids.append(s_id)
+        # Breather cooldown between batch items so LLM slots return cleanly to idle ("go ahead, don't stop")
+        time.sleep(0.3)
 
     print("\n" + "=" * 68)
     print(f"🏁 Batch Modification Complete: {success_count}/{total} succeeded.")

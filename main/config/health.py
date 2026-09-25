@@ -114,6 +114,56 @@ def check_all_services(timeout: float = 5.0) -> Dict[str, Dict[str, Any]]:
     }
 
 
+def prevent_windows_throttling(verbose: bool = False) -> None:
+    """
+    On Windows, sets the current process, ComfyUI, and LLM server processes
+    to 'AboveNormal' priority. This prevents Windows from applying EcoQoS
+    or Efficiency Mode throttling when console windows are minimized.
+    """
+    if sys.platform != "win32":
+        return
+
+    import ctypes
+    from ctypes import wintypes
+    import subprocess
+
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetPriorityClass.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel32.SetPriorityClass.restype = wintypes.BOOL
+    ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000
+    PROCESS_SET_INFORMATION = 0x0200
+
+    # 1. Elevate current Python process
+    try:
+        h_cur = kernel32.GetCurrentProcess()
+        kernel32.SetPriorityClass(h_cur, ABOVE_NORMAL_PRIORITY_CLASS)
+    except Exception:
+        pass
+
+    # 2. Elevate processes listening on AI service ports (8188 for ComfyUI, 8080 for LLM)
+    for port, name in [(8188, "ComfyUI"), (8080, "LLM")]:
+        try:
+            cmd = f"(Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"
+            pids = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command", cmd],
+                text=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            ).strip().split()
+            for pid_str in pids:
+                pid = int(pid_str)
+                if pid > 0:
+                    h_proc = kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, pid)
+                    if h_proc:
+                        try:
+                            kernel32.SetPriorityClass(h_proc, ABOVE_NORMAL_PRIORITY_CLASS)
+                            if verbose:
+                                print(f"  [OK] {name} (PID {pid}) priority elevated to prevent minimization throttling.")
+                        finally:
+                            kernel32.CloseHandle(h_proc)
+        except Exception:
+            pass
+
+
 def require_services(
     comfy: bool = False,
     llm: bool = False,
@@ -123,6 +173,7 @@ def require_services(
     """
     Asserts that required backend services are active before running a workflow.
     Prints status and raises ConnectionError immediately if an expected service is down.
+    Also protects AI backend processes from Windows minimization/background throttling.
     """
     failed = []
 
@@ -152,6 +203,9 @@ def require_services(
             f"\nPre-flight service verification failed:\n{errors}\n"
             "Please ensure required background servers are running before executing this workflow."
         )
+
+    # Protect active processes from EcoQoS minimization throttling
+    prevent_windows_throttling(verbose=False)
 
 
 def main() -> int:

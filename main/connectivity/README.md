@@ -134,17 +134,28 @@ main/connectivity/
 - **Action**: Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked.
 - **Exclusion Rule**: If `video_ready` is checked (`TRUE`), the ID is strictly **SKIPPED** (video is already done).
 - **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to canonical `YYYY-MM-DD`). Supports both 4-digit (`2026-09-23`) and 2-digit (`23/09/26`) year notations across `/`, `-`, and `.` separators.
-- **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, saves records to `undated_ready_scripts.csv` and prints a warning alert. When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from `undated_ready_scripts.csv` (and removes the file once all items are resolved).
-- **Destination**:
+- **Primary Export**:
   `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
+- **Interactive Work-With Export (`ready_scripts_to_work_with.csv`)**:
+  Before finishing (in both All Sheets and Single Sheet modes), prompts the user in the terminal whether to also generate a CSV with `ID` and `SCRIPT_CHANGE` (Column D):
+  - File: `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts_to_work_with.csv` (Schema: `ID,SCRIPT_CHANGE`).
+  - **Error Handling (`error_report.csv`)**: If any script is marked `script_ready` but has an empty `SCRIPT_CHANGE` cell, it is logged to `D:\AI\output\connectivity\ready_scripts\error_report.csv` with schema `ID,problem`. Valid scripts continue to be exported normally.
+  - **Auto-Pruning Errors**: When the user subsequently fixes `SCRIPT_CHANGE` in Google Sheets and re-scans, resolved IDs are automatically removed from `error_report.csv` (and the file is deleted once all errors are cleared).
+- **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, records are saved to `undated_ready_scripts.csv` (and `undated_ready_scripts_to_work_with.csv` if requested). When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from the undated files.
 - **Interactive Options**:
   - `[1] Scan ALL 16 Google Sheets and export by date (Default)`
   - `[2] Scan a specific sheet`
   - `[0] Exit`
 - **Usage**:
   ```powershell
+  # Interactive mode (prompts for work_with CSV export):
   py main/connectivity/scan_ready_scripts.py
-  py main/connectivity/scan_ready_scripts.py --all
+
+  # Scan all sheets non-interactively without prompt:
+  py main/connectivity/scan_ready_scripts.py --all --work-with     # exports both CSVs
+  py main/connectivity/scan_ready_scripts.py --all --no-work-with  # exports only ready_scripts.csv
+
+  # Scan specific sheet:
   py main/connectivity/scan_ready_scripts.py -l french -t expression
   ```
 
