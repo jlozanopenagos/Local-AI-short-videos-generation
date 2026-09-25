@@ -269,7 +269,7 @@ class TestSheetsFetcher(unittest.TestCase):
         mock_response.read.return_value = json.dumps(mock_payload).encode("utf-8")
         mock_response.__enter__.return_value = mock_response
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("urllib.request.urlopen", return_value=mock_response), patch("builtins.print"):
             result = sync_sheet(
                 language="english",
                 video_type="expression",
@@ -289,12 +289,12 @@ class TestSheetsFetcher(unittest.TestCase):
 
         # Test affirmative choices
         for aff in ["y", "yes", "2", "4", "Y", "YES"]:
-            with patch("builtins.input", return_value=aff):
+            with patch("builtins.input", return_value=aff), patch("builtins.print"):
                 self.assertTrue(prompt_include_script_changed())
 
         # Test negative or default choices
         for neg in ["", "n", "no", "1", "3", "N", "NO"]:
-            with patch("builtins.input", return_value=neg):
+            with patch("builtins.input", return_value=neg), patch("builtins.print"):
                 self.assertFalse(prompt_include_script_changed())
 
     def test_legacy_backward_compatibility_imports(self):
