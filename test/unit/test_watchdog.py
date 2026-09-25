@@ -4,11 +4,14 @@ test_layer/unit/test_watchdog.py — Unit tests for LLM & ComfyUI keep-alive and
 import unittest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
+# pyrefly: ignore [missing-import]
 import httpx
 
 # pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.core.llm import generate_response
+# pyrefly: ignore [missing-import]
 from video_creation._B_voice_generation.core.comfy_client import ComfyClient
+# pyrefly: ignore [missing-import]
 from video_creation._C_image_generation.core.comfy_client import ImageComfyClient
 
 
