@@ -57,12 +57,8 @@ def build_suite(layer_filter: str = "all") -> unittest.TestSuite:
     layers_to_run = []
     if layer_filter in ("all", "unit"):
         layers_to_run.append(("Unit Tests", TEST_DIR / "unit"))
-    if layer_filter in ("all", "integration"):
-        layers_to_run.append(("Integration Tests", TEST_DIR / "integration"))
-    if layer_filter in ("all", "contract", "contracts"):
-        layers_to_run.append(("Contract & Schema Tests", TEST_DIR / "contracts"))
-    if layer_filter in ("all", "security"):
-        layers_to_run.append(("Security & Privacy Tests", TEST_DIR / "security"))
+    if layer_filter in ("all", "integration", "contract", "contracts", "security"):
+        layers_to_run.append(("Integration, Schema & Security Tests", TEST_DIR / "integration"))
     if layer_filter in ("all", "connectivity"):
         layers_to_run.append(("Connectivity Tests", TEST_DIR / "connectivity"))
 

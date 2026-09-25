@@ -343,17 +343,17 @@ class TestPostScripts(unittest.TestCase):
 
     def test_prompt_column_option(self):
         """Verify prompt_column_option correctly handles user input."""
-        with patch("builtins.input", return_value=""):
+        with patch("builtins.input", return_value=""), patch("builtins.print"):
             self.assertFalse(prompt_column_option())
 
-        with patch("builtins.input", return_value="1"):
+        with patch("builtins.input", return_value="1"), patch("builtins.print"):
             self.assertFalse(prompt_column_option())
 
-        with patch("builtins.input", return_value="2"):
+        with patch("builtins.input", return_value="2"), patch("builtins.print"):
             self.assertTrue(prompt_column_option())
 
         # Invalid then valid
-        with patch("builtins.input", side_effect=["invalid", "2"]):
+        with patch("builtins.input", side_effect=["invalid", "2"]), patch("builtins.print"):
             self.assertTrue(prompt_column_option())
 
 

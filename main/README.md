@@ -506,9 +506,8 @@ shorts_automation/
 │   ├── tools/                          # Developer utilities and operations CLI
 │   │   ├── auditing/                   # Status scrapers, CSV validation, and language check tools
 │   │   ├── database/                   # DB sync, ID assignment, and CLI query tools
-│   │   ├── maintenance/                # Migration and mass-update utilities
 │   │   ├── modifiers/                  # Interactive single & mass asset modifiers
-│   │   └── prompt_builders/            # Multi-lingual queue builders and overhaul tools
+│   │   └── prompt_builders/            # System editor prompt compilation tools
 │   ├── video_creation/                 # Core generation stages (_A through _G)
 │   │   ├── workflows/                  # Exported ComfyUI JSON API workflow definitions
 │   │   ├── _A_video_scripts/           # Scriptwriting, prompt rules, and metadata synthesis

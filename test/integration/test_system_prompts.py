@@ -1,8 +1,11 @@
 """
-test_layer/contracts/test_system_prompts.py — Contract validation for external editor system prompts.
+test/integration/test_system_prompts.py — Contract validation for external editor system prompts.
 """
-import unittest
+
+from __future__ import annotations
+
 import csv
+import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

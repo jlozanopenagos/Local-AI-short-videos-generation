@@ -8,11 +8,10 @@ This folder contains command-line utilities and interactive review tools for the
 
 | Subdirectory | Focus / Responsibility | Tools Included |
 | :--- | :--- | :--- |
-| **`modifiers/`** | Interactive asset & script modification | `script_modifier.py`, `voice_modifier.py`, `image_modifier.py`, `subtitles_modifier.py` |
+| **`modifiers/`** | Canonical interactive asset & script modification forwarders | `script_modifier.py`, `voice_modifier.py`, `image_modifier.py`, `subtitles_modifier.py` |
 | **`auditing/`** | Quality inspection, metrics & health checks | `audit_all_csvs.py`, `status_scraper.py`, `json_health_checker.py`, `check_language_mixing.py`, `scrapper_script.py` |
-| **`prompt_builders/`**| Multilingual prompt generation & queue builders | `build_all_multilingual_prompts.py`, `generate_editor_prompts_csv.py`, `localize_fun_facts.py`, `adapt_english_prompts.py`, `csv_overhauls/` |
 | **`database/`** | Expression database, queue sync & ID assignment | `db.py`, `sync_prompts.py`, `assign_ids.py` |
-| **`maintenance/`** | Architectural migrations & batch update scripts | `migrate_remove_music_state.py`, `update_expression_scripts_with_example.py`, `update_roleplay_scripts_coherence.py` |
+| **`prompt_builders/`**| System editor prompts generator | `generate_editor_prompts_csv.py` |
 
 ---
 
@@ -151,32 +150,11 @@ py tools/modifiers/subtitles_modifier.py --script-id ER01
 
 ---
 
-### 4. Multilingual Prompt Builders (`tools/prompt_builders/`)
+### 4. Prompt Builders (`tools/prompt_builders/`)
 
-- **`build_all_multilingual_prompts.py`**: High-performance builder that transforms English expressions into aligned French, Spanish, and Italian prompt queues.
-- **`generate_editor_prompts_csv.py`**: Compiles calibrated editor prompts and structural benchmarks for downstream quality tuning.
-- **`localize_fun_facts.py`**: Localizes Fun Facts queues directly into target languages.
-- **`adapt_english_prompts.py`**: Adapts raw English prompt lists into standardized format.
-- **`csv_overhauls/`**: Full-library suite overhaul engines (`overhaul_english_suite.py`, `overhaul_spanish_suite.py`, `overhaul_french_suite.py`, `overhaul_italian_suite.py`).
+- **`generate_editor_prompts_csv.py`**: Compiles calibrated external LLM system prompts (`system_prompts_editor.csv`) across all four video types (EXPRESSION, ROLEPLAY, GAME, FUN_FACTS) for external script doctoring.
 
 ```bash
-py tools/prompt_builders/build_all_multilingual_prompts.py
 py tools/prompt_builders/generate_editor_prompts_csv.py
-py tools/prompt_builders/localize_fun_facts.py
-py tools/prompt_builders/adapt_english_prompts.py
-py tools/prompt_builders/csv_overhauls/overhaul_english_suite.py
 ```
 
----
-
-### 5. Maintenance & Migrations (`tools/maintenance/`)
-
-- **`migrate_remove_music_state.py`**: Migrates script state JSON files across `state/` to remove legacy per-script music state fields, transitioning the project to the Standing Music Bank architecture.
-- **`update_expression_scripts_with_example.py`**: Enriches all existing EXPRESSION scripts across English, French, Italian, and Spanish with authentic in-context example sentences and synchronizes review files.
-- **`update_roleplay_scripts_coherence.py`**: Standardizes roleplay scripts for strict 4-part dialogue turn causality, explicit uppercase word stress/minimal pairs, and runtime calibration.
-
-```bash
-py tools/maintenance/migrate_remove_music_state.py
-py tools/maintenance/update_expression_scripts_with_example.py
-py tools/maintenance/update_roleplay_scripts_coherence.py
-```

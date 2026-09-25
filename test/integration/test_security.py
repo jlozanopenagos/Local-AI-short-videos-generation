@@ -1,6 +1,9 @@
 """
-test_layer/security/test_privacy_leak.py — Automated security audit preventing leaks of secrets, personal paths, and private data.
+test/integration/test_security.py — Automated security audit preventing leaks of secrets, personal paths, and private data.
 """
+
+from __future__ import annotations
+
 import unittest
 import subprocess
 import re
@@ -9,7 +12,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-class TestPrivacyLeak(unittest.TestCase):
+class TestSecurityAndPrivacy(unittest.TestCase):
+    """Ensure no secrets, API keys, credentials, or private files are tracked or exposed."""
+
     def setUp(self):
         self.gitignore_path = REPO_ROOT / ".gitignore"
 
@@ -75,8 +80,8 @@ class TestPrivacyLeak(unittest.TestCase):
             )
             tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
             for filepath in tracked_files:
-                # Only README.md, .gitkeep, and sample_templates/*.csv are permitted
-                is_sample = "sample_templates" in filepath
+                # Only README.md, .gitkeep, and *.sample.csv are permitted
+                is_sample = "sample_templates" in filepath or filepath.endswith(".sample.csv")
                 is_readme = filepath.endswith("README.md")
                 is_gitkeep = filepath.endswith(".gitkeep")
                 self.assertTrue(
@@ -100,7 +105,6 @@ class TestPrivacyLeak(unittest.TestCase):
 
             for rel_path in tracked_files:
                 full_path = REPO_ROOT / rel_path
-                # Skip binary files and test files
                 if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
                     continue
 
@@ -154,7 +158,6 @@ class TestPrivacyLeak(unittest.TestCase):
 
             for rel_path in tracked_files:
                 full_path = REPO_ROOT / rel_path
-                # Skip binary media files
                 if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
                     continue
 
