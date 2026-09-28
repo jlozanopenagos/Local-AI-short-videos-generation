@@ -407,10 +407,12 @@ python video_creation/_D_music_generation/main.py --language english --video-typ
 
 # Part F: Thumbnail Generation
 python video_creation/_F_thumbnail_image_generation/main.py --script-id EE01
+python video_creation/_F_thumbnail_image_generation/main.py --from-ready-scripts
 
 # Part G: Video Assembly
 python video_creation/_G_video_assembly/main.py --script-id EE01
 python video_creation/_G_video_assembly/main.py --script-id EE01 --keep-subtitles
+python video_creation/_G_video_assembly/main.py --from-ready-scripts
 ```
 
 ### Database, Auditing & Maintenance Utilities

@@ -3,13 +3,29 @@ import traceback
 import random
 from pathlib import Path
 
-# Add project root, video_creation, and module directory to path
+# Add project root, video_creation, core, and module directory to path
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-for p in [str(PROJECT_ROOT), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
+CORE_DIR = PROJECT_ROOT / "core"
+for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
+
+try:
+    # pyrefly: ignore [missing-import]
+    from core.cli_prompt import timed_input
+except (ImportError, ModuleNotFoundError):
+    try:
+        # pyrefly: ignore [missing-import]
+        from cli_prompt import timed_input
+    except (ImportError, ModuleNotFoundError):
+        def timed_input(prompt: str, timeout: float = 10.0, default: str = "", default_msg: str = None) -> str:
+            try:
+                val = input(prompt).strip()
+                return val if val else default
+            except (KeyboardInterrupt, EOFError):
+                return default
 
 # pyrefly: ignore [missing-import]
 import config
@@ -176,7 +192,12 @@ def main():
     # Prompt for manual genders
     manual_genders = {}
     try:
-        choose_manual = input("Do you want to choose the voices manually? (y/n): ").strip().lower()
+        choose_manual = timed_input(
+            "Do you want to choose the voices manually? (y/n) [default: n]: ",
+            timeout=10.0,
+            default="n",
+            default_msg="Automatically keeping default voice assignment."
+        ).strip().lower()
         if choose_manual == 'y':
             print("Please enter the gender ('male' or 'female') for each character.")
             for speaker in unique_speakers:
@@ -187,7 +208,7 @@ def main():
                         break
                     else:
                         print("Invalid input. Please enter 'male' or 'female'.")
-    except EOFError:
+    except (KeyboardInterrupt, EOFError):
         pass
 
     # Get previously assigned genders

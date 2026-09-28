@@ -36,6 +36,21 @@ except ImportError:
 
 from _B_voice_generation.core.script_parser import parse_sections
 
+try:
+    # pyrefly: ignore [missing-import]
+    from core.cli_prompt import timed_input
+except (ImportError, ModuleNotFoundError):
+    try:
+        # pyrefly: ignore [missing-import]
+        from cli_prompt import timed_input
+    except (ImportError, ModuleNotFoundError):
+        def timed_input(prompt: str, timeout: float = 10.0, default: str = "", default_msg: str = None) -> str:
+            try:
+                val = input(prompt).strip()
+                return val if val else default
+            except (KeyboardInterrupt, EOFError):
+                return default
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")
 logger = logging.getLogger(__name__)
@@ -84,7 +99,12 @@ def process_script(
                 f"Press Enter to use these genders, or type new ones "
                 f"(e.g. 'male, female' or 'female, male'): "
             )
-            user_input = input(prompt_msg).strip()
+            user_input = timed_input(
+                prompt=prompt_msg,
+                timeout=10.0,
+                default="",
+                default_msg=f"Using confirmed voice genders: PERSON_ONE={p1_g.upper()}, PERSON_TWO={p2_g.upper()}"
+            ).strip()
             if user_input:
                 parts = [p.strip().lower() for p in user_input.replace("/", ",").split(",")]
                 if len(parts) >= 2:

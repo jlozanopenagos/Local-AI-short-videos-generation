@@ -16,13 +16,29 @@ import argparse
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-# Add project root, video_creation, and module directory to path for robust imports
+# Add project root, video_creation, core, and module directory to path for robust imports
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-for p in [str(PROJECT_ROOT), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
+CORE_DIR = PROJECT_ROOT / "core"
+for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
+
+try:
+    # pyrefly: ignore [missing-import]
+    from core.cli_prompt import timed_input
+except (ImportError, ModuleNotFoundError):
+    try:
+        # pyrefly: ignore [missing-import]
+        from cli_prompt import timed_input
+    except (ImportError, ModuleNotFoundError):
+        def timed_input(prompt: str, timeout: float = 10.0, default: str = "", default_msg: str = None) -> str:
+            try:
+                val = input(prompt).strip()
+                return val if val else default
+            except (KeyboardInterrupt, EOFError):
+                return default
 
 try:
     from config import (
@@ -248,7 +264,12 @@ def modify_scene_interactive(
             p2_g = speakers_gender.get("PERSON_TWO", "female")
             print(f"Current character genders: PERSON_ONE={p1_g.upper()}, PERSON_TWO={p2_g.upper()}")
             try:
-                override_gender = input("Press Enter to keep these genders, or enter new (e.g. 'male, female'): ").strip()
+                override_gender = timed_input(
+                    "Press Enter to keep these genders, or enter new (e.g. 'male, female'): ",
+                    timeout=10.0,
+                    default="",
+                    default_msg=f"Keeping current genders: PERSON_ONE={p1_g.upper()}, PERSON_TWO={p2_g.upper()}"
+                ).strip()
                 if override_gender:
                     parts = [p.strip().lower() for p in override_gender.replace("/", ",").split(",")]
                     if len(parts) >= 2:

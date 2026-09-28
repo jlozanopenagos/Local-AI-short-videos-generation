@@ -58,6 +58,12 @@ input/csv/
 - **Isolation Guarantee**: Kept separate from script changes and voice queues so visual assets can be regenerated independently.
 - **State Validation**: Pipeline automatically verifies that `state/<lang>/<type>/script_<ID>.json` exists before queuing.
 
+### 0d. READY SCRIPTS BATCH WORKFLOW (`D:\AI\output\connectivity\ready_scripts/<date>_ready_scripts.csv`)
+- **Columns**: `ID,expression`
+- **Purpose**: Powers batch execution across downstream generation stages (`_B_voice_generation`, `_C_image_generation`, `_F_thumbnail_image_generation`, and `_G_video_assembly`).
+- **Discovery**: Scanned directly from `D:\AI\output\connectivity\ready_scripts` via `core/cli_prompt.py` or passed via CLI `--from-ready-scripts`.
+- **Thumbnail & Video Stages**: Stages `_F` and `_G` directly consume Ready Scripts CSVs via Option `[5]`, cleanly bypassing unnecessary modifier directories.
+
 ### 1. EXPRESSION
 - **Filename**: `<LANG>_READY_PROMPTS_EXPRESSION.csv`
 - **Columns**: `ID,EXPRESSION,SUBJECT,CONTEXT,ANGLE,LEXICAL_FIELD,EMOTIONAL_TRIGGER`

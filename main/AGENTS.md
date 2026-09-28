@@ -263,16 +263,19 @@ All workflow stages and shared templates are organized inside the `video_creatio
 
 > **Execution Flow & Interactive Generation Mode**:
 > 1. **Pre-flight Service Verification**: When `main.py` of any stage is executed, it first performs connection checks via `config/health.py` (`require_services`) asserting that required backends (LLM, ComfyUI) are online and responsive before proceeding.
-> 2. **Harmonized Interactive Mode Selection (10s Countdown)**: After services are verified, stages `_A`, `_B`, and `_C` present a unified interactive console prompt via `core/cli_prompt.py`:
+> 2. **Harmonized Interactive Mode Selection (10s Countdown)**: After services are verified, pipeline stages present a unified interactive console prompt via `core/cli_prompt.py`:
 >    - `[1] Mass-produce all pending assets` (automatically selected if the 10-second timer expires with no input).
 >    - `[2] Select specific script(s) by ID`: Prompts for Script IDs (single or comma-separated e.g. `EE01, EE02`), validates that the script state JSON exists in `state/`, prompts `Add another script to produce? [y/N]: `, and queues all specified scripts for execution.
 >    - `[3] Number Range Groups (e.g. 10 - 20)`: Prompts for language selection and numeric start/end range (e.g. `10-20`), executes the batch across selected language(s), and prompts whether to run another group without restarting the process.
 >    - `[4] Fun Facts only`: Filters production strictly to Fun Facts scripts (`EF`, `FF`, `SF`, `IF`), offering all languages or specific language range.
->    - `[5] Target scripts from CSV list`: Reads IDs from dedicated, cleanly isolated CSV queue folders:
+>    - `[5] Target scripts from CSV`: Reads IDs from dedicated workflow queues:
 >      - Stage A: `input/csv/script_to_change/` (script text modification & repair)
->      - Stage B: `input/csv/voice_to_change/` (voiceover audio regeneration)
->      - Stage C: `input/csv/image_to_change/` (scene illustration regeneration)
->    - **CLI Overrides**: Passing `--script-id <ID1,ID2...>`, `--auto`, `--fun-facts`, or `--from-csv [PATH]` on the command line immediately triggers targeted execution and bypasses the interactive timer.
+>      - Stage B: `input/csv/voice_to_change/` (Option [5]) or Ready Scripts CSV (Option [6])
+>      - Stage C: `input/csv/image_to_change/` (Option [5]) or Ready Scripts CSV (Option [6])
+>      - Stage F (Thumbnails): Directly uses `[5] From Ready Scripts CSV (<date>_ready_scripts.csv)` scanning `D:\AI\output\connectivity\ready_scripts`
+>      - Stage G (Video Assembly): Directly uses `[5] From Ready Scripts CSV (<date>_ready_scripts.csv)` scanning `D:\AI\output\connectivity\ready_scripts`
+>    - **Interactive Countdown Input (`timed_input`)**: All terminal prompts requiring user decisions (such as character gender selection in `_C_image_generation` or manual voice prompts in `_B_voice_generation`) implement a 10s countdown timer that automatically defaults if unattended, while pausing countdown when the user starts typing.
+>    - **CLI Overrides**: Passing `--script-id <ID1,ID2...>`, `--auto`, `--fun-facts`, `--from-csv [PATH]`, or `--from-ready-scripts [PATH]` on the command line immediately triggers targeted execution and bypasses the interactive timer.
 > 3. **Modular Execution**: Stages can be run individually, via root `main.py` (which orchestrates Part A & B with an interactive checkpoint review), or queued in automated batches.
 
 ### Stage Details & CLI Commands (inside `video_creation/`):
@@ -319,14 +322,14 @@ All workflow stages and shared templates are organized inside the `video_creatio
      - Prevents dead silence via dynamic token limits (`max_new_tokens = max(96, min(240, words * 12))`) and `repetition_penalty = 1.15`.
      - Automatically trims dead trailing air (`trim_trailing_silence`) and concatenates segments with tight YouTube Shorts pauses (0.20s dialogue, 0.40s section, 2.20s pressure pause).
    - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, CSV lists from `input/csv/voice_to_change/`, and Ready Scripts CSV from `D:\AI\output\connectivity\ready_scripts/<date>_ready_scripts.csv`.
-   - **Interactive Tool**: `voice_modifier.py` allows testing, manual voice casting, and quick regeneration per script.
+   - **Interactive Tool**: `voice_modifier.py` allows testing, manual voice casting (with 10s default countdown), and quick regeneration per script.
    - **Command**: `py video_creation/_B_voice_generation/main.py [--script-id <ID>] [--force] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]] [--from-ready-scripts [PATH]]`
 
 3. **`video_creation/_C_image_generation`**:
    - Generates high-quality vertical visuals (576x1024) for each script scene using local ComfyUI workflow `video_creation/workflows/AcademiaSD_Z-Image_v05.json`.
    - Outputs saved to `output/video_assets/<language>/<video_type>/script_<ID>/images/`.
    - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, CSV lists from `input/csv/image_to_change/`, and Ready Scripts CSV from `D:\AI\output\connectivity\ready_scripts/<date>_ready_scripts.csv`.
-   - **Interactive Tool**: `image_modifier.py` allows interactive scene recreation, prompt steering/refinement, and live editing of chalkboard exercises.
+   - **Interactive Tool**: `image_modifier.py` allows interactive scene recreation, prompt steering/refinement, roleplay character gender selection (with 10s default countdown), and live editing of chalkboard exercises.
    - **Command**: `py video_creation/_C_image_generation/main.py [--script-id <ID>] [--force] [--seed <INT>] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]] [--from-ready-scripts [PATH]]`
 
 4. **`video_creation/_D_music_generation` (Standing Music Bank)**:
@@ -338,17 +341,19 @@ All workflow stages and shared templates are organized inside the `video_creatio
 5. **`video_creation/_F_thumbnail_image_generation`**:
    - Generates eye-catching vertical thumbnails using ComfyUI's Flux1-dev image-to-image workflow (`video_creation/workflows/flux1_dev_uso_reference_image_gen.json`).
    - Transforms input reference models in `input/images/thumbnail_models/` to styled output thumbnails saved to `output/video_assets/<language>/<video_type>/script_<ID>/thumbnail.png`.
-   - **Command**: `py video_creation/_F_thumbnail_image_generation/main.py [--script-id <ID>] [--force]`
+   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, and `[5] From Ready Scripts CSV (<date>_ready_scripts.csv)` scanning `D:\AI\output\connectivity\ready_scripts`.
+   - **Command**: `py video_creation/_F_thumbnail_image_generation/main.py [--script-id <ID>] [--force] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-ready-scripts [PATH]]`
 
 6. **`video_creation/_G_video_assembly`**:
-   - Transcribes the master audio with word timestamps using faster-whisper (`base` model, int8 on CPU).
+   - Transcribes the master audio with word timestamps using faster-whisper (`base` model, int8 on CPU), with lazy loading inside `Transcriber.__init__` for clean diagnostics and zero overhead when skipping transcription.
    - **Dynamic Animated Subtitles (ASS format)**: Generates high-impact Hormozi-style word-by-word animated subtitles (Yellow primary `&H0000FFFF`, Arial 60 bold, black outline, semi-transparent shadow, center-center). For GAME videos, automatically suppresses subtitles during the `challenge` scene so chalkboard options remain unobstructed.
    - **Emotion-Based Jam Selection**: Dynamically matches the script's emotional triggers (`EMOTIONAL_TRIGGER`, `emotion`, `game_type`) to the best available audio jam in `<OUTPUT_DIR>/bank_music/<language>/<video_type>/`, using deterministic script-ID hashing for consistent variety across scripts.
    - **Branding & Audio Ducking**: Overlays watermark logo (`watermark.png`, 120px, 60% opacity at bottom-right), prepends 2.0s opening card and appends 3.0s closing card with language and dialect detection, and ducks bank BGM (volume 0.05) under master speech using FFmpeg `amix`.
    - Produces the final polished `.mp4` video in `output/video_assets/<language>/<video_type>/script_<ID>/script_<ID>_final.mp4`.
    - **Fast Re-assembly**: Use `--keep-subtitles` (or `--skip-transcribe`) to reuse existing `.ass` files without re-running Whisper.
+   - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, and `[5] From Ready Scripts CSV (<date>_ready_scripts.csv)` scanning `D:\AI\output\connectivity\ready_scripts`.
    - **Interactive Tool**: `subtitles_modifier.py` (`py tools/modifiers/subtitles_modifier.py` or `py video_creation/_G_video_assembly/subtitles_modifier.py`) allows inspecting subtitle lines/timings, finding/replacing words across `.ass` files, opening `.ass` in an editor, and re-rendering final MP4s in seconds without re-running Whisper or regenerating audio.
-   - **Command**: `py video_creation/_G_video_assembly/main.py [--script-id <ID>] [--force] [--keep-subtitles]`
+   - **Command**: `py video_creation/_G_video_assembly/main.py [--script-id <ID>] [--force] [--auto] [--keep-subtitles] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-ready-scripts [PATH]]`
 
 ---
 

@@ -60,6 +60,107 @@ def _timed_choice(timeout: float = 10.0, default: str = "1", valid_choices: tupl
         return default
 
 
+def timed_input(
+    prompt: str,
+    timeout: float = 10.0,
+    default: str = "",
+    default_msg: Optional[str] = None,
+) -> str:
+    """
+    Prompts for interactive console input with a countdown timer.
+    Automatically defaults to `default` when timeout expires without input.
+    If the user starts typing, the countdown is paused to let them complete their input.
+    """
+    if not sys.stdin.isatty():
+        return default
+
+    clean_prompt = prompt.rstrip()
+    if clean_prompt.endswith(":"):
+        clean_prompt = clean_prompt[:-1].rstrip()
+
+    if sys.platform == "win32":
+        import msvcrt
+        start_time = time.time()
+        user_chars: List[str] = []
+        last_sec = -1
+
+        while True:
+            elapsed = time.time() - start_time
+            remaining = max(0, int(timeout - elapsed) + 1)
+
+            if not user_chars:
+                if remaining != last_sec:
+                    last_sec = remaining
+                    sys.stdout.write(f"\r{clean_prompt} (auto in {remaining:2d}s): ")
+                    sys.stdout.flush()
+
+                if elapsed >= timeout:
+                    print()
+                    if default_msg:
+                        print(f"[Timer: {int(timeout)}s elapsed] {default_msg}")
+                    else:
+                        shown = repr(default) if default else "default"
+                        print(f"[Timer: {int(timeout)}s elapsed] Automatically selecting [{shown}].")
+                    return default
+
+            if msvcrt.kbhit():
+                ch = msvcrt.getwch()
+                if ch in ("\r", "\n"):
+                    print()
+                    val = "".join(user_chars).strip()
+                    return val if val else default
+                elif ch == "\x03":  # Ctrl+C
+                    raise KeyboardInterrupt
+                elif ch in ("\x00", "\xe0"):  # Extended key prefix on Windows (arrows, F-keys)
+                    if msvcrt.kbhit():
+                        msvcrt.getwch()  # Consume scan code
+                    continue
+                elif ch in ("\b", "\x08", "\x7f"):  # Backspace
+                    if user_chars:
+                        user_chars.pop()
+                        sys.stdout.write("\b \b")
+                        sys.stdout.flush()
+                        if not user_chars:
+                            # Reset countdown if user cleared input
+                            start_time = time.time()
+                            last_sec = -1
+                elif ch == "\x1b":  # Escape: clear input
+                    if user_chars:
+                        padding = " " * len(user_chars)
+                        sys.stdout.write("\b" * len(user_chars) + padding + "\b" * len(user_chars))
+                        sys.stdout.flush()
+                        user_chars.clear()
+                        start_time = time.time()
+                        last_sec = -1
+                else:
+                    if not user_chars:
+                        # Clear countdown line before writing user's characters
+                        padding = " " * (len(clean_prompt) + 30)
+                        sys.stdout.write(f"\r{padding}\r{clean_prompt}: ")
+                        sys.stdout.flush()
+                    user_chars.append(ch)
+                    sys.stdout.write(ch)
+                    sys.stdout.flush()
+
+            time.sleep(0.04)
+
+    # Unix fallback using select
+    import select
+    print(f"{clean_prompt} (auto in {int(timeout)}s): ", end="", flush=True)
+    rlist, _, _ = select.select([sys.stdin], [], [], timeout)
+    if rlist:
+        val = sys.stdin.readline().strip()
+        return val if val else default
+    else:
+        print()
+        if default_msg:
+            print(f"[Timer: {int(timeout)}s elapsed] {default_msg}")
+        else:
+            shown = repr(default) if default else "default"
+            print(f"[Timer: {int(timeout)}s elapsed] Automatically selecting [{shown}].")
+        return default
+
+
 def _check_script_state_exists(script_id: str, base_dir: Optional[Path] = None) -> bool:
     """Checks if state JSON file exists for the given script_id."""
     try:

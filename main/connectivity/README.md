@@ -142,6 +142,12 @@ main/connectivity/
   - **Error Handling (`error_report.csv`)**: If any script is marked `script_ready` but has an empty `SCRIPT_CHANGE` cell, it is logged to `D:\AI\output\connectivity\ready_scripts\error_report.csv` with schema `ID,problem`. Valid scripts continue to be exported normally.
   - **Auto-Pruning Errors**: When the user subsequently fixes `SCRIPT_CHANGE` in Google Sheets and re-scans, resolved IDs are automatically removed from `error_report.csv` (and the file is deleted once all errors are cleared).
 - **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, records are saved to `undated_ready_scripts.csv` (and `undated_ready_scripts_to_work_with.csv` if requested). When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from the undated files.
+- **Pipeline Integration**:
+  The generated `<YYYY-MM-DD>_ready_scripts.csv` files are automatically discovered and ingested across downstream pipeline stages:
+  - `_B_voice_generation/main.py --from-ready-scripts` (or Option `[6]`)
+  - `_C_image_generation/main.py --from-ready-scripts` (or Option `[6]`)
+  - `_F_thumbnail_image_generation/main.py --from-ready-scripts` (or Option `[5]`)
+  - `_G_video_assembly/main.py --from-ready-scripts` (or Option `[5]`)
 - **Interactive Options**:
   - `[1] Scan ALL 16 Google Sheets and export by date (Default)`
   - `[2] Scan a specific sheet`

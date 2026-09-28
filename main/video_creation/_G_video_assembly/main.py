@@ -4,11 +4,12 @@ import traceback
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
-# Add project root, video_creation, and module directory to path
+# Add project root, video_creation, core, and module directory to path
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-for p in [str(PROJECT_ROOT), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
+CORE_DIR = PROJECT_ROOT / "core"
+for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -21,15 +22,18 @@ from config import (
 from state_manager import StateManager
 try:
     # pyrefly: ignore [missing-import]
+    from _G_video_assembly.core.transcriber import Transcriber
+    # pyrefly: ignore [missing-import]
+    from _G_video_assembly.core.subtitle_builder import SubtitleBuilder
+    # pyrefly: ignore [missing-import]
+    from _G_video_assembly.core.video_assembler import VideoAssembler
+except (ImportError, ModuleNotFoundError):
+    # pyrefly: ignore [missing-import]
     from core.transcriber import Transcriber
     # pyrefly: ignore [missing-import]
     from core.subtitle_builder import SubtitleBuilder
     # pyrefly: ignore [missing-import]
     from core.video_assembler import VideoAssembler
-except ImportError:
-    from _G_video_assembly.core.transcriber import Transcriber
-    from _G_video_assembly.core.subtitle_builder import SubtitleBuilder
-    from _G_video_assembly.core.video_assembler import VideoAssembler
 
 
 def resolve_bank_music(script_data: dict, script_output_dir: Path, base_dir: Path = BASE_DIR) -> Optional[Path]:
@@ -231,7 +235,39 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--script-id", type=str, default=None)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--auto", action="store_true", help="Auto-assemble without interactive terminal prompts")
     parser.add_argument("--keep-subtitles", "--skip-transcribe", dest="keep_subtitles", action="store_true", help="Reuse existing .ass subtitles if available")
+    parser.add_argument(
+        "--fun-facts",
+        "--fun-facts-only",
+        dest="fun_facts_only",
+        action="store_true",
+        help="Only assemble Fun Facts scripts (e.g. EF01, FF01, SF01, IF01)"
+    )
+    parser.add_argument(
+        "--video-type",
+        type=str,
+        default=None,
+        choices=["expression", "game", "roleplay", "fun_facts", "all"],
+        help="Filter assembly to specific video type"
+    )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default=None,
+        choices=["all", "english", "french", "spanish", "italian"],
+        help="Filter assembly to specific language"
+    )
+    parser.add_argument(
+        "--from-ready-scripts",
+        "--ready-scripts",
+        "--from-csv",
+        dest="ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+    )
     args = parser.parse_args()
     
     base_dir = BASE_DIR
@@ -247,69 +283,188 @@ def main():
         return 1
     print("=" * 60 + "\n")
 
-    # Production Mode Selection: Mass-produce (default in 10s) or Specific Script ID
-    from core.cli_prompt import prompt_production_mode
-    target_script_ids = prompt_production_mode(
-        stage_title="Part G: Video Assembly",
-        asset_name="final short videos",
-        timeout=10.0,
-        script_id_arg=args.script_id,
-        require_existing_state=True,
-        base_dir=base_dir,
-    )
-    
-    # Query pending scripts via Pipeline Status Tracker
+    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, or Ready Scripts CSV
+    # pyrefly: ignore [missing-import]
     try:
-        from core.status_tracker import get_status_tracker
-        tracker = get_status_tracker(base_dir)
-        pending_rows = tracker.get_pending_scripts("video_assembly", script_id=target_script_ids, force=args.force)
-        pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
-        if target_script_ids:
-            pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
-    except Exception:
-        all_scripts = state_manager.get_all_scripts()
-        pending = []
-        for script in all_scripts:
-            script_id = script.get("id")
-            if target_script_ids and script_id not in target_script_ids:
-                continue
-                
-            from core.expression_db import is_expression_done
-            if is_expression_done(script_id):
-                continue
+        # pyrefly: ignore [missing-import]
+        from core.cli_prompt import (
+            prompt_production_mode,
+            prompt_group_range,
+            prompt_fun_facts_mode,
+            prompt_ready_scripts_mode,
+        )
+    except (ImportError, ModuleNotFoundError):
+        # pyrefly: ignore [missing-import]
+        from cli_prompt import (
+            prompt_production_mode,
+            prompt_group_range,
+            prompt_fun_facts_mode,
+            prompt_ready_scripts_mode,
+        )
 
-            status = script.get("status", {})
-            if status.get("voice_generation") == "done" and status.get("image_generation") == "done":
-                if args.force or status.get("video_assembly") != "done":
-                    pending.append(script)
-                    
-    if not pending:
-        print("No pending scripts for video assembly.")
-        return 0
-        
-    print(f"Found {len(pending)} pending script(s) for video assembly.")
-    
+    is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
+
+    if is_cli_fun_facts and not args.script_id and args.ready_scripts_csv is None:
+        print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
+        target_script_ids = None
+        selected_mode = "fun_facts"
+    else:
+        target_script_ids, selected_mode = prompt_production_mode(
+            stage_title="Part G: Video Assembly",
+            asset_name="final short videos",
+            timeout=10.0,
+            script_id_arg=args.script_id,
+            auto=args.auto,
+            require_existing_state=True,
+            base_dir=base_dir,
+            return_mode=True,
+            allow_fun_facts_mode=True,
+            allow_ready_scripts_mode=True,
+            ready_scripts_path_arg=args.ready_scripts_csv,
+        )
+        if is_cli_fun_facts:
+            selected_mode = "fun_facts"
+
     transcriber = None if args.keep_subtitles else Transcriber()
     builder = SubtitleBuilder()
     assembler = VideoAssembler()
-    
-    success_count = 0
-    for script in pending:
-        if process_script(
-            script,
-            state_manager,
-            transcriber=transcriber,
-            builder=builder,
-            assembler=assembler,
-            base_dir=base_dir,
-            regenerate_subtitles=not args.keep_subtitles
-        ):
-            success_count += 1
+
+    while True:
+        # Determine target video type filter
+        target_video_type = None
+        if selected_mode == "fun_facts" or args.fun_facts_only:
+            target_video_type = "fun_facts"
+        elif args.video_type and args.video_type.lower() != "all":
+            target_video_type = args.video_type.lower()
+
+        target_language = args.language if args.language and args.language.lower() != "all" else None
+
+        # Query pending scripts via Pipeline Status Tracker
+        try:
+            try:
+                # pyrefly: ignore [missing-import]
+                from core.status_tracker import get_status_tracker
+            except (ImportError, ModuleNotFoundError):
+                # pyrefly: ignore [missing-import]
+                from status_tracker import get_status_tracker
+            tracker = get_status_tracker(base_dir)
+            pending_rows = tracker.get_pending_scripts(
+                "video_assembly",
+                script_id=target_script_ids,
+                language=target_language,
+                video_type=target_video_type,
+                force=args.force
+            )
+            pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
+            if target_script_ids:
+                pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
+        except Exception:
+            all_scripts = state_manager.get_all_scripts()
+            pending = []
+            for script in all_scripts:
+                script_id = script.get("id")
+                if target_script_ids and script_id not in target_script_ids:
+                    continue
+                if target_language:
+                    slang = (script.get("content_metadata", {}).get("language") or "").lower()
+                    if slang != target_language.lower():
+                        continue
+                if target_video_type:
+                    svtype = (script.get("content_metadata", {}).get("video_type") or "").lower()
+                    if target_video_type == "fun_facts" and svtype not in ("fun_facts", "funfacts"):
+                        continue
+                    elif target_video_type != "fun_facts" and svtype != target_video_type:
+                        continue
+
+                try:
+                    # pyrefly: ignore [missing-import]
+                    from core.expression_db import is_expression_done
+                except (ImportError, ModuleNotFoundError):
+                    # pyrefly: ignore [missing-import]
+                    from expression_db import is_expression_done
+                if is_expression_done(script_id):
+                    continue
+
+                status = script.get("status", {})
+                if status.get("voice_generation") == "done" and status.get("image_generation") == "done":
+                    if args.force or status.get("video_assembly") != "done":
+                        pending.append(script)
+
+        if not pending:
+            scope_label = f" ({target_video_type.upper()})" if target_video_type else ""
+            if target_script_ids:
+                print(f"None of the target script(s) are pending for video assembly (already assembled or missing prerequisites). Use --force to regenerate.")
+            else:
+                print(f"No pending scripts for video assembly{scope_label}.")
+
+            if selected_mode in ("group_range", "fun_facts", "ready_scripts") and not args.auto:
+                try:
+                    create_more = input("\nDo you want to select another group or scope of scripts? [y/N]: ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    return 0
+                if create_more in ("y", "yes"):
+                    if selected_mode == "fun_facts":
+                        target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                    elif selected_mode == "ready_scripts":
+                        target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
+                    else:
+                        target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
+                    if target_script_ids:
+                        continue
+            return 0
+
+        print(f"\nFound {len(pending)} pending script(s) for video assembly:")
+        print(f"Target IDs: {', '.join([s['id'] for s in pending[:12]])}{'...' if len(pending) > 12 else ''}\n")
+
+        success_count = 0
+        for i, script in enumerate(pending, start=1):
+            try:
+                print(f"[{i}/{len(pending)}] Assembling Script ID: {script['id']}...")
+                if process_script(
+                    script,
+                    state_manager,
+                    transcriber=transcriber,
+                    builder=builder,
+                    assembler=assembler,
+                    base_dir=base_dir,
+                    regenerate_subtitles=not args.keep_subtitles
+                ):
+                    success_count += 1
+                else:
+                    print(f"Failed to assemble video for {script['id']}", file=sys.stderr)
+            except Exception as exc:
+                print(f"Unexpected error assembling script ID {script['id']}: {exc}", file=sys.stderr)
+                traceback.print_exc()
+
+        print(f"\n[Completed] Process complete. Successfully assembled {success_count} video(s).")
+
+        # If in group_range, fun_facts, or ready_scripts mode, prompt whether to process more
+        if selected_mode in ("group_range", "fun_facts", "ready_scripts") and not args.auto:
+            try:
+                create_more = input("\nDo you want to assemble more scripts? [y/N]: ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print("\nFinished video assembly session.")
+                break
+
+            if create_more in ("y", "yes"):
+                if selected_mode == "fun_facts":
+                    target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                elif selected_mode == "ready_scripts":
+                    target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
+                else:
+                    target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
+                if target_script_ids:
+                    continue
+                else:
+                    break
+            else:
+                print("\nFinished video assembly session.")
+                break
         else:
-            print(f"Failed to assemble video for {script['id']}", file=sys.stderr)
-            
-    print(f"Process complete. Successfully assembled {success_count} video(s).")
+            break
+
     return 0 if success_count == len(pending) else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
