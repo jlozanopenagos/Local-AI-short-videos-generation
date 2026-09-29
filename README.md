@@ -128,6 +128,18 @@ py main/connectivity/scan_ready_scripts.py --all
 
 ## Recent Changes
 
+### Syllable Stress, IPA Directives & Multilingual Phonetic Architecture
+- **Syllable Stress Normalization & Phonetic IPA Architecture (`core/stress_enhancer.py`)**:
+  - Eliminates unnatural tense vowel phonemes (`/re/` or `/reɪ/` instead of reduced `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`) caused by TTS tokenizer isolation on capitalized syllables (`reCORD`, `PROject`, `deCREASE`) and hyphenated spellings (`re-CORD`, `ad-vice`).
+  - Implements clean audio input normalization to dictionary spelling while preserving capitalized notation (`REcord` and `reCORD`) in script JSON states for title and graphic clarity.
+  - Dynamically injects exact IPA target pronunciations and explicit negative acoustic constraints into the Qwen3-TTS prompt for all 12 core English heteronyms plus `advise/advice` and `discuss/argue`.
+  - Injects native articulatory styling: Italian *dizione* (single vs double consonants `t` vs `tt`, `n` vs `nn`), Spanish *dicción* (tap `r` vs trill `rr`, pure vowels), and French *diction* (phrase-final tonic accent, liaisons, melodic prosody).
+  - Cleanly disambiguates linguistic stress scripts from psychological anxiety topics (e.g. *"le stress des examens"*).
+- **Hyphenated Subtitle Token Merging (`video_creation/_G_video_assembly/core/subtitle_builder.py`)**:
+  - Automatically detects Whisper token splits on hyphenated words (e.g. `re` + `CORD`) and merges them into cohesive, synchronized subtitle tokens (`re-CORD`) with unified timestamps.
+- **End-to-End Codebase Audit**:
+  - Audited all 1,224 scripts across English, French, Spanish, and Italian with zero missing IPA entries and clean phonetic transformations.
+
 ### Google Sheets Suite, Modular Architecture & Ready Scripts Scanner
 - **Modular Connectivity Suite (`main/connectivity/`)**:
   - Organized into dedicated packages: `core/`, `apps_script/`, `sheet_sync/`, `corrected_scripts/`, `reconcile/`, `post_scripts/`, `ready_scripts/`.

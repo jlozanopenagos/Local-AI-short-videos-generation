@@ -28,7 +28,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             cs = int((seconds - int(seconds)) * 100)
             return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
+        # Merge hyphenated subwords (e.g. 'REC' and '-ORD' -> 'REC-ORD', or 'RE-' and 'CORD' -> 'RE-CORD')
+        merged_words = []
         for w in words:
+            word_str = w.get("word", "").strip()
+            if not word_str:
+                continue
+            if word_str.startswith("-") and merged_words:
+                merged_words[-1]["word"] = f"{merged_words[-1]['word']}{word_str}"
+                merged_words[-1]["end"] = max(merged_words[-1]["end"], w.get("end", merged_words[-1]["end"]))
+            elif merged_words and merged_words[-1]["word"].endswith("-"):
+                merged_words[-1]["word"] = f"{merged_words[-1]['word']}{word_str}"
+                merged_words[-1]["end"] = max(merged_words[-1]["end"], w.get("end", merged_words[-1]["end"]))
+            else:
+                merged_words.append(dict(w))
+
+        for w in merged_words:
             # If word start falls into any suppressed window (e.g. GAME challenge scene), omit it
             if suppress_windows:
                 if any(start <= w["start"] < end for start, end in suppress_windows):

@@ -129,10 +129,10 @@ class ComfyClient:
             node_inputs["repetition_penalty"] = 1.02
 
             # Dynamic max_new_tokens: 1 word ~ 4 tokens at 12Hz.
-            # Allow 12 tokens/word, min 96 tokens (~8s), max 240 tokens (~20s).
-            # This tightly bounds generation so runaway trailing silence is impossible.
+            # Allow 15 tokens/word, min 96 tokens (~8s), max 320 tokens (~26s).
+            # This bounds generation while allowing ample headroom for deliberate, slower pronunciation.
             words_count = max(1, len(target_text.split()))
-            node_inputs["max_new_tokens"] = max(96, min(240, words_count * 12))
+            node_inputs["max_new_tokens"] = max(96, min(320, words_count * 15))
             
             # Format the system-level instruction prompt with vivid theatrical acting directives
             personality_clause = f" Persona: {context}." if context else ""

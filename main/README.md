@@ -10,16 +10,17 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
 1. [Core Engineering Tenets](#core-engineering-tenets)
 2. [End-to-End System Architecture](#end-to-end-system-architecture)
 3. [The 4 Content Formats & Narrative Engineering](#the-4-content-formats--narrative-engineering)
-4. [Data Architecture & State Machine Design](#data-architecture--state-machine-design)
-5. [Hardware Optimization: Low-VRAM (6GB) Engineering](#hardware-optimization-low-vram-6gb-engineering)
-6. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
-7. [Interactive CLI & Modifier Ecosystem](#interactive-cli--modifier-ecosystem)
-8. [Google Sheets Connectivity & Publishing Suite](#google-sheets-connectivity--publishing-suite)
-9. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
-10. [Prerequisites & Installation](#prerequisites--installation)
-11. [Configuration & Environment Matrix](#configuration--environment-matrix)
-12. [CLI Operational Reference Manual](#cli-operational-reference-manual)
-13. [Repository Directory Index](#repository-directory-index)
+4. [Voice Generation & Multilingual Phonetic Architecture](#voice-generation--multilingual-phonetic-architecture)
+5. [Data Architecture & State Machine Design](#data-architecture--state-machine-design)
+6. [Hardware Optimization: Low-VRAM (6GB) Engineering](#hardware-optimization-low-vram-6gb-engineering)
+7. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
+8. [Interactive CLI & Modifier Ecosystem](#interactive-cli--modifier-ecosystem)
+9. [Google Sheets Connectivity & Publishing Suite](#google-sheets-connectivity--publishing-suite)
+10. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
+11. [Prerequisites & Installation](#prerequisites--installation)
+12. [Configuration & Environment Matrix](#configuration--environment-matrix)
+13. [CLI Operational Reference Manual](#cli-operational-reference-manual)
+14. [Repository Directory Index](#repository-directory-index)
 
 ---
 
@@ -59,6 +60,9 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  │   - ComfyUI Qwen3-TTS (1.7B fp16) Multi-Speaker Synthesis         │
  │   - Persistent Reference Voice Locking (.wav + seed memory)       │
  │   - Turn-by-turn Dynamic Emotional Acting Inferences              │
+ │   - Syllable Stress Normalization & Phonetic IPA Directives       │
+ │   - Negative Constraints Against Tense Vowels (Heteronyms)        │
+ │   - Multilingual Diction Guidance (Italian, Spanish, French)       │
  │   - Dynamic Token Budgets & Leading/Trailing Silence Trimming     │
  └───────────────┬────────────────┬──────────────────┬───────────────┘
                  │                │                  │
@@ -78,6 +82,7 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  │               STAGE 6: video_creation/_G_video_assembly           │
  │   - Word-Timestamp Audio Transcription via faster-whisper (CPU)   │
  │   - Dynamic ASS Animated Subtitles (Yellow &H0000FFFF, 60pt Bold) │
+ │   - Hyphenated Subtitle Token Merging (re-CORD unified timing)    │
  │   - Challenge Scene Subtitle Suppression (Prevents Quiz Spoilers) │
  │   - Deterministic Emotion-Based BGM Jam Selection & Ducking       │
  │   - FFmpeg Ken Burns Motion, 2s Intro Bumper, 3s Outro CTA Card   │
@@ -123,7 +128,7 @@ Content strategy is divided across four distinct formats, each strictly governed
   - `PERSON_ONE` & `PERSON_TWO`: Strictly alternate turns starting with P1 in every part.
 - **Direct-Causality & Zero-Hallucination Quotes**: Speakers strictly respond to the exact words uttered in the immediately preceding turn. No phantom quotes.
 - **Trigger Direction**: PERSON_ONE sets up their real-world problem or error; PERSON_TWO introduces the idiom naturally in `DIALOGUE_PART_1`. P1 never self-diagnoses with the idiom in turn 1.
-- **TTS Stress Notation**: For heteronyms and minimal pairs, stressed syllables are capitalized (`REcord` vs `reCORD`, `PROject` vs `proJECT`) to instruct the TTS model.
+- **TTS Stress Notation & Orthographic Normalization**: For heteronyms and minimal pairs, stressed syllables are capitalized in the script JSON (`REcord` vs `reCORD`, `PROject` vs `proJECT`) for title/graphic clarity. Downstream in Stage 2, `stress_enhancer.py` normalizes audio input to standard dictionary spelling (`record`, `project`) and dynamically injects precise IPA targets and negative constraints into the TTS system prompt to guarantee natural vowel reduction without unnatural tense `/re/` or `/reɪ/` artifacts.
 - **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
 - **`SPECIAL_TREATMENT` Classification System**:
   - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
@@ -147,6 +152,38 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **Target Language Localization**: Prompts and state contents are localized 100% in the target language (French, Spanish, Italian, English) to guarantee authentic regional nuance and zero translation artifacts.
 - **6 Authorized Formats**: Format A (3 Facts), Format B (One Big Curiosity), Format C (Challenge), Format D (Mystery), Format E (Comparison), Format F (Ranking/List).
 - **Factual Integrity**: Programmatic guardrails reject folk etymologies and unverified language myths.
+
+---
+
+## Voice Generation & Multilingual Phonetic Architecture
+
+A core challenge in multilingual TTS for language education is conveying distinct syllable stress (e.g. noun `REcord` vs verb `reCORD`) and language-specific articulatory nuances without triggering acoustic artifacts. Stage 2 (`_B_voice_generation`) integrates `core/stress_enhancer.py` to achieve studio-quality delivery across all 4 languages:
+
+### 1. Tokenizer Isolation & The Vowel Tensity Problem
+When heteronym words are written with uppercase syllables (`reCORD`, `PROject`, `deCREASE`) or hyphenated spellings (`re-CORD`, `ad-vice`), sub-word tokenizers isolate the prefix token (`re`). This forces Qwen3-TTS to synthesize an isolated, tense vowel phoneme—producing an artificial `/re/` or `/reɪ/` ("ray-cord") instead of authentic unstressed reduced schwa/lax `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`.
+
+### 2. Dual-Representation Architecture
+- **Script State & Viewer Display**: Script JSON files (`state/<language>/<video_type>/script_<ID>.json`) preserve uppercase stressed syllables (`REcord` and `reCORD`) so video titles, descriptions, and viewer-facing materials clearly display the pedagogical rule.
+- **Audio Synthesis Input Normalization**: `enhance_stress_text_for_tts()` intercepts the text before sending it to Qwen3-TTS, normalizing uppercase and hyphenated variants into standard dictionary spelling (`record`, `project`, `decrease`, `advice`, `discuss`).
+- **Dynamic IPA Target Injection**: `build_stress_style_directive()` injects exact International Phonetic Alphabet (IPA) targets directly into the TTS prompt along with explicit **negative constraints against tense vowels**:
+  - `record`: Noun `/ˈrɛk.ərd/` vs Verb `/rɪˈkɔːrd/` *(strictly forbids tense `/re/` or `/reɪ/`)*
+  - `present`: Noun/Adj `/ˈprɛz.ənt/` vs Verb `/prɪˈzɛnt/` *(strictly forbids tense `/pre/`)*
+  - `project`: Noun `/ˈprɒdʒ.ɛkt/` vs Verb `/prəˈdʒɛkt/` *(strictly forbids tense `/proʊ/`)*
+  - `decrease`: Noun `/ˈdiː.kriːs/` vs Verb `/dɪˈkriːs/` *(strictly forbids tense `/diː/` on verb)*
+  - `advise/advice`: Verb `/ədˈvaɪz/` (voiced `z`) vs Noun `/ədˈvaɪs/` (unvoiced `s`)
+  - Full registry covers 16 focus entries across all 12 core English heteronyms.
+
+### 3. Multilingual Native Diction Guidance
+English stress conventions are never applied to foreign language TTS models. Non-English pronunciation scripts receive native articulatory guidance:
+- **Italian Dizione**: Crisp distinction between single and double consonants (`t` vs `tt`, `n` vs `nn`), short open vowels preceding geminate consonants, and dental stop precision.
+- **Spanish Dicción**: Sharp contrast between single tap `r` and double alveolar trill `rr`, pure bright vowels without English diphthongs.
+- **French Diction**: Natural phrase-final tonic accent, clean liaison and elision, melodic cadence and prosody.
+
+### 4. Topic Disambiguation: Linguistic vs. Psychological Stress
+`is_stress_pronunciation_vital()` disambiguates between linguistic pronunciation scripts and conversational/psychological topics (e.g. *"le stress des examens"*, *"gestion du stress"*, *"stress relief"*). Scripts addressing anxiety or relaxation retain standard expressive acting styles with zero phonetic prompt pollution.
+
+### 5. Hyphenated Subtitle Token Merging
+In `_G_video_assembly/core/subtitle_builder.py`, Whisper's word-level transcription splits hyphenated tokens (`re` and `CORD`). The assembly engine automatically matches consecutive tokens against script hyphenations, merging them into a single unified subtitle token (`re-CORD`) with combined start and end timestamps to eliminate jarring single-syllable subtitle flashes.
 
 ---
 

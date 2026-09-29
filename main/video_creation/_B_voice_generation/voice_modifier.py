@@ -49,12 +49,14 @@ try:
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
+    from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
 except (ImportError, ModuleNotFoundError):
     try:
         from core.script_parser import get_script_segments
         from core.comfy_client import ComfyClient
         from core.voice_manager import VoiceManager
         from core.audio_processor import concatenate_audios
+        from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
     except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.script_parser import get_script_segments
@@ -64,6 +66,70 @@ except (ImportError, ModuleNotFoundError):
         from _B_voice_generation.core.voice_manager import VoiceManager
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.audio_processor import concatenate_audios
+        # pyrefly: ignore [missing-import]
+        from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+
+def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
+    """Detects if a script or specific segment requires vital stress pronunciation or phonetic precision.
+    
+    Checks:
+    1. Capitalized syllable stress notation in text (e.g. 'REcord', 'reCORD', 're-CORD', 'PERmit', 'perMIT').
+    2. Linguistic pronunciation, word stress, heteronym, minimal pair, or double-consonant keywords in metadata.
+    3. Excludes false positives from non-linguistic / psychological stress (e.g. 'stress des examens').
+    """
+    metadata = script_data.get("metadata", {})
+    label = metadata.get("LABEL", "").lower()
+    prompt_params = script_data.get("prompt_params", {})
+    content_metadata = script_data.get("content_metadata", {})
+
+    # 1. First priority: Check if text contains capitalized syllable stress notation
+    # (e.g. REcord, reCORD, re-CORD, PERmit, perMIT)
+    stress_pattern = r'\b[a-z]+[A-Z]{2,}\b|\b[A-Z]{2,}[a-z]+\b|\b[a-zA-Z]+-[A-Z]{2,}\b|\b[A-Z]{2,}-[a-zA-Z]+\b'
+    if text and re.search(stress_pattern, text):
+        m = re.findall(stress_pattern, text)
+        if any(w not in ("XIXe", "XVIIIe", "XXe", "A-NN") for w in m):
+            return True
+
+    full_script = script_data.get("script_text", "")
+    if isinstance(full_script, dict):
+        full_text = str(full_script)
+    else:
+        full_text = str(full_script)
+    if full_text and re.search(stress_pattern, full_text):
+        m = re.findall(stress_pattern, full_text)
+        if any(w not in ("XIXe", "XVIIIe", "XXe", "A-NN") for w in m):
+            return True
+
+    # 2. Check linguistic pronunciation / phonetic / rhythm keywords in metadata
+    subject = str(prompt_params.get("SUBJECT", "")).lower()
+    lex_field = str(prompt_params.get("LEXICAL_FIELD", "")).lower()
+    topic = str(content_metadata.get("topic", "")).lower()
+    category = str(content_metadata.get("category", "")).lower()
+    subcategory = str(content_metadata.get("subcategory", "")).lower()
+    obj = str(content_metadata.get("learning_objective", "")).lower()
+
+    meta_text = f"{label} {subject} {lex_field} {topic} {category} {subcategory} {obj}".lower()
+
+    # Check for non-linguistic / psychological stress false positives (e.g. exam stress, managing anxiety)
+    is_psych_stress = any(p in meta_text for p in [
+        "stress des examens", "gestion du stress", "gérer le stress", "stressé par",
+        "situation de stress", "high-stress situation", "situations de stress", "ansia", "panico"
+    ])
+
+    linguistic_terms = [
+        "word stress", "syllable stress", "heteronym", "minimal pair", "sound shift",
+        "pronunciation", "prononciation", "pronuncia", "pronunciación",
+        "doppie consonanti", "accento", "dizione", "phonetic", "fonetica", "fonética",
+        "rhythm", "rythme", "cadenza vocale", "acoustic contrast"
+    ]
+
+    has_linguistic = any(term in meta_text for term in linguistic_terms)
+    if has_linguistic:
+        if is_psych_stress:
+            return any(k in f"{category} {subcategory} {subject}" for k in ["pronunciation", "phonetic", "doppie", "fonet"])
+        return True
+
+    return False
 
 def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None, section: str = None, is_game: bool = False) -> str:
     """Infers rich acting emotions from dialogue text, section role, and punctuation."""
@@ -234,6 +300,7 @@ def main():
         or ""
     ).upper()
     is_game = video_type == "GAME" or any(s.get("section") in ["challenge", "pressure"] for s in segments)
+    is_script_stress_vital = is_stress_pronunciation_vital(script_data)
 
     segments_to_concat = []
     
@@ -245,14 +312,26 @@ def main():
         language = seg["language"]
         is_dialogue = seg["is_dialogue"]
         sec_name = (seg.get("section") or "").lower()
+        is_seg_stress_vital = is_script_stress_vital or is_stress_pronunciation_vital(script_data, text)
         
         print(f"\n--- Generating Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
         
         gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, language)
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
-        
         if is_game and "narrator" in speaker.lower():
-            if "hook" in sec_name:
+            if is_seg_stress_vital and "challenge" in sec_name:
+                context = f"Articulate quizmaster presenting a clear pronunciation and word stress challenge in {language}"
+                style = (
+                    "deliberate articulate broadcast pacing, clear and steady cadence, distinct pauses between options, engaging quizmaster delivery. "
+                    "Crucial pronunciation directive: Deliver educational focus words with crystal-clear syllable stress and authentic vowel reduction."
+                )
+            elif is_seg_stress_vital and "answer" in sec_name:
+                context = f"Triumphant game show host explaining the correct syllable stress in {language}"
+                style = (
+                    "triumphant celebratory delivery, joyful game show reveal cadence with crystal-clear pronunciation. "
+                    "Deliver correct syllable stress with unmistakable clarity and authentic vowel reduction."
+                )
+            elif "hook" in sec_name:
                 context = f"Vibrant, charismatic TV trivia show host presenting an educational quiz in {language}"
                 style = "electrifying game show host delivery, bold dynamic vocal projection, energetic high-spirited broadcast cadence, punchy and enthusiastic, magnetic trivia spirit, charismatic and inviting"
             elif "challenge" in sec_name:
@@ -273,21 +352,55 @@ def main():
             if not speaker_personality and "narrator" in speaker.lower():
                 speaker_personality = STATIC_NARRATOR_PERSONALITY
 
-            context = (
-                f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
-                if (is_dialogue and speaker_personality)
-                else (f"Narrator ({speaker_personality}) presenting in {language}" if speaker_personality
-                      else (f"Character '{speaker}' participating in a {language} conversational dialogue" if is_dialogue
-                            else f"Narrator introducing a language learning topic in {language}"))
-            )
-            # Upbeat, fast-paced conversational style to avoid sleepy audiobook reading
-            style = (
-                "crisp energetic delivery, upbeat broadcast cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
-                if not is_dialogue
-                else "lively, fast-paced authentic dialogue, upbeat and spontaneous conversational tempo, quick natural cadence, expressive human intonation, energetic roleplay"
-            )
+            if is_seg_stress_vital:
+                if language.lower() == "english":
+                    context = (
+                        f"Charismatic language coach and pronunciation mentor demonstrating clear syllable stress in English"
+                        if not is_dialogue
+                        else (f"Character '{speaker}' ({speaker_personality}) practicing authentic syllable stress and pronunciation in English"
+                              if speaker_personality else f"Character '{speaker}' practicing authentic syllable stress and pronunciation in English")
+                    )
+                    style = (
+                        "deliberate articulate broadcast delivery, crystal-clear phoneme articulation, and measured educational pacing. "
+                        "Crucial pronunciation directive: Deliver educational focus words with authentic syllable stress and natural vowel reduction."
+                    )
+                else:
+                    context = (
+                        f"Charismatic language coach and pronunciation mentor demonstrating clear articulation in {language}"
+                        if not is_dialogue
+                        else (f"Character '{speaker}' ({speaker_personality}) practicing clear pronunciation in {language}"
+                              if speaker_personality else f"Character '{speaker}' practicing clear pronunciation in {language}")
+                    )
+                    style = (
+                        "deliberate articulate broadcast delivery, crystal-clear phoneme articulation, natural rhythm, and measured educational pacing."
+                    )
+            else:
+                context = (
+                    f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
+                    if (is_dialogue and speaker_personality)
+                    else (f"Narrator ({speaker_personality}) presenting in {language}" if speaker_personality
+                          else (f"Character '{speaker}' participating in a {language} conversational dialogue" if is_dialogue
+                                 else f"Narrator introducing a language learning topic in {language}"))
+                )
+                # Upbeat, fast-paced conversational style to avoid sleepy audiobook reading
+                style = (
+                    "crisp energetic delivery, upbeat broadcast cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
+                    if not is_dialogue
+                    else "lively, fast-paced authentic dialogue, upbeat and spontaneous conversational tempo, quick natural cadence, expressive human intonation, energetic roleplay"
+                )
 
-        emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
+        target_text = text
+        detected_stress_words = []
+        if is_seg_stress_vital:
+            target_text, detected_stress_words = enhance_stress_text_for_tts(text, language=language)
+            style = build_stress_style_directive(detected_stress_words, language=language, base_style=style)
+            if target_text != text or detected_stress_words:
+                print(f"  [TTS Stress Enhanced]: '{target_text}' (Target words: {detected_stress_words})")
+
+        if is_seg_stress_vital and (not emotion or emotion.lower() in ["neutral", "none", "", "normal"]):
+            emotion = "articulate, enthusiastic, and deliberate pronunciation mentor"
+        else:
+            emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
         energy = map_emotion_to_energy(emotion)
         pers_log = f" | Persona: '{context}'" if context else ""
         print(f"[{speaker}] Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
@@ -299,7 +412,7 @@ def main():
         try:
             comfy_client.generate_voice_segment(
                 ref_audio_name=ref_filename,
-                target_text=text,
+                target_text=target_text,
                 language=language,
                 gender=gender,
                 context=context,
