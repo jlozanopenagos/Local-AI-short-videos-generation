@@ -162,17 +162,31 @@ A core challenge in multilingual TTS for language education is conveying distinc
 ### 1. Tokenizer Isolation & The Vowel Tensity Problem
 When heteronym words are written with uppercase syllables (`reCORD`, `PROject`, `deCREASE`) or hyphenated spellings (`re-CORD`, `ad-vice`), sub-word tokenizers isolate the prefix token (`re`). This forces Qwen3-TTS to synthesize an isolated, tense vowel phoneme—producing an artificial `/re/` or `/reɪ/` ("ray-cord") instead of authentic unstressed reduced schwa/lax `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`.
 
-### 2. Dual-Representation Architecture
-- **Script State & Viewer Display**: Script JSON files (`state/<language>/<video_type>/script_<ID>.json`) preserve uppercase stressed syllables (`REcord` and `reCORD`) so video titles, descriptions, and viewer-facing materials clearly display the pedagogical rule.
-- **Audio Synthesis Input Normalization**: `enhance_stress_text_for_tts()` intercepts the text before sending it to Qwen3-TTS, normalizing uppercase and hyphenated variants into standard dictionary spelling (`record`, `project`, `decrease`, `advice`, `discuss`).
-- **Dynamic IPA Target Injection**: `build_stress_style_directive()` injects exact International Phonetic Alphabet (IPA) targets directly into the TTS prompt along with explicit **negative constraints against tense vowels**:
-  - `record`: Noun `/ˈrɛk.ərd/` vs Verb `/rɪˈkɔːrd/` *(strictly forbids tense `/re/` or `/reɪ/`)*
-  - `present`: Noun/Adj `/ˈprɛz.ənt/` vs Verb `/prɪˈzɛnt/` *(strictly forbids tense `/pre/`)*
-  - `project`: Noun `/ˈprɒdʒ.ɛkt/` vs Verb `/prəˈdʒɛkt/` *(strictly forbids tense `/proʊ/`)*
-  - `decrease`: Noun `/ˈdiː.kriːs/` vs Verb `/dɪˈkriːs/` *(strictly forbids tense `/diː/` on verb)*
-  - `advise/advice`: Verb `/ədˈvaɪz/` (voiced `z`) vs Noun `/ədˈvaɪs/` (unvoiced `s`)
-  - Full registry covers 16 focus entries across all 12 core English heteronyms.
-
+### 2. Dual-Representation & Syllabic Phonetic Architecture
+- **Script State & Viewer Display**: Script JSON files (`state/<language>/<video_type>/script_<ID>.json`) preserve uppercase stressed syllables (`REcord` and `reCORD`) so video titles, descriptions, and viewer-facing materials clearly display the pedagogical rule.
+- **Calibrated Phonetic Respellings (`HETERONYM_TTS_PHONETIC_REPLACEMENTS`)**: Direct raw IPA strings fail because Qwen3-TTS lacks an IPA parser, while plain lowercase often drops educational stress contrast. `enhance_stress_text_for_tts()` applies targeted, tested syllabic respellings dynamically in-memory:
+  - `record`: Noun `RECK-ord` vs Verb `re-KORD`
+  - `present`: Noun `PREZ-ent` vs Verb `pri-ZENT`
+  - `project`: Noun `PRAHJ-ekt` vs Verb `pruh-JEKT`
+  - `permit`: Noun `PER-mit` vs Verb `per-MIT`
+  - `object`: Noun `AHB-jekt` vs Verb `ub-JEKT`
+  - `contract`: Noun `KAHN-trakt` vs Verb `kun-TRAKT`
+  - `increase`: Noun `IN-crease` vs Verb `in-CREASE`
+  - `decrease`: Noun `DEE-crease` vs Verb `di-CREASE`
+  - `import`: Noun `IM-port` vs Verb `im-PORT`
+  - `export`: Noun `EK-sport` vs Verb `ik-SPORT`
+  - `protest`: Noun `PRO-test` vs Verb `pruh-TEST`
+  - `contest`: Noun `KAHN-test` vs Verb `kun-TEST`
+- **Contextual Framing & Roman Numeral Protection**: Automatically maps phrases like `"the noun record"` $\rightarrow$ `"the noun 'RECK-ord'"` and `"the verb record"` $\rightarrow$ `"the verb 're-KORD'"`, while protecting French Roman numeral ordinals (`XIXe`, `XXe`, `Ier`) from false-positive stress manipulation.
+- **Subtitle Cleanliness**: Whisper transcribes the spoken master audio and `subtitle_builder.py` displays clean standard dictionary words (`RECORD`) in the animated subtitles, preventing phonetic respellings from leaking into video graphics.
+- **Dynamic IPA Target Injection**: `build_stress_style_directive()` injects exact International Phonetic Alphabet (IPA) targets directly into the TTS prompt along with explicit **negative constraints against tense vowels**:
+  - `record`: Noun `/ˈrɛk.ərd/` vs Verb `/rɪˈkɔːrd/` *(strictly forbids tense `/re/` or `/reɪ/`)*
+  - `present`: Noun/Adj `/ˈprɛz.ənt/` vs Verb `/prɪˈzɛnt/` *(strictly forbids tense `/pre/`)*
+  - `project`: Noun `/ˈprɒdʒ.ɛkt/` vs Verb `/prəˈdʒɛkt/` *(strictly forbids tense `/proʊ/`)*
+  - `decrease`: Noun `/ˈdiː.kriːs/` vs Verb `/dɪˈkriːs/` *(strictly forbids tense `/diː/` on verb)*
+  - `advise/advice`: Verb `/ədˈvaɪz/` (voiced `z`) vs Noun `/ədˈvaɪs/` (unvoiced `s`)
+  - Full registry covers 16 focus entries across all 12 core English heteronyms.
+
 ### 3. Multilingual Native Diction Guidance
 English stress conventions are never applied to foreign language TTS models. Non-English pronunciation scripts receive native articulatory guidance:
 - **Italian Dizione**: Crisp distinction between single and double consonants (`t` vs `tt`, `n` vs `nn`), short open vowels preceding geminate consonants, and dental stop precision.

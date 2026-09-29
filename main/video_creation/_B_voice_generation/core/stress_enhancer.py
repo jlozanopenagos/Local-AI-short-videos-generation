@@ -151,23 +151,89 @@ HETERONYM_IPA_GUIDE: Dict[str, Dict[str, str]] = {
         )
     },
     "argue": {
-        "word": "/ˈɑːr.ɡjuː/",
-        "directive": (
-            "Pronounce 'discuss' with stress on the second syllable /dɪˈskʌs/ and reduced initial vowel /dɪ/. "
-            "Pronounce 'argue' with primary stress on the first syllable /ˈɑːr.ɡjuː/."
-        )
+  }
+}
+
+# Tested syllabic phonetic respellings for Qwen3-TTS
+# Designed to force the model to place acoustic stress and energy on the designated syllable
+# without causing tokenizer fragmentation or awkward pauses.
+HETERONYM_TTS_PHONETIC_REPLACEMENTS: Dict[str, Dict[str, str]] = {
+    "record": {
+        "noun": "RECK-ord",
+        "verb": "re-KORD",
+    },
+    "present": {
+        "noun": "PREZ-ent",
+        "verb": "pri-ZENT",
+    },
+    "project": {
+        "noun": "PRAHJ-ekt",
+        "verb": "pruh-JEKT",
+    },
+    "permit": {
+        "noun": "PER-mit",
+        "verb": "per-MIT",
+    },
+    "object": {
+        "noun": "AHB-jekt",
+        "verb": "ub-JEKT",
+    },
+    "contract": {
+        "noun": "KAHN-trakt",
+        "verb": "kun-TRAKT",
+    },
+    "increase": {
+        "noun": "IN-crease",
+        "verb": "in-CREASE",
+    },
+    "decrease": {
+        "noun": "DEE-crease",
+        "verb": "di-CREASE",
+    },
+    "import": {
+        "noun": "IM-port",
+        "verb": "im-PORT",
+    },
+    "export": {
+        "noun": "EK-sport",
+        "verb": "ik-SPORT",
+    },
+    "protest": {
+        "noun": "PRO-test",
+        "verb": "pruh-TEST",
+    },
+    "contest": {
+        "noun": "KAHN-test",
+        "verb": "kun-TEST",
+    },
+    "advise": {
+        "noun": "ad-VICE",
+        "verb": "ad-VIZE",
+    },
+    "advice": {
+        "noun": "ad-VICE",
+        "verb": "ad-VIZE",
+    },
+    "discuss": {
+        "noun": "DIS-kuss",
+        "verb": "di-SKUSS",
+    },
+    "argue": {
+        "noun": "AR-gyoo",
+        "verb": "ar-GYOO",
     },
 }
 
 
 def enhance_stress_text_for_tts(text: str, language: str = "english") -> Tuple[str, List[str]]:
-    """Transforms written text containing stress capitalization into clean, natural English for TTS.
+    """Transforms written text containing stress capitalization into optimized phonetic triggers for TTS.
     
-    Normalizes mid-word capitals (e.g. 'reCORD' -> 'record', 'REcord' -> 'record', 're-CORD' -> 'record')
-    so the model does not pronounce isolated prefixes with an unnatural /re/ or /reɪ/ sound.
+    Replaces capitalized syllables with calibrated phonetic respellings (e.g. 'REcord' -> 'RECK-ord',
+    'reCORD' -> 're-KORD') so the model synthesizes distinct, audible stress contrast and authentic
+    vowel reduction without pauses or unnatural /re/ sounds.
     
     Returns:
-        Tuple of (clean_text_for_tts, list_of_detected_base_words)
+        Tuple of (enhanced_text_for_tts, list_of_detected_base_words)
     """
     if not text:
         return text, []
@@ -180,34 +246,54 @@ def enhance_stress_text_for_tts(text: str, language: str = "english") -> Tuple[s
     
     matches = re.findall(stress_pattern, text)
     for m in matches:
+        if re.match(r'^(?:[IVXLCDM]+)(?:e|er|ème|ère|th|st|nd|rd)$', m, re.IGNORECASE):
+            continue
         base = m.replace("-", "").lower()
         if base not in detected_words:
             detected_words.append(base)
 
-    # Replace capitalized stress words with their clean lowercase standard spelling
-    def repl_normalize(m):
+    def repl_phonetic(m):
         raw = m.group(0)
-        clean = raw.replace("-", "").lower()
-        return clean
+        # Ignore Roman numerals with ordinal suffixes (e.g. XIXe, XXe, Ier in French)
+        if re.match(r'^(?:[IVXLCDM]+)(?:e|er|ème|ère|th|st|nd|rd)$', raw, re.IGNORECASE):
+            return raw
+            
+        base = raw.replace("-", "").lower()
+        
+        # Determine whether first syllable (noun) or second syllable (verb) is stressed
+        # Case 1: First syllable stressed (e.g. REcord, RE-cord, PREsent, PROject)
+        is_first_stressed = bool(re.match(r'^[A-Z]{2,}', raw))
+        # Case 2: Second syllable stressed (e.g. reCORD, re-CORD, preSENT, proJECT)
+        is_second_stressed = bool(re.search(r'[a-z]+-?[A-Z]{2,}', raw))
+        
+        if language.lower() == "english" and base in HETERONYM_TTS_PHONETIC_REPLACEMENTS:
+            rep = HETERONYM_TTS_PHONETIC_REPLACEMENTS[base]
+            if is_first_stressed:
+                return rep["noun"]
+            elif is_second_stressed:
+                return rep["verb"]
+        
+        # Fallback if not specifically mapped: standard clean word
+        return base
 
-    result = re.sub(stress_pattern, repl_normalize, text)
+    result = re.sub(stress_pattern, repl_phonetic, text)
+
+    # Contextual replacement for lowercase occurrences following "noun" or "verb" indicators:
+    if language.lower() == "english":
+        for base, rep in HETERONYM_TTS_PHONETIC_REPLACEMENTS.items():
+            # Check for "the noun 'record'" or "the noun record"
+            noun_pattern = rf"\b(the\s+noun|as\s+a\s+noun|is\s+a\s+noun)\s+['\"]?{base}['\"]?"
+            result = re.sub(noun_pattern, rf"\1 '{rep['noun']}'", result, flags=re.IGNORECASE)
+            
+            # Check for "the verb 'record'" or "to use the verb 'record'" or "as a verb 'record'"
+            verb_pattern = rf"\b(the\s+verb|to\s+use\s+the\s+verb|as\s+a\s+verb)\s+['\"]?{base}['\"]?"
+            result = re.sub(verb_pattern, rf"\1 '{rep['verb']}'", result, flags=re.IGNORECASE)
 
     # Specific phonetic artifact cleanups:
-    # 1. Lowercase hyphenated syllable spellings like 'ad-vice' -> 'advice', 'in-increase' -> 'increase'
-    result = re.sub(r"\b'ad-vice'\b", "'advice'", result, flags=re.IGNORECASE)
-    result = re.sub(r"\bad-vice\b", "advice", result, flags=re.IGNORECASE)
-    result = re.sub(r"\b'in-increase'\b", "'increase'", result, flags=re.IGNORECASE)
-    result = re.sub(r"\bin-increase\b", "increase", result, flags=re.IGNORECASE)
-
-    # Frame focus words with quotes when following indicators like "noun", "verb", "word", "say"
-    if language.lower() == "english":
-        for w in detected_words:
-            result = re.sub(
-                rf'\b(noun|verb|say|word)\s+{w}\b',
-                rf"\1 '{w}'",
-                result,
-                flags=re.IGNORECASE
-            )
+    result = re.sub(r"\b'ad-vice'\b", "'ad-VICE'", result, flags=re.IGNORECASE)
+    result = re.sub(r"\bad-vice\b", "ad-VICE", result, flags=re.IGNORECASE)
+    result = re.sub(r"\b'in-increase'\b", "'in-CREASE'", result, flags=re.IGNORECASE)
+    result = re.sub(r"\bin-increase\b", "in-CREASE", result, flags=re.IGNORECASE)
 
     # Clean whitespace
     result = re.sub(r'\s+', ' ', result).strip()

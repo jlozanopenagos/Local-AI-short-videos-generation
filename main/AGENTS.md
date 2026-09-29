@@ -321,18 +321,37 @@ All workflow stages and shared templates are organized inside the `video_creatio
      - Automatically infers dramatic acting tone per turn (`infer_dialogue_emotion`), passing explicit acting directives to Qwen3-TTS.
      - Prevents dead silence via dynamic token limits (`max_new_tokens = max(96, min(240, words * 12))`) and `repetition_penalty = 1.15`.
      - Automatically trims dead trailing air (`trim_trailing_silence`) and concatenates segments with tight YouTube Shorts pauses (0.20s dialogue, 0.40s section, 2.20s pressure pause).
-   - **Syllable Stress, IPA Guidance & Multilingual Phonetic Engine (`core/stress_enhancer.py`)**:
-     - **Problem Solved**: Direct input of uppercase heteronym syllables (`reCORD`, `PROject`, `deCREASE`) or hyphenated phonetic words (`re-CORD`, `ad-vice`) causes Qwen3-TTS tokenizer isolation, yielding an artificial, tense vowel `/re/` or `/reɪ/` instead of natural reduced schwa/lax `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`.
-     - **Clean Text Normalization**: `enhance_stress_text_for_tts()` normalizes the input text sent to TTS into standard dictionary spelling (`record`, `project`, `decrease`, `advice`) and removes phonetic hyphens. Spoken section text in `state/<language>/<video_type>/script_<ID>.json` preserves the visual capitalized notation (`REcord` and `reCORD`) for titles, descriptions, and on-screen graphics. Normalization is strictly an audio input transformation.
-     - **Comprehensive Heteronym IPA Registry (`HETERONYM_IPA_GUIDE`, 16 Focus Entries)**:
-       - Covers all 12 core English heteronym pairs (`record`, `present`, `project`, `permit`, `object`, `contract`, `increase`, `decrease`, `import`, `export`, `protest`, `contest`) + `advise/advice` + `discuss/argue`.
-       - Injects explicit negative acoustic constraints against tense vowels (e.g. `record` verb $\rightarrow$ never tense `/re/`, `present` verb $\rightarrow$ never tense `/pre/`, `project` verb $\rightarrow$ never tense `/proʊ/`, `decrease` verb $\rightarrow$ never tense `/diː/`).
-     - **Multilingual Phonetic Target Guidance**:
-       - *Italian Dizione*: Contrast between single and double consonants (`t` vs `tt`, `n` vs `nn`), short open vowels preceding geminates, crisp dental articulation.
-       - *Spanish Dicción*: Contrast between single tap `r` and double alveolar trill `rr`, pure bright vowels without English diphthongization.
-       - *French Diction*: Natural phrase-final tonic accent, clean liaisons, melodic cadence, fluid prosody.
-       - Strict language isolation: English ALL-CAPS instructions are never passed to French, Italian, or Spanish prompts.
-     - **Linguistic vs. Anxiety Topic Separation**: `is_stress_pronunciation_vital` separates phonetic contrast scripts from conversational or psychological topics (e.g. *"le stress des examens"*, *"gestion du stress"*, *"stress reliever"*), preventing prompt overrides on non-phonetic scripts.
+   - **Syllable Stress, IPA Guidance & Multilingual Phonetic Engine (`core/stress_enhancer.py`)**:
+     - **Problem Solved**: Direct input of uppercase heteronym syllables (`reCORD`, `PROject`, `deCREASE`) or hyphenated phonetic words (`re-CORD`, `ad-vice`) causes Qwen3-TTS tokenizer isolation, yielding an artificial, tense vowel `/re/` or `/reɪ/` instead of natural reduced schwa/lax `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`. Furthermore, raw IPA strings (`/ˈrɛk.ɚd/`) fail because Qwen3-TTS lacks an IPA parser and spells diacritics phonetically.
+     - **Calibrated Directional Phonetic Respellings (`HETERONYM_TTS_PHONETIC_REPLACEMENTS`)**:
+       - To force distinct acoustic stress and vowel quality without tokenizer fragmentation or awkward pauses, `enhance_stress_text_for_tts()` applies calibrated syllabic respellings dynamically:
+         - `record`: Noun `REcord` $\rightarrow$ `RECK-ord` | Verb `reCORD` / `re-CORD` $\rightarrow$ `re-KORD`
+         - `present`: Noun `PREsent` $\rightarrow$ `PREZ-ent` | Verb `preSENT` $\rightarrow$ `pri-ZENT`
+         - `project`: Noun `PROject` $\rightarrow$ `PRAHJ-ekt` | Verb `proJECT` $\rightarrow$ `pruh-JEKT`
+         - `permit`: Noun `PERmit` $\rightarrow$ `PER-mit` | Verb `perMIT` $\rightarrow$ `per-MIT`
+         - `object`: Noun `OBject` $\rightarrow$ `AHB-jekt` | Verb `obJECT` $\rightarrow$ `ub-JEKT`
+         - `contract`: Noun `CONtract` $\rightarrow$ `KAHN-trakt` | Verb `conTRACT` $\rightarrow$ `kun-TRAKT`
+         - `increase`: Noun `INcrease` $\rightarrow$ `IN-crease` | Verb `inCREASE` $\rightarrow$ `in-CREASE`
+         - `decrease`: Noun `DEcrease` $\rightarrow$ `DEE-crease` | Verb `deCREASE` $\rightarrow$ `di-CREASE`
+         - `import`: Noun `IMport` $\rightarrow$ `IM-port` | Verb `imPORT` $\rightarrow$ `im-PORT`
+         - `export`: Noun `EXport` $\rightarrow$ `EK-sport` | Verb `exPORT` $\rightarrow$ `ik-SPORT`
+         - `protest`: Noun `PROtest` $\rightarrow$ `PRO-test` | Verb `proTEST` $\rightarrow$ `pruh-TEST`
+         - `contest`: Noun `CONtest` $\rightarrow$ `KAHN-test` | Verb `conTEST` $\rightarrow$ `kun-TEST`
+         - `advise/advice`: Noun $\rightarrow$ `ad-VICE` | Verb $\rightarrow$ `ad-VIZE`
+         - `discuss/argue`: `discuss` $\rightarrow$ `di-SKUSS` | `argue` $\rightarrow$ `AR-gyoo`
+     - **Contextual Heteronym Triggering**: Automatically detects syntactic frames such as `"the noun record"` $\rightarrow$ `"the noun 'RECK-ord'"` and `"the verb record"` $\rightarrow$ `"the verb 're-KORD'"`.
+     - **Roman Numeral & Ordinal Guard**: Protects Roman numerals with ordinal suffixes (e.g. `XIXe`, `XXe`, `Ier` in French) from false-positive mixed-case matching.
+     - **Decoupled In-Memory Architecture**: Script JSON state files (`state/<language>/<video_type>/script_<ID>.json`) strictly preserve standard human-readable text (`REcord` and `reCORD`) for titles, descriptions, and on-screen graphics. Transformations occur strictly in-memory during TTS generation.
+     - **Subtitle Cleanliness**: Whisper transcribes the spoken master audio and `subtitle_builder.py` renders standard uppercase dictionary words (`RECORD`) in the animated subtitles, preventing phonetic respellings from appearing on-screen.
+     - **Comprehensive Heteronym IPA Registry (`HETERONYM_IPA_GUIDE`, 16 Focus Entries)**:
+       - Covers all 12 core English heteronym pairs + `advise/advice` + `discuss/argue`.
+       - Injects explicit negative acoustic constraints against tense vowels (e.g. `record` verb $\rightarrow$ never tense `/re/`, `present` verb $\rightarrow$ never tense `/pre/`, `project` verb $\rightarrow$ never tense `/proʊ/`, `decrease` verb $\rightarrow$ never tense `/diː/`).
+     - **Multilingual Phonetic Target Guidance**:
+       - *Italian Dizione*: Contrast between single and double consonants (`t` vs `tt`, `n` vs `nn`), short open vowels preceding geminates, crisp dental articulation.
+       - *Spanish Dicción*: Contrast between single tap `r` and double alveolar trill `rr`, pure bright vowels without English diphthongization.
+       - *French Diction*: Natural phrase-final tonic accent, clean liaisons, melodic cadence, fluid prosody.
+       - Strict language isolation: English ALL-CAPS instructions are never passed to French, Italian, or Spanish prompts.
+     - **Linguistic vs. Anxiety Topic Separation**: `is_stress_pronunciation_vital` separates phonetic contrast scripts from conversational or psychological topics (e.g. *"le stress des examens"*, *"gestion du stress"*, *"stress reliever"*), preventing prompt overrides on non-phonetic scripts.
    - **Harmonized Production Modes**: Supports Mass-produce (10s countdown default), Specific IDs, Group Ranges, Fun Facts only, CSV lists from `input/csv/voice_to_change/`, and Ready Scripts CSV from `D:\AI\output\connectivity\ready_scripts/<date>_ready_scripts.csv`.
    - **Interactive Tool**: `voice_modifier.py` allows testing, manual voice casting (with 10s default countdown), and quick regeneration per script.
    - **Command**: `py video_creation/_B_voice_generation/main.py [--script-id <ID>] [--force] [--auto] [--fun-facts] [--video-type <TYPE>] [--language <LANG>] [--from-csv [PATH]] [--from-ready-scripts [PATH]]`
