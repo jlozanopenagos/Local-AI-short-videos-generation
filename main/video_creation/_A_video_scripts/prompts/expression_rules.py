@@ -90,6 +90,21 @@ CORRECT ACOUSTIC DESCRIPTIONS:
 ✅ In 'ano', the single 'n' lets the vowel ring out longer and more relaxed.
 
 -----------------------------
+ENGLISH HETERONYM & WORD STRESS SYNTACTIC CARRIER PROTOCOL (MANDATORY)
+-----------------------------
+When teaching English heteronym noun/verb pairs (words with identical spelling like PREsent/preSENT, PROject/proJECT, REcord/reCORD, PERmit/perMIT, OBject/obJECT):
+Neural TTS voice models deduce syllable stress from syntactic role. Bare or isolated words default to flat, monotone delivery.
+To guarantee 100% authentic, punchy syllable stress and natural native prosody:
+1. ALWAYS pair every NOUN occurrence with a determiner or possessive carrier:
+   ✅ "a PREsent", "the PROject", "this REcord", "my PREsent", "a big PROject"
+2. ALWAYS pair every VERB occurrence with an infinitive marker or modal auxiliary carrier:
+   ✅ "to preSENT", "will proJECT", "to reCORD", "can perMIT", "need to proJECT"
+3. NEVER write bare heteronym words without syntax:
+   ❌ "say the noun PREsent versus the verb preSENT"
+   ✅ "say the noun a PREsent versus the verb to preSENT"
+4. Keep the visual uppercase syllable notation (PREsent / preSENT) for viewer readability and animated on-screen captions.
+
+-----------------------------
 ONE SCRIPT = ONE LESSON (STRICT)
 -----------------------------
 Each expression script must teach EXACTLY ONE linguistic point.

@@ -20,7 +20,7 @@ class TestStressEnhancer(unittest.TestCase):
     """Test suite for stress_enhancer module."""
 
     def test_heteronym_replacements_coverage(self):
-        """Verify core English heteronyms are mapped with distinct noun/verb keys."""
+        """Verify core English heteronyms are mapped with clean word keys."""
         core_heteronyms = [
             "record", "present", "project", "permit", "object",
             "contract", "increase", "decrease", "import", "export",
@@ -30,35 +30,38 @@ class TestStressEnhancer(unittest.TestCase):
             self.assertIn(word, HETERONYM_TTS_PHONETIC_REPLACEMENTS)
             self.assertIn("noun", HETERONYM_TTS_PHONETIC_REPLACEMENTS[word])
             self.assertIn("verb", HETERONYM_TTS_PHONETIC_REPLACEMENTS[word])
-            # Ensure noun and verb are audibly distinct
-            noun_respell = HETERONYM_TTS_PHONETIC_REPLACEMENTS[word]["noun"]
-            verb_respell = HETERONYM_TTS_PHONETIC_REPLACEMENTS[word]["verb"]
-            self.assertNotEqual(noun_respell, verb_respell)
+            # Under Option B, standard orthography is preserved to avoid BPE token fragmentation
+            self.assertEqual(HETERONYM_TTS_PHONETIC_REPLACEMENTS[word]["noun"], word)
+            self.assertEqual(HETERONYM_TTS_PHONETIC_REPLACEMENTS[word]["verb"], word)
 
     def test_record_stress_enhancement(self):
-        """Verify 'REcord' (noun) and 'reCORD' / 're-CORD' (verb) transform to target phonetics."""
+        """Verify 'REcord' (noun) and 'reCORD' (verb) normalize to clean words without BPE fragmentation."""
         text = "Confuse the noun 'REcord' with the verb 'reCORD'. Say 're-CORD' now."
         enhanced, detected = enhance_stress_text_for_tts(text, language="english")
-        self.assertIn("RECK-ord", enhanced)
-        self.assertIn("re-KORD", enhanced)
+        self.assertIn("record", enhanced)
         self.assertIn("record", detected)
+        # Ensure no BPE-breaking hyphenated pseudo-spellings
+        self.assertNotIn("RECK-ord", enhanced)
+        self.assertNotIn("re-KORD", enhanced)
 
     def test_present_stress_enhancement(self):
-        """Verify 'PREsent' and 'preSENT' convert accurately."""
+        """Verify 'PREsent' and 'preSENT' convert cleanly to standard English words for TTS."""
         text = "A: PREsent, or B: preSENT? Use PREsent for the gift!"
         enhanced, detected = enhance_stress_text_for_tts(text, language="english")
         self.assertEqual(
             enhanced,
-            "A: PREZ-ent, or B: pri-ZENT? Use PREZ-ent for the gift!"
+            "A: present, or B: present? Use present for the gift!"
         )
         self.assertIn("present", detected)
+        self.assertNotIn("PREZ-ent", enhanced)
+        self.assertNotIn("pri-ZENT", enhanced)
 
     def test_contextual_noun_verb_markers(self):
-        """Verify contextual 'the noun record' and 'the verb record' are enhanced."""
+        """Verify contextual 'the noun record' and 'the verb record' have syntactic carriers injected."""
         text = "Remember, the noun record is a vinyl album, but the verb record is an action."
         enhanced, detected = enhance_stress_text_for_tts(text, language="english")
-        self.assertIn("the noun 'RECK-ord'", enhanced)
-        self.assertIn("the verb 're-KORD'", enhanced)
+        self.assertIn("the noun a record", enhanced)
+        self.assertIn("the verb to record", enhanced)
 
     def test_roman_numerals_ignored(self):
         """Verify Roman numerals with ordinals (e.g. XIXe in French) are not mutilated."""
@@ -75,10 +78,13 @@ class TestStressEnhancer(unittest.TestCase):
         self.assertEqual(detected, [])
 
     def test_directives_and_style(self):
-        """Verify style directive incorporates IPA guidance for detected words."""
+        """Verify style directive generates natural prosodic acting guidance without raw IPA jargon."""
         directive = build_stress_style_directive(["record"], language="english")
-        self.assertIn("/ˈrɛk.ərd/", directive)
-        self.assertIn("/rɪˈkɔːrd/", directive)
+        self.assertIn("record", directive)
+        self.assertIn("first syllable for noun", directive.lower())
+        self.assertIn("second syllable for verb", directive.lower())
+        # Ensure raw unparsed IPA is not dumped into instruction conditioning
+        self.assertNotIn("/ˈrɛk.ərd/", directive)
 
         it_directive = build_stress_style_directive([], language="italian")
         self.assertIn("dizione italiana", it_directive)
