@@ -12,6 +12,7 @@ This folder contains command-line utilities and interactive review tools for the
 | **`auditing/`** | Quality inspection, metrics & health checks | `audit_all_csvs.py`, `status_scraper.py`, `json_health_checker.py`, `check_language_mixing.py`, `scrapper_script.py` |
 | **`database/`** | Expression database, queue sync & ID assignment | `db.py`, `sync_prompts.py`, `assign_ids.py` |
 | **`prompt_builders/`**| System editor prompts generator | `generate_editor_prompts_csv.py` |
+| **Root Tools** | Heteronym audio bank management, acoustic auditing & Kokoro-82M population | `manage_pronunciation_bank.py` |
 
 ---
 
@@ -128,10 +129,10 @@ py tools/modifiers/script_modifier.py --script-id EE01 --script-file my_script.t
 ```
 
 #### Interactive Voice Modifier (`voice_modifier.py`)
-Auditions reference voices from `open-swara`, manually recasts character voices, adjusts pauses, and regenerates TTS audio per script.
+Auditions reference voices from `open-swara`, manually recasts character voices, adjusts pauses, and regenerates TTS audio per script. Features 100% parity with `main.py` for multi-candidate sampling (`--candidates`), acoustic prominence scoring, and Kokoro-82M pronunciation bank fallback.
 ```bash
 py tools/modifiers/voice_modifier.py
-py tools/modifiers/voice_modifier.py --script-id EE01
+py tools/modifiers/voice_modifier.py --script-id EE04 --candidates 3
 ```
 
 #### Interactive Image & Chalkboard Modifier (`image_modifier.py`)
@@ -158,3 +159,25 @@ py tools/modifiers/subtitles_modifier.py --script-id ER01
 py tools/prompt_builders/generate_editor_prompts_csv.py
 ```
 
+---
+
+### 5. Pronunciation Bank Management (`tools/manage_pronunciation_bank.py`)
+
+A dedicated CLI utility for inspecting, auditing, and managing the standing heteronym audio bank (`main/input/audio/heteronym_bank/`) backed by the Kokoro-82M precision engine.
+
+```bash
+# Check status and audio coverage across all 12 heteronyms
+py tools/manage_pronunciation_bank.py --status
+
+# Run acoustic prominence quality audit (RMS ratio, pitch delta) on all bank clips
+py tools/manage_pronunciation_bank.py --audit
+
+# Populate all missing clips using Kokoro-82M precision engine
+py tools/manage_pronunciation_bank.py --populate-kokoro
+
+# Import a custom studio reference clip
+py tools/manage_pronunciation_bank.py --import my_recording.wav --word present --role noun
+
+# Export bank registry and metadata to JSON
+py tools/manage_pronunciation_bank.py --export-json bank_metadata.json
+```

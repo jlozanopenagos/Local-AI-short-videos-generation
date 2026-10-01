@@ -10,7 +10,7 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
 1. [Core Engineering Tenets](#core-engineering-tenets)
 2. [End-to-End System Architecture](#end-to-end-system-architecture)
 3. [The 4 Content Formats & Narrative Engineering](#the-4-content-formats--narrative-engineering)
-4. [Voice Generation & Multilingual Phonetic Architecture](#voice-generation--multilingual-phonetic-architecture)
+4. [Voice Generation: Syntactic Carrier Prosody & Kokoro-82M Hybrid Engine](#voice-generation-syntactic-carrier-prosody--kokoro-82m-hybrid-engine)
 5. [Data Architecture & State Machine Design](#data-architecture--state-machine-design)
 6. [Hardware Optimization: Low-VRAM (6GB) Engineering](#hardware-optimization-low-vram-6gb-engineering)
 7. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
@@ -128,7 +128,7 @@ Content strategy is divided across four distinct formats, each strictly governed
   - `PERSON_ONE` & `PERSON_TWO`: Strictly alternate turns starting with P1 in every part.
 - **Direct-Causality & Zero-Hallucination Quotes**: Speakers strictly respond to the exact words uttered in the immediately preceding turn. No phantom quotes.
 - **Trigger Direction**: PERSON_ONE sets up their real-world problem or error; PERSON_TWO introduces the idiom naturally in `DIALOGUE_PART_1`. P1 never self-diagnoses with the idiom in turn 1.
-- **TTS Stress Notation & Orthographic Normalization**: For heteronyms and minimal pairs, stressed syllables are capitalized in the script JSON (`REcord` vs `reCORD`, `PROject` vs `proJECT`) for title/graphic clarity. Downstream in Stage 2, `stress_enhancer.py` normalizes audio input to standard dictionary spelling (`record`, `project`) and dynamically injects precise IPA targets and negative constraints into the TTS system prompt to guarantee natural vowel reduction without unnatural tense `/re/` or `/reɪ/` artifacts.
+- **TTS Stress Notation & Syntactic Carrier Protocol**: For heteronyms and minimal pairs, stressed syllables are capitalized in the script JSON (`REcord` vs `reCORD`, `PROject` vs `proJECT`) for title/graphic clarity. Downstream in Stage 2, dialogue turns are generated in continuous single takes using natural syntactic carriers (`a PREsent` / `to preSENT`, `a PROject` / `to proJECT`), eliminating artificial BPE respellings. Takes are scored via the Acoustic Prominence Quality Gate and backed by the Kokoro-82M Pronunciation Bank.
 - **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
 - **`SPECIAL_TREATMENT` Classification System**:
   - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
@@ -155,49 +155,77 @@ Content strategy is divided across four distinct formats, each strictly governed
 
 ---
 
-## Voice Generation & Multilingual Phonetic Architecture
+## Voice Generation: Syntactic Carrier Prosody & Kokoro-82M Hybrid Engine
 
-A core challenge in multilingual TTS for language education is conveying distinct syllable stress (e.g. noun `REcord` vs verb `reCORD`) and language-specific articulatory nuances without triggering acoustic artifacts. Stage 2 (`_B_voice_generation`) integrates `core/stress_enhancer.py` to achieve studio-quality delivery across all 4 languages:
+A fundamental challenge in neural text-to-speech for language learning is conveying distinct, unmistakable syllable stress on heteronyms (e.g. noun `REcord` vs verb `reCORD`, `PREsent` vs `preSENT`, `PROject` vs `proJECT`) and minimal pairs without producing acoustic glitches or flat citation prosody. Stage 2 (`_B_voice_generation`) implements the **Syntactic Carrier & Continuous Prosody Architecture** coupled with the **Kokoro-82M Precision Hybrid Engine**:
 
-### 1. Tokenizer Isolation & The Vowel Tensity Problem
-When heteronym words are written with uppercase syllables (`reCORD`, `PROject`, `deCREASE`) or hyphenated spellings (`re-CORD`, `ad-vice`), sub-word tokenizers isolate the prefix token (`re`). This forces Qwen3-TTS to synthesize an isolated, tense vowel phoneme—producing an artificial `/re/` or `/reɪ/` ("ray-cord") instead of authentic unstressed reduced schwa/lax `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`.
+### 1. Tokenizer Fragmentation & The Citation Monotone Trap
+- **The BPE Tokenizer Flaw**: In autoregressive TTS models (such as Qwen3-TTS and Chatterbox), sub-word tokenizers split artificial phonetic respellings (`pri-ZENT`, `PRAHJ-ekt`) or hyphenated words into fragmented tokens. This causes the neural vocoder to hallucinate tense, unnatural vowel phonemes (e.g. `/reɪ/` "ray-cord" instead of reduced `/rɪˈkɔːrd/`).
+- **The Citation Trap**: Words spoken in isolation or unconditioned citation forms (e.g. *"A: record, or B: record?"*) drop pitch inflection and revert to flat citation tone, completely wiping out educational stress contrast.
 
-### 2. Dual-Representation & Syllabic Phonetic Architecture
-- **Script State & Viewer Display**: Script JSON files (`state/<language>/<video_type>/script_<ID>.json`) preserve uppercase stressed syllables (`REcord` and `reCORD`) so video titles, descriptions, and viewer-facing materials clearly display the pedagogical rule.
-- **Calibrated Phonetic Respellings (`HETERONYM_TTS_PHONETIC_REPLACEMENTS`)**: Direct raw IPA strings fail because Qwen3-TTS lacks an IPA parser, while plain lowercase often drops educational stress contrast. `enhance_stress_text_for_tts()` applies targeted, tested syllabic respellings dynamically in-memory:
-  - `record`: Noun `RECK-ord` vs Verb `re-KORD`
-  - `present`: Noun `PREZ-ent` vs Verb `pri-ZENT`
-  - `project`: Noun `PRAHJ-ekt` vs Verb `pruh-JEKT`
-  - `permit`: Noun `PER-mit` vs Verb `per-MIT`
-  - `object`: Noun `AHB-jekt` vs Verb `ub-JEKT`
-  - `contract`: Noun `KAHN-trakt` vs Verb `kun-TRAKT`
-  - `increase`: Noun `IN-crease` vs Verb `in-CREASE`
-  - `decrease`: Noun `DEE-crease` vs Verb `di-CREASE`
-  - `import`: Noun `IM-port` vs Verb `im-PORT`
-  - `export`: Noun `EK-sport` vs Verb `ik-SPORT`
-  - `protest`: Noun `PRO-test` vs Verb `pruh-TEST`
-  - `contest`: Noun `KAHN-test` vs Verb `kun-TEST`
-- **Contextual Framing & Roman Numeral Protection**: Automatically maps phrases like `"the noun record"` $\rightarrow$ `"the noun 'RECK-ord'"` and `"the verb record"` $\rightarrow$ `"the verb 're-KORD'"`, while protecting French Roman numeral ordinals (`XIXe`, `XXe`, `Ier`) from false-positive stress manipulation.
-- **Subtitle Cleanliness**: Whisper transcribes the spoken master audio and `subtitle_builder.py` displays clean standard dictionary words (`RECORD`) in the animated subtitles, preventing phonetic respellings from leaking into video graphics.
-- **Dynamic IPA Target Injection**: `build_stress_style_directive()` injects exact International Phonetic Alphabet (IPA) targets directly into the TTS prompt along with explicit **negative constraints against tense vowels**:
-  - `record`: Noun `/ˈrɛk.ərd/` vs Verb `/rɪˈkɔːrd/` *(strictly forbids tense `/re/` or `/reɪ/`)*
-  - `present`: Noun/Adj `/ˈprɛz.ənt/` vs Verb `/prɪˈzɛnt/` *(strictly forbids tense `/pre/`)*
-  - `project`: Noun `/ˈprɒdʒ.ɛkt/` vs Verb `/prəˈdʒɛkt/` *(strictly forbids tense `/proʊ/`)*
-  - `decrease`: Noun `/ˈdiː.kriːs/` vs Verb `/dɪˈkriːs/` *(strictly forbids tense `/diː/` on verb)*
-  - `advise/advice`: Verb `/ədˈvaɪz/` (voiced `z`) vs Noun `/ədˈvaɪs/` (unvoiced `s`)
-  - Full registry covers 16 focus entries across all 12 core English heteronyms.
-
-### 3. Multilingual Native Diction Guidance
-English stress conventions are never applied to foreign language TTS models. Non-English pronunciation scripts receive native articulatory guidance:
+### 2. Syntactic Carrier Architecture (Pure Natural Priming)
+- **Carrier Conditioning**: Autoregressive acoustic models naturally deduce part-of-speech, vowel reduction, and pitch contours from syntactic syntax:
+  - **Noun Carrier Priming**: Nouns are conditioned with determiners/articles (`a PREsent`, `the REcord`, `a PROject`, `a PERmit`, `an OBject`).
+  - **Verb Carrier Priming**: Verbs are conditioned with infinitives/particles (`to preSENT`, `to reCORD`, `to proJECT`, `to perMIT`, `to obJECT`).
+- **Continuous Single-Take Synthesis**: Sentences and dialogue turns are synthesized in continuous single takes, avoiding unnatural cross-fade boundaries and ensuring natural intonation contours ($F_0$ pitch reset and cadence).
+- **Purge of Artificial Respellings**: All fake phonetic respellings (`PREH`, `PROH`, `prih`, `pruh`, `RECK-ord`) are strictly purged across all prompt CSV queues, LLM generation rules, and state script JSONs.
+
+### 3. Acoustic Prominence Quality Gate (`core/acoustic_evaluator.py`)
+When `is_stress_pronunciation_vital()` detects heteronyms or syllable stress topics, Stage 2 activates an automated acoustic evaluation quality gate:
+- **Multi-Candidate Sampling (`--candidates <N>`)**: Generates $N$ candidates (default 3) per segment under varied random seeds.
+- **Mathematical Prominence Metrics**:
+  - **Peak RMS Energy Ratio**: Compares root-mean-square amplitude between the target stressed and unstressed syllables.
+  - **Fundamental Frequency ($F_0$) Delta**: Calculates pitch peak excursion across syllable boundaries.
+  - **Duration Contrast**: Evaluates vowel elongation on the accented syllable.
+- **Threshold Gating**:
+  - **Nouns**: Require front-syllable prominence (RMS ratio $\ge 1.05$, $F_0$ delta $> 0$).
+  - **Verbs**: Require back-syllable prominence (RMS ratio $\ge 1.10$, $F_0$ delta $> 0$).
+- Automatically selects the candidate with the highest prominence score.
+
+### 4. Kokoro-82M Precision Hybrid Engine (`core/kokoro_engine.py`)
+When stochastic generation fails to meet acoustic prominence thresholds, the pipeline seamlessly falls back to the **Kokoro-82M Precision Engine**:
+- **Architecture**: Powered by `kokoro-onnx` and `espeak-ng`, an 82-million parameter lightweight TTS model executing raw phonemic IPA representations with 100% deterministic syllable stress control.
+- **Curated Production Bank (`core/pronunciation_bank.py`)**:
+  - Pre-seeded in `main/input/audio/heteronym_bank/` covering all 12 core English heteronym pairs + `advise/advice` and `discuss/argue`.
+  - 100% coverage across all 58 slots with both male (`am_adam`) and female (`af_heart`) reference voices.
+  - Seamless zero-latency fallback: if all candidate takes score below threshold, the certified bank clip is automatically retrieved or synthesized on-the-fly.
+
+### 5. Syllable Stress Subtitle Synchronization (`subtitle_builder.py`)
+In `_G_video_assembly/core/subtitle_builder.py`, word-level animated subtitles (Hormozi style) preserve mixed-case syllable capitalization (`PREsent` vs `preSENT`, `PROject` vs `proJECT`) while rendering all other words in uppercase. Viewers visually see the exact syllable being emphasized in real time.
+
+### 6. Full Feature Parity Across Production Tools
+Both the mass orchestrator (`video_creation/_B_voice_generation/main.py`) and the interactive tool (`video_creation/_B_voice_generation/voice_modifier.py`) share full feature parity:
+- `--candidates <INT>`: Configurable candidate sampling (default 3 for stress scripts).
+- `--script-id <ID>`: Targeted single-script execution.
+- Prominence scoring, bank fallback, and dynamic acting emotion inference.
+
+### 7. Bank Management CLI (`tools/manage_pronunciation_bank.py`)
+A dedicated command-line utility for inspecting, auditing, and managing the pronunciation bank:
+```bash
+# Check bank coverage and status
+py tools/manage_pronunciation_bank.py --status
+
+# Run acoustic prominence audit on all bank audio clips
+py tools/manage_pronunciation_bank.py --audit
+
+# Populate all missing clips with Kokoro-82M precision engine
+py tools/manage_pronunciation_bank.py --populate-kokoro
+
+# Import a custom studio recording clip
+py tools/manage_pronunciation_bank.py --import my_clip.wav --word present --role noun
+
+# Export bank metadata to JSON
+py tools/manage_pronunciation_bank.py --export-json bank_metadata.json
+```
+
+### 8. Multilingual Native Diction Guidance
+Non-English pronunciation scripts receive native articulatory guidance tailored to each language's phonology:
 - **Italian Dizione**: Crisp distinction between single and double consonants (`t` vs `tt`, `n` vs `nn`), short open vowels preceding geminate consonants, and dental stop precision.
 - **Spanish Dicción**: Sharp contrast between single tap `r` and double alveolar trill `rr`, pure bright vowels without English diphthongs.
 - **French Diction**: Natural phrase-final tonic accent, clean liaison and elision, melodic cadence and prosody.
 
-### 4. Topic Disambiguation: Linguistic vs. Psychological Stress
+### 9. Topic Disambiguation: Linguistic vs. Psychological Stress
 `is_stress_pronunciation_vital()` disambiguates between linguistic pronunciation scripts and conversational/psychological topics (e.g. *"le stress des examens"*, *"gestion du stress"*, *"stress relief"*). Scripts addressing anxiety or relaxation retain standard expressive acting styles with zero phonetic prompt pollution.
-
-### 5. Hyphenated Subtitle Token Merging
-In `_G_video_assembly/core/subtitle_builder.py`, Whisper's word-level transcription splits hyphenated tokens (`re` and `CORD`). The assembly engine automatically matches consecutive tokens against script hyphenations, merging them into a single unified subtitle token (`re-CORD`) with combined start and end timestamps to eliminate jarring single-syllable subtitle flashes.
 
 ---
 

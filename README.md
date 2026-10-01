@@ -65,7 +65,7 @@ py main/main.py
 
 # Run individual generation stages (with interactive 10s countdown or CLI flags)
 py main/video_creation/_A_video_scripts/main.py --script-id EE01 --force
-py main/video_creation/_B_voice_generation/main.py --auto
+py main/video_creation/_B_voice_generation/main.py --auto --candidates 3
 py main/video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/batch.csv
 py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ```
@@ -73,7 +73,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 167 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 223 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers
@@ -128,17 +128,26 @@ py main/connectivity/scan_ready_scripts.py --all
 
 ## Recent Changes
 
-### Syllable Stress, IPA Directives & Multilingual Phonetic Architecture
-- **Syllable Stress Normalization & Phonetic IPA Architecture (`core/stress_enhancer.py`)**:
-  - Eliminates unnatural tense vowel phonemes (`/re/` or `/reɪ/` instead of reduced `/rɪˈkɔːrd/` or `/rəˈkɔːrd/`) caused by TTS tokenizer isolation on capitalized syllables (`reCORD`, `PROject`, `deCREASE`) and hyphenated spellings (`re-CORD`, `ad-vice`).
-  - Implements clean audio input normalization to dictionary spelling while preserving capitalized notation (`REcord` and `reCORD`) in script JSON states for title and graphic clarity.
-  - Dynamically injects exact IPA target pronunciations and explicit negative acoustic constraints into the Qwen3-TTS prompt for all 12 core English heteronyms plus `advise/advice` and `discuss/argue`.
-  - Injects native articulatory styling: Italian *dizione* (single vs double consonants `t` vs `tt`, `n` vs `nn`), Spanish *dicción* (tap `r` vs trill `rr`, pure vowels), and French *diction* (phrase-final tonic accent, liaisons, melodic prosody).
-  - Cleanly disambiguates linguistic stress scripts from psychological anxiety topics (e.g. *"le stress des examens"*).
-- **Hyphenated Subtitle Token Merging (`video_creation/_G_video_assembly/core/subtitle_builder.py`)**:
-  - Automatically detects Whisper token splits on hyphenated words (e.g. `re` + `CORD`) and merges them into cohesive, synchronized subtitle tokens (`re-CORD`) with unified timestamps.
-- **End-to-End Codebase Audit**:
-  - Audited all 1,224 scripts across English, French, Spanish, and Italian with zero missing IPA entries and clean phonetic transformations.
+### Syntactic Carrier & Continuous Prosody Architecture with Kokoro-82M Hybrid Engine
+- **Syntactic Carrier Conditioning (Purge of Fake Respellings)**:
+  - Solves tokenizer fragmentation and tense vowel distortion by strictly purging artificial BPE respellings (`pri-ZENT`, `PRAHJ-ekt`, `RECK-ord`).
+  - Conditions heteronyms within living spoken sentences using natural syntactic carriers: determiners/articles for nouns (`a PREsent`, `the REcord`, `a PROject`, `a PERmit`) and infinitives/particles for verbs (`to preSENT`, `to reCORD`, `to proJECT`, `to perMIT`).
+  - Synthesizes dialogue turns in continuous single acoustic takes per segment to guarantee natural prosodic pitch contours and intonation.
+- **Acoustic Prominence Quality Gate (`core/acoustic_evaluator.py`)**:
+  - Multi-candidate sampling (`--candidates 3`): generates multiple takes via ComfyUI.
+  - Evaluates syllable-level Peak RMS energy ratios and fundamental frequency ($F_0$) pitch excursions against strict phonetic prominence thresholds (Noun RMS $\ge 1.05$; Verb RMS $\ge 1.10$; $F_0$ delta $> 0$).
+  - Automatically ranks and selects the most prominent take.
+- **Kokoro-82M Precision Hybrid Engine & Pronunciation Bank (`core/kokoro_engine.py` & `core/pronunciation_bank.py`)**:
+  - Seamless zero-latency fallback: if stochastic autoregressive takes do not pass acoustic prominence gating, the pipeline falls back to certified clips from the Standing Pronunciation Bank (`main/input/audio/heteronym_bank/`).
+  - Powered locally by **Kokoro-82M (`kokoro-onnx` + `espeak-ng`)**, executing phonemic IPA representations with 100% deterministic syllable stress control.
+  - 100% coverage across all 58 core heteronym slots with both male (`am_adam`) and female (`af_heart`) reference voices.
+  - CLI management tool: `py main/tools/manage_pronunciation_bank.py` (`--status`, `--audit`, `--populate-kokoro`).
+- **Hormozi Syllable Stress Subtitle Synchronization (`video_creation/_G_video_assembly/core/subtitle_builder.py`)**:
+  - Case-preserving subtitle rendering: preserves mixed-case syllable capitalization (`PREsent` vs `preSENT`, `PROject` vs `proJECT`) while keeping all other words in Hormozi-style all-caps.
+  - Unified hyphenated token merging (`re-CORD`) with combined start and end timestamps.
+- **Full Production Parity & State Synchronization**:
+  - Brought `voice_modifier.py` to 100% feature parity with `main.py` (candidate selection and acoustic prominence gating).
+  - Synchronized and validated all state JSON files across EXPRESSION, GAME, and ROLEPLAY to ensure complete syntactic carrier conditioning.
 
 ### Google Sheets Suite, Modular Architecture & Ready Scripts Scanner
 - **Modular Connectivity Suite (`main/connectivity/`)**:
@@ -155,5 +164,5 @@ py main/connectivity/scan_ready_scripts.py --all
 - **Reconciliation Engine (`reconcile_scripts.py`)**:
   - Audits local `scripts_to_see` against Google Sheets canonical order, preserving sheet ordering and appending new local entries.
 - **Comprehensive Test Suite Expansion**:
-  - 167 automated tests passing across all 5 QA layers (unit, integration, contracts, security, connectivity).
+  - 223 automated tests passing across all 5 QA layers (unit, integration, contracts, security, connectivity).
 
