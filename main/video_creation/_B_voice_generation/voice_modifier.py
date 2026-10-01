@@ -1,6 +1,8 @@
+import argparse
+import random
+import re
 import sys
 import traceback
-import random
 from pathlib import Path
 
 # Add project root, video_creation, core, and module directory to path
@@ -50,6 +52,7 @@ try:
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
     from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+    from video_creation._B_voice_generation.core.acoustic_evaluator import select_best_voice_candidate
 except (ImportError, ModuleNotFoundError):
     try:
         from core.script_parser import get_script_segments
@@ -57,6 +60,7 @@ except (ImportError, ModuleNotFoundError):
         from core.voice_manager import VoiceManager
         from core.audio_processor import concatenate_audios
         from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+        from core.acoustic_evaluator import select_best_voice_candidate
     except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.script_parser import get_script_segments
@@ -68,6 +72,8 @@ except (ImportError, ModuleNotFoundError):
         from _B_voice_generation.core.audio_processor import concatenate_audios
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+        # pyrefly: ignore [missing-import]
+        from _B_voice_generation.core.acoustic_evaluator import select_best_voice_candidate
 
 def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
     """Detects if a script or specific segment requires vital stress pronunciation or phonetic precision.
@@ -213,13 +219,20 @@ def map_emotion_to_energy(emotion: str) -> str:
     return "high"
 
 def main():
-    try:
-        script_number = input("Enter the script number to change (e.g. 1): ").strip()
-    except EOFError:
-        print("Run this script interactively.")
-        return
+    parser = argparse.ArgumentParser(description="Modify or regenerate voice for a specific script.")
+    parser.add_argument("--script-id", type=str, default=None, help="Script ID to modify (e.g. EE04, 1, script_1.json)")
+    parser.add_argument("--candidates", type=int, default=None, help="Number of candidate takes to generate for stress-vital segments (default: 2)")
+    args = parser.parse_args()
 
-    script_id = script_number.replace("script_", "").replace(".json", "")
+    script_id_raw = args.script_id
+    if not script_id_raw:
+        try:
+            script_id_raw = input("Enter the script number to change (e.g. 1 or EE04): ").strip()
+        except EOFError:
+            print("Run this script interactively or supply --script-id.")
+            return
+
+    script_id = script_id_raw.replace("script_", "").replace(".json", "")
     
     base_dir = BASE_DIR
     state_manager = StateManager(base_dir)
@@ -405,24 +418,62 @@ def main():
         pers_log = f" | Persona: '{context}'" if context else ""
         print(f"[{speaker}] Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
         
+        # Determine candidate sampling count:
+        if args.candidates is not None:
+            seg_candidates = max(1, args.candidates)
+        elif is_seg_stress_vital and detected_stress_words:
+            seg_candidates = 2
+        else:
+            seg_candidates = 1
+
         output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
         dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
         dest_path = script_output_dir / dest_filename
         
         try:
-            comfy_client.generate_voice_segment(
-                ref_audio_name=ref_filename,
-                target_text=target_text,
-                language=language,
-                gender=gender,
-                context=context,
-                emotion=emotion,
-                energy=energy,
-                style=style,
-                output_prefix=output_prefix,
-                dest_path=dest_path,
-                seed=seed
-            )
+            if seg_candidates > 1 and is_seg_stress_vital and detected_stress_words:
+                candidate_paths = []
+                for take_idx in range(seg_candidates):
+                    take_seed = seed + (take_idx * 101)
+                    take_prefix = f"{output_prefix}_take{take_idx+1}"
+                    take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
+                    take_path = script_output_dir / take_filename
+                    print(f"  [Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
+                    comfy_client.generate_voice_segment(
+                        ref_audio_name=ref_filename,
+                        target_text=target_text,
+                        language=language,
+                        gender=gender,
+                        context=context,
+                        emotion=emotion,
+                        energy=energy,
+                        style=style,
+                        output_prefix=take_prefix,
+                        dest_path=take_path,
+                        seed=take_seed
+                    )
+                    candidate_paths.append(take_path)
+
+                select_best_voice_candidate(
+                    candidate_paths=candidate_paths,
+                    target_words=detected_stress_words,
+                    text_context=text,
+                    dest_path=dest_path
+                )
+            else:
+                comfy_client.generate_voice_segment(
+                    ref_audio_name=ref_filename,
+                    target_text=target_text,
+                    language=language,
+                    gender=gender,
+                    context=context,
+                    emotion=emotion,
+                    energy=energy,
+                    style=style,
+                    output_prefix=output_prefix,
+                    dest_path=dest_path,
+                    seed=seed
+                )
         except Exception as exc:
             print(f"API Error on segment {idx}: {exc}")
             return
