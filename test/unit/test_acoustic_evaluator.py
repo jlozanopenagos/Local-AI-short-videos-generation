@@ -133,6 +133,34 @@ class TestAcousticEvaluator(unittest.TestCase):
                 # Cand 1 was rejected and should be deleted
                 self.assertFalse(cand1.exists())
 
+    def test_select_best_voice_candidate_pronunciation_bank_fallback(self):
+        """Verify that when all candidate takes score below threshold, system falls back to pronunciation bank."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cand1 = Path(tmpdir) / "cand1.flac"
+            cand2 = Path(tmpdir) / "cand2.flac"
+            bank_clip = Path(tmpdir) / "present_noun.flac"
+            dest = Path(tmpdir) / "final.flac"
+
+            cand1.write_text("low_score_1")
+            cand2.write_text("low_score_2")
+            bank_clip.write_text("studio_verified_clip")
+
+            # Mock both candidates to score below 0.80 (e.g. 0.45 and 0.55)
+            def mock_low_eval(path, targets, text):
+                return 0.55, {"transcript": "present", "occurrences": []}
+
+            with patch(
+                "video_creation._B_voice_generation.core.acoustic_evaluator.evaluate_acoustic_prominence",
+                side_effect=mock_low_eval
+            ), patch(
+                "video_creation._B_voice_generation.core.pronunciation_bank.get_pronunciation_clip",
+                return_value=bank_clip
+            ):
+                result = select_best_voice_candidate([cand1, cand2], ["present"], "a PREsent", dest)
+                self.assertEqual(result, dest)
+                self.assertTrue(dest.exists())
+                self.assertEqual(dest.read_text(), "studio_verified_clip")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -318,6 +318,36 @@ def select_best_voice_candidate(
     scored_candidates.sort(key=lambda x: x[1], reverse=True)
     winner_cand, best_score, best_details = scored_candidates[0]
 
+    # Phase 3 Precision Quality Gate: If all candidate takes fell below acceptable contrast (< 0.80),
+    # fallback to verified studio clip from Heteronym Pronunciation Bank if available
+    if best_score < 0.80:
+        try:
+            from video_creation._B_voice_generation.core.pronunciation_bank import get_pronunciation_clip
+        except (ImportError, ModuleNotFoundError):
+            try:
+                from core.pronunciation_bank import get_pronunciation_clip
+            except (ImportError, ModuleNotFoundError):
+                get_pronunciation_clip = None
+
+        if get_pronunciation_clip and len(target_words) == 1:
+            target_word = target_words[0].lower()
+            expected_roles = detect_roles_in_text(text_context, target_words)
+            if len(expected_roles) == 1:
+                role = expected_roles[0][1]
+                bank_clip = get_pronunciation_clip(target_word, role)
+                if bank_clip and bank_clip.exists():
+                    print(f"  [Pronunciation Bank]: Low candidate score ({best_score:.2f} < 0.80). Fallback to verified studio clip: {bank_clip.name}")
+                    if dest_path.exists():
+                        dest_path.unlink()
+                    shutil.copyfile(str(bank_clip), str(dest_path))
+                    for cand, _, _ in scored_candidates:
+                        if cand.exists():
+                            try:
+                                cand.unlink()
+                            except Exception:
+                                pass
+                    return dest_path
+
     print(f"  -> Winner Selected: {winner_cand.name} (Contrast Score: {best_score:.2f})")
 
     # Move winner to dest_path
