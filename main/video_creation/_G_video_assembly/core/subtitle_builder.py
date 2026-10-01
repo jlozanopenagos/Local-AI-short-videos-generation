@@ -6,6 +6,7 @@ try:
     from video_creation._B_voice_generation.core.pronunciation_bank import HETERONYM_REGISTRY
 except (ImportError, ModuleNotFoundError):
     try:
+        # pyrefly: ignore [missing-import]
         from core.pronunciation_bank import HETERONYM_REGISTRY
     except (ImportError, ModuleNotFoundError):
         HETERONYM_REGISTRY = {}
