@@ -61,6 +61,40 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.assertIn("0:01:05.25", content)
         self.assertIn("0:01:06.50", content)
 
+    def test_build_ass_preserves_heteronym_stress_casing(self):
+        """Verify that educational heteronym words preserve their syllable stress casing."""
+        words = [
+            {"word": "Feel", "start": 0.0, "end": 0.2},
+            {"word": "the", "start": 0.2, "end": 0.3},
+            {"word": "noun", "start": 0.3, "end": 0.5},
+            {"word": "a", "start": 0.5, "end": 0.6},
+            {"word": "present", "start": 0.6, "end": 1.0},
+            {"word": "versus", "start": 1.0, "end": 1.3},
+            {"word": "the", "start": 1.3, "end": 1.4},
+            {"word": "verb", "start": 1.4, "end": 1.6},
+            {"word": "to", "start": 1.6, "end": 1.7},
+            {"word": "present", "start": 1.7, "end": 2.2},
+        ]
+        script_data = {
+            "script_text": "Feel the noun a PREsent versus the verb to preSENT."
+        }
+        self.builder.build_ass(words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+
+        # Standard words are upper-cased for Hormozi short visual punch
+        self.assertIn("FEEL", content)
+        self.assertIn("NOUN", content)
+        self.assertIn("VERB", content)
+
+        # Crucial educational heteronyms preserve their exact syllable stress casing
+        self.assertIn("PREsent", content)
+        self.assertIn("preSENT", content)
+        # Ensure they were not crushed into flat all-caps PRESENT
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+        self.assertEqual(texts[4], "PREsent")
+        self.assertEqual(texts[9], "preSENT")
+
 
 if __name__ == "__main__":
     unittest.main()

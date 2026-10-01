@@ -206,7 +206,7 @@ def process_script(
                 except Exception as e:
                     print(f"[{script_id}] Warning checking timings for subtitle suppression: {e}")
 
-            builder.build_ass(words, ass_path, VIDEO_WIDTH, VIDEO_HEIGHT, suppress_windows=suppress_windows)
+            builder.build_ass(words, ass_path, VIDEO_WIDTH, VIDEO_HEIGHT, suppress_windows=suppress_windows, script_data=script_data)
             print(f"Generated subtitles at {ass_path.name}")
         
         # 3. Assemble Video
