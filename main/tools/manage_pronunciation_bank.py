@@ -185,14 +185,53 @@ def export_json_cli(output_file: str, bank_dir: Path = None) -> int:
     return 0
 
 
+def populate_with_kokoro(bank_dir: Path = None, voice: str = "af_bella", force: bool = False) -> int:
+    """Uses Kokoro-82M ONNX precision engine to synthesize any missing heteronym clips."""
+    try:
+        from video_creation._B_voice_generation.core.kokoro_engine import get_kokoro_engine
+    except (ImportError, ModuleNotFoundError):
+        from core.kokoro_engine import get_kokoro_engine
+
+    engine = get_kokoro_engine()
+    if not engine.is_ready:
+        print("Error: Kokoro-82M engine is not available or model files missing.", file=sys.stderr)
+        return 1
+
+    storage = get_bank_directory(bank_dir)
+    print(f"Populating Heteronym Bank at {storage} using Kokoro-82M (Voice: {voice})...")
+
+    generated_count = 0
+    skipped_count = 0
+
+    for word, data in sorted(HETERONYM_REGISTRY.items()):
+        for role in ["noun", "verb"]:
+            already_has = has_pronunciation_clip(word, role, storage)
+            if already_has and not force:
+                skipped_count += 1
+                continue
+
+            target_path = storage / f"{word}_{role}.wav"
+            res = engine.generate_heteronym_demonstration(word, role, target_path, voice=voice)
+            if res and res.exists():
+                generated_count += 1
+                print(f"  [+] Generated {word:<12} ({role:<4}) -> {target_path.name}")
+            else:
+                print(f"  [-] Failed to generate {word} ({role})")
+
+    print(f"\nPopulation complete! Generated {generated_count} clip(s), skipped {skipped_count} existing clip(s).")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="LingoVerse Pronunciation Bank Tool")
     parser.add_argument("--status", action="store_true", help="Display coverage status of heteronym audio clips")
     parser.add_argument("--audit", action="store_true", help="Run acoustic quality audit on all existing clips")
+    parser.add_argument("--populate-kokoro", action="store_true", help="Batch-synthesize all missing clips using Kokoro-82M")
+    parser.add_argument("--voice", type=str, default="af_bella", help="Voice ID for Kokoro generation (default: af_bella)")
     parser.add_argument("--import-clip", type=str, default=None, help="Path to audio file to import into bank")
     parser.add_argument("--word", type=str, default=None, help="Target heteronym word for import")
     parser.add_argument("--role", type=str, choices=["noun", "verb"], default=None, help="Grammatical role for import")
-    parser.add_argument("--force", action="store_true", help="Force import even if acoustic score is low")
+    parser.add_argument("--force", action="store_true", help="Force overwrite or import even if existing/low score")
     parser.add_argument("--export-json", type=str, default=None, help="Path to export metadata JSON")
     parser.add_argument("--bank-dir", type=str, default=None, help="Custom bank storage directory")
     args = parser.parse_args()
@@ -205,6 +244,9 @@ def main() -> int:
 
     if args.audit:
         return audit_bank(bank_dir)
+
+    if args.populate_kokoro:
+        return populate_with_kokoro(bank_dir, voice=args.voice, force=args.force)
 
     if args.import_clip:
         if not args.word or not args.role:
@@ -222,3 +264,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

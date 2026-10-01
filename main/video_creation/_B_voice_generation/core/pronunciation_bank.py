@@ -508,14 +508,21 @@ def get_heteronym_data(word: str) -> Optional[Dict[str, Any]]:
 def get_pronunciation_clip(
     word: str,
     role: str,
-    bank_dir: Optional[Path] = None
+    bank_dir: Optional[Path] = None,
+    use_kokoro_fallback: bool = False,
+    voice: Optional[str] = None
 ) -> Optional[Path]:
     """Finds a verified master audio clip for a heteronym and grammatical role.
+    
+    If the clip is missing and use_kokoro_fallback is True, synthesizes it on-demand
+    via the Kokoro-82M precision IPA engine.
     
     Args:
         word: The base word (e.g. 'present' or 'project').
         role: 'noun' or 'verb'.
         bank_dir: Optional custom storage directory.
+        use_kokoro_fallback: If True, falls back to Kokoro-82M IPA synthesis.
+        voice: Optional voice ID for Kokoro.
         
     Returns:
         Path to verified .flac or .wav audio clip if available, or None.
@@ -528,6 +535,23 @@ def get_pronunciation_clip(
         candidate = storage / f"{clean_word}_{clean_role}{ext}"
         if candidate.exists() and candidate.stat().st_size > 0:
             return candidate
+
+    # Dynamic fallback to Kokoro-82M ONNX precision engine
+    if use_kokoro_fallback:
+        try:
+            try:
+                from video_creation._B_voice_generation.core.kokoro_engine import get_kokoro_engine
+            except (ImportError, ModuleNotFoundError):
+                from core.kokoro_engine import get_kokoro_engine
+            engine = get_kokoro_engine()
+            if engine.is_ready:
+                out_path = storage / f"{clean_word}_{clean_role}.wav"
+                generated = engine.generate_heteronym_demonstration(clean_word, clean_role, out_path, voice=voice)
+                if generated and generated.exists():
+                    logger.info(f"Synthesized on-demand heteronym clip via Kokoro-82M: {generated.name}")
+                    return generated
+        except Exception as exc:
+            logger.warning(f"Kokoro-82M fallback generation failed for {word} ({role}): {exc}")
 
     return None
 
