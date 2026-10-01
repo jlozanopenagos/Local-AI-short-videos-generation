@@ -4,6 +4,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from typing import Optional
 
 # Add project root, video_creation, core, and module directory to path
 MODULE_DIR = Path(__file__).parent.resolve()
@@ -37,6 +38,7 @@ try:
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
     from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+    from video_creation._B_voice_generation.core.acoustic_evaluator import select_best_voice_candidate
 except (ImportError, ModuleNotFoundError):
     try:
         from core.script_parser import get_script_segments
@@ -44,6 +46,7 @@ except (ImportError, ModuleNotFoundError):
         from core.voice_manager import VoiceManager
         from core.audio_processor import concatenate_audios
         from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+        from core.acoustic_evaluator import select_best_voice_candidate
     except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.script_parser import get_script_segments
@@ -55,6 +58,8 @@ except (ImportError, ModuleNotFoundError):
         from _B_voice_generation.core.audio_processor import concatenate_audios
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+        # pyrefly: ignore [missing-import]
+        from _B_voice_generation.core.acoustic_evaluator import select_best_voice_candidate
 
 def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
     """Detects if a script or specific segment requires vital stress pronunciation or phonetic precision.
@@ -205,7 +210,8 @@ def process_script(
     comfy_client: ComfyClient,
     voice_manager: VoiceManager,
     force: bool,
-    base_dir: Path
+    base_dir: Path,
+    candidates: Optional[int] = None
 ) -> bool:
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
@@ -369,24 +375,64 @@ def process_script(
         output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
         dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
         dest_path = script_output_dir / dest_filename
+
+        # Determine candidate sampling count:
+        # If user explicitly supplied --candidates, respect it.
+        # Otherwise, default to 2 candidate takes for stress-vital segments with detected target words.
+        if candidates is not None:
+            seg_candidates = max(1, candidates)
+        elif is_seg_stress_vital and detected_stress_words:
+            seg_candidates = 2
+        else:
+            seg_candidates = 1
         
         if dest_path.exists() and not force:
             print(f"Audio segment already exists at {dest_path.name}. Skipping API call.")
         else:
             try:
-                comfy_client.generate_voice_segment(
-                    ref_audio_name=ref_filename,
-                    target_text=target_text,
-                    language=language,
-                    gender=gender,
-                    context=context,
-                    emotion=emotion,
-                    energy=energy,
-                    style=style,
-                    output_prefix=output_prefix,
-                    dest_path=dest_path,
-                    seed=seed
-                )
+                if seg_candidates > 1 and is_seg_stress_vital and detected_stress_words:
+                    candidate_paths = []
+                    for take_idx in range(seg_candidates):
+                        take_seed = seed + (take_idx * 101)
+                        take_prefix = f"{output_prefix}_take{take_idx+1}"
+                        take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
+                        take_path = script_output_dir / take_filename
+                        print(f"  [Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
+                        comfy_client.generate_voice_segment(
+                            ref_audio_name=ref_filename,
+                            target_text=target_text,
+                            language=language,
+                            gender=gender,
+                            context=context,
+                            emotion=emotion,
+                            energy=energy,
+                            style=style,
+                            output_prefix=take_prefix,
+                            dest_path=take_path,
+                            seed=take_seed
+                        )
+                        candidate_paths.append(take_path)
+                    
+                    select_best_voice_candidate(
+                        candidate_paths=candidate_paths,
+                        target_words=detected_stress_words,
+                        text_context=text,
+                        dest_path=dest_path
+                    )
+                else:
+                    comfy_client.generate_voice_segment(
+                        ref_audio_name=ref_filename,
+                        target_text=target_text,
+                        language=language,
+                        gender=gender,
+                        context=context,
+                        emotion=emotion,
+                        energy=energy,
+                        style=style,
+                        output_prefix=output_prefix,
+                        dest_path=dest_path,
+                        seed=seed
+                    )
             except Exception as exc:
                 print(f"API Error on segment {idx}: {exc}", file=sys.stderr)
                 return False
@@ -472,6 +518,12 @@ def main() -> int:
         const="",
         default=None,
         help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+    )
+    parser.add_argument(
+        "--candidates",
+        type=int,
+        default=None,
+        help="Number of candidate takes to sample for stress-vital segments (default: 2 for stress-vital, 1 for standard)"
     )
     args = parser.parse_args()
     
@@ -628,7 +680,7 @@ def main() -> int:
         for i, script in enumerate(pending, start=1):
             try:
                 print(f"[{i}/{len(pending)}] Processing Script ID: {script['id']} for Voice...")
-                if process_script(script, state_manager, comfy_client, voice_manager, args.force, base_dir):
+                if process_script(script, state_manager, comfy_client, voice_manager, args.force, base_dir, candidates=args.candidates):
                     success_count += 1
                     time.sleep(0.3)  # Cooldown between scripts ("go ahead, don't stop")
                 else:
