@@ -33,11 +33,21 @@ def _safe_print(text: str, file=None, flush: bool = True) -> None:
         print(text.encode("ascii", errors="replace").decode("ascii"), file=target, flush=flush)
 
 
-# ── Node IDs in AcademiaSD_Z-Image.json (confirmed from workflow inspection) ──
+# ── Node IDs in AcademiaSD_Z-Image_v05.json (confirmed from workflow inspection) ──
 _NODE_POSITIVE_PROMPT = "6"   # CLIPTextEncode (Positive Prompt)
+_NODE_NEGATIVE_PROMPT = "7"   # CLIPTextEncode (Negative Prompt)
 _NODE_KSAMPLER        = "3"   # KSampler (seed lives here)
 _NODE_SAVE_IMAGE      = "9"   # SaveImage (filename_prefix lives here)
 _NODE_LATENT_IMAGE    = "13"  # EmptySD3LatentImage (width/height live here)
+
+DEFAULT_NEGATIVE_PROMPT = (
+    "dot eyes, bead eyes, button eyes, minimalist face, featureless face, blank eyes, simple stick face, "
+    "flat corporate vector, corporate memphis, solid color background, blank background, plain background, "
+    "white void, empty backdrop, isolated character, flat background, photorealistic, photograph, 3d render, "
+    "octane render, cgi, realistic photo, realism, photography, real life, dslr, grainy, text, letters, words, "
+    "writing, font, typography, watermark, logo, signature, label, dialogue bubble, speech balloon, scoreboard, "
+    "poster, sign, interjection, aha, eureka, quote, caption, chalkboard"
+)
 
 
 class ImageComfyClient:
@@ -49,7 +59,7 @@ class ImageComfyClient:
     api_url:
         Base URL of the running ComfyUI instance, e.g. ``http://127.0.0.1:8188``.
     workflow_path:
-        Absolute path to ``AcademiaSD_Z-Image.json`` (node-editor format).
+        Absolute path to ``AcademiaSD_Z-Image_v05.json`` (node-editor format).
     poll_timeout:
         Maximum seconds to wait for a generation to finish.
     poll_interval:
@@ -60,7 +70,7 @@ class ImageComfyClient:
         self,
         api_url: str,
         workflow_path: Path,
-        poll_timeout: int = 180,
+        poll_timeout: int = 600,
         poll_interval: float = 2.0,
     ) -> None:
         self.api_url       = api_url.rstrip("/")
@@ -90,7 +100,7 @@ class ImageComfyClient:
         """Interrupts currently executing prompt in ComfyUI."""
         url = f"{self.api_url}/interrupt"
         try:
-            resp = requests.post(url, timeout=15)
+            resp = requests.post(url, timeout=30)
             return resp.status_code == 200
         except Exception as e:
             logger.warning("Could not interrupt ComfyUI execution: %s", e)
@@ -155,6 +165,7 @@ class ImageComfyClient:
         steps: int,
         width: int,
         height: int,
+        negative_prompt: str | None = None,
     ) -> dict[str, Any]:
         """
         Deep-copy the API template and inject the generation parameters.
@@ -167,6 +178,8 @@ class ImageComfyClient:
             Filename prefix for SaveImage output (e.g. ``"Z-Image/script_1"``).
         seed:
             Integer seed for reproducibility or debugging.
+        negative_prompt:
+            Optional negative prompt string. If None, uses DEFAULT_NEGATIVE_PROMPT.
         """
         # Deep copy so the template is never mutated between calls
         wf: dict[str, Any] = json.loads(json.dumps(self._api_template))
@@ -177,8 +190,13 @@ class ImageComfyClient:
         else:
             raise KeyError(
                 f"Positive prompt node '{_NODE_POSITIVE_PROMPT}' not found in converted workflow. "
-                "Has the workflow JSON changed? Re-inspect AcademiaSD_Z-Image.json."
+                "Has the workflow JSON changed? Re-inspect AcademiaSD_Z-Image_v05.json."
             )
+
+        # Inject negative prompt text
+        if _NODE_NEGATIVE_PROMPT in wf:
+            neg_text = negative_prompt if negative_prompt is not None else DEFAULT_NEGATIVE_PROMPT
+            wf[_NODE_NEGATIVE_PROMPT]["inputs"]["text"] = neg_text
 
         # Inject seed and steps into KSampler
         if _NODE_KSAMPLER in wf:
@@ -217,7 +235,7 @@ class ImageComfyClient:
         payload = {"prompt": workflow}
 
         try:
-            response = requests.post(url, json=payload, timeout=120)
+            response = requests.post(url, json=payload, timeout=180)
             if not response.ok:
                 logger.error(f"ComfyUI Error: {response.text}")
             response.raise_for_status()
@@ -340,7 +358,8 @@ class ImageComfyClient:
         width: int = 576,
         height: int = 1024,
         max_retries: int = 3,
-        stall_timeout: int = 90,
+        stall_timeout: int = 600,
+        negative_prompt: str | None = None,
     ) -> Path:
         """
         Run the full Z-Image-Turbo generation pipeline for a single image with auto-retry and watchdog.
@@ -362,6 +381,7 @@ class ImageComfyClient:
                 steps=steps,
                 width=width,
                 height=height,
+                negative_prompt=negative_prompt,
             )
 
             try:
@@ -383,7 +403,8 @@ class ImageComfyClient:
                     f"[Watchdog] ComfyUI image generation stalled (> {stall_timeout}s). Auto-interrupting...",
                 )
                 self.interrupt()
-                time.sleep(1.5)
+                time.sleep(3.0)
+                self.ensure_clean_slate()
                 if attempt < max_retries:
                     _safe_print(
                         f"[Watchdog] Retrying image generation (attempt {attempt + 1}/{max_retries})... "
@@ -397,134 +418,8 @@ class ImageComfyClient:
                         exc, attempt + 1, max_retries,
                     )
                     self.interrupt()
-                    time.sleep(1.5)
+                    time.sleep(3.0)
+                    self.ensure_clean_slate()
 
         raise last_error or RuntimeError("Failed to generate image after retries.")
-
-
-# ── Node IDs for flux1_dev_uso_reference_image_gen.json (API format) ──────────
-_FLUX_NODE_POSITIVE_PROMPT = "112:6"
-_FLUX_NODE_KSAMPLER        = "112:31"
-_FLUX_NODE_SAVE_IMAGE      = "9"
-_FLUX_NODE_LATENT_IMAGE    = "112:110"
-_FLUX_NODE_LOAD_IMAGE      = "47"
-
-
-class ChalkboardComfyClient(ImageComfyClient):
-    """
-    ComfyUI client tailored for the Flux Reference Image workflow (chalkboard generation).
-    """
-    def __init__(
-        self,
-        api_url: str,
-        workflow_path: Path,
-        comfy_input_dir: Path,
-        poll_timeout: int = 1200,
-        poll_interval: float = 2.0,
-    ) -> None:
-        super().__init__(api_url, workflow_path, poll_timeout, poll_interval)
-        self.comfy_input_dir = comfy_input_dir
-
-    def _prepare_flux_workflow(
-        self,
-        prompt_text: str,
-        filename_prefix: str,
-        reference_image_name: str,
-        seed: int,
-        steps: int,
-        width: int,
-        height: int,
-    ) -> dict[str, Any]:
-        with self.workflow_path.open("r", encoding="utf-8") as fh:
-            wf = json.load(fh)
-
-        if _FLUX_NODE_POSITIVE_PROMPT in wf:
-            wf[_FLUX_NODE_POSITIVE_PROMPT]["inputs"]["text"] = prompt_text
-        if _FLUX_NODE_KSAMPLER in wf:
-            wf[_FLUX_NODE_KSAMPLER]["inputs"]["seed"] = seed
-            wf[_FLUX_NODE_KSAMPLER]["inputs"]["steps"] = steps
-        if _FLUX_NODE_LATENT_IMAGE in wf:
-            wf[_FLUX_NODE_LATENT_IMAGE]["inputs"]["width"] = width
-            wf[_FLUX_NODE_LATENT_IMAGE]["inputs"]["height"] = height
-        if _FLUX_NODE_SAVE_IMAGE in wf:
-            wf[_FLUX_NODE_SAVE_IMAGE]["inputs"]["filename_prefix"] = filename_prefix
-        if _FLUX_NODE_LOAD_IMAGE in wf:
-            wf[_FLUX_NODE_LOAD_IMAGE]["inputs"]["image"] = reference_image_name
-
-        return wf
-
-    def generate_chalkboard(
-        self,
-        prompt_text: str,
-        filename_prefix: str,
-        dest_path: Path,
-        reference_image_path: Path,
-        seed: int | None = None,
-        steps: int = 20,
-        width: int = 576,
-        height: int = 1024,
-        max_retries: int = 3,
-        stall_timeout: int = 240,
-    ) -> Path:
-        import shutil
-
-        self.ensure_clean_slate()
-
-        last_error = None
-        for attempt in range(1, max_retries + 1):
-            cur_seed = seed if seed is not None else random.randint(1, 10**15)
-
-            ref_name = f"ref_{reference_image_path.name}"
-            comfy_input_path = self.comfy_input_dir / ref_name
-            shutil.copy2(reference_image_path, comfy_input_path)
-
-            wf = self._prepare_flux_workflow(
-                prompt_text=prompt_text,
-                filename_prefix=filename_prefix,
-                reference_image_name=ref_name,
-                seed=cur_seed,
-                steps=steps,
-                width=width,
-                height=height,
-            )
-
-            try:
-                prompt_id = self._queue_prompt(wf)
-                history = self._poll_for_completion(prompt_id, timeout_seconds=stall_timeout)
-
-                filename, subfolder, file_type = self._find_image_output(history)
-                self._download_image(filename, subfolder, file_type, dest_path)
-
-                try:
-                    if comfy_input_path.exists():
-                        comfy_input_path.unlink()
-                except Exception as e:
-                    logger.warning(f"Could not delete temp reference image {comfy_input_path}: {e}")
-
-                time.sleep(0.3)
-                return dest_path
-
-            except TimeoutError as te:
-                last_error = te
-                _safe_print(
-                    f"[Watchdog] ComfyUI chalkboard generation stalled (> {stall_timeout}s). Auto-interrupting...",
-                )
-                self.interrupt()
-                time.sleep(1.5)
-                if attempt < max_retries:
-                    _safe_print(
-                        f"[Watchdog] Retrying chalkboard generation (attempt {attempt + 1}/{max_retries})... "
-                        f"\"Go ahead, don't stop!\"",
-                    )
-            except Exception as exc:
-                last_error = exc
-                if attempt < max_retries:
-                    logger.warning(
-                        "ComfyUI chalkboard error (%s). Retrying (attempt %d/%d)...",
-                        exc, attempt + 1, max_retries,
-                    )
-                    self.interrupt()
-                    time.sleep(1.5)
-
-        raise last_error or RuntimeError("Failed to generate chalkboard image after retries.")
 

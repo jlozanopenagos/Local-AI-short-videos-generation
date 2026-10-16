@@ -7,24 +7,130 @@ from typing import List, Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 
+def clean_option_text(text: str) -> str:
+    """Isolates and cleans option text by stripping trailing/leading commas, semicolons,
+    and coordinating conjunctions (e.g. ', or', 'or', ', and', ', o', ', ou', ', e').
+    Preserves meaningful ending punctuation like '?' and '!'.
+    """
+    opt = text.strip()
+    
+    # 1. Remove leading conjunctions if accidentally captured: e.g. "or Break a leg!" -> "Break a leg!"
+    opt = re.sub(r"^(?:or|and|o|ou|y|e|u|ed|et)\s+", "", opt, flags=re.IGNORECASE)
+    
+    # 2. Remove trailing conjunctions (with optional preceding punctuation/whitespace):
+    # e.g. "Are you ready to win.?, or" -> "Are you ready to win.?"
+    # e.g. "You have a great show, or" -> "You have a great show"
+    opt = re.sub(r"(?:[,;]\s*|\s+)\b(?:or|and|o|ou|y|e|u|ed|et)\b[\s\.,;]*$", "", opt, flags=re.IGNORECASE)
+    
+    # 3. Clean up awkward punctuation combinations at the end of the option
+    opt = re.sub(r",\s*\.$", ".", opt)  # ",." -> "."
+    opt = re.sub(r"\.\s*,$", ".", opt)  # ".," -> "."
+    opt = re.sub(r"\?\s*,$", "?", opt)  # "?," -> "?"
+    opt = re.sub(r"!\s*,$", "!", opt)   # "!," -> "!"
+    
+    # 4. Remove lingering trailing commas or semicolons
+    opt = re.sub(r"[\s,;]+$", "", opt)
+    
+    # 5. Clean up extra whitespace
+    return re.sub(r"\s+", " ", opt).strip()
+
+
+def mask_revealed_answer_in_question(question: str, options: List[Tuple[str, str]]) -> str:
+    """If the question is a listening/identification challenge and reveals the answer
+    in the test sentence without a blank, replaces the revealed phrase with '_________'.
+    """
+    # 1. If question already has a blank (e.g. '___', '_________'), do not modify
+    if re.search(r"_{2,}", question):
+        return question
+
+    # 2. Check if this is a listening/identification game
+    listening_pattern = re.compile(
+        r"\b(which\s+(?:rhythm|word|phrase|version|option|stress|pronunciation|sound)|"
+        r"what\s+did\s+you\s+hear|"
+        r"did\s+you\s+(?:hear|get)|"
+        r"listen(?:\s+closely|\s+carefully)?|"
+        r"which\s+did\s+you\s+hear|"
+        r"escucha\s+bien|"
+        r"cu[aá]l\s+(?:palabra|opci[oó]n|ritmo)?\s*(?:has\s+)?(?:escuchaste|o[ií]ste|se\s+escucha)|"
+        r"qu[\x27\’]?avez-vous\s+entendu|"
+        r"avez-vous\s+entendu|"
+        r"hai\s+sentito|"
+        r"ascolta\s+bene)\b",
+        re.IGNORECASE
+    )
+    
+    m_listen = listening_pattern.search(question)
+    if not m_listen:
+        return question
+
+    # Split question into test sentence (before the prompt) and listening prompt (from the match)
+    test_sentence = question[:m_listen.start()]
+    prompt_suffix = question[m_listen.start():]
+
+    if not test_sentence.strip():
+        return question
+
+    # Look for any option (or option with leading dummy pronouns/verbs) in test_sentence
+    sorted_opts = sorted([opt_text for _, opt_text in options], key=len, reverse=True)
+
+    for opt in sorted_opts:
+        clean_opt = re.sub(r"^[\s'\"\(]+|[\s'\"\)\.,!\?]+$", "", opt).strip()
+        if not clean_opt or len(clean_opt) < 2:
+            continue
+
+        opt_escaped = re.escape(clean_opt)
+        core_opt = re.sub(r"^(?:a|an|the|to|un|una|el|la|los|las|le|les|des|du|il|lo|gli)\s+", "", clean_opt, flags=re.IGNORECASE).strip()
+        core_escaped = re.escape(core_opt) if core_opt and len(core_opt) >= 3 else opt_escaped
+
+        pattern = re.compile(
+            rf"(?:(?:it\s+(?:was|is)|c[\x27\’]est|es|è)\s+)?\b(?:{opt_escaped}|{core_escaped})\b",
+            re.IGNORECASE
+        )
+
+        m_found = pattern.search(test_sentence)
+        if m_found:
+            test_sentence_masked = test_sentence[:m_found.start()] + "_________" + test_sentence[m_found.end():]
+            test_sentence_masked = re.sub(r"\s+([.,!?;:])", r"\1", test_sentence_masked)
+            test_sentence_masked = re.sub(r"\s+", " ", test_sentence_masked).strip()
+            return f"{test_sentence_masked} {prompt_suffix.strip()}"
+
+    return question
+
+
 def parse_quiz_exercise(text: str) -> Tuple[str, List[Tuple[str, str]]]:
     """Extracts question text and list of (option_letter, option_text) pairs.
     Handles both multi-line formatting and single-line inline formatting (A) ... B) ...).
+    Isolates options cleanly without trailing commas or conjunctions ('or', 'and', etc.).
+    Automatically masks revealed answers in listening games with '_________'.
     """
     clean_text = text.strip()
-    # Split by option markers like 'A)', 'A.', 'A:', 'A -'
-    parts = re.split(r"(?=(?:^|\s)[A-D][\)\.:\-]\s+)", clean_text)
+    # Split by option markers, optionally preceded by coordinating conjunctions (or, and, o, ou, etc.)
+    parts = re.split(
+        r"(?=(?:^|\s)(?:(?:or|and|o|ou|y|e|u|ed|et)\s+)?[A-D][\)\.:\-]\s+)",
+        clean_text,
+        flags=re.IGNORECASE
+    )
     
     question = parts[0].strip()
+    # Clean question trailing conjunctions and messy punctuation like '?.'
+    question = re.sub(r"(?:[,;]\s*|\s+)\b(?:or|and|o|ou|y|e|u|ed|et)\b[\s\.,;]*$", "", question, flags=re.IGNORECASE)
+    question = re.sub(r"[\?,!]\s*\.", lambda m: m.group(0)[0], question)
+    question = re.sub(r"[\s,;]+$", "", question)
+    
     options: List[Tuple[str, str]] = []
     
     for p in parts[1:]:
         p_clean = p.strip()
-        m = re.match(r"^([A-D])[\)\.:\-]\s*(.*)$", p_clean, flags=re.DOTALL)
+        m = re.match(
+            r"^(?:(?:or|and|o|ou|y|e|u|ed|et)\s+)?([A-D])[\)\.:\-]\s*(.*)$",
+            p_clean,
+            flags=re.IGNORECASE | re.DOTALL
+        )
         if m:
             letter = m.group(1).upper()
-            opt_text = m.group(2).strip().rstrip("?").strip()
-            options.append((letter, opt_text))
+            opt_text = clean_option_text(m.group(2))
+            if opt_text:
+                options.append((letter, opt_text))
             
     # Fallback if no structured options were detected
     if not options:
@@ -34,6 +140,9 @@ def parse_quiz_exercise(text: str) -> Tuple[str, List[Tuple[str, str]]]:
             ("C", "Option C"),
             ("D", "Option D")
         ]
+
+    # Automatically mask revealed answer if this is a listening/identification game
+    question = mask_revealed_answer_in_question(question, options)
         
     return question, options
 
@@ -101,14 +210,22 @@ def render_chalkboard_image(
     windir = Path(os.environ.get("WINDIR", "C:/Windows"))
     preferred_font = windir / "Fonts" / "segoeprb.ttf"
     font_file = preferred_font if preferred_font.exists() else None
-    font_q = _get_font(font_file, 48)
+
+    # Line wrap question preserving manual linebreaks and using dynamic sizing for long questions
+    wrap_width = 24 if len(question) < 75 else 28
+    lines = []
+    for raw_l in question.splitlines():
+        raw_clean = raw_l.strip()
+        if raw_clean:
+            lines.extend(textwrap.wrap(raw_clean, width=wrap_width))
+    if not lines:
+        lines = [question]
+
+    q_font_size = 42 if len(lines) >= 5 else 48
+    q_line_h = 58 if len(lines) >= 5 else 66
+    font_q = _get_font(font_file, q_font_size)
     font_badge = _get_font(font_file, 44)
     font_opt = _get_font(font_file, 40)
-
-    # Line wrap question (22-26 chars depending on length)
-    wrap_width = 24 if len(question) < 75 else 28
-    lines = textwrap.wrap(question, width=wrap_width)
-    q_line_h = 66
     total_q_h = len(lines) * q_line_h
 
     # Option boxes layout

@@ -132,4 +132,5 @@ Format:
 "chalkboard_exercise": "[Test sentence with ___ or Challenge in TARGET_LANGUAGE]\nA) [Distinct Option A]\nB) [Distinct Option B]"
 (or with C and D if applicable).
 Do NOT put all options on a single unformatted line! Each option must be on its own line preceded by A), B), etc.
+Do NOT include trailing commas, semicolons, or conjunctions like 'or', 'and', 'o', 'ou' at the end of options (e.g. write 'A) Option 1', 'B) Option 2', 'C) Option 3', NEVER 'A) Option 1, B) Option 2, or C) Option 3').
 """

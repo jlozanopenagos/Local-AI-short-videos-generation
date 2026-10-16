@@ -20,6 +20,7 @@ from core.cli_prompt import (
     prompt_fun_facts_mode,
     find_ready_scripts_csvs,
     prompt_ready_scripts_mode,
+    prompt_mass_ready_scripts_mode,
 )
 
 
@@ -333,6 +334,83 @@ class TestCLICSVMode(unittest.TestCase):
 
         args2 = parser.parse_args(["--ready-scripts", "D:/AI/output/connectivity/ready_scripts/2026-09-23_ready_scripts.csv"])
         self.assertEqual(args2.ready_scripts_csv, "D:/AI/output/connectivity/ready_scripts/2026-09-23_ready_scripts.csv")
+
+    def test_prompt_mass_ready_scripts_mode_all_files(self):
+        """Verify prompt_mass_ready_scripts_mode aggregates IDs across multiple ready scripts CSVs."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir)
+            f1 = p / "2026-09-23_ready_scripts.csv"
+            f1.write_text("ID,expression\nEE01,Phrase one\nEE02,Phrase two\n", encoding="utf-8")
+            f2 = p / "2026-09-22_ready_scripts.csv"
+            f2.write_text("ID,expression\nFE01,Phrase three\nEE02,Phrase two duplicate\n", encoding="utf-8")
+
+            # Test auto mode (selects all)
+            ids = prompt_mass_ready_scripts_mode(
+                search_dir=p,
+                require_existing_state=False,
+                auto=True,
+            )
+            # Should have all unique IDs: EE01, EE02, FE01
+            self.assertEqual(set(ids), {"EE01", "EE02", "FE01"})
+            self.assertEqual(len(ids), 3)
+
+    def test_prompt_mass_ready_scripts_mode_select_files(self):
+        """Verify prompt_mass_ready_scripts_mode parses user selection of specific files."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir)
+            f1 = p / "2026-09-23_ready_scripts.csv"
+            f1.write_text("ID,expression\nEE01,Phrase one\n", encoding="utf-8")
+            f2 = p / "2026-09-22_ready_scripts.csv"
+            f2.write_text("ID,expression\nFE01,Phrase two\n", encoding="utf-8")
+            f3 = p / "2026-09-21_ready_scripts.csv"
+            f3.write_text("ID,expression\nSE01,Phrase three\n", encoding="utf-8")
+
+            # Simulate user typing "1, 3" (choosing first and third file)
+            with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
+                 patch("builtins.input", return_value="1, 3"):
+                ids = prompt_mass_ready_scripts_mode(
+                    search_dir=p,
+                    require_existing_state=False,
+                    auto=False,
+                )
+                self.assertIn("EE01", ids)
+                self.assertIn("SE01", ids)
+                self.assertNotIn("FE01", ids)
+
+    def test_prompt_production_mode_choice_7_mass_ready_scripts(self):
+        """Verify prompt_production_mode offers Option 7 when allow_mass_ready_scripts_mode is True."""
+        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
+             patch("core.cli_prompt._timed_choice", return_value="7"), \
+             patch("core.cli_prompt.prompt_mass_ready_scripts_mode", return_value=["EE01", "EE02", "FE01"]):
+            result, mode = prompt_production_mode(
+                stage_title="Part C: Image Generation",
+                asset_name="scene illustrations",
+                allow_fun_facts_mode=True,
+                allow_csv_list_mode=True,
+                allow_ready_scripts_mode=True,
+                allow_mass_ready_scripts_mode=True,
+                return_mode=True,
+            )
+            self.assertEqual(mode, "mass_ready_scripts")
+            self.assertEqual(result, ["EE01", "EE02", "FE01"])
+
+    def test_cli_flags_parsing_mass_ready_scripts(self):
+        """Verify argument parser parses --from-mass-ready-scripts and --mass-ready-scripts flags."""
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--from-mass-ready-scripts",
+            "--mass-ready-scripts",
+            dest="mass_ready_scripts_csv",
+            nargs="?",
+            const="",
+            default=None,
+        )
+
+        args1 = parser.parse_args(["--from-mass-ready-scripts"])
+        self.assertEqual(args1.mass_ready_scripts_csv, "")
+
+        args2 = parser.parse_args(["--mass-ready-scripts", "file1.csv,file2.csv"])
+        self.assertEqual(args2.mass_ready_scripts_csv, "file1.csv,file2.csv")
 
 
 if __name__ == "__main__":

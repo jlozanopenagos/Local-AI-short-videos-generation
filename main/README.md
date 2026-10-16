@@ -130,6 +130,16 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **Trigger Direction**: PERSON_ONE sets up their real-world problem or error; PERSON_TWO introduces the idiom naturally in `DIALOGUE_PART_1`. P1 never self-diagnoses with the idiom in turn 1.
 - **TTS Stress Notation & Syntactic Carrier Protocol**: For heteronyms and minimal pairs, stressed syllables are capitalized in the script JSON (`REcord` vs `reCORD`, `PROject` vs `proJECT`) for title/graphic clarity. Downstream in Stage 2, dialogue turns are generated in continuous single takes using natural syntactic carriers (`a PREsent` / `to preSENT`, `a PROject` / `to proJECT`), eliminating artificial BPE respellings. Takes are scored via the Acoustic Prominence Quality Gate and backed by the Kokoro-82M Pronunciation Bank.
 - **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
+- **Dynamic 6-Beat Cinematic Visual Progression (Anti-Repetitive Staging)**:
+  To eliminate monotonous camera setups, `prompt_builder.py` enforces a mandatory 6-beat cinematic storyboard progression:
+  1. `hook`: Scenario Establishing Shot (medium-wide framing establishing physical tension, environment, and situational stakes).
+  2. `DIALOGUE_PART_1`: Over-The-Shoulder (OTS) Framing focusing on `PERSON_ONE` delivering the opening dilemma with expressive facial acting.
+  3. `DIALOGUE_PART_2`: 180° Reverse Angle Over-The-Shoulder (Reverse OTS) focusing on `PERSON_TWO` mentoring and introducing the target expression.
+  4. `DIALOGUE_PART_3`: Kinetic Interaction & Prop Demonstration Shot (active motion with physical object grounding the dialogue).
+  5. `DIALOGUE_PART_4`: Breakthrough Close-Up Reaction Shot (tight dramatic framing on `PERSON_ONE` experiencing their eureka realization).
+  6. `PAYOFF`: Celebratory Resolution Two-Shot (shared triumph, high-five, or confident outro in the established story world).
+- **Universal Multi-Character Gender Specification Rule (Zero-Ambiguity Mandate)**:
+  Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one youthful 14-year-old teen boy and one youthful 14-year-old companion teen girl"*). Ambiguous words (*"two teens"*, *"friends"*, *"characters"*) are strictly prohibited to prevent diffusion models from hallucinating or randomizing character sexes. Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with locked wardrobes and hairstyles.
 - **`SPECIAL_TREATMENT` Classification System**:
   - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
   - **Idiomatic Arc (Error #4 Fix)**: For multi-word figurative idioms, the LLM is instructed to enforce active usage modeling: P2 drops the full idiom in Part 1; P1 reacts to literal image while P2 clarifies in ≤1 sentence in Part 2; P2 demonstrates a new real-life usage in Part 3; and **P1 must use the complete idiom in an original sentence in Part 4** (the proof of learning).
@@ -145,12 +155,17 @@ Content strategy is divided across four distinct formats, each strictly governed
   5. *Spot the Imposter*: 2 genuine idioms vs 1 fabricated phrase.
 - **Acoustic Challenge Delivery (Zero Spoken Blanks)**:
   Spoken challenge audio NEVER contains raw blanks (`___`) or unnatural pauses. The Narrator speaks the sentence fluently and presents options verbally (`"Did you hear A: CONtract or B: conTRACT?"`).
-- **Visual Chalkboard Renderer**: Visual blanks (`___`) and letter badges (A, B, C, D) are rendered exclusively on the visual graphic using Pillow and FreeType typography on `empty_chalkboard.png`. Subtitles are suppressed during the challenge to preserve mystery.
+- **Visual Chalkboard Renderer (`_C_image_generation/core/chalkboard_renderer.py`)**:
+  - High-resolution typography rendered on CPU using Pillow and FreeType (Segoe Print Bold) onto `empty_chalkboard.png` with chalk-yellow questions, dividers, translucent green option cards, and yellow letter badges (A, B, C, D) in milliseconds with zero VRAM usage.
+  - **Clean Option Text Isolation (`clean_option_text`)**: Programmatically strips trailing punctuation and coordinating conjunctions (`or`, `and`, `o`, `ou`, `e`) from option choices, ensuring pristine options without trailing commas or awkward words.
+  - **Automatic Spoken Answer Masking in Listening Challenges (`mask_revealed_answer_in_question`)**: For acoustic and listening quizzes where the spoken narrative pronounces the answer, the renderer automatically detects if an option phrase appears in the question text and masks it with `_________`. This guarantees the visual chalkboard never spoils the spoken quiz.
+  - **Subtitles**: Subtitles are suppressed exclusively during the `challenge` section so the chalkboard exercise remains clear and uncluttered, and the answer is never spoiled in text while the challenge audio plays. Subtitles resume normally for all other sections.
 - **Suspense Gap**: Audio engine inserts an exact 2.20-second suspense pause (`pressure_gap`) between `pressure` and `answer`.
 
 ### 4. FUN_FACTS: Viral Linguistic Curiosities
 - **Target Language Localization**: Prompts and state contents are localized 100% in the target language (French, Spanish, Italian, English) to guarantee authentic regional nuance and zero translation artifacts.
 - **6 Authorized Formats**: Format A (3 Facts), Format B (One Big Curiosity), Format C (Challenge), Format D (Mystery), Format E (Comparison), Format F (Ranking/List).
+- **Dynamic Scene Count Adaptability (4 vs 6 Scenes)**: Image generation in Stage C dynamically inspects section keys in `content_metadata.script`. Standard 4-section curiosity formats generate 4 distinct thematic scene images, while multi-fact or historical scripts generate 6 distinct scenes with full story-world consistency.
 - **Factual Integrity**: Programmatic guardrails reject folk etymologies and unverified language myths.
 
 ---
@@ -332,7 +347,12 @@ Enter choice (1-3) [default: 1 in 10s]:
 Located in `tools/modifiers/`:
 - **`script_modifier.py`**: Ingests custom text scripts verbatim, normalizes JSON structure, enforces canonical key order (`title` first), and updates review CSVs in `scripts_to_see/`.
 - **`voice_modifier.py`**: Audition reference voices from `open-swara`, manually cast actors per character, and re-generate voiceovers.
-- **`image_modifier.py`**: Interactively steer visual prompts, swap scene illustrations, or re-render chalkboard exercises.
+- **`image_modifier.py`**: Comprehensive visual direction and interactive image modifier suite:
+  - *Single Scene Recreation Mode*: Re-steer scene prompts, sample seeds, and regenerate individual scene frames.
+  - *Batch / Group Recreation Mode (`modify_group_interactive`)*: Re-prompts and regenerates ALL scenes for a script simultaneously, anchored to an updated general prompt for total visual coherence across the entire video.
+  - *Dual-Character Gender Casting*: For Roleplays, interactively prompts for `PERSON_ONE` and `PERSON_TWO` genders independently, updating `speakers_gender` in the state machine with locked wardrobes and hairstyles.
+  - *120-Second (2-Minute) Timeout*: Features an extended `GENDER_SELECTION_TIMEOUT = 120.0s`, allowing creators deliberate time to inspect character casting and prompt directives.
+  - *Chalkboard Live Editor*: Edit quiz questions and options directly with instant CPU-based re-rendering of 576x1024 chalkboard graphics.
 - **`subtitles_modifier.py`**: Inspect subtitle timings, execute find/replace on `.ass` files, and re-render final MP4s in seconds without re-running Whisper.
 
 ---
@@ -479,7 +499,11 @@ python video_creation/_C_image_generation/main.py
 python video_creation/_C_image_generation/main.py --script-id EE01 --seed 42 --force
 python video_creation/_C_image_generation/main.py --auto
 python video_creation/_C_image_generation/main.py --video-type roleplay
+python video_creation/_C_image_generation/main.py --fun-facts --language english
 python video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/image_batch.csv
+python video_creation/_C_image_generation/main.py --from-ready-scripts
+# Interactive Visual Modifier (Single scene & Batch group recreation, Dual gender casting, Chalkboard editor)
+python tools/modifiers/image_modifier.py
 
 # Part D: Standing Music Bank Generation
 python video_creation/_D_music_generation/main.py --language english --video-type expression
@@ -561,8 +585,7 @@ shorts_automation/
 │   │   ├── cli_prompt.py               # Interactive CLI menus with 10s countdown timers
 │   │   ├── expression_db.py            # SQLite + CSV hybrid database implementation
 │   │   ├── state_manager.py            # Script state machine and lifecycle manager
-│   │   ├── status_tracker.py           # Cross-queue pipeline progress manifest auditor
-│   │   └── chalkboard_renderer.py      # FreeType chalk typography renderer on CPU
+│   │   └── status_tracker.py           # Cross-queue pipeline progress manifest auditor
 │   ├── database/                       # Centralized expression stores
 │   │   ├── expressions.sample.csv      # Reference schema for master expression tracking
 │   │   ├── expressions.db              # SQLite expression database (gitignored, auto-synced locally)
@@ -587,13 +610,16 @@ shorts_automation/
 │   ├── tools/                          # Developer utilities and operations CLI
 │   │   ├── auditing/                   # Status scrapers, CSV validation, and language check tools
 │   │   ├── database/                   # DB sync, ID assignment, and CLI query tools
-│   │   ├── modifiers/                  # Interactive single & mass asset modifiers
+│   │   ├── modifiers/                  # Interactive single & mass asset modifiers (script, voice, image, subtitles)
 │   │   └── prompt_builders/            # System editor prompt compilation tools
 │   ├── video_creation/                 # Core generation stages (_A through _G)
 │   │   ├── workflows/                  # Exported ComfyUI JSON API workflow definitions
 │   │   ├── _A_video_scripts/           # Scriptwriting, prompt rules, and metadata synthesis
 │   │   ├── _B_voice_generation/        # Qwen3-TTS multi-speaker voice generation
-│   │   ├── _C_image_generation/        # Scene illustration generation
+│   │   ├── _C_image_generation/        # Scene illustration & visual direction suite
+│   │   │   ├── core/                   # prompt_builder.py, chalkboard_renderer.py, comfy_client.py
+│   │   │   ├── image_modifier.py       # Single scene & batch group recreation, dual gender casting
+│   │   │   └── main.py                 # Multi-scene image generation runner
 │   │   ├── _D_music_generation/        # Standing Music Bank generator and catalog
 │   │   ├── _F_thumbnail_image_generation/ # Flux thumbnail generation
 │   │   └── _G_video_assembly/          # Whisper subtitles, audio ducking, and FFmpeg assembly

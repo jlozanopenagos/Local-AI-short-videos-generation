@@ -34,6 +34,7 @@ from .cli_prompt import (
     prompt_fun_facts_mode,
     prompt_csv_list_mode,
     prompt_ready_scripts_mode,
+    prompt_mass_ready_scripts_mode,
     find_ready_scripts_csvs,
 )
 
@@ -64,6 +65,7 @@ __all__ = [
     "prompt_fun_facts_mode",
     "prompt_csv_list_mode",
     "prompt_ready_scripts_mode",
+    "prompt_mass_ready_scripts_mode",
     "find_ready_scripts_csvs",
 ]
 

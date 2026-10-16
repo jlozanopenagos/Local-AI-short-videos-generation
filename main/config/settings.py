@@ -91,6 +91,7 @@ WORKFLOWS_DIR = BASE_DIR / "video_creation" / "workflows"
 IMAGE_DEFAULT_STEPS = 6
 IMAGE_DEFAULT_WIDTH = 576
 IMAGE_DEFAULT_HEIGHT = 1024
+IMAGE_STALL_TIMEOUT = int(os.getenv("IMAGE_STALL_TIMEOUT", "600"))
 IMAGE_WORKFLOW_PATH = WORKFLOWS_DIR / "AcademiaSD_Z-Image_v05.json"
 if not IMAGE_WORKFLOW_PATH.exists() and (BASE_DIR / "AcademiaSD_Z-Image_v05.json").exists():
     IMAGE_WORKFLOW_PATH = BASE_DIR / "AcademiaSD_Z-Image_v05.json"

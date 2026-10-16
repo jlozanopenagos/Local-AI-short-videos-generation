@@ -20,7 +20,7 @@ class TestSystemPrompts(unittest.TestCase):
         self.assertTrue(self.editor_csv.exists())
 
     def test_editor_csv_schema_and_rows(self):
-        with self.editor_csv.open("r", encoding="utf-8") as f:
+        with self.editor_csv.open("r", encoding="utf-8-sig") as f:
             reader = list(csv.DictReader(f))
 
         expected_cols = ["video_type", "target_duration", "word_count_range", "sections_structure", "system_prompt"]

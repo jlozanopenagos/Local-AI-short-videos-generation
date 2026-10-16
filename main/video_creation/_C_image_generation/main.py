@@ -7,6 +7,11 @@ import traceback
 from pathlib import Path
 import logging
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # Add project root, video_creation, core, and module directory to path for robust imports
 MODULE_DIR = Path(__file__).parent.resolve()
 VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
@@ -19,37 +24,28 @@ for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_
 from config import (
     COMFY_API_URL, COMFY_INPUT_DIR, BASE_DIR, GAME_IMAGES_DIR,
     IMAGE_WORKFLOW_PATH, IMAGE_DEFAULT_STEPS, IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT,
-    LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME, require_services,
+    IMAGE_STALL_TIMEOUT, LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME, require_services,
     get_script_output_dir
 )
 # pyrefly: ignore [missing-import]
 from state_manager import StateManager
-
-try:
-    from core.comfy_client import ImageComfyClient, ChalkboardComfyClient
-    from core.prompt_builder import VisualPromptBuilder
-    from core.chalkboard_renderer import render_chalkboard_image
-except ImportError:
-    from _C_image_generation.core.comfy_client import ImageComfyClient, ChalkboardComfyClient
-    from _C_image_generation.core.prompt_builder import VisualPromptBuilder
-    from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
-
+# pyrefly: ignore [missing-import]
+from core.cli_prompt import (
+    timed_input,
+    prompt_production_mode,
+    prompt_group_range,
+    prompt_fun_facts_mode,
+    prompt_ready_scripts_mode,
+    prompt_mass_ready_scripts_mode,
+)
+# pyrefly: ignore [missing-import]
+from core.status_tracker import get_status_tracker
+# pyrefly: ignore [missing-import]
+from core.expression_db import is_expression_done
+from _C_image_generation.core.comfy_client import ImageComfyClient
+from _C_image_generation.core.prompt_builder import VisualPromptBuilder, resolve_anchor_environment, sanitize_and_style_prompt
+from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
 from _B_voice_generation.core.script_parser import parse_sections
-
-try:
-    # pyrefly: ignore [missing-import]
-    from core.cli_prompt import timed_input
-except (ImportError, ModuleNotFoundError):
-    try:
-        # pyrefly: ignore [missing-import]
-        from cli_prompt import timed_input
-    except (ImportError, ModuleNotFoundError):
-        def timed_input(prompt: str, timeout: float = 10.0, default: str = "", default_msg: str = None) -> str:
-            try:
-                val = input(prompt).strip()
-                return val if val else default
-            except (KeyboardInterrupt, EOFError):
-                return default
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")
@@ -139,6 +135,95 @@ def process_script(
         "chalkboard_exercise", "target_expression", "roleplay_scenario"
     }
 
+    valid_active_sections = {
+        k.strip().lower() for k, v in sections.items()
+        if k.strip().lower() not in METADATA_IGNORE_KEYS
+        and (video_type != "GAME" or k.strip().lower() in VALID_GAME_SECTIONS)
+        and v.strip()
+    }
+
+    # If force is enabled, clean up any stale/orphaned images from obsolete schemas (e.g. core_learning)
+    if force:
+        for old_img in script_output_dir.glob(f"script_{script_id}_*.png"):
+            sec_name = old_img.stem[len(f"script_{script_id}_"):].lower()
+            if sec_name not in valid_active_sections:
+                try:
+                    old_img.unlink()
+                    logger.info("[%s] Cleaned up obsolete legacy image: %s", script_id, old_img.name)
+                except Exception:
+                    pass
+
+    content_meta = script_data.get("content_metadata", {})
+    prompt_params = script_data.get("prompt_params", {})
+    character_personalities = content_meta.get("character_personalities", None)
+
+    topic = (
+        prompt_params.get("EXPRESSION")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or prompt_params.get("TOPIC")
+        or content_meta.get("topic")
+        or content_meta.get("target_expression")
+        or ""
+    )
+    scenario = (
+        content_meta.get("roleplay_scenario")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or prompt_params.get("CONTEXT")
+        or content_meta.get("learning_objective")
+        or ""
+    )
+    lexical_field = (
+        prompt_params.get("LEXICAL_FIELD")
+        or content_meta.get("subcategory")
+        or content_meta.get("category")
+        or ""
+    )
+
+    anchor_environment = resolve_anchor_environment(
+        script_text=script_text,
+        topic=topic,
+        scenario=scenario,
+        lexical_field=lexical_field,
+        label=label,
+        video_type=video_type,
+    )
+    print(f"\n[Locked Story World]:\n>> {anchor_environment} <<\n")
+
+    # Generate complete non-repetitive visual storyboard across all active scenes
+    existing_prompts = script_data.get("assets", {}).get("image_prompts", {})
+    all_scenes_have_prompts = (
+        isinstance(existing_prompts, dict)
+        and all(
+            sec.strip().lower() in existing_prompts and existing_prompts[sec.strip().lower()]
+            for sec in valid_active_sections
+        )
+    )
+
+    if all_scenes_have_prompts and not force:
+        storyboard_prompts = existing_prompts
+        print("[State] Using existing visual storyboard prompts from state.")
+    else:
+        print("\n" + "=" * 60)
+        print(f"[Storyboard Director] Generating Non-Repetitive Storyboard for: {script_id}")
+        print("=" * 60)
+        storyboard_prompts = prompt_builder.build_storyboard_prompts(
+            script_text=script_text,
+            label=label,
+            sections=sections,
+            script_id=script_id,
+            speakers_gender=speakers_gender,
+            video_type=video_type,
+            character_personalities=character_personalities,
+            topic=topic,
+            scenario=scenario,
+            lexical_field=lexical_field,
+            anchor_environment=anchor_environment,
+        )
+        if "assets" not in script_data or not isinstance(script_data["assets"], dict):
+            script_data["assets"] = {}
+        script_data["assets"]["image_prompts"] = storyboard_prompts
+        state_manager.save_script_state(script_id, script_data)
+
     success = True
     for section_name, section_text in sections.items():
         sec_lower = section_name.strip().lower()
@@ -176,7 +261,7 @@ def process_script(
 
             if waiting_img.exists():
                 shutil.copy2(waiting_img, dest_path)
-                print(f"✓ Copied static waiting image: {waiting_img.name} -> {dest_path.name}")
+                print(f"[OK] Copied static waiting image: {waiting_img.name} -> {dest_path.name}")
                 continue
             else:
                 logger.warning(f"Could not find waiting image at {waiting_img}, falling back to generation.")
@@ -185,7 +270,6 @@ def process_script(
         if video_type == "GAME" and section_name.lower() == "challenge":
             chalkboard_model = GAME_IMAGES_DIR / "empty_chalkboard.png"
             if chalkboard_model.exists():
-                content_meta = script_data.get("content_metadata", {})
                 exercise_text = content_meta.get("chalkboard_exercise", "")
                 if not exercise_text:
                     exercise_text = section_text.strip()
@@ -199,28 +283,39 @@ def process_script(
                         dest_path=dest_path,
                         target_size=(IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT)
                     )
-                    print(f"✓ Chalkboard challenge image saved: {dest_path.name}")
+                    print(f"[OK] Chalkboard challenge image saved: {dest_path.name}")
                     continue
                 except Exception as exc:
                     logger.error("[%s] Native chalkboard rendering failed: %s. Falling back to Z-Image.", script_id, exc)
 
-        try:
-            character_personalities = script_data.get("content_metadata", {}).get("character_personalities", None)
-
-            visual_prompt = prompt_builder.build_visual_prompt(
-                script_text=script_text,
-                label=label,
-                scene_name=section_name,
-                scene_text=section_text,
-                script_id=script_id,
-                speakers_gender=speakers_gender,
-                video_type=video_type,
-                character_personalities=character_personalities,
-            )
-        except Exception as exc:
-            logger.error("[%s] Failed to generate visual prompt for %s: %s", script_id, section_name, exc)
-            success = False
-            continue
+        visual_prompt = storyboard_prompts.get(sec_lower) or storyboard_prompts.get(section_name)
+        if not visual_prompt:
+            try:
+                visual_prompt = prompt_builder.build_visual_prompt(
+                    script_text=script_text,
+                    label=label,
+                    scene_name=section_name,
+                    scene_text=section_text,
+                    script_id=script_id,
+                    speakers_gender=speakers_gender,
+                    video_type=video_type,
+                    character_personalities=character_personalities,
+                    topic=topic,
+                    scenario=scenario,
+                    lexical_field=lexical_field,
+                    anchor_environment=anchor_environment,
+                    existing_scene_prompts=storyboard_prompts,
+                )
+                storyboard_prompts[sec_lower] = visual_prompt
+                script_data["assets"]["image_prompts"][sec_lower] = visual_prompt
+                state_manager.save_script_state(script_id, script_data)
+            except Exception as exc:
+                logger.error("[%s] Failed to generate visual prompt for %s: %s", script_id, section_name, exc)
+                success = False
+                continue
+        
+        visual_prompt = sanitize_and_style_prompt(visual_prompt)
+        print(f"\n[Visual Prompt - {section_name.upper()}]:\n\"{visual_prompt}\"\n")
 
         filename_prefix = f"Z-Image/script_{script_id}_{section_name}"
         try:
@@ -232,8 +327,10 @@ def process_script(
                 steps=IMAGE_DEFAULT_STEPS,
                 width=IMAGE_DEFAULT_WIDTH,
                 height=IMAGE_DEFAULT_HEIGHT,
+                stall_timeout=IMAGE_STALL_TIMEOUT,
             )
-            print(f"✓ Image saved: {result_path}")
+            print(f"[OK] Image saved: {result_path}")
+            state_manager.save_script_state(script_id, script_data)
             time.sleep(0.3)  # Cooldown between scene images ("go ahead, don't stop")
         except Exception as exc:
             logger.error("[%s] Unexpected generation error on %s: %s", script_id, section_name, exc)
@@ -292,6 +389,15 @@ def main() -> int:
         default=None,
         help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
     )
+    parser.add_argument(
+        "--from-mass-ready-scripts",
+        "--mass-ready-scripts",
+        dest="mass_ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts in mass from multiple/all ready_scripts CSVs (comma-separated file paths or empty for all)"
+    )
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -332,27 +438,10 @@ def main() -> int:
     print("=" * 60 + "\n")
 
     # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
-    # pyrefly: ignore [missing-import]
-    try:
-        # pyrefly: ignore [missing-import]
-        from core.cli_prompt import (
-            prompt_production_mode,
-            prompt_group_range,
-            prompt_fun_facts_mode,
-            prompt_ready_scripts_mode,
-        )
-    except (ImportError, ModuleNotFoundError):
-        # pyrefly: ignore [missing-import]
-        from cli_prompt import (
-            prompt_production_mode,
-            prompt_group_range,
-            prompt_fun_facts_mode,
-            prompt_ready_scripts_mode,
-        )
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
 
-    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None:
+    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None and args.mass_ready_scripts_csv is None:
         print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
         target_script_ids = None
         selected_mode = "fun_facts"
@@ -372,6 +461,8 @@ def main() -> int:
             csv_path_arg=args.csv_list,
             allow_ready_scripts_mode=True,
             ready_scripts_path_arg=args.ready_scripts_csv,
+            allow_mass_ready_scripts_mode=True,
+            mass_ready_scripts_path_arg=args.mass_ready_scripts_csv,
         )
         if is_cli_fun_facts:
             selected_mode = "fun_facts"
@@ -388,12 +479,6 @@ def main() -> int:
 
         # Query pending scripts via Pipeline Status Tracker
         try:
-            try:
-                # pyrefly: ignore [missing-import]
-                from core.status_tracker import get_status_tracker
-            except (ImportError, ModuleNotFoundError):
-                # pyrefly: ignore [missing-import]
-                from status_tracker import get_status_tracker
             tracker = get_status_tracker(base_dir)
             pending_rows = tracker.get_pending_scripts(
                 "image_generation",
@@ -423,12 +508,6 @@ def main() -> int:
                     elif target_video_type != "fun_facts" and svtype != target_video_type:
                         continue
 
-                try:
-                    # pyrefly: ignore [missing-import]
-                    from core.expression_db import is_expression_done
-                except (ImportError, ModuleNotFoundError):
-                    # pyrefly: ignore [missing-import]
-                    from expression_db import is_expression_done
                 if is_expression_done(script_id):
                     continue
 
@@ -444,7 +523,7 @@ def main() -> int:
             else:
                 print(f"No pending video scripts for image generation{scope_label}.")
 
-            if selected_mode in ("group_range", "fun_facts") and not args.auto:
+            if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
                 try:
                     create_more = input("\nDo you want to select another group or scope of scripts? [y/N]: ").strip().lower()
                 except (KeyboardInterrupt, EOFError):
@@ -452,6 +531,10 @@ def main() -> int:
                 if create_more in ("y", "yes"):
                     if selected_mode == "fun_facts":
                         target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                    elif selected_mode == "ready_scripts":
+                        target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
+                    elif selected_mode == "mass_ready_scripts":
+                        target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
                     else:
                         target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
                     if target_script_ids:
@@ -478,8 +561,8 @@ def main() -> int:
 
         print(f"\n[Completed] Process complete. Successfully generated {success_count} image set(s).")
 
-        # If in group_range or fun_facts mode, prompt whether to process more
-        if selected_mode in ("group_range", "fun_facts") and not args.auto:
+        # If in group_range, fun_facts, ready_scripts, or mass_ready_scripts mode, prompt whether to process more
+        if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
             try:
                 create_more = input("\nDo you want to generate images for more scripts? [y/N]: ").strip().lower()
             except (KeyboardInterrupt, EOFError):
@@ -489,6 +572,10 @@ def main() -> int:
             if create_more in ("y", "yes"):
                 if selected_mode == "fun_facts":
                     target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                elif selected_mode == "ready_scripts":
+                    target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
+                elif selected_mode == "mass_ready_scripts":
+                    target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
                 else:
                     target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
                 if target_script_ids:
