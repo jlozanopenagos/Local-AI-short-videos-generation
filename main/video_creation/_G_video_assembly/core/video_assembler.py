@@ -16,11 +16,20 @@ class VideoAssembler:
         # Sort sections by start time
         sorted_sections = sorted(timings.items(), key=lambda x: x[1]["start"])
         
+        # Companion fallback map for roleplay or shared-scene formats
+        COMPANION_FALLBACKS = {
+            "dialogue_part_1": ["hook"],
+            "dialogue_part_4": ["payoff"],
+            "payoff": ["dialogue_part_4"],
+        }
+
         # Collect available images
         available_sections = []
         for section, timing in sorted_sections:
+            sec_lower = section.lower().strip()
             img_name = f"script_{script_id}_{section}.png"
             img_path = image_dir / img_name
+            punch_in = False
             
             # Fallback for old formatting just in case
             if not img_path.exists():
@@ -28,8 +37,19 @@ class VideoAssembler:
                 if (image_dir / img_name_alt).exists():
                     img_path = image_dir / img_name_alt
 
+            # Companion fallback (e.g. 4-image roleplay: dialogue_part_1 uses hook with punch-in cut)
+            if not img_path.exists() and sec_lower in COMPANION_FALLBACKS:
+                for fallback_sec in COMPANION_FALLBACKS[sec_lower]:
+                    fb_name = f"script_{script_id}_{fallback_sec}.png"
+                    fb_path = image_dir / fb_name
+                    if fb_path.exists():
+                        img_path = fb_path
+                        punch_in = True
+                        print(f"Notice: Section '{section}' using companion '{fallback_sec}' with dynamic punch-in cut.")
+                        break
+
             if img_path.exists():
-                available_sections.append({"path": img_path, "start": timing["start"]})
+                available_sections.append({"path": img_path, "start": timing["start"], "punch_in": punch_in, "section": section})
             else:
                 print(f"Warning: Missing image for section '{section}': {img_path}")
                 
@@ -64,11 +84,19 @@ class VideoAssembler:
                 
             # zoompan: d is duration in frames (25 fps)
             frames = int(duration * 25)
+            if current.get("punch_in", False):
+                # Dynamic punch-in cut (1.25x crop/zoom, framed slightly higher on faces)
+                z_expr = "if(lte(on,1),1.25,min(zoom+0.001,1.55))"
+                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.04))"
+            else:
+                z_expr = "min(zoom+0.0015,1.5)"
+                y_expr = "ih/2-(ih/zoom/2)"
+
             stream = (
                 ffmpeg.input(current['path'].resolve().as_posix())
                 .filter('scale', '4608x8192', force_original_aspect_ratio='increase')  
                 .filter('crop', '4608', '8192') 
-                .filter('zoompan', z='min(zoom+0.0015,1.5)', d=frames, x='iw/2-(iw/zoom/2)', y='ih/2-(ih/zoom/2)', s='576x1024')
+                .filter('zoompan', z=z_expr, d=frames, x='iw/2-(iw/zoom/2)', y=y_expr, s='576x1024')
                 .filter('setsar', '1')
                 .filter('format', 'yuv420p')   
             )

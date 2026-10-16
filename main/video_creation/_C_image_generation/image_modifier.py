@@ -252,11 +252,19 @@ def modify_group_interactive(
     if not isinstance(speakers_gender, dict):
         speakers_gender = {}
 
+    current_princ_gender = (
+        speakers_gender.get("PERSON_ONE")
+        or speakers_gender.get("NARRATOR")
+        or "male"
+    ).lower()
+    current_princ_gender = "female" if "f" in current_princ_gender else "male"
+
     if video_type == "ROLEPLAY":
         p1_g = (speakers_gender.get("PERSON_ONE") or ("female" if "f" in str(speakers_gender.get("PERSON_ONE", "")).lower() else "male")).lower()
         p2_g = (speakers_gender.get("PERSON_TWO") or ("male" if "m" in str(speakers_gender.get("PERSON_TWO", "")).lower() else "female")).lower()
         p1_g = "female" if "f" in p1_g else "male"
         p2_g = "male" if "m" in p2_g else "female"
+        current_princ_gender = p1_g
 
         print("\n" + "-" * 55)
         print("Roleplay Character Genders:")
@@ -405,7 +413,12 @@ def modify_group_interactive(
         print("  [Enter] Confirm general prompt & generate ALL images (Auto-confirm in 2 min)")
         print("  [r]     Regenerate fresh general prompt with LLM (new creative variation)")
         print("  [g]     Add guidance notes & regenerate general prompt with LLM")
-        print(f"  [t]     Toggle principal gender (currently: {current_princ_gender.upper()}) & regenerate")
+        if video_type == "ROLEPLAY":
+            p1_disp = speakers_gender.get("PERSON_ONE", "female").upper()
+            p2_disp = speakers_gender.get("PERSON_TWO", "male").upper()
+            print(f"  [t]     Toggle roleplay genders (currently: P1={p1_disp}, P2={p2_disp}) & regenerate")
+        else:
+            print(f"  [t]     Toggle principal gender (currently: {current_princ_gender.upper()}) & regenerate")
         print("  [e]     Edit general prompt text manually before generating")
         print("  [s]     Roll a new random seed for image generation")
         print("  [b]     Cancel & return to menu")
@@ -426,16 +439,28 @@ def modify_group_interactive(
             print("\n[Info] Group change cancelled. Returning to menu.")
             return False
         elif act in ["t", "toggle", "gender"]:
-            current_princ_gender = "female" if current_princ_gender == "male" else "male"
-            speakers_gender[principal_key] = current_princ_gender
-            if video_type != "ROLEPLAY":
+            if video_type == "ROLEPLAY":
+                old_p1 = speakers_gender.get("PERSON_ONE", "female").lower()
+                old_p2 = speakers_gender.get("PERSON_TWO", "male").lower()
+                new_p1 = "male" if old_p1 == "female" else "female"
+                new_p2 = "male" if old_p2 == "female" else "female"
+                speakers_gender["PERSON_ONE"] = new_p1
+                speakers_gender["PERSON_TWO"] = new_p2
+                current_princ_gender = new_p1
+                if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+                    script_data["content_metadata"] = {}
+                script_data["content_metadata"]["speakers_gender"] = speakers_gender
+                state_manager.save_script_state(script_id, script_data)
+                print(f"\n[Genders Toggled] Roleplay characters are now: PERSON_ONE={new_p1.upper()} ({'young teen boy' if new_p1 == 'male' else 'young teen girl'}), PERSON_TWO={new_p2.upper()} ({'young teen boy' if new_p2 == 'male' else 'young teen girl'})")
+            else:
+                current_princ_gender = "female" if current_princ_gender == "male" else "male"
                 speakers_gender["NARRATOR"] = current_princ_gender
                 speakers_gender["PERSON_ONE"] = current_princ_gender
-            if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
-                script_data["content_metadata"] = {}
-            script_data["content_metadata"]["speakers_gender"] = speakers_gender
-            state_manager.save_script_state(script_id, script_data)
-            print(f"\n[Gender Toggled] Principal character is now: {current_princ_gender.upper()} ({'young teen boy' if current_princ_gender == 'male' else 'young teen girl'})")
+                if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+                    script_data["content_metadata"] = {}
+                script_data["content_metadata"]["speakers_gender"] = speakers_gender
+                state_manager.save_script_state(script_id, script_data)
+                print(f"\n[Gender Toggled] Principal character is now: {current_princ_gender.upper()} ({'young teen boy' if current_princ_gender == 'male' else 'young teen girl'})")
             print("[LLM] Regenerating general prompt with updated gender...")
             try:
                 new_gen = prompt_builder.build_general_prompt(
@@ -541,6 +566,15 @@ def modify_group_interactive(
     for idx, sec in enumerate(valid_sections, 1):
         dest_image_path = images_dir / f"script_{script_id}_{sec}.png"
         sec_text = sections.get(sec, f"Illustration for {sec} ({topic_str})")
+        if video_type == "ROLEPLAY":
+            if sec.lower() == "hook":
+                d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
+                if d1:
+                    sec_text = f"{sec_text}\n{d1}".strip()
+            elif sec.lower() == "payoff":
+                d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
+                if d4:
+                    sec_text = f"{d4}\n{sec_text}".strip()
 
         print(f"\n{'─' * 60}")
         print(f"[{idx}/{total_scenes}] Processing Scene: {sec.upper()}")
@@ -677,6 +711,7 @@ def modify_scene_interactive(
         "chalkboard_exercise", "target_expression", "roleplay_scenario"
     }
     VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
+    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_2", "dialogue_part_3", "payoff"}
 
     sections = parse_sections(script_text)
     valid_sections = []
@@ -685,6 +720,8 @@ def modify_scene_interactive(
         if sec_lower in METADATA_IGNORE_KEYS:
             continue
         if video_type == "GAME" and sec_lower not in VALID_GAME_SECTIONS:
+            continue
+        if video_type == "ROLEPLAY" and sec_lower not in VALID_ROLEPLAY_SECTIONS:
             continue
         if sections[k].strip():
             valid_sections.append(k)
@@ -822,6 +859,15 @@ def modify_scene_interactive(
 
         first_run = False
         scene_text = sections.get(chosen_section, f"Illustration for {chosen_section} ({topic})")
+        if video_type == "ROLEPLAY":
+            if chosen_section.lower() == "hook":
+                d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
+                if d1:
+                    scene_text = f"{scene_text}\n{d1}".strip()
+            elif chosen_section.lower() == "payoff":
+                d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
+                if d4:
+                    scene_text = f"{d4}\n{scene_text}".strip()
         dest_image_path = images_dir / f"script_{script_id}_{chosen_section}.png"
 
         content_meta = script_data.get("content_metadata", {})
@@ -885,11 +931,19 @@ def modify_scene_interactive(
         if not isinstance(speakers_gender, dict):
             speakers_gender = {}
 
+        current_princ_gender = (
+            speakers_gender.get("PERSON_ONE")
+            or speakers_gender.get("NARRATOR")
+            or "male"
+        ).lower()
+        current_princ_gender = "female" if "f" in current_princ_gender else "male"
+
         if video_type == "ROLEPLAY":
             p1_g = (speakers_gender.get("PERSON_ONE") or ("female" if "f" in str(speakers_gender.get("PERSON_ONE", "")).lower() else "male")).lower()
             p2_g = (speakers_gender.get("PERSON_TWO") or ("male" if "m" in str(speakers_gender.get("PERSON_TWO", "")).lower() else "female")).lower()
             p1_g = "female" if "f" in p1_g else "male"
             p2_g = "male" if "m" in p2_g else "female"
+            current_princ_gender = p1_g
 
             print("\n" + "-" * 55)
             print("Roleplay Character Genders:")
@@ -1140,7 +1194,12 @@ def modify_scene_interactive(
             print("  [Enter] Generate image in ComfyUI now (Accept - Auto-accept in 2 min)")
             print("  [r]     Regenerate fresh prompt with LLM (new creative variation)")
             print("  [g]     Add guidance notes & regenerate prompt with LLM")
-            print(f"  [t]     Toggle principal gender (currently: {current_princ_gender.upper()}) & regenerate")
+            if video_type == "ROLEPLAY":
+                p1_disp = speakers_gender.get("PERSON_ONE", "female").upper()
+                p2_disp = speakers_gender.get("PERSON_TWO", "male").upper()
+                print(f"  [t]     Toggle roleplay genders (currently: P1={p1_disp}, P2={p2_disp}) & regenerate")
+            else:
+                print(f"  [t]     Toggle principal gender (currently: {current_princ_gender.upper()}) & regenerate")
             print("  [e]     Edit prompt text manually before generating")
             print("  [s]     Roll a new random seed (keeps prompt text; changes AI noise seed)")
             print("  [b]     Cancel & return to scene menu")
@@ -1159,16 +1218,28 @@ def modify_scene_interactive(
                 # User is happy or auto-confirmed! Proceed to ComfyUI
                 break
             elif act in ["t", "toggle", "gender"]:
-                current_princ_gender = "female" if current_princ_gender == "male" else "male"
-                speakers_gender[principal_key] = current_princ_gender
-                if video_type != "ROLEPLAY":
+                if video_type == "ROLEPLAY":
+                    old_p1 = speakers_gender.get("PERSON_ONE", "female").lower()
+                    old_p2 = speakers_gender.get("PERSON_TWO", "male").lower()
+                    new_p1 = "male" if old_p1 == "female" else "female"
+                    new_p2 = "male" if old_p2 == "female" else "female"
+                    speakers_gender["PERSON_ONE"] = new_p1
+                    speakers_gender["PERSON_TWO"] = new_p2
+                    current_princ_gender = new_p1
+                    if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+                        script_data["content_metadata"] = {}
+                    script_data["content_metadata"]["speakers_gender"] = speakers_gender
+                    state_manager.save_script_state(script_id, script_data)
+                    print(f"\n[Genders Toggled] Roleplay characters are now: PERSON_ONE={new_p1.upper()} ({'young teen boy' if new_p1 == 'male' else 'young teen girl'}), PERSON_TWO={new_p2.upper()} ({'young teen boy' if new_p2 == 'male' else 'young teen girl'})")
+                else:
+                    current_princ_gender = "female" if current_princ_gender == "male" else "male"
                     speakers_gender["NARRATOR"] = current_princ_gender
                     speakers_gender["PERSON_ONE"] = current_princ_gender
-                if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
-                    script_data["content_metadata"] = {}
-                script_data["content_metadata"]["speakers_gender"] = speakers_gender
-                state_manager.save_script_state(script_id, script_data)
-                print(f"\n[Gender Toggled] Principal character is now: {current_princ_gender.upper()} ({'young teen boy' if current_princ_gender == 'male' else 'young teen girl'})")
+                    if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+                        script_data["content_metadata"] = {}
+                    script_data["content_metadata"]["speakers_gender"] = speakers_gender
+                    state_manager.save_script_state(script_id, script_data)
+                    print(f"\n[Gender Toggled] Principal character is now: {current_princ_gender.upper()} ({'young teen boy' if current_princ_gender == 'male' else 'young teen girl'})")
                 print("[LLM] Regenerating prompt with updated gender...")
                 try:
                     new_prompt = prompt_builder.build_visual_prompt(
@@ -1196,12 +1267,26 @@ def modify_scene_interactive(
             elif act in ["r", "regen", "regenerate", "redo"]:
                 print("\n[LLM] Generating fresh alternative visual prompt with new creative composition...")
                 prev_snippet = confirmed_prompt.split(".")[0].strip()[:90]
-                gender_word = "boy" if current_princ_gender == "male" else "girl"
+                if video_type == "ROLEPLAY":
+                    p1_g = speakers_gender.get("PERSON_ONE", "female").lower()
+                    p2_g = speakers_gender.get("PERSON_TWO", "male").lower()
+                    p1_word = "girl" if "f" in p1_g else "boy"
+                    p2_word = "girl" if "f" in p2_g else "boy"
+                    char_desc = (
+                        f"Characters MUST be expressive youthful 2D cartoon teens: "
+                        f"PERSON_ONE is a teen {p1_word} ({p1_g.upper()}) and PERSON_TWO is a companion teen {p2_word} ({p2_g.upper()}) (approx. 13-15 years old) "
+                        f"wearing authentic thematic scene costumes matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                    )
+                else:
+                    gender_word = "boy" if current_princ_gender == "male" else "girl"
+                    char_desc = (
+                        f"Protagonist MUST be an expressive youthful 2D cartoon teen {gender_word.upper()} (approx. 13-15 years old) "
+                        f"wearing authentic thematic scene costume/wardrobe matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                    )
                 aug_scene = (
                     f"{scene_text}\n"
                     f"[VISUAL DIRECTOR REFRESH: Explore a fresh alternative visual composition, distinct character pose/gesture, "
-                    f"and alternative focal prop from earlier attempts. Protagonist MUST be an expressive youthful 2D cartoon teen {gender_word.upper()} (approx. 13-15 years old) "
-                    f"wearing authentic thematic scene costume/wardrobe matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                    f"and alternative focal prop from earlier attempts. {char_desc}"
                     f"Distinct from: '{prev_snippet}']"
                 )
                 try:
@@ -1232,15 +1317,25 @@ def modify_scene_interactive(
                     print("\nEnter guidance notes for the LLM (e.g. 'keep student at university library desk'):")
                     print("(Or press Enter immediately to regenerate with a fresh creative angle):")
                     more_notes = input("> ").strip()
-                    gender_word = "boy" if current_princ_gender == "male" else "girl"
-                    wardrobe_mandate = f"(Protagonist MUST be a youthful 2D cartoon teen {gender_word.upper()} approx. 13-15 years old in authentic thematic costume matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
+                    if video_type == "ROLEPLAY":
+                        p1_g = speakers_gender.get("PERSON_ONE", "female").lower()
+                        p2_g = speakers_gender.get("PERSON_TWO", "male").lower()
+                        p1_word = "girl" if "f" in p1_g else "boy"
+                        p2_word = "girl" if "f" in p2_g else "boy"
+                        wardrobe_mandate = (
+                            f"(Characters MUST be expressive youthful 2D cartoon teens: PERSON_ONE is a teen {p1_word} ({p1_g.upper()}) and PERSON_TWO is a teen {p2_word} ({p2_g.upper()}) "
+                            f"approx. 13-15 years old in authentic thematic costumes matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
+                        )
+                    else:
+                        gender_word = "boy" if current_princ_gender == "male" else "girl"
+                        wardrobe_mandate = f"(Protagonist MUST be a youthful 2D cartoon teen {gender_word.upper()} approx. 13-15 years old in authentic thematic costume matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
                     if more_notes:
                         aug_text = f"{scene_text}\n[VISUAL DIRECTOR GUIDANCE: {more_notes} {wardrobe_mandate}]"
                     else:
                         prev_snippet = confirmed_prompt.split(".")[0].strip()[:90]
                         aug_text = (
                             f"{scene_text}\n"
-                            f"[VISUAL DIRECTOR GUIDANCE: Create a fresh alternative creative angle with an expressive youthful 2D cartoon teen {gender_word.upper()} protagonist (approx. 13-15 years old) in authentic thematic wardrobe matching {anchor_environment}, "
+                            f"[VISUAL DIRECTOR GUIDANCE: Create a fresh alternative creative angle with {wardrobe_mandate}, "
                             f"distinct from previous attempt: '{prev_snippet}']"
                         )
                     print("\n[LLM] Refining visual prompt with guidance...")

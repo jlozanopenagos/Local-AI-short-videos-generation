@@ -333,12 +333,10 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & ZERO REPETITION:
        - Discovery: Medium Action Shot (waist-up breakthrough moment, radiant expression).
        - Example: Dynamic Medium Action Shot (waist-up active motion, dynamic verb demonstration).
        - Payoff: Medium Close-Up (chest-up, warm triumphant celebratory resolution).
-     * FOR ROLEPLAY SHORTS (DYNAMIC 6-BEAT CINEMATIC PROGRESSION — NEVER REPEAT IDENTICAL TWO-SHOTS):
-       - Hook: Scenario Establishing Shot (medium-wide, setting up the dilemma, environment, and physical tension).
-       - Dialogue_Part_1: Over-The-Shoulder / Focus on PERSON_ONE delivering the opening problem/question with expressive facial acting.
+     * FOR ROLEPLAY SHORTS (DYNAMIC 4-BEAT CINEMATIC PROGRESSION — NEVER REPEAT IDENTICAL TWO-SHOTS):
+       - Hook: Scenario Establishing Shot (medium-wide, setting up the dilemma, environment, and physical tension; visually establishes opening dilemma and problem).
        - Dialogue_Part_2: 180° Reverse Angle Over-The-Shoulder / Focus on PERSON_TWO mentoring and explaining the correction.
        - Dialogue_Part_3: Kinetic Interaction & Prop Demonstration Shot (active motion demonstrating the concept/prop, energetic body language).
-       - Dialogue_Part_4: Breakthrough Close-Up Reaction Shot (PERSON_ONE eureka moment of relief, joy, and understanding).
        - Payoff: Celebratory Resolution Two-Shot (shared triumph, high-five, walking triumphantly into event, confident outro).
 
 5. FIGURATIVE IDIOM DUAL-LAYER RULE:
@@ -383,7 +381,7 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & ZERO REPETITION:
       * For ROLEPLAY videos: You MUST strictly adhere to the exact assigned genders for PERSON_ONE and PERSON_TWO. NEVER swap their genders, and NEVER make them identical unless explicitly instructed!
 
 OUTPUT FORMAT:
-You MUST output ONLY a valid JSON object mapping each scene name (in lowercase, e.g. "hook", "setup", "discovery", "example", "payoff" or for roleplay: "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff") to its final Z-Image-Turbo prompt string. Do not include markdown code block formatting or explanations outside the JSON object.
+You MUST output ONLY a valid JSON object mapping each scene name (in lowercase, e.g. "hook", "setup", "discovery", "example", "payoff" or for roleplay: "hook", "dialogue_part_2", "dialogue_part_3", "payoff") to its final Z-Image-Turbo prompt string. Do not include markdown code block formatting or explanations outside the JSON object.
 """
 
 
@@ -930,21 +928,19 @@ def _build_storyboard_context(
         p1_word = "girl" if "F" in p1 else "boy"
         p2_word = "girl" if "F" in p2 else "boy"
         director_task = (
-            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (DYNAMIC 6-BEAT CINEMATIC PROGRESSION):\n"
-            f"Transform this two-character roleplay dialogue into a dynamic, highly varied visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
+            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (DYNAMIC 4-BEAT CINEMATIC PROGRESSION):\n"
+            f"Transform this two-character roleplay dialogue into a dynamic, highly varied 4-scene visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
             f"CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & ZERO REPETITION:\n"
-            f"1. AVOID REPETITIVE TWO-SHOTS (MANDATORY): DO NOT generate 6 identical two-shots where both characters simply stand side-by-side in the same room in slightly different poses! You MUST vary the camera angle, perspective, distance, and focal character across the 6-beat sequence:\n"
-            f"   - HOOK: Scenario Establishing Shot (medium-wide, setting up the dilemma, environment, and physical tension).\n"
-            f"   - DIALOGUE_PART_1: Over-The-Shoulder / Focus on PERSON_ONE ({p1}) delivering the opening problem/question with expressive facial acting.\n"
+            f"1. AVOID REPETITIVE TWO-SHOTS (MANDATORY): DO NOT generate identical two-shots where both characters simply stand side-by-side in the same room in slightly different poses! You MUST vary the camera angle, perspective, distance, and focal character across the 4-beat sequence:\n"
+            f"   - HOOK: Scenario Establishing Shot (medium-wide, setting up the dilemma, environment, and physical tension; visually establishes opening problem and premise).\n"
             f"   - DIALOGUE_PART_2: 180° Reverse Angle Over-The-Shoulder / Focus on PERSON_TWO ({p2}) mentoring and explaining the correction.\n"
             f"   - DIALOGUE_PART_3: Kinetic Interaction & Prop Demonstration Shot (active motion demonstrating the concept/prop, energetic body language).\n"
-            f"   - DIALOGUE_PART_4: Breakthrough Close-Up Reaction Shot (PERSON_ONE {p1} eureka moment of relief, joy, and understanding).\n"
             f"   - PAYOFF: Celebratory Resolution Two-Shot (shared triumph, high-five, walking triumphantly into event, confident outro).\n"
             f"2. ZERO-AMBIGUITY MULTI-CHARACTER GENDER RULE (MANDATORY): Whenever MORE THAN ONE character appears in a scene, the sex of EACH character MUST be explicitly specified (e.g. 'one youthful 14-year-old teen {p1_word} and one youthful 14-year-old teen {p2_word}'). NEVER use generic words like 'the two teens', 'two friends', 'the characters', or 'they'!\n"
-            f"3. ZERO-DUPLICATE POSES: Banish repetitive standing or pointing. Each scene must feature distinct physical postures (dilemma posture -> questioning gesture -> patient explanation -> active prop interaction -> radiant eureka relief -> triumphant celebration).\n"
+            f"3. ZERO-DUPLICATE POSES: Banish repetitive standing or pointing. Each scene must feature distinct physical postures (dilemma posture -> patient explanation -> active prop interaction -> triumphant celebration).\n"
             f"4. HIGH-FIDELITY TEEN DEMOGRAPHIC & THEMATIC WARDROBE: Both characters must be youthful cartoon teens (approx. 13-15 years old) with distinct, consistent thematic wardrobes matching this specific setting, large expressive cartoon eyes with visible sclera, and rich background depth.\n"
             f"5. CONCISENESS: Keep each visual prompt strictly under 50 words.\n\n"
-            f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
+            f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, dialogue_part_2, dialogue_part_3, payoff) to its final prompt string."
         )
     else:
         director_task = (

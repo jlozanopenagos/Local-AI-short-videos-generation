@@ -130,14 +130,13 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **Trigger Direction**: PERSON_ONE sets up their real-world problem or error; PERSON_TWO introduces the idiom naturally in `DIALOGUE_PART_1`. P1 never self-diagnoses with the idiom in turn 1.
 - **TTS Stress Notation & Syntactic Carrier Protocol**: For heteronyms and minimal pairs, stressed syllables are capitalized in the script JSON (`REcord` vs `reCORD`, `PROject` vs `proJECT`) for title/graphic clarity. Downstream in Stage 2, dialogue turns are generated in continuous single takes using natural syntactic carriers (`a PREsent` / `to preSENT`, `a PROject` / `to proJECT`), eliminating artificial BPE respellings. Takes are scored via the Acoustic Prominence Quality Gate and backed by the Kokoro-82M Pronunciation Bank.
 - **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
-- **Dynamic 6-Beat Cinematic Visual Progression (Anti-Repetitive Staging)**:
-  To eliminate monotonous camera setups, `prompt_builder.py` enforces a mandatory 6-beat cinematic storyboard progression:
-  1. `hook`: Scenario Establishing Shot (medium-wide framing establishing physical tension, environment, and situational stakes).
-  2. `DIALOGUE_PART_1`: Over-The-Shoulder (OTS) Framing focusing on `PERSON_ONE` delivering the opening dilemma with expressive facial acting.
-  3. `DIALOGUE_PART_2`: 180° Reverse Angle Over-The-Shoulder (Reverse OTS) focusing on `PERSON_TWO` mentoring and introducing the target expression.
-  4. `DIALOGUE_PART_3`: Kinetic Interaction & Prop Demonstration Shot (active motion with physical object grounding the dialogue).
-  5. `DIALOGUE_PART_4`: Breakthrough Close-Up Reaction Shot (tight dramatic framing on `PERSON_ONE` experiencing their eureka realization).
-  6. `PAYOFF`: Celebratory Resolution Two-Shot (shared triumph, high-five, or confident outro in the established story world).
+- **Dynamic 4-Beat Storyboard Sequence & Dynamic Assembly Punch-In Cuts**:
+  To eliminate repetitive duplicate poses and save 33% GPU generation time, Roleplay generates 4 distinct, visually engaging illustrations:
+  1. hook: Scenario Establishing Shot (medium-wide framing establishing physical tension, environment, and opening dilemma; visually grounds the hook and opening dialogue exchange).
+  2. DIALOGUE_PART_2: 180° Reverse Angle Over-The-Shoulder (Reverse OTS) focusing on PERSON_TWO mentoring and explaining the target expression.
+  3. DIALOGUE_PART_3: Kinetic Interaction & Prop Demonstration Shot (active motion with physical object grounding the dialogue).
+  4. PAYOFF: Celebratory Resolution Outro (shared triumph, high-five, or confident outro in the established story world).
+  In video assembly (_G_video_assembly), when DIALOGUE_PART_1 and DIALOGUE_PART_4 occur in the audio timeline, the assembler automatically applies dynamic 1.25x punch-in cuts from their companion scenes (hook and payoff), framing high on characters' faces. This delivers 6 rhythmically timed cuts aligned with character speech with only 4 generated images!
 - **Universal Multi-Character Gender Specification Rule (Zero-Ambiguity Mandate)**:
   Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one youthful 14-year-old teen boy and one youthful 14-year-old companion teen girl"*). Ambiguous words (*"two teens"*, *"friends"*, *"characters"*) are strictly prohibited to prevent diffusion models from hallucinating or randomizing character sexes. Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with locked wardrobes and hairstyles.
 - **`SPECIAL_TREATMENT` Classification System**:

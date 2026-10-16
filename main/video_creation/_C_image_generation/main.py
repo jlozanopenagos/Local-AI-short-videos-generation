@@ -129,6 +129,7 @@ def process_script(
         return False
 
     VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
+    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_2", "dialogue_part_3", "payoff"}
     METADATA_IGNORE_KEYS = {
         "title", "difficulty", "emotion", "game_type", "related_content",
         "category", "subcategory", "topic", "learning_objective",
@@ -139,6 +140,7 @@ def process_script(
         k.strip().lower() for k, v in sections.items()
         if k.strip().lower() not in METADATA_IGNORE_KEYS
         and (video_type != "GAME" or k.strip().lower() in VALID_GAME_SECTIONS)
+        and (video_type != "ROLEPLAY" or k.strip().lower() in VALID_ROLEPLAY_SECTIONS)
         and v.strip()
     }
 
@@ -206,10 +208,21 @@ def process_script(
         print("\n" + "=" * 60)
         print(f"[Storyboard Director] Generating Non-Repetitive Storyboard for: {script_id}")
         print("=" * 60)
+        sections_for_storyboard = {
+            k: v for k, v in sections.items()
+            if k.strip().lower() in valid_active_sections
+        }
+        if video_type == "ROLEPLAY":
+            d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
+            d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
+            if d1 and "hook" in sections_for_storyboard:
+                sections_for_storyboard["hook"] = f"{sections_for_storyboard['hook']}\n{d1}".strip()
+            if d4 and "payoff" in sections_for_storyboard:
+                sections_for_storyboard["payoff"] = f"{d4}\n{sections_for_storyboard['payoff']}".strip()
         storyboard_prompts = prompt_builder.build_storyboard_prompts(
             script_text=script_text,
             label=label,
-            sections=sections,
+            sections=sections_for_storyboard,
             script_id=script_id,
             speakers_gender=speakers_gender,
             video_type=video_type,
@@ -230,6 +243,8 @@ def process_script(
         if sec_lower in METADATA_IGNORE_KEYS:
             continue
         if video_type == "GAME" and sec_lower not in VALID_GAME_SECTIONS:
+            continue
+        if video_type == "ROLEPLAY" and sec_lower not in VALID_ROLEPLAY_SECTIONS:
             continue
         if not section_text.strip():
             continue

@@ -128,6 +128,19 @@ py main/connectivity/scan_ready_scripts.py --all
 
 ## Recent Changes
 
+### Visual Director 4-Beat Roleplay Architecture, Dynamic Assembly Cuts & Chalkboard Upgrades
+- **Dynamic 4-Beat Roleplay Storyboard Sequence**:
+  - Eliminates redundant identical images in Roleplay by reducing generated scenes from 6 to 4 (hook, dialogue_part_2, dialogue_part_3, payoff), saving 33% GPU generation time.
+  - Automatically enriches hook with opening dialogue context and payoff with breakthrough resolution context in _C_image_generation.
+- **Dynamic Virtual Camera Cuts in Video Assembly (_G_video_assembly)**:
+  - Automatically resolves companion fallbacks (dialogue_part_1 -> hook.png and dialogue_part_4 -> payoff.png) by applying dynamic 1.25x punch-in cuts framed high on character faces.
+  - Produces 6 active visual cuts synchronized to speaker transitions from 4 generated illustrations with zero repetitive poses.
+- **Universal Multi-Character Gender Specification Rule (Zero-Ambiguity Mandate)**:
+  - Enforces explicit sex definitions for all characters whenever more than one character appears, preventing model gender confusion.
+  - Interactive dual-character gender casting with 120s timeout in image_modifier.py.
+- **High-Resolution FreeType Chalkboard Renderer & Masking**:
+  - Offloads game challenge rendering to CPU with clean typography, automatic trailing punctuation stripping, and answer masking (_________) for listening challenges.
+
 ### Syntactic Carrier & Continuous Prosody Architecture with Kokoro-82M Hybrid Engine
 - **Syntactic Carrier Conditioning (Purge of Fake Respellings)**:
   - Solves tokenizer fragmentation and tense vowel distortion by strictly purging artificial BPE respellings (`pri-ZENT`, `PRAHJ-ekt`, `RECK-ord`).
