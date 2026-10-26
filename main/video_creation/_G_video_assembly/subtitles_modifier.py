@@ -265,6 +265,7 @@ def main():
     parser.add_argument("--script-id", type=str, default=None, help="Script ID to modify")
     parser.add_argument("--keep-subtitles", "--skip-transcribe", dest="keep_subtitles", action="store_true", help="Keep existing .ass subtitles without Whisper re-transcription")
     parser.add_argument("--force-transcribe", action="store_true", help="Force Whisper re-transcription even if subtitles exist")
+    parser.add_argument("--dialect", "--variant", type=str, default=None, choices=["american", "british", "latin_american", "spain"], help="Force card variant for Fun Facts")
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -293,7 +294,8 @@ def main():
             state_manager=state_manager,
             base_dir=base_dir,
             regenerate_subtitles=regenerate,
-            ass_path=ass_path
+            ass_path=ass_path,
+            dialect=args.dialect
         )
         return 0 if success else 1
 

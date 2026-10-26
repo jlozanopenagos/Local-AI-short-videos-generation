@@ -107,7 +107,12 @@ def process_script(
     assembler: VideoAssembler = None,
     base_dir: Path = BASE_DIR,
     regenerate_subtitles: bool = True,
-    ass_path: Path = None
+    ass_path: Path = None,
+    opening_path: Path = None,
+    closure_path: Path = None,
+    dialect: str = None,
+    auto: bool = False,
+    remembered_dialects: dict = None,
 ) -> bool:
     script_id = script_data["id"]
     print("=" * 60)
@@ -158,7 +163,35 @@ def process_script(
     watermark_path = WATERMARK_DIR / "watermark.png"
     
     metadata = script_data.get("metadata", {})
-    opening_path, closure_path = resolve_opening_closure_paths(script_data, base_dir=base_dir)
+
+    # Interactive dialect/variant prompt exclusively for Fun Facts (English: US vs UK, Spanish: LatAm vs Spain)
+    if dialect is None and (opening_path is None or closure_path is None):
+        try:
+            try:
+                from core.cli_prompt import prompt_fun_facts_cards_variant
+            except (ImportError, ModuleNotFoundError):
+                from cli_prompt import prompt_fun_facts_cards_variant
+            dialect = prompt_fun_facts_cards_variant(
+                script_data,
+                auto=auto,
+                remembered_dialects=remembered_dialects,
+            )
+        except Exception as e:
+            print(f"[{script_id}] Warning checking card variant: {e}")
+
+    res_open, res_close = resolve_opening_closure_paths(script_data, base_dir=base_dir, dialect=dialect)
+    if opening_path is None:
+        opening_path = res_open
+    if closure_path is None:
+        closure_path = res_close
+
+    if opening_path:
+        script_data.setdefault("assets", {})["opening_card"] = str(opening_path)
+    if closure_path:
+        script_data.setdefault("assets", {})["closure_card"] = str(closure_path)
+    if dialect:
+        script_data.setdefault("assets", {})["opening_closure_dialect"] = dialect
+
     print(f"[{script_id}] Opening card: {opening_path.name if opening_path else 'None (skipped)'}")
     print(f"[{script_id}] Closure card: {closure_path.name if closure_path else 'None (skipped)'}")
     
@@ -302,6 +335,15 @@ def main():
         const="",
         default=None,
         help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+    )
+    parser.add_argument(
+        "--dialect",
+        "--variant",
+        dest="dialect",
+        type=str,
+        default=None,
+        choices=["american", "british", "latin_american", "spain"],
+        help="Force specific opening/closure card dialect for Fun Facts (skips interactive prompt)"
     )
     args = parser.parse_args()
     
@@ -451,6 +493,11 @@ def main():
         print(f"\nFound {len(pending)} pending script(s) for video assembly:")
         print(f"Target IDs: {', '.join([s['id'] for s in pending[:12]])}{'...' if len(pending) > 12 else ''}\n")
 
+        remembered_dialects = {}
+        if args.dialect:
+            remembered_dialects["english"] = args.dialect
+            remembered_dialects["spanish"] = args.dialect
+
         success_count = 0
         for i, script in enumerate(pending, start=1):
             try:
@@ -462,7 +509,10 @@ def main():
                     builder=builder,
                     assembler=assembler,
                     base_dir=base_dir,
-                    regenerate_subtitles=not args.keep_subtitles
+                    regenerate_subtitles=not args.keep_subtitles,
+                    auto=args.auto,
+                    dialect=args.dialect,
+                    remembered_dialects=remembered_dialects,
                 ):
                     success_count += 1
                 else:

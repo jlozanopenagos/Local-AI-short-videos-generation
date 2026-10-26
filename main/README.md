@@ -86,6 +86,7 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  │   - Hyphenated Subtitle Token Merging (re-CORD unified timing)    │
  │   - Challenge Scene Subtitle Suppression (Prevents Quiz Spoilers) │
  │   - Deterministic Emotion-Based BGM Jam Selection & Ducking       │
+ │   - Interactive Fun Facts Card Dialect Prompt (US/UK, LatAm/Spain)│
  │   - FFmpeg Ken Burns Motion, 2s Intro Bumper, 3s Outro CTA Card   │
  └────────────────────────────────┬──────────────────────────────────┘
                                   │

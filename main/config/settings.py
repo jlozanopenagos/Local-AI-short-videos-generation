@@ -258,12 +258,15 @@ def resolve_opening_closure_paths(
     script_data: dict,
     base_dir: Path = None,
     opening_closure_dir: Path = None,
+    dialect: Optional[str] = None,
 ) -> Tuple[Optional[Path], Optional[Path]]:
     """
     Resolves the opening and closure image paths for a script based on video type and language.
     - If video_type is FUN_FACTS:
         Pulls from <root>/fun_facts/openning/<lang> and <root>/fun_facts/closure/<lang>.
-        Performs dialect detection for English (american vs british) and Spanish (latin_american vs spain).
+        Performs dialect detection or uses explicit dialect selection for:
+          - English: 'american' vs 'british'
+          - Spanish: 'latin_american' vs 'spain'
         Falls back to normal_videos if an image is not present in fun_facts.
     - If video_type is NORMAL (EXPRESSION, GAME, ROLE_PLAY):
         Pulls from <root>/normal_videos/openning/<lang> and <root>/normal_videos/closure/<lang>.
@@ -307,12 +310,30 @@ def resolve_opening_closure_paths(
     combined_text = " ".join(text_corpus)
 
     english_dialect = "american"
-    if any(k in combined_text for k in ("british", "uk accent", "united kingdom", "england", "queen's english", "in the uk", "london")):
-        english_dialect = "british"
-
     spanish_dialect = "latin_american"
-    if any(k in combined_text for k in ("spain", "españa", "castellano", "castilian", "rae", "real academia", "peninsular")):
-        spanish_dialect = "spain"
+
+    if dialect:
+        d_clean = dialect.strip().lower()
+        if lang == "english":
+            if any(k in d_clean for k in ("brit", "uk", "england", "london")):
+                english_dialect = "british"
+            elif any(k in d_clean for k in ("amer", "us", "usa")):
+                english_dialect = "american"
+            else:
+                english_dialect = d_clean
+        elif lang == "spanish":
+            if any(k in d_clean for k in ("spain", "españ", "cast", "penin")):
+                spanish_dialect = "spain"
+            elif any(k in d_clean for k in ("latin", "amer", "mex", "col")):
+                spanish_dialect = "latin_american"
+            else:
+                spanish_dialect = d_clean
+    else:
+        if any(k in combined_text for k in ("british", "uk accent", "united kingdom", "england", "queen's english", "in the uk", "london")):
+            english_dialect = "british"
+
+        if any(k in combined_text for k in ("spain", "españa", "castellano", "castilian", "rae", "real academia", "peninsular")):
+            spanish_dialect = "spain"
 
     def _resolve_for_category(cat_name: str) -> Tuple[Optional[Path], Optional[Path]]:
         cat_dir = _get_category_folder(cat_name)
@@ -330,6 +351,8 @@ def resolve_opening_closure_paths(
             if cat_name == "fun_facts":
                 if lang == "english":
                     open_path = _find_image_in_dir(open_lang_dir, keywords=[english_dialect])
+                elif lang == "spanish":
+                    open_path = _find_image_in_dir(open_lang_dir, keywords=[spanish_dialect])
                 else:
                     open_path = _find_image_in_dir(open_lang_dir)
             else:
