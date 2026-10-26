@@ -27,10 +27,10 @@ from config import (
 
 try:
     # pyrefly: ignore [missing-import]
-    from core.state_manager import StateManager
+    from core.state_manager import StateManager, resolve_lang_and_type
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
-    from state_manager import StateManager
+    from state_manager import StateManager, resolve_lang_and_type
 
 try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
@@ -217,8 +217,14 @@ def process_script(
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
     label = metadata.get("LABEL", "english")
+    clean_language, _ = resolve_lang_and_type(script_id, script_data)
+    if not clean_language or clean_language == "english":
+        from video_creation._B_voice_generation.core.script_parser import extract_language_from_label
+        extracted = extract_language_from_label(label)
+        if extracted != "english":
+            clean_language = extracted
     
-    script_output_dir = get_script_output_dir(script_id, label, base_dir)
+    script_output_dir = get_script_output_dir(script_id, clean_language, base_dir)
     script_output_dir.mkdir(parents=True, exist_ok=True)
     
     # Clean up old audio files to prevent reusing stale segments if script changed
@@ -235,7 +241,7 @@ def process_script(
     
     print("=" * 60)
     print(f"Processing Script ID: {script_id}")
-    print(f"Label: {label}")
+    print(f"Language: {clean_language.upper()} (Label: {label})")
     print("=" * 60)
     
     segments = get_script_segments(script_id, script_text, label)
@@ -247,17 +253,35 @@ def process_script(
     
     unique_speakers = list(set(seg["speaker"] for seg in segments))
     existing_genders = script_data.get("content_metadata", {}).get("speakers_gender", {})
-    voice_manager.assign_voices_for_script(unique_speakers, label, manual_genders=existing_genders)
+    existing_voices = script_data.get("content_metadata", {}).get("speakers_voice", {})
+    manual_voice_paths = {}
+    if existing_voices and isinstance(existing_voices, dict):
+        for spk, vname in existing_voices.items():
+            if vname:
+                resolved_p = voice_manager.open_swara_dir / vname if not Path(vname).is_absolute() else Path(vname)
+                if not resolved_p.exists():
+                    for p in voice_manager.open_swara_dir.rglob("*.wav"):
+                        if p.name.lower() == Path(vname).name.lower():
+                            resolved_p = p
+                            break
+                if resolved_p.exists():
+                    manual_voice_paths[spk] = resolved_p
+
+    voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders=existing_genders, manual_voice_paths=manual_voice_paths)
     
-    # Save the assigned genders into the script state for image generation
+    # Save the assigned genders and voice filenames into the script state
     speakers_gender = {}
+    speakers_voice = {}
     for spk in unique_speakers:
-        gender, _, _ = voice_manager.get_speaker_voice(spk, label)
+        gender, vpath, _ = voice_manager.get_speaker_voice(spk, clean_language)
         speakers_gender[spk] = gender
+        if vpath:
+            speakers_voice[spk] = Path(vpath).name
         
     if "content_metadata" not in script_data:
         script_data["content_metadata"] = {}
     script_data["content_metadata"]["speakers_gender"] = speakers_gender
+    script_data["content_metadata"]["speakers_voice"] = speakers_voice
     state_manager.save_script_state(script_id, script_data)
     
     video_type = (
@@ -282,7 +306,7 @@ def process_script(
         
         print(f"\n--- Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
         
-        gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, language)
+        gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
         
         if is_game and "narrator" in speaker.lower():
@@ -520,6 +544,15 @@ def main() -> int:
         help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
     )
     parser.add_argument(
+        "--from-mass-ready-scripts",
+        "--mass-ready-scripts",
+        dest="mass_ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts in mass from multiple/all ready_scripts CSVs (comma-separated file paths or empty for all)"
+    )
+    parser.add_argument(
         "--candidates",
         type=int,
         default=None,
@@ -553,6 +586,7 @@ def main() -> int:
             prompt_group_range,
             prompt_fun_facts_mode,
             prompt_ready_scripts_mode,
+            prompt_mass_ready_scripts_mode,
         )
     except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
@@ -561,11 +595,12 @@ def main() -> int:
             prompt_group_range,
             prompt_fun_facts_mode,
             prompt_ready_scripts_mode,
+            prompt_mass_ready_scripts_mode,
         )
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
 
-    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None:
+    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None and args.mass_ready_scripts_csv is None:
         print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
         target_script_ids = None
         selected_mode = "fun_facts"
@@ -585,6 +620,8 @@ def main() -> int:
             csv_path_arg=args.csv_list,
             allow_ready_scripts_mode=True,
             ready_scripts_path_arg=args.ready_scripts_csv,
+            allow_mass_ready_scripts_mode=True,
+            mass_ready_scripts_path_arg=args.mass_ready_scripts_csv,
         )
         if is_cli_fun_facts:
             selected_mode = "fun_facts"
@@ -659,7 +696,7 @@ def main() -> int:
             else:
                 print(f"No pending video scripts for voice generation{scope_label}.")
 
-            if selected_mode in ("group_range", "fun_facts") and not args.auto:
+            if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
                 try:
                     create_more = input("\nDo you want to select another group or scope of scripts? [y/N]: ").strip().lower()
                 except (KeyboardInterrupt, EOFError):
@@ -667,6 +704,10 @@ def main() -> int:
                 if create_more in ("y", "yes"):
                     if selected_mode == "fun_facts":
                         target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                    elif selected_mode == "ready_scripts":
+                        target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
+                    elif selected_mode == "mass_ready_scripts":
+                        target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
                     else:
                         target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
                     if target_script_ids:
@@ -693,8 +734,8 @@ def main() -> int:
                 
         print(f"\n[Completed] Process complete. Successfully voiced {success_count} script(s).")
 
-        # If in group_range or fun_facts mode, prompt whether to process more
-        if selected_mode in ("group_range", "fun_facts") and not args.auto:
+        # If in group_range, fun_facts, ready_scripts, or mass_ready_scripts mode, prompt whether to process more
+        if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
             try:
                 create_more = input("\nDo you want to voice more scripts? [y/N]: ").strip().lower()
             except (KeyboardInterrupt, EOFError):
@@ -704,6 +745,10 @@ def main() -> int:
             if create_more in ("y", "yes"):
                 if selected_mode == "fun_facts":
                     target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
+                elif selected_mode == "ready_scripts":
+                    target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
+                elif selected_mode == "mass_ready_scripts":
+                    target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
                 else:
                     target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
                 if target_script_ids:

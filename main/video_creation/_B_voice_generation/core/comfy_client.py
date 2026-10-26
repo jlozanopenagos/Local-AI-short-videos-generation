@@ -128,11 +128,12 @@ class ComfyClient:
             # Gentle repetition penalty (1.02) avoids audio token looping while preserving natural vowel duration and resonance
             node_inputs["repetition_penalty"] = 1.02
 
-            # Dynamic max_new_tokens: 1 word ~ 4 tokens at 12Hz.
-            # Allow 15 tokens/word, min 96 tokens (~8s), max 320 tokens (~26s).
-            # This bounds generation while allowing ample headroom for deliberate, slower pronunciation.
+            # Dynamic max_new_tokens: 1 word ~ 4-5 tokens at 12.5Hz.
+            # Allow 18 tokens/word with a generous ceiling (up to 2048 tokens / ~160s)
+            # to prevent truncating long sections (e.g. detailed discoveries or multi-sentence explanations).
+            # Min 128 tokens bounds short turns while avoiding artificial truncation.
             words_count = max(1, len(target_text.split()))
-            node_inputs["max_new_tokens"] = max(96, min(320, words_count * 15))
+            node_inputs["max_new_tokens"] = max(128, min(2048, words_count * 18))
             
             # Format the system-level instruction prompt with vivid theatrical acting directives
             personality_clause = f" Persona: {context}." if context else ""

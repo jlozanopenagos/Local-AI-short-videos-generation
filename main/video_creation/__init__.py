@@ -5,6 +5,6 @@ video_creation package — Contains all modular workflow stages for automated sh
   - _C_image_generation: Scene imagery (ComfyUI Z-Image SD/Flux & native chalkboard renderer)
   - _D_music_generation: Local background music generation via Transformers MusicGen
   - _F_thumbnail_image_generation: Vertical thumbnail generation via ComfyUI Flux img2img
-  - _G_video_assembly: Word-level Whisper subtitles & FFmpeg video assembly
+  - _G_video_assembly: Script-aligned Whisper subtitles & FFmpeg video assembly
   - workflows: Centralized ComfyUI JSON API workflow templates
 """

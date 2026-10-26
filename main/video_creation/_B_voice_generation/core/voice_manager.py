@@ -1,7 +1,7 @@
 import csv
 import random
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import config
 
 class VoiceManager:
@@ -17,6 +17,28 @@ class VoiceManager:
         # Ensure ComfyUI input folder exists
         self.comfy_input_dir.mkdir(parents=True, exist_ok=True)
         self._load_csv_pools()
+
+    @staticmethod
+    def normalize_language(language: str) -> str:
+        """Normalizes any language string, compound metadata label, or shortcode to canonical lowercase:
+        'english', 'french', 'spanish', or 'italian'.
+        """
+        if not language:
+            return "english"
+        raw = str(language).strip().lower()
+
+        # Check first token before pipe, and full string
+        first_token = raw.split("|")[0].strip()
+        for token in [first_token, raw]:
+            if any(k in token for k in ["french", "français", "francais"]) or token == "fr":
+                return "french"
+            if any(k in token for k in ["spanish", "español", "espanol"]) or token in ["es", "sp"]:
+                return "spanish"
+            if any(k in token for k in ["italian", "italiano"]) or token == "it":
+                return "italian"
+            if "english" in token or token == "en":
+                return "english"
+        return "english"
 
     def _load_csv_pools(self):
         if not self.data_dir.exists():
@@ -35,32 +57,83 @@ class VoiceManager:
                 except Exception as e:
                     print(f"Error reading {csv_file}: {e}")
 
-    def assign_voices_for_script(self, unique_speakers: list, language: str, manual_genders: dict = None):
+    def get_available_voices(self, language: str, gender: str) -> List[Path]:
+        """Returns all existing reference voice WAV paths available for the given language and gender."""
+        lang = self.normalize_language(language)
+        gend = gender.strip().lower()
+        voices = []
+        seen = set()
+
+        # 1. From NARRATOR_VOICES in config
+        for rel in getattr(config, "NARRATOR_VOICES", {}).get((lang, gend), []):
+            p = self.open_swara_dir / rel
+            if p.exists() and p.name not in seen:
+                voices.append(p)
+                seen.add(p.name)
+
+        # 2. From voice pools CSVs
+        for rel in self.voice_pools.get((lang, gend), []):
+            p = self.open_swara_dir / rel
+            if p.exists() and p.name not in seen:
+                voices.append(p)
+                seen.add(p.name)
+
+        # 3. From open-swara filesystem directly
+        target_dir = self.open_swara_dir / lang / gend
+        if target_dir.exists():
+            for p in sorted(target_dir.glob("*.wav")):
+                if p.name not in seen:
+                    voices.append(p)
+                    seen.add(p.name)
+
+        return sorted(voices, key=lambda x: x.name)
+
+    def assign_voices_for_script(
+        self,
+        unique_speakers: list,
+        language: str,
+        manual_genders: dict = None,
+        manual_voice_paths: dict = None
+    ):
         self.current_assignments.clear()
         self.speaker_seeds.clear()
         self.fallback_used_paths.clear()
-        lang = language.strip().lower()
+        lang = self.normalize_language(language)
         if manual_genders is None:
             manual_genders = {}
+        if manual_voice_paths is None:
+            manual_voice_paths = {}
 
         if len(unique_speakers) == 1:
             speaker = list(unique_speakers)[0]
             # Random gender for single narrator
             gender = manual_genders.get(speaker) or random.choice(["male", "female"])
+            abs_path = manual_voice_paths.get(speaker)
             
-            # Use random narrator voice from the NARRATOR_VOICES list if available
-            preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, gender), [])
-            if preferred_pool:
-                preferred_rel_path = random.choice(preferred_pool)
-                abs_path = self.open_swara_dir / preferred_rel_path
-            else:
-                # Fallback to random if no preferred voice configured
-                pool = self.voice_pools.get((lang, gender), [])
-                if pool:
-                    abs_path = self.open_swara_dir / random.choice(pool)
+            if not abs_path or not Path(abs_path).exists():
+                # Use random narrator voice from the NARRATOR_VOICES list if available
+                preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, gender), [])
+                valid_preferred = [
+                    self.open_swara_dir / p for p in preferred_pool
+                    if (self.open_swara_dir / p).exists()
+                ]
+                if valid_preferred:
+                    abs_path = random.choice(valid_preferred)
                 else:
-                    abs_path = None
+                    pool = self.voice_pools.get((lang, gender), [])
+                    valid_pool = [
+                        self.open_swara_dir / p for p in pool
+                        if (self.open_swara_dir / p).exists()
+                    ]
+                    if valid_pool:
+                        abs_path = random.choice(valid_pool)
+                    else:
+                        abs_path = self.find_reference_voice(lang, gender)
+            else:
+                abs_path = Path(abs_path)
                     
+            if abs_path:
+                self.fallback_used_paths.add(abs_path)
             self.current_assignments[speaker] = (gender, abs_path)
             self.speaker_seeds[speaker] = random.randint(1, 10**14)
         else:
@@ -116,49 +189,67 @@ class VoiceManager:
             # Assign characters first
             for speaker in characters:
                 gender = char_genders[speaker]
-                pool = self.voice_pools.get((lang, gender), [])
-                
-                # Exclude ALL narrator voices and previously used paths from the character's pool
-                narrator_voices = getattr(config, "NARRATOR_VOICES", {}).get((lang, gender), [])
-                available_pool = [p for p in pool if p not in used_paths and p not in narrator_voices]
-                
-                if available_pool:
-                    rel_path = random.choice(available_pool)
-                    abs_path = self.open_swara_dir / rel_path
-                    used_paths.add(rel_path)
-                    if abs_path:
-                        self.fallback_used_paths.add(abs_path)
+                abs_path = manual_voice_paths.get(speaker)
+
+                if not abs_path or not Path(abs_path).exists():
+                    pool = self.voice_pools.get((lang, gender), [])
+                    
+                    # Exclude ALL narrator voices and previously used paths from the character's pool
+                    narrator_voices = getattr(config, "NARRATOR_VOICES", {}).get((lang, gender), [])
+                    available_pool = [
+                        p for p in pool
+                        if p not in used_paths and p not in narrator_voices and (self.open_swara_dir / p).exists()
+                    ]
+                    
+                    if available_pool:
+                        rel_path = random.choice(available_pool)
+                        abs_path = self.open_swara_dir / rel_path
+                        used_paths.add(rel_path)
+                    else:
+                        abs_path = self.find_reference_voice(lang, gender)
                 else:
-                    abs_path = None
+                    abs_path = Path(abs_path)
+
+                if abs_path:
+                    self.fallback_used_paths.add(abs_path)
                 self.current_assignments[speaker] = (gender, abs_path)
                 self.speaker_seeds[speaker] = random.randint(1, 10**14)
                 
             # Assign narrator
             if narrator_key:
-                pool = self.voice_pools.get((lang, narrator_gender), [])
-                
-                # Prioritize NARRATOR_VOICES explicitly reserved in config
-                preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, narrator_gender), [])
-                available_preferred = [p for p in preferred_pool if p not in used_paths]
-                
-                if available_preferred:
-                    rel_path = random.choice(available_preferred)
-                    abs_path = self.open_swara_dir / rel_path
-                    used_paths.add(rel_path)
-                    if abs_path:
-                        self.fallback_used_paths.add(abs_path)
-                else:
-                    # Fallback if no NARRATOR_VOICES available
-                    available_pool = [p for p in pool if p not in used_paths]
-                    if available_pool:
-                        rel_path = random.choice(available_pool)
+                abs_path = manual_voice_paths.get(narrator_key)
+
+                if not abs_path or not Path(abs_path).exists():
+                    pool = self.voice_pools.get((lang, narrator_gender), [])
+                    
+                    # Prioritize NARRATOR_VOICES explicitly reserved in config
+                    preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, narrator_gender), [])
+                    available_preferred = [
+                        p for p in preferred_pool
+                        if p not in used_paths and (self.open_swara_dir / p).exists()
+                    ]
+                    
+                    if available_preferred:
+                        rel_path = random.choice(available_preferred)
                         abs_path = self.open_swara_dir / rel_path
                         used_paths.add(rel_path)
-                        if abs_path:
-                            self.fallback_used_paths.add(abs_path)
                     else:
-                        abs_path = None
-                    
+                        # Fallback if no NARRATOR_VOICES available
+                        available_pool = [
+                            p for p in pool
+                            if p not in used_paths and (self.open_swara_dir / p).exists()
+                        ]
+                        if available_pool:
+                            rel_path = random.choice(available_pool)
+                            abs_path = self.open_swara_dir / rel_path
+                            used_paths.add(rel_path)
+                        else:
+                            abs_path = self.find_reference_voice(lang, narrator_gender)
+                else:
+                    abs_path = Path(abs_path)
+
+                if abs_path:
+                    self.fallback_used_paths.add(abs_path)
                 self.current_assignments[narrator_key] = (narrator_gender, abs_path)
                 self.speaker_seeds[narrator_key] = random.randint(1, 10**14)
 
@@ -166,6 +257,8 @@ class VoiceManager:
         """Returns the assigned (gender, absolute_voice_path, seed) for the speaker.
         Falls back to default find_reference_voice if something is missing, and persists it.
         """
+        lang = self.normalize_language(language)
+
         if speaker in self.current_assignments:
             gender, abs_path = self.current_assignments[speaker]
             if speaker not in self.speaker_seeds:
@@ -176,7 +269,7 @@ class VoiceManager:
                 return gender, abs_path, seed
                 
             # If absolute path was missing or invalid, resolve via fallback and persist it
-            fallback_voice = self.find_reference_voice(language, gender)
+            fallback_voice = self.find_reference_voice(lang, gender)
             self.current_assignments[speaker] = (gender, fallback_voice)
             return gender, fallback_voice, seed
         
@@ -184,7 +277,7 @@ class VoiceManager:
         gender = self.resolve_speaker_gender(speaker)
         if gender == "unknown":
             gender = random.choice(["male", "female"])
-        fallback_voice = self.find_reference_voice(language, gender)
+        fallback_voice = self.find_reference_voice(lang, gender)
         seed = random.randint(1, 10**14)
         self.current_assignments[speaker] = (gender, fallback_voice)
         self.speaker_seeds[speaker] = seed
@@ -220,22 +313,38 @@ class VoiceManager:
 
     def find_reference_voice(self, language: str, gender: str) -> Path:
         """Finds a reference voice file from Open-Swara voices folder.
-        Falls back to other voices if the preferred path is not found.
+        Never falls back to English unless the target language is English or absolutely no target voices exist.
         """
-        lang = language.strip().lower()
+        lang = self.normalize_language(language)
         gend = gender.strip().lower()
         
         # 1. Try preferred voice from config (pick a random narrator voice)
         preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, gend), [])
         if preferred_pool:
-            available_pref = [p for p in preferred_pool if (self.open_swara_dir / p) not in self.fallback_used_paths]
+            available_pref = [
+                self.open_swara_dir / p
+                for p in preferred_pool
+                if (self.open_swara_dir / p).exists() and (self.open_swara_dir / p) not in self.fallback_used_paths
+            ]
             if available_pref:
-                preferred_abs_path = self.open_swara_dir / random.choice(available_pref)
-                if preferred_abs_path.exists():
-                    self.fallback_used_paths.add(preferred_abs_path)
-                    return preferred_abs_path
+                chosen = random.choice(available_pref)
+                self.fallback_used_paths.add(chosen)
+                return chosen
 
-        # 2. Try scanning the target directory for any .wav files
+        # 2. Try voice pools from data/*.csv
+        csv_pool = self.voice_pools.get((lang, gend), [])
+        if csv_pool:
+            available_csv = [
+                self.open_swara_dir / p
+                for p in csv_pool
+                if (self.open_swara_dir / p).exists() and (self.open_swara_dir / p) not in self.fallback_used_paths
+            ]
+            if available_csv:
+                chosen = random.choice(available_csv)
+                self.fallback_used_paths.add(chosen)
+                return chosen
+
+        # 3. Try scanning the target directory for any .wav files
         target_dir = self.open_swara_dir / lang / gend
         if target_dir.exists():
             wav_files = list(target_dir.glob("*.wav"))
@@ -247,7 +356,7 @@ class VoiceManager:
                 self.fallback_used_paths.add(chosen)
                 return chosen
                 
-        # 3. Fallback: Check general target language directory
+        # 4. Fallback: Check general target language directory
         lang_dir = self.open_swara_dir / lang
         if lang_dir.exists():
             wav_files = list(lang_dir.rglob("*.wav"))
@@ -261,7 +370,10 @@ class VoiceManager:
                 self.fallback_used_paths.add(chosen)
                 return chosen
 
-        # 4. Fallback: Try general english folder
+        # 5. Last Resort: Warn and fallback to English only if target language has no voices
+        if lang != "english":
+            print(f"[Warning] No reference voice found for language '{lang}' ({gend}) in '{self.open_swara_dir}'. Falling back to English voice.")
+
         english_fallback_dir = self.open_swara_dir / "english" / gend
         if english_fallback_dir.exists():
             wav_files = list(english_fallback_dir.glob("*.wav"))
@@ -273,13 +385,13 @@ class VoiceManager:
                 self.fallback_used_paths.add(chosen)
                 return chosen
                 
-        # 5. Last Resort: Search the entire Open-Swara voices folder
+        # 6. Entire Open-Swara voices folder
         if self.open_swara_dir.exists():
             all_wavs = list(self.open_swara_dir.rglob("*.wav"))
             if all_wavs:
                 return all_wavs[0]
 
-        # 6. If absolutely nothing is found, check ComfyUI input folder
+        # 7. Check ComfyUI input folder
         comfy_input_wavs = list(self.comfy_input_dir.glob("*.wav"))
         if comfy_input_wavs:
             return comfy_input_wavs[0]

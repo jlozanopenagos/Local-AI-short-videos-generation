@@ -81,6 +81,7 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  ┌───────────────────────────────────────────────────────────────────┐
  │               STAGE 6: video_creation/_G_video_assembly           │
  │   - Word-Timestamp Audio Transcription via faster-whisper (CPU)   │
+ │   - Script-to-Audio Forced Alignment (100% Homophone Fidelity)    │
  │   - Dynamic ASS Animated Subtitles (Yellow &H0000FFFF, 60pt Bold) │
  │   - Hyphenated Subtitle Token Merging (re-CORD unified timing)    │
  │   - Challenge Scene Subtitle Suppression (Prevents Quiz Spoilers) │
@@ -132,11 +133,17 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
 - **Dynamic 4-Beat Storyboard Sequence & Dynamic Assembly Punch-In Cuts**:
   To eliminate repetitive duplicate poses and save 33% GPU generation time, Roleplay generates 4 distinct, visually engaging illustrations:
-  1. hook: Scenario Establishing Shot (medium-wide framing establishing physical tension, environment, and opening dilemma; visually grounds the hook and opening dialogue exchange).
-  2. DIALOGUE_PART_2: 180° Reverse Angle Over-The-Shoulder (Reverse OTS) focusing on PERSON_TWO mentoring and explaining the target expression.
-  3. DIALOGUE_PART_3: Kinetic Interaction & Prop Demonstration Shot (active motion with physical object grounding the dialogue).
-  4. PAYOFF: Celebratory Resolution Outro (shared triumph, high-five, or confident outro in the established story world).
-  In video assembly (_G_video_assembly), when DIALOGUE_PART_1 and DIALOGUE_PART_4 occur in the audio timeline, the assembler automatically applies dynamic 1.25x punch-in cuts from their companion scenes (hook and payoff), framing high on characters' faces. This delivers 6 rhythmically timed cuts aligned with character speech with only 4 generated images!
+  1. `hook`: Scenario Establishing Shot (medium-wide framing establishing physical tension, environment, and opening dilemma; visually grounds the hook and opening dialogue exchange).
+  2. `DIALOGUE_PART_2`: 180° Reverse Angle Over-The-Shoulder (Reverse OTS) focusing on PERSON_TWO mentoring and explaining the target expression.
+  3. `DIALOGUE_PART_3`: Kinetic Interaction & Prop Demonstration Shot (active motion with physical object grounding the dialogue).
+  4. `PAYOFF`: Celebratory Resolution Outro (shared triumph, high-five, or confident outro in the established story world).
+  In video assembly (`_G_video_assembly`), when `DIALOGUE_PART_1` and `DIALOGUE_PART_4` occur in the audio timeline, the assembler automatically applies dynamic 1.25x punch-in cuts from their companion scenes (`hook` and `payoff`), framing high on characters' faces. This delivers 6 rhythmically timed cuts aligned with character speech with only 4 generated images!
+- **Story World Anchor & Locked General Prompt**:
+  `_C_image_generation` executes a two-pass architecture. Pass 1 builds an overarching `general_prompt` establishing the master architectural setting, lighting, time of day, and character traits, stored in state. Pass 2 synthesizes non-repetitive scene prompts strictly anchored to this story world.
+- **Strict Gender-Accurate Hairstyle Sanitization (`sanitize_character_hair`)**:
+  Enforces programmatic guardrails preventing male characters from receiving female hairstyles (buns, bobs, ponytails, chignons) and female characters from receiving masculine haircuts (quiffs, buzz cuts, crew cuts). Boys are locked to short clean-cut styles (`short textured dark hair with clean tapered sides and a neat side-part`), and girls to feminine styling (`dark wavy hair tied in an elegant ponytail` or `textured caramel-brown hair styled in soft shoulder-length waves`).
+- **Locked Character Continuity Anchors (`extract_or_build_character_anchors`)**:
+  Extracts and guarantees that character hairstyles, wardrobes, and teenage age profiles remain 100% stable across all scenes, automatically appending character continuity tokens if omitted by the LLM.
 - **Universal Multi-Character Gender Specification Rule (Zero-Ambiguity Mandate)**:
   Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one youthful 14-year-old teen boy and one youthful 14-year-old companion teen girl"*). Ambiguous words (*"two teens"*, *"friends"*, *"characters"*) are strictly prohibited to prevent diffusion models from hallucinating or randomizing character sexes. Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with locked wardrobes and hairstyles.
 - **`SPECIAL_TREATMENT` Classification System**:
@@ -485,6 +492,8 @@ python video_creation/_A_video_scripts/main.py
 python video_creation/_A_video_scripts/main.py --script-id EE01 --force
 python video_creation/_A_video_scripts/main.py --fun-facts --language english
 python video_creation/_A_video_scripts/main.py --from-csv input/csv/script_to_change/my_list.csv
+python video_creation/_A_video_scripts/main.py --from-ready-scripts
+python video_creation/_A_video_scripts/main.py --from-mass-ready-scripts
 
 # Part B: Voice Generation (TTS)
 python video_creation/_B_voice_generation/main.py
@@ -492,6 +501,8 @@ python video_creation/_B_voice_generation/main.py --script-id EE01 --force
 python video_creation/_B_voice_generation/main.py --auto
 python video_creation/_B_voice_generation/main.py --fun-facts --language spanish
 python video_creation/_B_voice_generation/main.py --from-csv input/csv/voice_to_change/voice_batch.csv
+python video_creation/_B_voice_generation/main.py --from-ready-scripts
+python video_creation/_B_voice_generation/main.py --from-mass-ready-scripts
 
 # Part C: Scene Image Generation
 python video_creation/_C_image_generation/main.py
@@ -531,6 +542,11 @@ python tools/auditing/status_scraper.py --samples
 
 # Audit encoding, schema, and cross-format alignment across CSVs
 python tools/auditing/audit_all_csvs.py
+
+# Mass reset pipeline stage status across state files and resync status manifest
+python tools/reset_stage_status.py --stage voice_generation --yes
+python tools/reset_stage_status.py --stage image_generation -l french -t expression --yes
+python tools/reset_stage_status.py --stage voice_generation --dry-run
 ```
 
 ### Google Sheets Connectivity Suite

@@ -394,6 +394,41 @@ class TestCLICSVMode(unittest.TestCase):
             self.assertEqual(mode, "mass_ready_scripts")
             self.assertEqual(result, ["EE01", "EE02", "FE01"])
 
+    def test_prompt_production_mode_part_a_script_generation_choice_7(self):
+        """Verify prompt_production_mode in Part A offers Option 7 when allow_mass_ready_scripts_mode is True."""
+        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
+             patch("core.cli_prompt._timed_choice", return_value="7"), \
+             patch("core.cli_prompt.prompt_mass_ready_scripts_mode", return_value=["EE01", "EE02"]):
+            result, mode = prompt_production_mode(
+                stage_title="Part A: Video Scripts",
+                asset_name="scripts",
+                allow_fun_facts_mode=True,
+                allow_script_to_change_mode=True,
+                allow_ready_scripts_mode=True,
+                allow_mass_ready_scripts_mode=True,
+                return_mode=True,
+            )
+            self.assertEqual(mode, "mass_ready_scripts")
+            self.assertEqual(result, ["EE01", "EE02"])
+
+    def test_prompt_production_mode_part_b_voice_generation_choice_7(self):
+        """Verify prompt_production_mode in Part B offers Option 7 when allow_mass_ready_scripts_mode is True."""
+        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
+             patch("core.cli_prompt._timed_choice", return_value="7"), \
+             patch("core.cli_prompt.prompt_mass_ready_scripts_mode", return_value=["EE01", "EE03"]):
+            result, mode = prompt_production_mode(
+                stage_title="Part B: Voice Generation",
+                asset_name="voiceovers / audio files",
+                allow_fun_facts_mode=True,
+                allow_csv_list_mode=True,
+                csv_folder_name="voice_to_change",
+                allow_ready_scripts_mode=True,
+                allow_mass_ready_scripts_mode=True,
+                return_mode=True,
+            )
+            self.assertEqual(mode, "mass_ready_scripts")
+            self.assertEqual(result, ["EE01", "EE03"])
+
     def test_cli_flags_parsing_mass_ready_scripts(self):
         """Verify argument parser parses --from-mass-ready-scripts and --mass-ready-scripts flags."""
         parser = argparse.ArgumentParser()
@@ -415,3 +450,4 @@ class TestCLICSVMode(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -10,7 +10,7 @@ This folder contains command-line utilities and interactive review tools for the
 | :--- | :--- | :--- |
 | **`modifiers/`** | Canonical interactive asset & script modification forwarders | `script_modifier.py`, `voice_modifier.py`, `image_modifier.py`, `subtitles_modifier.py` |
 | **`auditing/`** | Quality inspection, metrics & health checks | `audit_all_csvs.py`, `status_scraper.py`, `json_health_checker.py`, `check_language_mixing.py`, `scrapper_script.py` |
-| **`database/`** | Expression database, queue sync & ID assignment | `db.py`, `sync_prompts.py`, `assign_ids.py` |
+| **`database/`** | Expression database, queue sync, stage resets & ID assignment | `db.py`, `sync_prompts.py`, `assign_ids.py`, `reset_stage_status.py` |
 | **`prompt_builders/`**| System editor prompts generator | `generate_editor_prompts_csv.py` |
 | **Root Tools** | Heteronym audio bank management, acoustic auditing & Kokoro-82M population | `manage_pronunciation_bank.py` |
 
@@ -51,6 +51,22 @@ Standardizes canonical `<Lang><Type><02d>` identifiers (e.g. `EE01`, `FR02`, `SG
 ```bash
 py tools/database/assign_ids.py --dry-run
 py tools/database/assign_ids.py
+```
+
+#### Mass Pipeline Stage Status Reset Tool (`reset_stage_status.py`)
+Resets pipeline stage status (`voice_generation`, `image_generation`, `script_generation`, `thumbnail_generation`, `video_assembly`, or `all`) to `pending` across all 1,224 state files or filtered by language, video type, or script ID. Automatically re-scrapes and synchronizes `state/pipeline_status.csv` master manifest. Accessible via `tools/reset_stage_status.py` or `tools/database/reset_stage_status.py`.
+```bash
+# Reset voice_generation to pending across all 1,224 state files and resync pipeline manifest
+py tools/reset_stage_status.py --stage voice_generation --yes
+
+# Reset image_generation for all French expressions
+py tools/reset_stage_status.py --stage image_generation -l french -t expression --yes
+
+# Reset specific scripts
+py tools/reset_stage_status.py --stage voice_generation -id EE01,EE02,FR05 --yes
+
+# Dry run preview (reports counts and breakdown without writing)
+py tools/reset_stage_status.py --stage voice_generation --dry-run
 ```
 
 ---

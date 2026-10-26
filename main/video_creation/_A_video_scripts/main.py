@@ -1267,6 +1267,24 @@ def main() -> int:
         default=None,
         help="Change script(s) from CSV containing 'ID' and 'NEW_SCRIPT' columns (optionally specify CSV path, otherwise checks input/csv/script_to_change/)"
     )
+    parser.add_argument(
+        "--from-ready-scripts",
+        "--ready-scripts",
+        dest="ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+    )
+    parser.add_argument(
+        "--from-mass-ready-scripts",
+        "--mass-ready-scripts",
+        dest="mass_ready_scripts_csv",
+        nargs="?",
+        const="",
+        default=None,
+        help="Target scripts in mass from multiple/all ready_scripts CSVs (comma-separated file paths or empty for all)"
+    )
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -1286,12 +1304,18 @@ def main() -> int:
         csv_p = args.change_from_csv if args.change_from_csv.strip() else None
         return process_scripts_to_change_from_csv(base_dir=base_dir, csv_path=csv_p, auto=args.auto)
 
-    # Production Mode Selection: Mass-produce, Specific Script ID, Number Range Group, Fun Facts, or Change from CSV
-    from core.cli_prompt import prompt_production_mode, prompt_group_range, prompt_fun_facts_mode
+    # Production Mode Selection: Mass-produce, Specific Script ID, Number Range Group, Fun Facts, Change from CSV, Ready Scripts, or Mass Ready Scripts
+    from core.cli_prompt import (
+        prompt_production_mode,
+        prompt_group_range,
+        prompt_fun_facts_mode,
+        prompt_ready_scripts_mode,
+        prompt_mass_ready_scripts_mode,
+    )
 
     is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
 
-    if is_cli_fun_facts and not args.script_id:
+    if is_cli_fun_facts and not args.script_id and args.change_from_csv is None and args.ready_scripts_csv is None and args.mass_ready_scripts_csv is None:
         print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
         target_script_ids = None
         selected_mode = "fun_facts"
@@ -1307,6 +1331,10 @@ def main() -> int:
             return_mode=True,
             allow_fun_facts_mode=True,
             allow_script_to_change_mode=True,
+            allow_ready_scripts_mode=True,
+            ready_scripts_path_arg=args.ready_scripts_csv,
+            allow_mass_ready_scripts_mode=True,
+            mass_ready_scripts_path_arg=args.mass_ready_scripts_csv,
         )
         if is_cli_fun_facts:
             selected_mode = "fun_facts"
@@ -1354,23 +1382,20 @@ def main() -> int:
             prompts_to_process.sort(key=lambda p: target_script_ids.index(p["ID"]) if p["ID"] in target_script_ids else 9999)
             if not prompts_to_process:
                 print(f"Error: None of the specified script IDs {target_script_ids} were found in any input CSV queue.", file=sys.stderr)
-                if selected_mode == "group_range" and not args.auto:
+                if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
                     try:
-                        retry_more = input("\nWould you like to try another number range? [y/N]: ").strip().lower()
+                        retry_more = input("\nWould you like to select another group or scope of scripts? [y/N]: ").strip().lower()
                     except (KeyboardInterrupt, EOFError):
                         return 0
                     if retry_more in ("y", "yes"):
-                        target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
-                        if target_script_ids:
-                            continue
-                    return 0
-                elif selected_mode == "fun_facts" and not args.auto:
-                    try:
-                        retry_more = input("\nWould you like to try another Fun Facts selection? [y/N]: ").strip().lower()
-                    except (KeyboardInterrupt, EOFError):
-                        return 0
-                    if retry_more in ("y", "yes"):
-                        target_script_ids = prompt_fun_facts_mode(require_existing_state=False, base_dir=base_dir)
+                        if selected_mode == "fun_facts":
+                            target_script_ids = prompt_fun_facts_mode(require_existing_state=False, base_dir=base_dir)
+                        elif selected_mode == "ready_scripts":
+                            target_script_ids = prompt_ready_scripts_mode(require_existing_state=False, base_dir=base_dir)
+                        elif selected_mode == "mass_ready_scripts":
+                            target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=False, base_dir=base_dir)
+                        else:
+                            target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
                         if target_script_ids:
                             continue
                     return 0
@@ -1422,8 +1447,8 @@ def main() -> int:
 
         print(f"\n[Completed] Finished generating {total} script(s)!")
 
-        # If in group_range or fun_facts mode, ask if the user wants to create more scripts
-        if selected_mode in ("group_range", "fun_facts") and not args.auto:
+        # If in group_range, fun_facts, ready_scripts, or mass_ready_scripts mode, ask if the user wants to create more scripts
+        if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
             try:
                 create_more = input("\nDo you want to create more scripts? [y/N]: ").strip().lower()
             except (KeyboardInterrupt, EOFError):
@@ -1433,6 +1458,10 @@ def main() -> int:
             if create_more in ("y", "yes"):
                 if selected_mode == "fun_facts":
                     target_script_ids = prompt_fun_facts_mode(require_existing_state=False, base_dir=base_dir)
+                elif selected_mode == "ready_scripts":
+                    target_script_ids = prompt_ready_scripts_mode(require_existing_state=False, base_dir=base_dir)
+                elif selected_mode == "mass_ready_scripts":
+                    target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=False, base_dir=base_dir)
                 else:
                     target_script_ids = prompt_group_range(require_existing_state=False, base_dir=base_dir)
                 if target_script_ids:

@@ -41,10 +41,10 @@ from config import (
 
 try:
     # pyrefly: ignore [missing-import]
-    from core.state_manager import StateManager
+    from core.state_manager import StateManager, resolve_lang_and_type
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
-    from state_manager import StateManager
+    from state_manager import StateManager, resolve_lang_and_type
 
 try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
@@ -247,8 +247,14 @@ def main():
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
     label = metadata.get("LABEL", "english")
+    clean_language, _ = resolve_lang_and_type(script_id, script_data)
+    if not clean_language or clean_language == "english":
+        from video_creation._B_voice_generation.core.script_parser import extract_language_from_label
+        extracted = extract_language_from_label(label)
+        if extracted != "english":
+            clean_language = extracted
     
-    script_output_dir = get_script_output_dir(script_id, label, base_dir)
+    script_output_dir = get_script_output_dir(script_id, clean_language, base_dir)
     script_output_dir.mkdir(parents=True, exist_ok=True)
     
     print("Checking ComfyUI connection...")
@@ -268,8 +274,9 @@ def main():
         
     unique_speakers = list(set(seg["speaker"] for seg in segments))
     
-    # Prompt for manual genders
+    # Prompt for manual voice casting / gender selection
     manual_genders = {}
+    manual_voice_paths = {}
     try:
         choose_manual = timed_input(
             "Do you want to choose the voices manually? (y/n) [default: n]: ",
@@ -278,15 +285,36 @@ def main():
             default_msg="Automatically keeping default voice assignment."
         ).strip().lower()
         if choose_manual == 'y':
-            print("Please enter the gender ('male' or 'female') for each character.")
+            print(f"\nManual Voice Casting for Language: {clean_language.upper()}")
             for speaker in unique_speakers:
                 while True:
-                    g = input(f"Gender for '{speaker}': ").strip().lower()
+                    g = input(f"Gender for '{speaker}' (male/female): ").strip().lower()
                     if g in ['male', 'female']:
                         manual_genders[speaker] = g
                         break
                     else:
                         print("Invalid input. Please enter 'male' or 'female'.")
+
+                pool = voice_manager.get_available_voices(clean_language, g)
+                if pool:
+                    print(f"  Available reference voices for {speaker} ({clean_language} - {g}):")
+                    max_display = min(len(pool), 10)
+                    for i, v_path in enumerate(pool[:max_display], 1):
+                        print(f"    [{i}] {v_path.name}")
+                    if len(pool) > max_display:
+                        print(f"    ... and {len(pool) - max_display} more available voices in pool.")
+                    pick = input(f"  Select voice [1-{max_display}], enter filename, or press Enter for random: ").strip()
+                    if pick:
+                        if pick.isdigit() and 1 <= int(pick) <= len(pool):
+                            manual_voice_paths[speaker] = pool[int(pick) - 1]
+                            print(f"  -> Selected: {manual_voice_paths[speaker].name}")
+                        else:
+                            matched = [p for p in pool if pick.lower() in p.name.lower()]
+                            if matched:
+                                manual_voice_paths[speaker] = matched[0]
+                                print(f"  -> Selected: {manual_voice_paths[speaker].name}")
+                            else:
+                                print(f"  -> Voice '{pick}' not found in pool. Using random from {clean_language} pool.")
     except (KeyboardInterrupt, EOFError):
         pass
 
@@ -294,10 +322,10 @@ def main():
     speakers_gender = script_data.get("content_metadata", {}).get("speakers_gender", {})
     
     # Assign NEW voices, strictly enforcing distinct genders for characters, and proper Narrator logic
-    voice_manager.assign_voices_for_script(unique_speakers, label, manual_genders)
+    voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders, manual_voice_paths)
     
     for speaker in unique_speakers:
-        gender, abs_path, _ = voice_manager.get_speaker_voice(speaker, label)
+        gender, abs_path, _ = voice_manager.get_speaker_voice(speaker, clean_language)
         speakers_gender[speaker] = gender
         rel_path = abs_path.name if abs_path else "Fallback"
         print(f"Assigned new voice for '{speaker}': {gender} -> {rel_path}")
@@ -329,7 +357,7 @@ def main():
         
         print(f"\n--- Generating Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
         
-        gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, language)
+        gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
         if is_game and "narrator" in speaker.lower():
             if is_seg_stress_vital and "challenge" in sec_name:

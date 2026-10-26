@@ -13,9 +13,14 @@ class Transcriber:
         # Run on CPU with int8 if CUDA is not available
         self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
-    def transcribe(self, audio_path: Path):
+    def transcribe(self, audio_path: Path, language: str = None, initial_prompt: str = None):
         print(f"Transcribing {audio_path.name}...")
-        segments, info = self.model.transcribe(str(audio_path), word_timestamps=True)
+        kwargs = {"word_timestamps": True}
+        if language:
+            kwargs["language"] = language
+        if initial_prompt:
+            kwargs["initial_prompt"] = initial_prompt
+        segments, info = self.model.transcribe(str(audio_path), **kwargs)
         
         words = []
         for segment in segments:

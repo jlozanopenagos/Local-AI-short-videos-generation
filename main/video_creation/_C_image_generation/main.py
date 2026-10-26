@@ -144,16 +144,15 @@ def process_script(
         and v.strip()
     }
 
-    # If force is enabled, clean up any stale/orphaned images from obsolete schemas (e.g. core_learning)
-    if force:
-        for old_img in script_output_dir.glob(f"script_{script_id}_*.png"):
-            sec_name = old_img.stem[len(f"script_{script_id}_"):].lower()
-            if sec_name not in valid_active_sections:
-                try:
-                    old_img.unlink()
-                    logger.info("[%s] Cleaned up obsolete legacy image: %s", script_id, old_img.name)
-                except Exception:
-                    pass
+    # Clean up any stale/orphaned images from obsolete schemas (e.g. core_learning, old dialogue parts)
+    for old_img in script_output_dir.glob(f"script_{script_id}_*.png"):
+        sec_name = old_img.stem[len(f"script_{script_id}_"):].lower()
+        if sec_name not in valid_active_sections:
+            try:
+                old_img.unlink()
+                logger.info("[%s] Cleaned up obsolete legacy image: %s", script_id, old_img.name)
+            except Exception:
+                pass
 
     content_meta = script_data.get("content_metadata", {})
     prompt_params = script_data.get("prompt_params", {})
@@ -189,7 +188,33 @@ def process_script(
         label=label,
         video_type=video_type,
     )
-    print(f"\n[Locked Story World]:\n>> {anchor_environment} <<\n")
+    general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
+    if not general_prompt or force:
+        try:
+            general_prompt = prompt_builder.build_general_prompt(
+                script_text=script_text,
+                label=label,
+                script_id=script_id,
+                speakers_gender=speakers_gender,
+                video_type=video_type,
+                character_personalities=character_personalities,
+                topic=topic,
+                scenario=scenario,
+                lexical_field=lexical_field,
+                anchor_environment=anchor_environment,
+            )
+            if "assets" not in script_data or not isinstance(script_data["assets"], dict):
+                script_data["assets"] = {}
+            script_data["assets"]["general_prompt"] = general_prompt
+            if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+                script_data["content_metadata"] = {}
+            script_data["content_metadata"]["anchor_environment"] = general_prompt
+            state_manager.save_script_state(script_id, script_data)
+        except Exception as exc:
+            logger.warning("[%s] Failed to build general prompt: %s; falling back to anchor_environment", script_id, exc)
+            general_prompt = anchor_environment
+
+    print(f"\n[Locked Story World & General Prompt]:\n>> {general_prompt} <<\n")
 
     # Generate complete non-repetitive visual storyboard across all active scenes
     existing_prompts = script_data.get("assets", {}).get("image_prompts", {})
@@ -231,6 +256,7 @@ def process_script(
             scenario=scenario,
             lexical_field=lexical_field,
             anchor_environment=anchor_environment,
+            general_prompt=general_prompt,
         )
         if "assets" not in script_data or not isinstance(script_data["assets"], dict):
             script_data["assets"] = {}
@@ -320,6 +346,7 @@ def process_script(
                     lexical_field=lexical_field,
                     anchor_environment=anchor_environment,
                     existing_scene_prompts=storyboard_prompts,
+                    general_prompt=general_prompt,
                 )
                 storyboard_prompts[sec_lower] = visual_prompt
                 script_data["assets"]["image_prompts"][sec_lower] = visual_prompt

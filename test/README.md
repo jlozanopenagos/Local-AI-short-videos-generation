@@ -31,7 +31,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **192 automated tests** across all QA layers with zero external dependencies in ~1.5 seconds:
+Executes all **244 automated tests** across all QA layers with zero external dependencies in ~1.5 seconds:
 ```bash
 py test/run_tests.py
 ```

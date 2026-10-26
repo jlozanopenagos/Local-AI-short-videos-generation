@@ -88,12 +88,8 @@ CHARACTERS
 
 Describe characters naturally, specifically, and charmingly.
 
-MANDATORY YOUTHFUL TEEN PROTAGONIST DIRECTIVE (12–15 YEARS OLD — SITUATION-APPROPRIATE ATTIRE):
-- ALL main characters across EVERY scene MUST be youthful 2D cartoon TEENS (approx. 12–15 years old, young teen boys or girls).
-- STRICT PROHIBITION ON CHILDISH ELEMENTS:
-  * Do NOT depict them as little children, kids, or toddlers.
-  * NO childish clothing (e.g. dungarees, toddler bibs, oversized cartoon tees, childish hats).
-  * NO toys, childish backpacks, or toddler accessories unless explicitly required by the script.
+MANDATORY HIGH SCHOOL PROTAGONIST DIRECTIVE (15–16 YEARS OLD — SITUATION-APPROPRIATE ATTIRE):
+- ALL main characters across EVERY scene MUST be stylish 2D cartoon high school students (approx. 15–16 years old, tall slender proportions, expressive youthful features).
 - STRICT PROHIBITION ON MATURE ADULTS:
   * NEVER depict middle-aged people, elderly individuals, mature grown-ups, or weathered adult faces with wrinkles.
 - MANDATORY THEMATIC WARDROBE (CLOTHING MUST BE EXPLICITLY THEMED TO THE SCENE):
@@ -107,11 +103,11 @@ MANDATORY YOUTHFUL TEEN PROTAGONIST DIRECTIVE (12–15 YEARS OLD — SITUATION-A
   * STRICT BAN ON GENERIC CLOTHES: Strictly ban plain modern t-shirts, plain hoodies, jeans, and nondescript street clothes when an authentic setting is established! The wardrobe must visually reinforce the theme!
 
 Include relevant details such as:
-- approximate age (youthful teen, 13-15 years old)
+- approximate age (high school student, 15-16 years old, tall slender build)
 - gender when relevant
 - appearance
 - hairstyle
-- situation-appropriate clothing (thematic costume/wardrobe matching the scene, NO plain street clothes, NO childish clothes)
+- situation-appropriate clothing (thematic costume/wardrobe matching the scene, NO plain street clothes)
 - facial expression
 - body language
 - action
@@ -298,52 +294,72 @@ Your task is to transform a complete language-learning video script into a fully
 
 For each scene of the Short, you will produce one distinct, rich, positive Z-Image-Turbo prompt.
 
-CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & ZERO REPETITION:
+CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
 
-1. THEMATIC MACRO-WORLD WITH MICRO-ZONE DIVERSITY:
-   All scenes share the same overarching real-world thematic setting (e.g. creative innovation agency, music production studio, curiosity archives).
-   HOWEVER, EVERY SCENE MUST OCCUR IN A DIFFERENT MICRO-ZONE within that world:
-   - Hook: An individual focus station, private desk, or reflective corner.
-   - Setup: A collaborative discussion area, lounge, or meeting space.
-   - Discovery: An active demonstration bench, specimen cabinet, or discovery workbench.
-   - Example: THE ACTION STAGE — actively living out the specific example sentence in full dynamic motion!
-   - Payoff: A celebration area, exit lounge, or victory space.
+1. NARRATIVE FAITHFULNESS TO THE SCRIPT TEXT & DIALOGUE (HIGHEST PRIORITY):
+   - Every single scene prompt MUST directly visualize the specific dialogue lines, narrative beat, and emotional meaning occurring in that scene's text!
+   - Read what the characters are actually saying and doing in each scene:
+     * What is the specific question, confusion, native explanation, or example in this beat?
+     * Depict physical, tangible actions using realistic props from the setting (e.g. holding a script, pointing to text/schedule, demonstrating with tools or equipment, reacting with expressive eyes and body language).
+     * STRICTLY BAN SURREAL / ABSTRACT FANTASY EFFECTS: Do NOT invent glowing energy beams from chests, floating sound wave graphics, glowing magic auras, or abstract fantasy elements unless the script is explicitly fantasy/sci-fi! Keep every action authentic, tangible, and believable in the established story world.
+     * STRICTLY BAN BOILERPLATE CLICHES: Do NOT default to generic hand gestures, "explaining a concept" without showing what they are discussing, or automatic high-fives in every scene. The action must be uniquely tied to that scene's dialogue!
 
-2. PROP ROTATION (STRICT ZERO-DUPLICATE RULE):
-   - NEVER repeat the same focal prop across scenes!
-   - If Scene 1 features a notebook/tablet, Scene 2 CANNOT have a notebook/tablet.
-   - If Scene 3 features a miniature model or tool, Scene 4 CANNOT have that model or tool, and Scene 5 CANNOT have it!
-   - Every single scene MUST have a unique, identifiable physical object or visual center of attention.
+2. ABSOLUTE CHARACTER APPEARANCE CONTINUITY (MANDATORY IN EVERY SCENE):
+   - Diffusion models generate EACH scene image independently from scratch with zero memory of previous scenes!
+   - To guarantee 100% character visual consistency (no shifting hair colors, no shifting clothes, no shifting ages):
+     * EVERY SINGLE SCENE PROMPT MUST EXPLICITLY REPEAT THE EXACT SAME VISUAL TRAITS FOR EACH CHARACTER:
+       - Exact demographic: e.g. "15-year-old high-school student girl", "15-year-old high-school student boy" (tall slender high school proportions, defined facial features).
+       - Exact hair color AND exact hairstyle: e.g. "dark hair in a sleek bun", "textured dark-brown quiff hair" (NEVER change or omit hair color!).
+       - Exact wardrobe and garment colors: e.g. "wearing her emerald velvet blazer over white shirt", "wearing his denim utility vest over charcoal long-sleeve" (NEVER change or omit wardrobe!).
+       - Exact staging: Character 1 on the LEFT, Character 2 on the RIGHT.
+     * NEVER omit the characters' hair color, hairstyle, or wardrobe in any scene prompt, otherwise the image generation model will randomly invent different hair and clothes!
+   - Natural staging variations: Characters move naturally across the set (e.g. from the drafting table to the camera rig, to the terrace railing overlook) without artificially teleporting to incompatible rooms.
 
-3. KINETIC ENERGY & POSE DIVERSITY (STRICT BAN ON CLICHE POSES):
-   - ABSOLUTELY DO NOT repeat generic gestures like 'pointing', 'gesturing emphatically', or 'leaning over a desk' across scenes!
-   - Enforce distinct postures across the story arc:
-     * Hook: Still, reflective curiosity, touching chin, tilted head, questioning facial expression.
-     * Setup: Two-character dynamic interaction, conversational banter, expressive facial exchange.
-     * Discovery: Sudden breakthrough clarity, wide joyful eyes, holding up the breakthrough discovery.
-     * Example: DYNAMIC PHYSICAL MOTION depicting the exact verb/action from the narration (e.g. projecting a luminous light beam, assembling, running, demonstrating)!
-     * Payoff: Confident victory, high-five, relaxed celebratory posture, bright warm smile.
+3. PROP INTERACTION & PHYSICAL RELEVANCE:
+   - Use physical objects and props that naturally belong to this scenario and reinforce the dialogue of that specific scene.
+   - Rotate focal interaction across scenes so each scene features a distinct, identifiable physical action or visual center of attention.
 
-4. CAMERA FRAMING PROGRESSION (MEDIUM SHOTS ONLY - NO DISTANT WIDE SHOTS):
-   - In 9:16 vertical video, never use distant wide shots where characters shrink into tiny figures, causing their facial details and eyes to turn into dots!
-   - Every scene must be framed comfortably waist-up or chest-up so the character's face is prominent, expressive, and detailed:
+4. EXPRESSIVE FACIAL ACTING & DIVERSE POSTURES:
+   - Convey the exact emotional arc from the script through expressive facial design:
+     * Hook: Opening tension, stress, urgent inquiry, or intrigued curiosity reflecting the opening problem.
+     * Setup: Puzzled, questioning, or amused exchange, comparing concepts or reacting to doubt.
+     * Discovery / Demonstration: Eureka clarity, wide joyful eyes, active physical demonstration of the native rule.
+     * Example: Full kinetic motion depicting the exact verb or example situation from the narration.
+     * Payoff: Confident mastery, warm satisfaction, triumphant conclusion of the scenario.
+
+5. CAMERA FRAMING PROGRESSION (WAIST-UP / CHEST-UP — NO DISTANT WIDE SHOTS):
+   - In 9:16 vertical video, never use distant wide shots where characters shrink into tiny figures!
+   - Keep characters comfortably waist-up or chest-up so their facial expressions and eyes remain large, clear, and detailed:
      * FOR EXPRESSION SHORTS:
-       - Hook: Medium Shot (waist-up, focus on character's expressive face and opening dilemma).
-       - Setup: Over-the-shoulder Two-Shot (waist-up conversational exchange, expressive acting).
-       - Discovery: Medium Action Shot (waist-up breakthrough moment, radiant expression).
-       - Example: Dynamic Medium Action Shot (waist-up active motion, dynamic verb demonstration).
+       - Hook: Medium Shot (waist-up, focus on character's expressive face, opening dilemma, and visual metaphor).
+       - Setup: Over-the-shoulder Two-Shot (waist-up conversational exchange, social contrast, or friction).
+       - Discovery: Medium Action Shot (waist-up breakthrough moment, radiant eureka expression).
+       - Example: Dynamic Medium Action Shot (waist-up active motion, dynamic verb/action demonstration).
        - Payoff: Medium Close-Up (chest-up, warm triumphant celebratory resolution).
-     * FOR ROLEPLAY SHORTS (DYNAMIC 4-BEAT CINEMATIC PROGRESSION — NEVER REPEAT IDENTICAL TWO-SHOTS):
-       - Hook: Scenario Establishing Shot (medium-wide, setting up the dilemma, environment, and physical tension; visually establishes opening dilemma and problem).
-       - Dialogue_Part_2: 180° Reverse Angle Over-The-Shoulder / Focus on PERSON_TWO mentoring and explaining the correction.
-       - Dialogue_Part_3: Kinetic Interaction & Prop Demonstration Shot (active motion demonstrating the concept/prop, energetic body language).
-       - Payoff: Celebratory Resolution Two-Shot (shared triumph, high-five, walking triumphantly into event, confident outro).
+     * FOR ROLEPLAY SHORTS (DYNAMIC 4-BEAT CINEMATIC PROGRESSION):
+       - Hook: Scenario Establishing Shot (medium-wide framing, establishing opening dilemma, physical tension, and creative visual metaphor).
+       - Dialogue_Part_2: Two-Shot or Over-The-Shoulder Shot focusing on the reaction and doubt/question in the dialogue.
+       - Dialogue_Part_3: Kinetic Interaction & Demonstration Shot (active motion demonstrating the concept/prop, energetic body language).
+       - Payoff: Triumphant Resolution Two-Shot (shared mastery, confident outro reflecting the resolution).
+     * FOR GAME SHORTS:
+       - Hook: Scenario Dilemma Shot (medium shot establishing the real-world dilemma / challenge).
+       - Answer: Eureka Moment (character experiencing joyful breakthrough relief upon solving the puzzle).
+       - Explanation: Real-World Application (characters applying the concept naturally in everyday life).
+     * FOR FUN_FACTS SHORTS:
+       - Hook: Curiosity Setup (medium shot establishing the bizarre question, myth, or intriguing fact).
+       - Setup / Discovery: Dynamic Scene Progression (exploring the fascinating cultural/historical discovery in motion).
+       - Payoff: Mind-Blown Resolution (warm, memorable celebratory outro).
 
-5. FIGURATIVE IDIOM DUAL-LAYER RULE:
-   - When the Short is about an idiom or figurative expression (e.g. 'piece of cake', 'break a leg', 'spill the beans'):
-     * The Hook and Setup may playfully nod to the literal curiosity.
-     * The Example and Payoff MUST depict the REAL-WORLD FIGURATIVE ACHIEVEMENT (e.g. an everyday person effortlessly fixing a bicycle, effortlessly parallel parking, or solving a puzzle in 3 seconds).
-     * STRICT BAN: DO NOT depict people eating/baking cake or repeating literal props in the Example or Payoff! Focus on real-life accomplishment!
+6. CREATIVE VISUAL METAPHORS & GRAPHIC WORDPLAY (MANDATORY TO AVOID BORING IMAGES):
+   - The visual image is the primary hook that attracts and retains the audience! Never produce boring, generic images of a character just looking stressed or staring at a paper/desk.
+   - Embrace the GRAPHIC / LITERAL SENSE of words and expressions across the scenes to make them entertaining, memorable, and fun:
+     * For 'a piece of cake': Visually play with a giant, colorful, towering multi-tiered cake or an ambitious baking challenge that is effortlessly mastered!
+     * For 'break a leg': An opulent theater stage with dramatic velvet curtains, costume masks, and rehearsal props.
+     * For 'PREsent vs preSENT': A grand banquet hall where a teen dramatically reveals an ornate ribbon-wrapped gift box.
+     * For 'proJECT vs PROject': A rooftop film shoot with camera gear, director clapperboard, and megaphone.
+     * For 'spill the beans': A vibrant artisan kitchen where a huge jar of colorful legumes has comically tipped over, revealing a secret discovery.
+     * For 'cost an arm and a leg': A lavish high-end boutique with humorous exaggerated luxury displays.
+   - We have creative license to play with words and visual metaphors across the scenes to make every image dynamic, eye-catching, and fun!
 
 6. ZERO-TOLERANCE TEXT, SCREEN & INTERJECTION BAN (CRITICAL):
    - NEVER include words like 'aha', 'eureka', 'wow', 'oops', or any words inside quotation marks.
@@ -368,9 +384,9 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & ZERO REPETITION:
      * Architecture, furniture (e.g. wooden drafting desk, tool workbench, books on shelves), indoor depth, textured walls, atmospheric ambient lighting, and soft cast shadows.
    - ABSOLUTELY FORBIDDEN: Solid color backgrounds, plain white voids, flat empty backdrops, or isolated characters on blank walls! Even close-up shots MUST have rich background room depth.
 
-11. MANDATORY YOUTHFUL TEEN DEMOGRAPHIC & THEMATIC WARDROBE:
-    - All main characters across every scene MUST be youthful 2D cartoon teens (approx. 12–15 years old, young teen boys and girls).
-    - STRICTLY FORBIDDEN: Childish clothes (dungarees, bibs, oversized cartoon tees), toys, or toddler appearances. Also STRICTLY FORBIDDEN: Middle-aged adults, elderly faces, or mature wrinkles.
+11. MANDATORY HIGH SCHOOL DEMOGRAPHIC & THEMATIC WARDROBE:
+    - All main characters across every scene MUST be stylish 2D cartoon high school students (approx. 15–16 years old, tall slender proportions).
+    - STRICTLY FORBIDDEN: Middle-aged adults, elderly faces, or mature adult wrinkles.
     - THEMATIC COSTUME & WARDROBE: The character's clothing MUST explicitly match the physical environment (e.g. theater stage costume/waistcoat in theater, chef coat in kitchen, drafting smock in studio, lab coat in science). NEVER depict plain generic modern street clothes (plain t-shirts/hoodies)!
 
 12. MANDATORY MULTI-CHARACTER GENDER SPECIFICATION (ZERO-AMBIGUITY RULE):
@@ -428,32 +444,25 @@ HETERONYM_DOMAINS = {
     "refuse": "sustainable design workshop and upcycling studio (featuring: material sorting station, fabrication bench, upcycled product gallery, design desk)",
     "rebel": "vintage printmaking atelier or underground creative studio (featuring: mechanical printing press, paper drafting table, typeset drawer wall, studio lounge)",
     "address": "formal conference auditorium or classic epistolary study (featuring: podium stage, library writing desk, correspondence cabinet, reading alcove)",
-    "produce": "sunlit organic farmstead and rustic market barn (featuring: harvest sorting tables, wooden crate stalls, farm kitchen counter, open-air pergola)",
-    "content": "warm personal library and literary study (featuring: tall mahogany bookshelves, reading armchair by the window, fireplace hearth, writing desk)",
-    "minute": "precision watchmaking and mechanical atelier (featuring: magnifying loupe workbench, clockwork gear cabinet, calibration table, display showcase)",
-    "close": "bespoke tailoring boutique and fashion design atelier (featuring: cutting table with measuring shears, mannequin fitting area, fabric bolt wall, dressing lounge)",
-    "clothe": "bespoke tailoring boutique and fashion design atelier (featuring: cutting table with measuring shears, mannequin fitting area, fabric bolt wall, dressing lounge)",
-    "rice": "artisan culinary kitchen and gourmet dining space (featuring: wooden preparation counter, cookware rack, dining table, garden terrace)",
-    "rise": "sunlit artisan bakery and dawn terrace (featuring: wooden kneading table, baker oven alcove, cafe terrace overlooking horizon)",
-    "dice": "classic tabletop gaming parlor (featuring: wooden gaming table, board game library shelves, warm hearth, players lounge)",
-    "dies": "artisan metal craft foundry and engraving atelier (featuring: hand forge anvil, drafting table, metal tool rack, assembly bench)",
-    "ice": "alpine winter lodge and mountain lookout (featuring: frosted bay window, stone fireplace, ski gear rack, scenic snowy overlook)",
-    "eyes": "scenic mountain lookout observatory (featuring: panoramic telescope deck, wooden railing, alpine trail bench)",
-    "fan": "sunlit sports stadium arena and pavilion (featuring: grandstand seating, team dugout, concession concourse, athletic field)",
-    "fun": "vibrant outdoor carnival park (featuring: festival lawn, creative game stalls, decorative lantern path, open pavilion)",
-    "cat": "warm sunlit apartment living room and botanical study (featuring: comfortable sofa, sunny window sill, bookshelf, indoor house plants)",
-    "cut": "creative woodworking and craft atelier (featuring: artisan workbench, hand tool wall, material storage racks, design counter)",
-    "hat": "charming bespoke millinery boutique (featuring: wooden hat stands, display mirrors, haberdashery counter, dressing lounge)",
-    "hot": "sun-drenched coastal beach promenade (featuring: boardwalk railing, shade cabana, open-air terrace, ocean view)",
-    "winner": "city athletic marathon finish plaza (featuring: finish line gantry, celebration podium, spectator grandstand, winner enclosure)",
-    "wiener": "sunny park community picnic lawn (featuring: rustic picnic benches, barbecue pavilion, festive bunting, open grassy field)",
-    "peace": "peaceful botanical garden courtyard (featuring: stone water fountain, lush pergola, stone walking path, shaded marble bench)",
-    "peas": "sunlit heirloom vegetable garden allotment (featuring: raised wooden garden beds, potting shed, harvest baskets, garden path)",
-    "leaf": "autumn deciduous park boulevard (featuring: golden tree canopy, cobblestone path, wooden park bench, historic lamppost)",
-    "leave": "scenic train station departure platform (featuring: classic iron canopy, passenger benches, vintage station clock, luggage cart)",
-    "life": "lively historic city boulevard (featuring: pedestrian sidewalk, tree-lined avenue, shop facades, public fountain plaza)",
-    "live": "acoustic music club stage (featuring: warm stage spotlights, wooden floorboards, instrument stands, intimate audience tables)",
 }
+
+EXPLICIT_SCENARIO_DOMAINS = [
+    (r'\b(animation studio|animator|animation desk|storyboard room)\b', "creative modern animation studio at night (featuring: animator drawing desks with digital pen displays, animation lightboxes, pencil sketches pinned to corkboards, glowing monitors with timeline tracks, comfortable studio chairs, warm desk lamps against dark ambient room)"),
+    (r'\b(rooftop cinema|cinema shoot|film shoot|movie set|film set)\b', "architectural rooftop cinema shoot at dusk (featuring: director clapperboards, brass megaphone, camera tripods, blueprint rolls, warm amber string lights, twilight skyline)"),
+    (r'\b(bakery|bake|baker|pastry)\b', "warm artisan culinary bakery (featuring: rustic wooden prep counter, baker oven alcove, flour dusting on table, cooling racks)"),
+    (r'\b(theater|theatre|stage|acting|backstage|curtain|actor|show|rehearsal)\b', "historic theater and performing arts center (featuring: backstage wings, rehearsal stage, dressing room with mirror, grand auditorium)"),
+    (r'\b(kitchen|cook|chef|dessert|ingredient|dish|oven)\b', "warm artisan culinary kitchen (featuring: rustic wooden prep counter, cookware rack, dining table, pantry alcove)"),
+    (r'\b(library|exam|study|student|homework|grade|assignment|textbook)\b', "university academic library (featuring: individual study carrel, collaborative reference desk, book stacks, reading lounge)"),
+    (r'\b(airport|flight|plane|airplane|travel|suitcase|boarding|luggage)\b', "modern international airport terminal (featuring: panoramic tarmac lounge, check-in concourse, boarding gate, baggage reclaim)"),
+    (r'\b(train|station|subway|metro|platform|railway)\b', "scenic railway station (featuring: passenger platform, ticketing hall, waiting concourse, vintage trackside bench)"),
+    (r'\b(hospital|doctor|clinic|medical|patient|nurse|consultation)\b', "bright modern wellness and medical consultation clinic (featuring: examination room, consultation desk, waiting lounge)"),
+    (r'\b(street|city|avenue|plaza|sidewalk|urban|crosswalk|boulevard)\b', "bustling historic city avenue (featuring: pedestrian sidewalk, brick storefronts, street corner plaza, park bench)"),
+    (r'\b(park|garden|nature|tree|bench|flower|outdoor|trail)\b', "sunlit botanical park (featuring: walking promenade, garden pavilion, shaded wooden bench, flower lawn)"),
+    (r'\b(gym|workout|fitness|sport|athletic|exercise|dumbbells)\b', "dynamic modern athletic training gym (featuring: fitness floor, weights zone, training track, recovery lounge)"),
+    (r'\b(market|store|boutique|seller|bazaar|craft)\b', "neighborhood artisan market boutique (featuring: craft display table, checkout counter, goods shelf, street awning)"),
+    (r'\b(beach|sea|ocean|coastal|boat|sand|shore)\b', "sunlit coastal seaside promenade (featuring: ocean overlook deck, sand dunes path, beach pavilion)"),
+    (r'\b(cafe|coffee|barista|latte|espresso)\b', "charming artisanal coffee bar (featuring: espresso counter, window high-top bar, cozy seating corner)"),
+]
 
 
 def is_figurative_idiom(
@@ -492,25 +501,32 @@ def resolve_anchor_environment(
     combined_meta = f"{topic} {scenario} {lexical_field} {label}".lower()
     combined_script = f"{combined_meta} {script_text}".lower()
 
-    # 1. Check known heteronym / word stress domain mappings
-    for word_key, domain in HETERONYM_DOMAINS.items():
-        if re.search(r'\b' + re.escape(word_key) + r'\b', combined_meta) or re.search(r'\b' + re.escape(word_key) + r'\b', topic.lower()):
+    # 1. Check explicit scenario / setting keywords first (highest priority)
+    for pattern, domain in EXPLICIT_SCENARIO_DOMAINS:
+        if scenario and re.search(pattern, scenario.lower()):
+            return domain
+        if topic and re.search(pattern, topic.lower()):
             return domain
 
-    # 2. Check for figurative idioms (Prevents the 'Literal Cake/Bakery Trap')
+    # 2. Check known heteronym / word stress domain mappings (only if topic is specifically that heteronym)
+    for word_key, domain in HETERONYM_DOMAINS.items():
+        if re.search(r'\b' + re.escape(word_key) + r'\b', topic.lower()):
+            return domain
+
+    # 2. Check for figurative idioms (Allows creative graphic visual metaphors)
     if is_figurative_idiom(topic, lexical_field, scenario, script_text):
         if "piece of cake" in combined_script or "easy as pie" in combined_script:
-            return "modern creative maker studio or living room workspace (featuring: DIY assembly workbench, puzzle table, comfortable reading nook, sunlit terrace)"
+            return "chic modern social dining salon or studio lounge (featuring: central display table showcasing an elaborate towering multi-tier cake with a single slice removed, stylish seating lounge, sunlit terrace)"
         elif "break a leg" in combined_script:
             return "historic theater and performing arts center (featuring: dressing room with mirror, backstage wings with velvet curtains, rehearsal stage, grand auditorium)"
         elif "spill the beans" in combined_script:
-            return "vibrant community center and social living room (featuring: cozy seating circle, game table, sunlit courtyard, coffee counter)"
+            return "vibrant artisan kitchen and social pantry lounge (featuring: open prep counter with oversized ceramic bean jars, cozy banquette table, sunlit courtyard)"
         elif "under the weather" in combined_script:
             return "cozy sunlit living room and wellness study (featuring: comfortable sofa with warm knitted throw, herbal tea table, indoor botanical plants, reading window)"
         elif "burn the midnight oil" in combined_script:
             return "quiet late-night home study and creative library (featuring: vintage wooden desk with brass lamp, tall bookshelves, armchair, evening city skyline window)"
         elif "cost an arm and a leg" in combined_script:
-            return "chic metropolitan shopping promenade and artisan boutique (featuring: elegant storefront display, artisan counter, shopping boulevard, terrace)"
+            return "chic metropolitan haute-couture boutique and promenade (featuring: extravagant luxury mannequin displays, marble counter, elegant shopping boulevard)"
         return "vibrant modern creative studio and everyday living space (featuring: focus work area, collaborative lounge, demonstration bench, sunlit terrace)"
 
     # 3. Check for explicit keyword domains in script text and metadata
@@ -596,32 +612,32 @@ def _extract_shared_story_context(
         if video_type_upper == "ROLEPLAY":
             p1 = speakers_gender.get("PERSON_ONE", "male")
             p2 = speakers_gender.get("PERSON_TWO", "female")
-            p1_desc = "youthful cartoon teen boy (approx. 13-15 years old, stylish situation-appropriate attire)" if p1.lower() == "male" else "youthful cartoon teen girl (approx. 13-15 years old, stylish situation-appropriate attire)"
-            p2_desc = "youthful cartoon teen boy (approx. 13-15 years old, stylish situation-appropriate attire)" if p2.lower() == "male" else "youthful cartoon teen girl (approx. 13-15 years old, stylish situation-appropriate attire)"
+            p1_desc = "high school student boy (approx. 15-16 years old, tall slender build, stylish thematic attire)" if p1.lower() == "male" else "high school student girl (approx. 15-16 years old, tall slender build, stylish thematic attire)"
+            p2_desc = "high school student boy (approx. 15-16 years old, tall slender build, stylish thematic attire)" if p2.lower() == "male" else "high school student girl (approx. 15-16 years old, tall slender build, stylish thematic attire)"
             gender_context = (
-                f"MANDATORY CHARACTER GENDERS & AGE (YOUTHFUL TEEN PROTAGONISTS — 13-15 YEARS OLD):\n"
+                f"MANDATORY CHARACTER GENDERS & DEMOGRAPHIC (HIGH SCHOOL PROTAGONISTS — 15-16 YEARS OLD):\n"
                 f"- PERSON_ONE: {p1.upper()} (MUST visually appear as a {p1_desc})\n"
                 f"- PERSON_TWO: {p2.upper()} (MUST visually appear as a {p2_desc})\n"
                 f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! "
-                f"NEVER use generic words like 'the two teens', 'two friends', or 'the characters' without stating their individual sex (e.g. 'one teen girl and one teen boy').\n"
-                f"CRITICAL RULE: Characters are youthful 13-15 year old teens dressed appropriately for this specific setting. Strictly ban childish clothes/toys, and strictly ban middle-aged/mature adult faces!\n\n"
+                f"NEVER use generic words like 'the two students', 'two friends', or 'the characters' without stating their individual sex (e.g. 'one high school student girl and one high school student boy').\n"
+                f"CRITICAL RULE: Characters are 15-16 year old high school students (tall slender proportions) dressed appropriately for this specific setting. Strictly ban generic plain t-shirts/hoodies, and strictly ban middle-aged/mature adult wrinkles!\n\n"
             )
         else:
             narrator_gend = str(speakers_gender.get("NARRATOR") or speakers_gender.get("PERSON_ONE") or "male").lower()
             is_female = "f" in narrator_gend or "girl" in narrator_gend or "woman" in narrator_gend
             gender_word = "girl" if is_female else "boy"
-            gender_desc = "young teen girl" if is_female else "young teen boy"
+            gender_desc = "high school student girl" if is_female else "high school student boy"
             gender_context = (
-                f"MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (13-15 YEARS OLD):\n"
-                f"- PROTAGONIST: MUST visually appear as an expressive youthful cartoon teen {gender_word.upper()} (approx. 13-15 years old {gender_desc}).\n"
-                f"- WARDROBE: The {gender_word} MUST wear an authentic costume or attire explicitly matching the thematic setting (e.g. theater stage costume/vest, chef uniform, studio apron, lab coat). Strictly ban generic casual clothes (plain t-shirts/hoodies) and childish clothes!\n"
-                f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! NEVER use generic words like 'two teens' or 'friends'!\n"
-                f"CRITICAL RULE: Character MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban adults, mature faces, wrinkles, and little-kid clothes!\n\n"
+                f"MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (15-16 YEARS OLD):\n"
+                f"- PROTAGONIST: MUST visually appear as an expressive high school student {gender_word.upper()} (approx. 15-16 years old {gender_desc}, tall slender proportions).\n"
+                f"- WARDROBE: The {gender_word} MUST wear an authentic costume or attire explicitly matching the thematic setting (e.g. theater stage costume/vest, chef uniform, studio apron, lab coat). Strictly ban generic casual clothes (plain t-shirts/hoodies)!\n"
+                f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! NEVER use generic words like 'two students' or 'friends'!\n"
+                f"CRITICAL RULE: Character MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban mature adult faces, wrinkles, and generic t-shirts!\n\n"
             )
     else:
         gender_context = (
-            "MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (13-15 YEARS OLD):\n"
-            "- PROTAGONIST: MUST visually appear as a youthful 2D cartoon teen (approx. 13-15 years old) wearing an authentic costume or outfit explicitly matching the thematic setting. Strictly ban generic casual clothes (plain t-shirts/hoodies) and childish clothes!\n\n"
+            "MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (15-16 YEARS OLD):\n"
+            "- PROTAGONIST: MUST visually appear as a high school student (approx. 15-16 years old, tall slender proportions) wearing an authentic costume or outfit explicitly matching the thematic setting. Strictly ban generic casual clothes (plain t-shirts/hoodies)!\n\n"
         )
 
     palette_context = _get_language_palette(language)
@@ -638,11 +654,10 @@ def _extract_shared_story_context(
     idiom_rule = ""
     if is_figurative_idiom(topic, lexical_field, scenario, script_text):
         idiom_rule = (
-            "FIGURATIVE IDIOM DIRECTIVE (CRITICAL):\n"
+            "CREATIVE VISUAL METAPHOR & GRAPHIC WORDPLAY DIRECTIVE:\n"
             f"This Short is about an idiom / figurative phrase ('{topic}').\n"
-            "- In Hook/Setup: You may playfully nod to the literal curiosity or confusing wording.\n"
-            "- In EXAMPLE and PAYOFF: You MUST depict the REAL-WORLD FIGURATIVE ACHIEVEMENT (e.g. someone effortlessly fixing a bike, assembling sleek DIY furniture, or solving a puzzle in 3 seconds).\n"
-            "- STRICT BAN: DO NOT place the literal object (e.g. cake, beans, bullet) in the Example or Payoff scenes! Depict the real-life triumph!\n\n"
+            "- Play with the graphic, visual sense of the expression across the scenes! Use the literal or visual imagery playfully to make the scenes entertaining and magnetic (e.g. giant towering multi-tiered cakes, ornate gift boxes, dramatic theatrical props, colorful spilled jars).\n"
+            "- AVOID BORING IMAGES: Never just show someone staring at a desk or paper looking stressed. Make the visual world lively, imaginative, and fun!\n\n"
         )
 
     return {
@@ -672,6 +687,7 @@ def _build_user_context(
     lexical_field: str = "",
     anchor_environment: str = "",
     existing_scene_prompts: dict = None,
+    general_prompt: str = "",
 ) -> str:
     """Build the user-facing context block sent alongside the system prompt."""
     scene_lower = scene_name.lower().strip()
@@ -855,7 +871,7 @@ def _build_user_context(
         f"LABEL: {label}\n\n"
         f"{ctx['palette_context']}\n\n"
         f"ANGLE: visual storytelling / authentic situation\n\n"
-        f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive, youthful teen protagonist (approx. 13-15 years old, stylish situation-appropriate attire, NO childish clothes, NO mature adults), vibrant but balanced colors, rich cinematic atmosphere\n\n"
+        f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive high-school student protagonist (approx. 15-16 years old, tall slender build, stylish situation-appropriate attire, NO mature adults), vibrant but balanced colors, rich cinematic atmosphere\n\n"
         f"FULL SCRIPT TEXT FOR CONTEXT (THE STORY):\n{script_text}\n\n"
         f"---\n\n"
         f"THEMATIC STORY WORLD & SCENARIO CONTINUITY (MANDATORY):\n"
@@ -868,6 +884,7 @@ def _build_user_context(
         f"- MANDATORY THEMATIC WARDROBE: The character MUST wear clothing/costume that directly belongs to this setting ({anchor_environment}, e.g. theatrical stage costume/vest in theater, chef coat in kitchen, drafting vest in studio). NEVER use generic modern street clothes (no plain t-shirts/hoodies)!\n\n"
         f"{anti_rep_context}"
         f"{ctx['idiom_rule']}"
+        f"{(f'OVERARCHING GENERAL PROMPT (MASTER STORY WORLD & CHARACTER ANCHOR):\n>> {general_prompt} <<\n\nCRITICAL CONTINUITY DIRECTIVE:\nInherit the exact physical environment, characters (exact ages, genders, positions, hairstyles, facial design), specific thematic wardrobes, and atmosphere established in this General Prompt!\n\n' if general_prompt else '')}"
         f"---\n\n"
         f"YOUR SPECIFIC TASK FOR THIS SCENE:\n"
         f"Illustrate this specific moment: SCENE [{scene_name.upper()}]:\n"
@@ -880,9 +897,126 @@ def _build_user_context(
         f"- EXAMPLE: Dynamic wide or active motion shot. Character actively demonstrating the specific phrase in motion.\n"
         f"- PAYOFF: Medium close-up or celebratory shot. Triumphant mastery, confident relief, warm accomplishment.\n\n"
         f"{text_rule}\n\n"
-        f"CONCISENESS: Keep the final visual prompt strictly under 50 words. Focus only on the most important visual elements (character, facial expression, physical action, authentic setting, cinematic lighting). Do not overcomplicate.\n\n"
+        f"CONCISENESS: Keep the final visual prompt strictly under 75 words. Focus only on the most important visual elements (character, facial expression, physical action, authentic setting, cinematic lighting). Do not overcomplicate.\n\n"
         f"Generate the Z-Image-Turbo visual prompt for this scene now. Ensure visual style, environment, and character remain 100% consistent with the story while showing this distinct scene action."
     )
+
+
+FEMALE_HAIRSTYLE_TERMS = [
+    "bun", "bob", "ponytail", "pigtail", "braid", "braided", "chignon",
+    "hairband", "headband", "flowing", "shoulder-length", "hair clip"
+]
+MALE_HAIRSTYLE_TERMS = [
+    "quiff", "buzz", "crew-cut", "crew cut", "fade", "pompadour",
+    "sideburns", "flat-top", "undercut"
+]
+
+def sanitize_character_hair(raw_hair: str, is_female: bool, is_primary: bool = True) -> str:
+    """
+    Enforces 100% gender-accurate hairstyles.
+    Prevents male characters from receiving feminine hairstyles (buns, bobs, ponytails, chignons)
+    and female characters from receiving masculine haircuts (quiffs, buzz cuts).
+    """
+    hair_lower = raw_hair.lower().strip()
+
+    if not is_female:  # MALE CHARACTER
+        # If male was assigned ANY feminine hairstyle or empty:
+        if any(trig in hair_lower for trig in FEMALE_HAIRSTYLE_TERMS) or not hair_lower:
+            if is_primary or "dark" in hair_lower or "black" in hair_lower:
+                return "short textured dark hair with clean tapered sides and a neat side-part"
+            else:
+                return "short textured chestnut-brown hair with clean-cut neckline and defined sideburns"
+        # Guarantee "short" is present so diffusion models never draw long hair on boys
+        if "short" not in hair_lower and "tapered" not in hair_lower and "crew" not in hair_lower:
+            return f"short {raw_hair.strip()}"
+        return raw_hair.strip()
+
+    else:  # FEMALE CHARACTER
+        # If female was assigned ANY masculine hairstyle or empty:
+        if any(trig in hair_lower for trig in MALE_HAIRSTYLE_TERMS) or not hair_lower:
+            if is_primary or "dark" in hair_lower or "black" in hair_lower:
+                return "dark wavy hair tied in an elegant high ponytail with soft face-framing strands"
+            else:
+                return "textured caramel-brown hair styled in soft shoulder-length waves"
+        return raw_hair.strip()
+
+
+def extract_or_build_character_anchors(
+    general_prompt: str,
+    speakers_gender: dict = None,
+    video_type: str = "EXPRESSION"
+) -> dict[str, str]:
+    """
+    Extracts or establishes consistent, locked character traits (hair color, hairstyle, wardrobe)
+    from the General Prompt so they can be repeated verbatim in every scene prompt.
+    Prevents character identity drift, hair color swapping, and age inconsistency.
+    """
+    speakers_gender = speakers_gender or {}
+    video_type_upper = video_type.strip().upper()
+    has_two_characters = (
+        video_type_upper == "ROLEPLAY"
+        or bool("PERSON_TWO" in speakers_gender)
+    )
+
+    p1 = str(speakers_gender.get("PERSON_ONE") or speakers_gender.get("NARRATOR") or "female").lower()
+    p2 = str(speakers_gender.get("PERSON_TWO", "male")).lower()
+    p1_is_female = "f" in p1 or "girl" in p1 or "woman" in p1
+    p2_is_female = "f" in p2 or "girl" in p2 or "woman" in p2
+
+    garments = r"(?:blazer|vest|coat|smock|apron|jacket|robe|dress|sweater|shirt|suit|cardigan|hoodie|uniform|tunic)"
+
+    # 1. Search for hair specifications in general prompt
+    hair_matches = re.findall(
+        r"(\b(?:dark|jet-black|black|brown|chestnut|auburn|blonde|caramel|brunette|red)\s+[^,\.]{0,35}?\bhair\b[^,\.]*|\bshort\s+[^,\.]{0,30}?\bhair\b[^,\.]*)",
+        general_prompt,
+        re.IGNORECASE,
+    )
+    raw_h1 = hair_matches[0].strip() if len(hair_matches) >= 1 else ""
+    raw_h2 = hair_matches[1].strip() if len(hair_matches) >= 2 else ""
+
+    # Sanitize hair to guarantee strict gender-appropriate hairstyles
+    char1_hair = sanitize_character_hair(raw_h1, is_female=p1_is_female, is_primary=True)
+    char2_hair = sanitize_character_hair(raw_h2, is_female=p2_is_female, is_primary=False)
+
+    # 2. Search for attire in general prompt
+    attire_pattern = re.compile(rf"(?:in|wearing)\s+([^,\.]{{3,45}}?\b{garments}\b[^,\.]*?)", re.IGNORECASE)
+    attire_matches = attire_pattern.findall(general_prompt)
+    if len(attire_matches) >= 2:
+        char1_attire = attire_matches[0].strip()
+        char2_attire = attire_matches[1].strip()
+    elif len(attire_matches) == 1:
+        char1_attire = attire_matches[0].strip()
+        char2_attire = "a complementary thematic designer vest"
+    else:
+        char1_attire = "an authentic thematic costume matching this setting"
+        char2_attire = "a complementary thematic costume matching this setting"
+
+    gender_word1 = "girl" if p1_is_female else "boy"
+    gender_word2 = "girl" if p2_is_female else "boy"
+
+    char1_desc = f"15-year-old high-school student {gender_word1} with {char1_hair} wearing {char1_attire}"
+    char2_desc = f"15-year-old high-school student {gender_word2} with {char2_hair} wearing {char2_attire}"
+
+    if has_two_characters:
+        continuity_summary = (
+            f"Character appearance continuity: Character 1 is a {char1_desc}; "
+            f"Character 2 is a {char2_desc}."
+        )
+    else:
+        continuity_summary = (
+            f"Character appearance continuity: The protagonist is a {char1_desc}."
+        )
+
+    return {
+        "has_two_characters": str(has_two_characters),
+        "char1_desc": char1_desc,
+        "char2_desc": char2_desc,
+        "char1_hair": char1_hair,
+        "char2_hair": char2_hair,
+        "char1_attire": char1_attire,
+        "char2_attire": char2_attire,
+        "continuity_summary": continuity_summary,
+    }
 
 
 def _build_storyboard_context(
@@ -899,8 +1033,9 @@ def _build_storyboard_context(
     scenario: str = "",
     lexical_field: str = "",
     anchor_environment: str = "",
+    general_prompt: str = "",
 ) -> str:
-    """Build the prompt for generating a complete, non-repetitive 5-scene visual storyboard in JSON."""
+    """Build the prompt for generating a complete, non-repetitive visual storyboard in JSON."""
     ctx = _extract_shared_story_context(
         script_text=script_text,
         language=language,
@@ -915,6 +1050,22 @@ def _build_storyboard_context(
     )
     anchor_environment = ctx["anchor_environment"]
 
+    general_prompt_block = ""
+    if general_prompt:
+        general_prompt_block = (
+            "OVERARCHING GENERAL PROMPT (MASTER STORY WORLD & CHARACTER ANCHOR):\n"
+            f">> {general_prompt} <<\n\n"
+            "CRITICAL STORY WORLD & CHARACTER CONTINUITY DIRECTIVE:\n"
+            "All scenes below MUST strictly inherit the exact physical environment, characters (exact ages, genders, "
+            "positions, hairstyles, facial design), specific thematic costumes/wardrobes, and atmosphere established "
+            "in this General Prompt!\n"
+            "MANDATORY CONTINUITY REPETITION RULE: Diffusion models generate EACH scene image independently with zero memory of other scenes! "
+            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat each character's exact hair color, "
+            "exact hairstyle, and exact wardrobe (e.g. 'one 14-year-old adolescent teen girl with dark hair in a sleek bun wearing an emerald velvet blazer over white shirt', "
+            "'one 15-year-old adolescent teen boy with textured brown quiff hair wearing a denim utility vest'). "
+            "NEVER omit the hair color, hairstyle, or wardrobe from any scene prompt!\n\n"
+        )
+
     formatted_scenes = []
     for sec_name, sec_text in sections.items():
         if sec_text.strip():
@@ -928,33 +1079,67 @@ def _build_storyboard_context(
         p1_word = "girl" if "F" in p1 else "boy"
         p2_word = "girl" if "F" in p2 else "boy"
         director_task = (
-            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (DYNAMIC 4-BEAT CINEMATIC PROGRESSION):\n"
-            f"Transform this two-character roleplay dialogue into a dynamic, highly varied 4-scene visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
-            f"CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & ZERO REPETITION:\n"
-            f"1. AVOID REPETITIVE TWO-SHOTS (MANDATORY): DO NOT generate identical two-shots where both characters simply stand side-by-side in the same room in slightly different poses! You MUST vary the camera angle, perspective, distance, and focal character across the 4-beat sequence:\n"
-            f"   - HOOK: Scenario Establishing Shot (medium-wide, setting up the dilemma, environment, and physical tension; visually establishes opening problem and premise).\n"
-            f"   - DIALOGUE_PART_2: 180° Reverse Angle Over-The-Shoulder / Focus on PERSON_TWO ({p2}) mentoring and explaining the correction.\n"
-            f"   - DIALOGUE_PART_3: Kinetic Interaction & Prop Demonstration Shot (active motion demonstrating the concept/prop, energetic body language).\n"
-            f"   - PAYOFF: Celebratory Resolution Two-Shot (shared triumph, high-five, walking triumphantly into event, confident outro).\n"
-            f"2. ZERO-AMBIGUITY MULTI-CHARACTER GENDER RULE (MANDATORY): Whenever MORE THAN ONE character appears in a scene, the sex of EACH character MUST be explicitly specified (e.g. 'one youthful 14-year-old teen {p1_word} and one youthful 14-year-old teen {p2_word}'). NEVER use generic words like 'the two teens', 'two friends', 'the characters', or 'they'!\n"
-            f"3. ZERO-DUPLICATE POSES: Banish repetitive standing or pointing. Each scene must feature distinct physical postures (dilemma posture -> patient explanation -> active prop interaction -> triumphant celebration).\n"
-            f"4. HIGH-FIDELITY TEEN DEMOGRAPHIC & THEMATIC WARDROBE: Both characters must be youthful cartoon teens (approx. 13-15 years old) with distinct, consistent thematic wardrobes matching this specific setting, large expressive cartoon eyes with visible sclera, and rich background depth.\n"
-            f"5. CONCISENESS: Keep each visual prompt strictly under 50 words.\n\n"
+            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (CHRONOLOGICAL 4-SCENE PROGRESSION):\n"
+            f"Transform this two-character roleplay dialogue into a dynamic, narrative-faithful 4-scene visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
+            f"CRITICAL DIRECTIVES FOR SCRIPT DIALOGUE ENACTMENT & SCENE PROGRESSION:\n"
+            f"1. FAITHFUL DIALOGUE ENACTMENT (HIGHEST PRIORITY):\n"
+            f"   Every scene MUST directly illustrate the specific spoken dialogue lines and emotional interaction of that scene:\n"
+            f"   - HOOK: Illustrate the specific opening problem/stress in this line! Depict the characters' physical actions and facial expressions directly acting out the words (e.g. deadline tension, holding scenario props like scripts or clapperboards).\n"
+            f"   - DIALOGUE_PART_2: Illustrate the exact doubt, question, or confusion spoken in this dialogue! Show the character's facial expression reacting with genuine puzzlement to the words being discussed.\n"
+            f"   - DIALOGUE_PART_3: Illustrate the native explanation, rule demonstration, or solution spoken in this dialogue! Characters must physically demonstrate the concept using realistic scenario props (pointing to text, showing physical actions). STRICTLY BAN surreal fantasy effects (NO glowing energy beams from chest, NO floating graphics).\n"
+            f"   - PAYOFF: Illustrate the triumphant resolution of this specific story! Show genuine relief, confidence, and mastery directly reflecting the final lines of the dialogue (DO NOT default to generic high-fives unless the dialogue calls for it).\n"
+            f"2. MANDATORY CHARACTER APPEARANCE REPETITION (ZERO-DRIFT IDENTITY):\n"
+            f"   In EVERY scene prompt, explicitly describe BOTH characters using their exact locked traits from the General Prompt:\n"
+            f"   - Restate Character 1: 15-year-old high-school student {p1_word} (tall slender proportions), exact hair color, exact hairstyle, and exact wardrobe!\n"
+            f"   - Restate Character 2: 15-year-old high-school student {p2_word} (tall slender proportions), exact hair color, exact hairstyle, and exact wardrobe!\n"
+            f"   - NEVER omit hair color, hairstyle, or wardrobe in any scene prompt!\n"
+            f"3. AVOID REPETITIVE TWO-SHOTS: Vary camera angles (medium, over-the-shoulder, reaction shot, two-shot) and distinct character poses across scenes.\n"
+            f"4. ZERO-AMBIGUITY MULTI-CHARACTER GENDER RULE: Explicitly specify the sex of EACH character (e.g. 'one adolescent 14-year-old teen {p1_word}' and 'one adolescent 15-year-old teen {p2_word}'). Strictly ban generic words like 'two teens', 'two friends', or 'the characters'!\n"
+            f"5. LENGTH: Around 70-110 words per scene prompt (rich enough to include the full character continuity description, action, props, and setting).\n\n"
             f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, dialogue_part_2, dialogue_part_3, payoff) to its final prompt string."
+        )
+    elif video_type_upper == "GAME":
+        director_task = (
+            f"DIRECTOR'S GAME STORYBOARD TASK (CHALLENGE TO TRIUMPH PROGRESSION):\n"
+            f"Transform this game quiz into a cohesive storyboard where each scene faithfully depicts the specific question, answer, and explanation:\n"
+            f"1. FAITHFUL SCRIPT ENACTMENT:\n"
+            f"   - HOOK: Illustrate the real-world dilemma or question presented in the Hook text.\n"
+            f"   - ANSWER: Illustrate the eureka breakthrough relief and joyful reaction upon identifying the correct answer.\n"
+            f"   - EXPLANATION: Illustrate the practical real-world demonstration of the concept in everyday life as spoken in the explanation.\n"
+            f"2. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Strictly ban generic words like 'two teens'.\n"
+            f"3. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student demographic (15-16yo, tall slender proportions), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+            f"4. LENGTH: Around 70-110 words per scene prompt.\n\n"
+            f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
+        )
+    elif video_type_upper in ["FUN_FACTS", "FUNFACTS", "FUNFACT"]:
+        director_task = (
+            f"DIRECTOR'S FUN FACTS STORYBOARD TASK (CURIOSITY & DISCOVERY PROGRESSION):\n"
+            f"Transform this curiosity script into a visually stunning, narrative-faithful storyboard:\n"
+            f"1. FAITHFUL SCRIPT ENACTMENT:\n"
+            f"   - HOOK: Illustrate the intriguing mystery or bizarre myth described in the Hook text.\n"
+            f"   - SETUP / DISCOVERY / FACTS: Illustrate the fascinating real-world discovery being unveiled in dynamic motion.\n"
+            f"   - PAYOFF: Illustrate the mind-blown reaction, awe, and memorable resolution.\n"
+            f"2. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Strictly ban generic words like 'two teens'.\n"
+            f"3. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student demographic (15-16yo, tall slender proportions), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+            f"4. LENGTH: Around 70-110 words per scene prompt.\n\n"
+            f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
         )
     else:
         director_task = (
-            f"DIRECTOR'S STORYBOARD TASK:\n"
-            f"Create a cohesive 5-scene visual storyboard where EVERY scene is completely unique and visually captivating:\n"
-            f"1. MICRO-ZONE ROTATION: Each scene takes place in a different micro-zone of the setting above (e.g. personal focus desk -> collaborative meeting area -> active demonstration workbench -> presentation action stage -> celebratory lounge).\n"
-            f"2. ZERO-DUPLICATE PROPS: Never repeat the same focal prop across scenes! Give every scene a distinct visual focal object.\n"
-            f"3. ZERO-DUPLICATE POSES: Banish repetitive 'pointing' or 'gesturing at blueprints'. Vary character poses (pondering -> conversational dynamic -> breakthrough clarity -> active kinetic motion -> proud celebration).\n"
-            f"4. EXAMPLE SCENE: Must actively depict the physical action/verb from the example narration in dynamic motion!\n"
-            f"5. CAMERA SHOTS (WAIST-UP / CHEST-UP ONLY): Keep characters comfortably close to camera so their faces remain large and detailed (Hook = Medium Shot, Setup = Over-the-shoulder Two-Shot, Discovery = Medium Action Shot, Example = Dynamic Medium Action Shot, Payoff = Medium Close-Up). NEVER use distant wide shots where characters become tiny!\n"
-            f"6. MULTI-CHARACTER GENDER SPECIFICATION: If more than 1 character is depicted, explicitly specify the sex of EACH character (e.g. 'one teen boy and one companion teen girl'). Strictly ban generic phrases like 'two teens'.\n"
-            f"7. CHARACTER DETAIL PARITY, TEEN DEMOGRAPHIC & THEMATIC WARDROBE: Every character across all scenes MUST be a youthful 2D cartoon teen (approx. 13-15 years old) wearing authentic thematic scene costume/wardrobe matching the setting (e.g. theatrical stage costume/vest in theater, chef coat in kitchen, drafting smock in design studio; STRICTLY BAN generic modern street clothes, plain t-shirts/hoodies, and childish clothes) with high animation fidelity — large clear expressive cartoon eyes with visible white sclera and specular highlights, expressive eyebrows, and clean line art. Strictly ban dot eyes or minimalist faces!\n"
-            f"8. BACKGROUND DETAIL PARITY: Every single scene MUST describe the physical interior environment (furniture, textured walls, shelves, tools, atmospheric indoor lighting, depth). NEVER leave the background empty or flat solid color!\n"
-            f"9. CONCISENESS: Keep each visual prompt strictly under 50 words.\n\n"
+            f"DIRECTOR'S EXPRESSION STORYBOARD TASK (CHRONOLOGICAL 5-BEAT PROGRESSION):\n"
+            f"Create a cohesive 5-scene visual storyboard where EVERY scene faithfully visualizes the specific narrative beat and spoken script text of that scene in CHRONOLOGICAL ORDER:\n"
+            f"1. FAITHFUL SCRIPT ENACTMENT (HIGHEST PRIORITY):\n"
+            f"   Every scene MUST directly depict the specific words and meaning from that scene's text:\n"
+            f"   - HOOK: Illustrate the opening dilemma, curiosity, or visual metaphor described in the Hook text.\n"
+            f"   - SETUP: Illustrate the conversational friction, misunderstanding, or tricky distinction spoken in this beat.\n"
+            f"   - DISCOVERY: Illustrate the eureka turning point — wide joyful eyes, sudden breakthrough clarity, reacting directly to the native rule being explained.\n"
+            f"   - EXAMPLE: ACTIVELY DEPICT THE EXACT EXAMPLE SENTENCE FROM THE SCRIPT IN DYNAMIC MOTION! Show the character living out the specific action or situation described in the narration.\n"
+            f"   - PAYOFF: Illustrate the triumphant real-world resolution and confidence of mastering this expression.\n"
+            f"2. ZERO-DUPLICATE PROPS & REALISTIC ACTION: Give each scene distinct physical postures and unique focal objects. Strictly ban surreal fantasy magic effects.\n"
+            f"3. CAMERA SHOTS (WAIST-UP / CHEST-UP ONLY): Keep characters comfortably close to camera so their faces remain large and detailed.\n"
+            f"4. MULTI-CHARACTER GENDER SPECIFICATION: If more than 1 character is depicted, explicitly specify the sex of EACH character (e.g. 'one teen boy and one companion teen girl'). Strictly ban generic phrases like 'two teens'.\n"
+            f"5. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student demographic (15-16yo, tall slender proportions), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+            f"6. LENGTH: Around 70-110 words per scene prompt.\n\n"
             f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
         )
 
@@ -970,8 +1155,9 @@ def _build_storyboard_context(
         f"LABEL: {label}\n\n"
         f"{ctx['palette_context']}\n\n"
         f"{ctx['idiom_rule']}"
-        f"OVERARCHING THEMATIC STORY WORLD:\n"
+        f"OVERARCHING THEMATIC BASE SETTING:\n"
         f">> {anchor_environment} <<\n\n"
+        f"{general_prompt_block}"
         f"FULL SCRIPT TEXT (THE COMPLETE STORY):\n{script_text}\n\n"
         f"---\n\n"
         f"SCENES TO STORYBOARD:\n"
@@ -1034,37 +1220,59 @@ def sanitize_and_style_prompt(prompt: str) -> str:
     text = text.replace('"', '').replace("'", "")
     text = re.sub(r"\s+", " ", text).strip()
 
-    # 4. Mandatory Youthful Teen Protagonist Enforcement & Thematic Wardrobe Upgrades
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a young teen boy (13-15 years old)", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a young teen girl (13-15 years old)", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a youthful teen protagonist (13-15 years old)", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba (?:child|little kid|toddler)\b", "a youthful teen (13-15 years old)", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(adult|grown-?up)s?\b", "young teens", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ban adult\b", "a young teen", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:8|9|10|11)-year-old\b", "14-year-old", text, flags=re.IGNORECASE)
+    # 3b. Ensure male characters NEVER have feminine hairstyles (buns, bobs, ponytails, chignons)
+    text = re.sub(
+        r"\bwith\s+[^,\.]{0,45}?\b(?:tied in a (?:sleek\s+)?bun|in a (?:sleek\s+)?bun|sleek bun|hair bun|in a bob|in a ponytail|chignon)\b",
+        "with short textured dark hair and a neat side-part",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(boy|man|male(?:\s+teen|\s+student)?)\b([^,\.]{0,40}?)\b(?:tied in a (?:sleek\s+)?bun|in a (?:sleek\s+)?bun|sleek bun|hair bun|in a bob|in a ponytail|chignon)\b",
+        r"\1\2with short textured dark hair and neat side-part",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # 3c. Ensure female characters NEVER have masculine haircuts (quiffs, buzz cuts, crew cuts)
+    text = re.sub(
+        r"\bwith\s+[^,\.]{0,45}?\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
+        "with textured caramel-brown hair styled in soft shoulder-length waves",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(girl|woman|female(?:\s+teen|\s+student)?)\b([^,\.]{0,40}?)\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
+        r"\1\2with soft wavy hair resting over shoulders",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 15-year-old high-school student boy", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a 15-year-old high-school student girl", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a 15-year-old high-school student protagonist", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\bNO\s)(?<!\bmiddle-aged\s)(?<!\bolder\s)\b(adult|grown-?up)s?\b", "high-school students", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\bNO\s)\ban adult\b", "a high-school student", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:8|9|10|11|12|13|14)-year-old\b", "15-year-old", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:wearing\s+)?normal clothing\b", "wearing thematically authentic scene costume", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:smart\s+)?casual attire\b", "thematic scene-specific wardrobe", text, flags=re.IGNORECASE)
     text = re.sub(r"\bcasual clothes\b", "thematic scene-specific costume", text, flags=re.IGNORECASE)
 
-    # 5. Mandatory 2D Cartoon Style Anchor with Thematic Wardrobe Mandate
+    # 5. Mandatory 2D Cartoon Style Anchor with High School Proportions & Safe Exclusions
     style_mandate = (
         "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-        "vibrant flat colors, bold outlines, expressive youthful teen character design (approx. 13-15 years old), "
+        "vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), "
         "large clear cartoon eyes with visible white sclera and specular pupil highlights, "
         "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
         "rich detailed environmental interior background with depth and warm atmospheric lighting. "
-        "(youthful teen protagonist, thematic costume, NO generic clothes, NO childish clothes, NO toys, NO toddlers, "
-        "NO middle-aged adults, NO elderly, NO wrinkles, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
-        "NO 3D, NO realism, NO photograph, NO text)."
+        "(high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, "
+        "NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
+        "NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
     )
 
-    text_lower = text.lower()
-    if "thematically authentic" not in text_lower or "white sclera" not in text_lower or "2d cartoon" not in text_lower:
-        # Strip older style mandate if present
-        text = re.sub(r"\.?\s*Clean modern 2D cartoon narrative illustration.*?\(.*?\)\.?", "", text, flags=re.IGNORECASE).strip()
-        text = f"{text}. {style_mandate}"
-    elif "no generic clothes" not in text_lower:
-        text = f"{text}. (youthful teen protagonist, thematic costume, NO generic clothes, NO childish clothes, NO toys, NO toddlers, NO middle-aged adults, NO elderly, NO wrinkles, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text)."
+    if "(high-school student protagonist, thematic costume" not in text:
+        text = re.sub(r"\.\s*Clean modern 2D cartoon narrative illustration.*$", "", text, flags=re.DOTALL)
+        text = f"{text.rstrip('. ')}. {style_mandate}"
 
     return text.strip()
 
@@ -1147,6 +1355,7 @@ class VisualPromptBuilder:
         lexical_field: str = "",
         anchor_environment: str = "",
         existing_scene_prompts: dict = None,
+        general_prompt: str = "",
         temperature: float = 0.75,
         max_retries: int = 3,
     ) -> str:
@@ -1184,6 +1393,8 @@ class VisualPromptBuilder:
             Optional locked physical story environment across all scenes of this script.
         existing_scene_prompts:
             Optional dictionary of other scene prompts in this script, used as anti-repetition memory.
+        general_prompt:
+            Optional overarching master visual prompt anchor.
         max_retries:
             Maximum number of retry attempts on stall or timeout.
 
@@ -1198,6 +1409,9 @@ class VisualPromptBuilder:
             If the LLM request fails after retries.
         """
         language, subject, situation = _parse_label(label)
+        if not general_prompt and anchor_environment and len(anchor_environment) > 80:
+            general_prompt = anchor_environment
+
         user_context = _build_user_context(
             script_text=script_text,
             language=language,
@@ -1214,6 +1428,7 @@ class VisualPromptBuilder:
             lexical_field=lexical_field,
             anchor_environment=anchor_environment,
             existing_scene_prompts=existing_scene_prompts,
+            general_prompt=general_prompt,
         )
 
         logger.info(
@@ -1233,7 +1448,7 @@ class VisualPromptBuilder:
                         {"role": "system", "content": _VISUAL_DIRECTOR_SYSTEM_PROMPT},
                         {"role": "user",   "content": user_context},
                     ],
-                    max_tokens=1000,
+                    max_tokens=2000,
                     temperature=temperature,
                     stream=True,
                 )
@@ -1297,6 +1512,7 @@ class VisualPromptBuilder:
         scenario: str = "",
         lexical_field: str = "",
         anchor_environment: str = "",
+        general_prompt: str = "",
         temperature: float = 0.7,
         max_retries: int = 3,
     ) -> dict[str, str]:
@@ -1307,9 +1523,29 @@ class VisualPromptBuilder:
         2. Zero repeated focal props across scenes.
         3. Varied camera framing across all scenes.
         4. Active depiction of the example sentence action.
-        5. Figurative real-world accomplishment for idioms (no repeated literal props).
+        5. Creative visual metaphors and graphic wordplay across scenes.
         """
         language, subject, situation = _parse_label(label)
+        if not general_prompt:
+            logger.info("[%s] General prompt anchor not provided; establishing master visual anchor first...", script_id)
+            try:
+                general_prompt = self.build_general_prompt(
+                    script_text=script_text,
+                    label=label,
+                    script_id=script_id,
+                    speakers_gender=speakers_gender,
+                    video_type=video_type,
+                    character_personalities=character_personalities,
+                    topic=topic,
+                    scenario=scenario,
+                    lexical_field=lexical_field,
+                    anchor_environment=anchor_environment,
+                    temperature=temperature,
+                )
+            except Exception as exc:
+                logger.warning("[%s] Failed to build general prompt for storyboard: %s", script_id, exc)
+                general_prompt = anchor_environment
+
         storyboard_context = _build_storyboard_context(
             script_text=script_text,
             sections=sections,
@@ -1324,6 +1560,7 @@ class VisualPromptBuilder:
             scenario=scenario,
             lexical_field=lexical_field,
             anchor_environment=anchor_environment,
+            general_prompt=general_prompt,
         )
 
         logger.info(
@@ -1344,7 +1581,7 @@ class VisualPromptBuilder:
                         {"role": "system", "content": _STORYBOARD_DIRECTOR_SYSTEM_PROMPT},
                         {"role": "user",   "content": storyboard_context},
                     ],
-                    max_tokens=2500,
+                    max_tokens=3500,
                     temperature=temperature,
                     stream=True,
                 )
@@ -1403,7 +1640,7 @@ class VisualPromptBuilder:
                 continue
             if sec_lower not in storyboard_dict or not storyboard_dict[sec_lower]:
                 logger.info(
-                    "[%s] Scene '%s' missing from storyboard. Generating individually with anti-repetition memory...",
+                    "[%s] Scene '%s' missing from storyboard. Generating individually with general prompt anchor...",
                     script_id, sec_name,
                 )
                 try:
@@ -1421,15 +1658,32 @@ class VisualPromptBuilder:
                         lexical_field=lexical_field,
                         anchor_environment=anchor_environment,
                         existing_scene_prompts=storyboard_dict,
+                        general_prompt=general_prompt,
                     )
                     storyboard_dict[sec_lower] = single_prompt
                 except Exception as exc:
                     logger.error("[%s] Failed fallback prompt for %s: %s", script_id, sec_name, exc)
 
-        return {
-            k: sanitize_and_style_prompt(v)
-            for k, v in storyboard_dict.items()
-        }
+        anchors = extract_or_build_character_anchors(
+            general_prompt=general_prompt,
+            speakers_gender=speakers_gender,
+            video_type=video_type,
+        )
+
+        final_prompts: dict[str, str] = {}
+        for sec_key, raw_prompt in storyboard_dict.items():
+            prompt_str = raw_prompt.strip()
+            # Verify if character hair and wardrobe continuity tokens are present
+            c1_words = [w for w in re.findall(r'\b[a-zA-Z]{4,}\b', anchors["char1_attire"].lower()) if w not in {"with", "wear", "wearing", "over", "into"}]
+            has_c1_attire = any(w in prompt_str.lower() for w in c1_words) if c1_words else True
+            has_c1_hair = any(w in prompt_str.lower() for w in ["hair", "bun", "ponytail", "quiff", "bob", "undercut", "curls"])
+
+            if not (has_c1_attire and has_c1_hair):
+                prompt_str = f"{prompt_str.rstrip('. ')}. {anchors['continuity_summary']}"
+
+            final_prompts[sec_key] = sanitize_and_style_prompt(prompt_str)
+
+        return final_prompts
 
     def build_general_prompt(
         self,
@@ -1463,29 +1717,55 @@ class VisualPromptBuilder:
                 video_type=video_type,
             )
 
-        if video_type.upper() == "ROLEPLAY":
+        has_two_characters = (
+            video_type.upper() == "ROLEPLAY"
+            or bool(speakers_gender and "PERSON_TWO" in speakers_gender)
+        )
+        if has_two_characters:
             p1_g = speakers_gender.get("PERSON_ONE", "female") if speakers_gender else "female"
             p2_g = speakers_gender.get("PERSON_TWO", "male") if speakers_gender else "male"
-            p1_word = "girl" if "f" in str(p1_g).lower() else "boy"
-            p2_word = "girl" if "f" in str(p2_g).lower() else "boy"
+            p1_is_female = "f" in str(p1_g).lower() or "girl" in str(p1_g).lower()
+            p2_is_female = "f" in str(p2_g).lower() or "girl" in str(p2_g).lower()
+            p1_word = "girl" if p1_is_female else "boy"
+            p2_word = "girl" if p2_is_female else "boy"
+
+            c1_hair_example = (
+                "dark wavy hair tied in an elegant ponytail or soft shoulder-length bob"
+                if p1_is_female
+                else "short textured dark hair with clean tapered sides and a neat side-part (NEVER buns, bobs, or ponytails for boys!)"
+            )
+            c2_hair_example = (
+                "textured caramel-brown hair styled in soft shoulder-length waves or graceful braid"
+                if p2_is_female
+                else "short textured chestnut-brown hair with clean-cut neckline and defined sideburns (NEVER buns, bobs, or ponytails for boys!)"
+            )
+
             character_directive = (
-                f"2. Dual Lead Characters (Roleplay Duo):\n"
-                f"   - Character 1 (PERSON_ONE): An expressive youthful cartoon teen {p1_word} (approx. 13-15 years old) wearing authentic thematic scene costume matching this setting.\n"
-                f"   - Character 2 (PERSON_TWO): An energetic youthful cartoon teen {p2_word} (approx. 13-15 years old) wearing complementary authentic thematic costume matching this setting.\n"
-                f"   CRITICAL MULTI-CHARACTER RULE: The sex of BOTH characters MUST be explicitly specified! Strictly ban generic ambiguous words like 'two teens' or 'the characters'!"
+                f"2. Dual Lead Characters (MANDATORY EXACT GENDER-ACCURATE HAIR & THEMATIC WARDROBE CONTINUITY):\n"
+                f"   - Character 1 (Left Position): An expressive 15-year-old high-school student {p1_word} (tall slender build) positioned on the LEFT side of the frame.\n"
+                f"     * Hair: Explicitly specify hair color and hairstyle (e.g. '{c1_hair_example}')!\n"
+                f"     * Wardrobe: Explicitly specify authentic thematic costume garments and colors MATCHING THIS SPECIFIC SETTING ({anchor_environment}) — NEVER plain t-shirts/hoodies, and NEVER copy unrelated clothing!\n"
+                f"   - Character 2 (Right Position): An energetic 15-year-old high-school student {p2_word} (tall slender build) positioned on the RIGHT side of the frame.\n"
+                f"     * Hair: Explicitly specify contrasting hair color and hairstyle (e.g. '{c2_hair_example}')!\n"
+                f"     * Wardrobe: Explicitly specify complementary authentic thematic costume garments and colors matching this setting!\n"
+                f"   CRITICAL GENDER-ACCURATE HAIRSTYLE RULE:\n"
+                f"   - For MALE characters: ALWAYS use short, distinctly masculine hairstyles (short textured side-part, neat tapered sides, crew-cut). STRICTLY FORBIDDEN FOR MALES: NO buns, NO chignons, NO bobs, NO ponytails, NO feminine long hair!\n"
+                f"   - For FEMALE characters: ALWAYS use stylish feminine hairstyles (ponytails, soft shoulder-length waves, bobs with bangs). STRICTLY FORBIDDEN FOR FEMALES: NO masculine quiffs or buzz cuts!\n"
+                f"   CRITICAL MULTI-CHARACTER RULE: You MUST explicitly describe the sex, hair color, and wardrobe of BOTH characters! Strictly ban generic words like 'two teens' or 'the characters'!"
             )
         else:
-            gender_desc = "youthful cartoon teen boy (approx. 13-15 years old)"
-            if speakers_gender:
-                principal_key = "PERSON_ONE" if video_type.upper() == "ROLEPLAY" else "NARRATOR"
-                p_gend = speakers_gender.get(principal_key) or speakers_gender.get("NARRATOR") or speakers_gender.get("PERSON_ONE") or "male"
-                if "f" in str(p_gend).lower():
-                    gender_desc = "youthful cartoon teen girl (approx. 13-15 years old)"
-                else:
-                    gender_desc = "youthful cartoon teen boy (approx. 13-15 years old)"
+            p_gend = speakers_gender.get("NARRATOR") or speakers_gender.get("PERSON_ONE") or "male" if speakers_gender else "male"
+            is_female = "f" in str(p_gend).lower() or "girl" in str(p_gend).lower()
+            gender_desc = "high-school student girl (approx. 15-16 years old, tall slender build)" if is_female else "high-school student boy (approx. 15-16 years old, tall slender build)"
+            protagonist_hair = (
+                "dark wavy hair tied in an elegant ponytail or chic shoulder-length bob"
+                if is_female
+                else "short textured dark hair with clean tapered sides and a neat side-part (NEVER buns or long hair for boys!)"
+            )
             character_directive = (
-                f"2. Protagonist: A {gender_desc} wearing authentic thematic costume/wardrobe explicitly matching this setting. "
-                f"If any companion or secondary character appears, their sex MUST also be explicitly stated (never just 'two teens')!"
+                f"2. Protagonist (MANDATORY EXACT HAIR & WARDROBE CONTINUITY):\n"
+                f"   - Primary Character: An expressive {gender_desc} with explicitly specified hair color and hairstyle (e.g. '{protagonist_hair}'), and an authentic thematic costume/wardrobe explicitly matching this setting (describe specific colors and garment types — NEVER plain generic t-shirts/hoodies).\n"
+                f"   - Staging & Companion Rule: If any secondary character, peer, or companion appears, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, hair color, and distinct thematic costumes (NEVER plain t-shirts/hoodies)!"
             )
 
         system_prompt = (
@@ -1493,14 +1773,21 @@ class VisualPromptBuilder:
             "Your task is to establish the overarching General Visual Prompt / Story World Anchor that will define "
             "the visual context, thematic environment, character appearance, and atmosphere for ALL scenes of this video.\n\n"
             "MANDATORY DIRECTIVES:\n"
-            "1. Macro-Setting & Micro-Zones: Describe a rich, authentic physical setting with multiple distinct micro-zones "
-            "(e.g., technical workbench, observation booth, collaboration desk, demonstration area).\n"
+            "1. Macro-Setting & Architecture: Describe a rich, authentic physical setting with architectural details, indoor depth, "
+            "furniture, ambient props, atmospheric lighting, and soft cast shadows.\n"
             f"{character_directive}\n"
-            "   Strictly ban generic modern street clothes (plain t-shirts/hoodies), childish clothes, and mature adults.\n"
-            "3. Atmosphere & Style: Vibrant color palette, rich cinematic lighting, clean modern 2D cartoon narrative illustration, "
-            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design.\n"
-            "4. Keep the description vivid, concrete, and strictly under 85 words.\n"
-            "5. Return ONLY the visual prompt text. No markdown formatting, no commentary."
+            "   Strictly ban generic modern street clothes (plain t-shirts/hoodies) and mature adults.\n"
+            "3. Creative Visual Metaphor & Graphic Props in Environment:\n"
+            "   Embrace the GRAPHIC / LITERAL SENSE of the expression or topic by placing relevant physical props naturally in the setting to make the world visually magnetic and fun "
+            "(e.g., for 'a piece of cake', feature an elaborate multi-tiered cake on the display table; for 'PREsent vs preSENT', an ornate ribbon-wrapped gift box; "
+            "for 'proJECT vs PROject', camera tripods, clapperboard, and megaphone on the film shoot set).\n"
+            "4. Atmosphere & Style: Vibrant color palette, rich cinematic lighting, clean modern 2D cartoon narrative illustration, "
+            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, large cartoon eyes with visible sclera and specular highlights, rich interior depth.\n"
+            "5. STATIC STAGE SETUP ONLY (NO MOMENTARY DIALOGUE ACTIONS):\n"
+            "   Describe the physical stage, setting props, and characters standing ready on set in their thematic costumes and Left/Right positions.\n"
+            "   DO NOT describe temporary dialogue actions (such as shouting, covering ears, arguing, or gesturing) in this General Prompt! Temporary actions belong strictly to individual scene prompts.\n"
+            "6. Keep the description rich, concrete, vivid, and around 110-180 words (detailed enough to establish specific character clothing, positions, and environmental props).\n"
+            "7. Return ONLY the visual prompt text. No markdown formatting, no commentary."
         )
 
         user_content = (
@@ -1531,7 +1818,7 @@ class VisualPromptBuilder:
                         {"role": "system", "content": system_prompt},
                         {"role": "user",   "content": user_content},
                     ],
-                    max_tokens=800,
+                    max_tokens=2500,
                     temperature=temperature,
                     stream=True,
                 )

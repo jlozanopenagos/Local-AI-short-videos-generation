@@ -73,7 +73,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 223 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 244 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers
@@ -94,6 +94,9 @@ py main/tools/database/sync_prompts.py
 
 # Run real-time pipeline audit dashboard across all languages
 py main/tools/auditing/status_scraper.py
+
+# Mass reset pipeline stage status across state files (e.g. voice_generation to pending)
+py main/tools/reset_stage_status.py --stage voice_generation --yes
 ```
 
 ### 6. Google Sheets Connectivity Suite
@@ -127,6 +130,21 @@ py main/connectivity/scan_ready_scripts.py --all
 ---
 
 ## Recent Changes
+
+### Story World Anchor, Hairstyle Sanitization & Visual Director 2.0
+- **Master Story World Anchor & Locked General Prompt**:
+  - Two-pass visual director engine: Pass 1 generates an overarching `general_prompt` anchoring architectural environment, time of day, cinematic lighting, and character designs into state.
+  - Pass 2 (`build_storyboard_prompts`) generates single-pass, fully coordinated scene prompts anchored directly to the locked master story world.
+- **Strict Gender-Accurate Hairstyle Sanitization (`sanitize_character_hair`)**:
+  - Programmatic regex and token-based enforcement preventing male characters from receiving feminine hairstyles (buns, bobs, ponytails, chignons) and female characters from receiving masculine haircuts (quiffs, buzz cuts, crew cuts).
+  - Locks male characters to clean-cut masculine styling (`short textured dark hair with clean tapered sides and a neat side-part`) and female characters to stylish feminine styles (`dark wavy hair tied in an elegant high ponytail`, `textured caramel-brown hair styled in soft shoulder-length waves`).
+- **Character Identity Continuity & Locked Anchors (`extract_or_build_character_anchors`)**:
+  - Eliminates character identity drift, hair color swapping, and age inconsistencies across storyboard scenes.
+  - Verifies presence of wardrobe and hairstyle tokens in every scene prompt, automatically appending continuity clauses if omitted.
+- **Setting Resolution Priority & Heteronym Domain Decoupling**:
+  - Minimal pair words (e.g. `eyes`, `ice`, `wind`, `tear`) are decoupled from broad setting domains, ensuring explicit scenario keywords take full precedence over acoustic keywords.
+- **Option [7] Mass Ready Scripts Extended to Stage A & Stage B (`--from-mass-ready-scripts`)**:
+  - Full cross-stage parity: Option `[7]` (Mass Ready Scripts) and Option `[6]` (Ready Scripts CSV) are now natively supported in Script Generation (`_A_video_scripts`) and Voice Generation (`_B_voice_generation`) as well as Image Creation (`_C_image_generation`), allowing multi-file batch targeting across ready scripts CSV queues.
 
 ### Visual Director 4-Beat Roleplay Architecture, Dynamic Assembly Cuts & Chalkboard Upgrades
 - **Dynamic 4-Beat Roleplay Storyboard Sequence**:

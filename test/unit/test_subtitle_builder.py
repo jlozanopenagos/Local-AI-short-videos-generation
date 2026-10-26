@@ -95,6 +95,61 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.assertEqual(texts[4], "PREsent")
         self.assertEqual(texts[9], "preSENT")
 
+    def test_build_ass_homophone_forced_alignment(self):
+        """Verify that homophones confused by Whisper (e.g. French ver/verre/vert/vers) are restored to exact script spelling."""
+        # Simulated Whisper output where Whisper heard 'VERRE' for all homophones
+        whisper_words = [
+            {"word": "Un", "start": 0.0, "end": 0.2},
+            {"word": "verre", "start": 0.2, "end": 0.5},
+            {"word": "verre", "start": 0.5, "end": 0.8},
+            {"word": "va", "start": 0.8, "end": 1.0},
+            {"word": "verre", "start": 1.0, "end": 1.3},
+            {"word": "un", "start": 1.3, "end": 1.5},
+            {"word": "verre", "start": 1.5, "end": 1.8},
+            {"word": "verre", "start": 1.8, "end": 2.2},
+        ]
+        script_data = {
+            "content_metadata": {
+                "script": {
+                    "payoff": "Un ver vert va vers un verre vert."
+                }
+            }
+        }
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+
+        # Verify that all 4 homophones are restored to their distinct script spellings
+        self.assertEqual(texts, ["UN", "VER", "VERT", "VA", "VERS", "UN", "VERRE", "VERT."])
+
+    def test_build_ass_italian_loanword_and_split_resolution(self):
+        """Verify that Italian split words and phonetic letter names are aligned properly."""
+        # Simulated Whisper output where 'alfabeto' was split into 'AL' + 'FABETO' and 'gei' heard as 'J'
+        whisper_words = [
+            {"word": "Satevi", "start": 0.0, "end": 0.5},
+            {"word": "il", "start": 0.5, "end": 0.7},
+            {"word": "al", "start": 0.7, "end": 0.9},
+            {"word": "fabeto", "start": 0.9, "end": 1.2},
+            {"word": "lettera", "start": 1.2, "end": 1.5},
+            {"word": "J", "start": 1.5, "end": 1.8},
+            {"word": "gins", "start": 1.8, "end": 2.2},
+        ]
+        script_data = {
+            "content_metadata": {
+                "script": {
+                    "hook": "Sapevi il alfabeto lettera gei jeans"
+                }
+            }
+        }
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+
+        # Should match golden script words, capitalized for Hormozi style
+        self.assertEqual(texts, ["SAPEVI", "IL", "ALFABETO", "LETTERA", "GEI", "JEANS"])
+
 
 if __name__ == "__main__":
     unittest.main()

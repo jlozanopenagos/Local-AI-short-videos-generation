@@ -182,8 +182,33 @@ def process_script(
             if builder is None:
                 builder = SubtitleBuilder()
 
-            # 1. Transcribe
-            words = transcriber.transcribe(audio_path)
+            # 1. Transcribe with language & prompt hints from script_data
+            whisper_lang = None
+            initial_prompt = None
+            if script_data:
+                target_lang = (
+                    script_data.get("content_metadata", {}).get("language")
+                    or script_data.get("prompt_params", {}).get("TARGET_LANGUAGE")
+                    or metadata.get("LABEL")
+                    or ""
+                ).lower()
+                lang_map = {
+                    "french": "fr", "fr": "fr",
+                    "italian": "it", "it": "it",
+                    "spanish": "es", "es": "es",
+                    "english": "en", "en": "en"
+                }
+                for k, v in lang_map.items():
+                    if k in target_lang:
+                        whisper_lang = v
+                        break
+
+                script_dict = script_data.get("content_metadata", {}).get("script", {})
+                if script_dict and isinstance(script_dict, dict):
+                    full_p = " ".join(str(v) for k, v in script_dict.items() if k.lower() != "title")
+                    initial_prompt = full_p[:800]
+
+            words = transcriber.transcribe(audio_path, language=whisper_lang, initial_prompt=initial_prompt)
             
             # 2. Build Subtitles
             suppress_windows = []
@@ -193,20 +218,30 @@ def process_script(
                 or metadata.get("VIDEO_TYPE", "")
             ).upper()
 
-            if video_type == "GAME":
+            timings_data = None
+            if timings_path.exists():
                 import json
                 try:
                     with timings_path.open("r", encoding="utf-8") as tf:
                         timings_data = json.load(tf)
-                    if "challenge" in timings_data:
-                        ch_start = timings_data["challenge"].get("start", 0.0)
-                        ch_end = timings_data["challenge"].get("end", 0.0)
-                        suppress_windows.append((ch_start, ch_end))
-                        print(f"[{script_id}] Subtitles suppressed during CHALLENGE section ({ch_start}s - {ch_end}s)")
                 except Exception as e:
-                    print(f"[{script_id}] Warning checking timings for subtitle suppression: {e}")
+                    print(f"[{script_id}] Warning reading timings map: {e}")
 
-            builder.build_ass(words, ass_path, VIDEO_WIDTH, VIDEO_HEIGHT, suppress_windows=suppress_windows, script_data=script_data)
+            if video_type == "GAME" and timings_data and "challenge" in timings_data:
+                ch_start = timings_data["challenge"].get("start", 0.0)
+                ch_end = timings_data["challenge"].get("end", 0.0)
+                suppress_windows.append((ch_start, ch_end))
+                print(f"[{script_id}] Subtitles suppressed during CHALLENGE section ({ch_start}s - {ch_end}s)")
+
+            builder.build_ass(
+                words, 
+                ass_path, 
+                VIDEO_WIDTH, 
+                VIDEO_HEIGHT, 
+                suppress_windows=suppress_windows, 
+                script_data=script_data,
+                timings_data=timings_data
+            )
             print(f"Generated subtitles at {ass_path.name}")
         
         # 3. Assemble Video

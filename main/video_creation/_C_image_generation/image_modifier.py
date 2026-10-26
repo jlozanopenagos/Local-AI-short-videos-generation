@@ -229,11 +229,7 @@ def modify_group_interactive(
         video_type=video_type,
     )
 
-    stored_general_prompt = (
-        script_data.get("assets", {}).get("general_prompt")
-        or content_meta.get("anchor_environment")
-        or anchor_environment
-    )
+    stored_general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
 
     print("\n" + "=" * 64)
     print(f"🎬 GROUP CHANGE MODE: Script [{script_id}] ({len(valid_sections)} Scenes)")
@@ -554,15 +550,77 @@ def modify_group_interactive(
     script_data["content_metadata"]["anchor_environment"] = confirmed_general_prompt
     state_manager.save_script_state(script_id, script_data)
 
-    # 4. Image-by-image Generation (No individual confirmation needed)
-    total_scenes = len(valid_sections)
+    # 4. PREPARATION PHASE (Step 1B): Sequential Storyboard Generation
+    # Generate all scene prompts at once using Gemma in sequential chronological order,
+    # anchored by the confirmed General Prompt, script text, and topic.
     print("\n" + "=" * 64)
-    print(f"🚀 LAUNCHING GROUP GENERATION: {total_scenes} Scenes for Script [{script_id}]")
-    print(f"Overarching General Story World:")
-    print(f">> {confirmed_general_prompt} <<")
+    print(f"🎬 PREPARATION PHASE: Generating Sequential Storyboard for {len(valid_sections)} Scenes...")
+    print(f"Locked Story World:\n>> {confirmed_general_prompt} <<")
     print("=" * 64)
 
+    sections_for_storyboard = {
+        sec: sections.get(sec, f"Illustration for {sec} ({topic_str})")
+        for sec in valid_sections
+    }
+    if video_type == "ROLEPLAY":
+        d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
+        d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
+        if d1 and "hook" in sections_for_storyboard:
+            sections_for_storyboard["hook"] = f"{sections_for_storyboard['hook']}\n{d1}".strip()
+        if d4 and "payoff" in sections_for_storyboard:
+            sections_for_storyboard["payoff"] = f"{d4}\n{sections_for_storyboard['payoff']}".strip()
+
     generated_scene_prompts: Dict[str, str] = {}
+    try:
+        storyboard_map = prompt_builder.build_storyboard_prompts(
+            script_text=script_text,
+            label=label,
+            sections=sections_for_storyboard,
+            script_id=script_id,
+            speakers_gender=speakers_gender,
+            video_type=video_type,
+            character_personalities=character_personalities,
+            topic=topic_str,
+            scenario=scenario_str,
+            lexical_field=lexical_field_str,
+            anchor_environment=confirmed_general_prompt,
+            general_prompt=confirmed_general_prompt,
+        )
+        for s_key, s_prompt in storyboard_map.items():
+            clean_p = sanitize_and_style_prompt(s_prompt)
+            generated_scene_prompts[s_key.lower()] = clean_p
+            print(f"\n[Scene Prompt - {s_key.upper()}]:\n\"{clean_p}\"")
+    except Exception as exc:
+        print(f"[WARNING] Storyboard batch generation failed: {exc}. Will fallback per scene.")
+
+    # Cleanup any stale/obsolete scene images not in valid_sections
+    for old_img in images_dir.glob(f"script_{script_id}_*.png"):
+        sec_name = old_img.stem[len(f"script_{script_id}_"):].lower()
+        if sec_name not in valid_sections:
+            try:
+                old_img.unlink()
+                print(f"[Cleanup] Deleted obsolete image: {old_img.name}")
+            except Exception as e:
+                print(f"[Cleanup] Could not delete {old_img.name}: {e}")
+
+    if "assets" not in script_data or not isinstance(script_data["assets"], dict):
+        script_data["assets"] = {}
+    if "image_prompts" not in script_data["assets"] or not isinstance(script_data["assets"]["image_prompts"], dict):
+        script_data["assets"]["image_prompts"] = {}
+    # Prune obsolete scene prompt keys from state
+    script_data["assets"]["image_prompts"] = {
+        k: v for k, v in script_data["assets"]["image_prompts"].items()
+        if k.lower() in valid_sections
+    }
+    script_data["assets"]["image_prompts"].update(generated_scene_prompts)
+    state_manager.save_script_state(script_id, script_data)
+
+    # 5. EXECUTION PHASE (Phase 2): Batch Image Synthesis in ComfyUI
+    total_scenes = len(valid_sections)
+    print("\n" + "=" * 64)
+    print(f"🚀 EXECUTION PHASE: Batch Image Synthesis ({total_scenes} Scenes)")
+    print("=" * 64)
+
     for idx, sec in enumerate(valid_sections, 1):
         dest_image_path = images_dir / f"script_{script_id}_{sec}.png"
         sec_text = sections.get(sec, f"Illustration for {sec} ({topic_str})")
@@ -610,32 +668,37 @@ def modify_group_interactive(
                 except Exception as exc:
                     print(f"[WARNING] Chalkboard rendering failed: {exc}. Falling back to ComfyUI.")
 
-        # Generative Scene: Create specific prompt taking general prompt into account
-        print(f"[LLM] Creating specific visual prompt for '{sec}' anchored in story world...")
-        try:
-            specific_prompt = prompt_builder.build_visual_prompt(
-                script_text=script_text,
-                label=label,
-                scene_name=sec,
-                scene_text=sec_text,
-                script_id=script_id,
-                speakers_gender=speakers_gender,
-                video_type=video_type,
-                character_personalities=character_personalities,
-                topic=topic_str,
-                scenario=scenario_str,
-                lexical_field=lexical_field_str,
-                anchor_environment=confirmed_general_prompt,
-                existing_scene_prompts=generated_scene_prompts,
-                temperature=0.8,
-            )
-            specific_prompt = sanitize_and_style_prompt(specific_prompt)
-            generated_scene_prompts[sec.lower()] = specific_prompt
-        except Exception as exc:
-            print(f"[ERROR] Failed to build visual prompt for '{sec}': {exc}")
-            continue
+        # Generative Scene: Retrieve pre-generated prompt or fallback
+        specific_prompt = generated_scene_prompts.get(sec.lower()) or generated_scene_prompts.get(sec)
+        if not specific_prompt:
+            print(f"[LLM] Creating fallback visual prompt for '{sec}' anchored in story world...")
+            try:
+                specific_prompt = prompt_builder.build_visual_prompt(
+                    script_text=script_text,
+                    label=label,
+                    scene_name=sec,
+                    scene_text=sec_text,
+                    script_id=script_id,
+                    speakers_gender=speakers_gender,
+                    video_type=video_type,
+                    character_personalities=character_personalities,
+                    topic=topic_str,
+                    scenario=scenario_str,
+                    lexical_field=lexical_field_str,
+                    anchor_environment=confirmed_general_prompt,
+                    existing_scene_prompts=generated_scene_prompts,
+                    general_prompt=confirmed_general_prompt,
+                    temperature=0.8,
+                )
+                specific_prompt = sanitize_and_style_prompt(specific_prompt)
+                generated_scene_prompts[sec.lower()] = specific_prompt
+                script_data["assets"]["image_prompts"][sec] = specific_prompt
+                state_manager.save_script_state(script_id, script_data)
+            except Exception as exc:
+                print(f"[ERROR] Failed to build visual prompt for '{sec}': {exc}")
+                continue
 
-        print(f"\n[Specific Prompt - {sec.upper()}]:\n\"{specific_prompt}\"\n")
+        print(f"\n[Execution Prompt - {sec.upper()}]:\n\"{specific_prompt}\"\n")
 
         # ComfyUI generation
         scene_seed = (current_seed + idx * 7919) % (10**15) if custom_seed is None else custom_seed
@@ -904,6 +967,8 @@ def modify_scene_interactive(
             label=label,
             video_type=video_type,
         )
+        stored_general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
+        general_prompt_val = stored_general_prompt or anchor_environment
 
         existing_prompt = (
             script_data.get("assets", {})
@@ -920,7 +985,9 @@ def modify_scene_interactive(
             print(f"Story Scenario:   {scenario_str}")
         if lexical_field_str:
             print(f"Lexical Field:    {lexical_field_str}")
-        if anchor_environment:
+        if general_prompt_val:
+            print(f"Locked Story World:\n>> {general_prompt_val} <<")
+        elif anchor_environment:
             print(f"Locked Setting:   >> {anchor_environment} <<")
         if existing_prompt:
             print(f"Stored Prompt:    \"{existing_prompt}\"")
@@ -1118,6 +1185,7 @@ def modify_scene_interactive(
                 scenario=scenario_str,
                 lexical_field=lexical_field_str,
                 anchor_environment=anchor_environment,
+                general_prompt=general_prompt_val,
             )
             if "assets" not in script_data or not isinstance(script_data["assets"], dict):
                 script_data["assets"] = {}
@@ -1149,6 +1217,7 @@ def modify_scene_interactive(
                 lexical_field=lexical_field_str,
                 anchor_environment=anchor_environment,
                 existing_scene_prompts=existing_scene_prompts,
+                general_prompt=general_prompt_val,
                 temperature=0.8,
             )
         elif opt_input == "3":
@@ -1176,6 +1245,7 @@ def modify_scene_interactive(
                 lexical_field=lexical_field_str,
                 anchor_environment=anchor_environment,
                 existing_scene_prompts=existing_scene_prompts,
+                general_prompt=general_prompt_val,
                 temperature=0.8,
             )
 
