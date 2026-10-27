@@ -43,9 +43,13 @@ def clean_token(token: str) -> str:
 
 
 def clean_spoken_text(text: str) -> str:
-    """Strips parentheticals, formatting asterisks, and normalizes conversational quotes."""
-    # Strip parentheticals like (smiling) or (Agent)
+    """Strips parentheticals, speaker labels (PERSON_ONE, Narrator, etc.), formatting asterisks, and normalizes conversational quotes."""
+    # Strip parentheticals like (smiling), (Panicked), or (Agent)
     text = re.sub(r"\([^)]+\)", "", text)
+    # Strip explicit roleplay speaker labels anywhere (e.g. PERSON_ONE:, PERSON_TWO:)
+    text = re.sub(r"\b(PERSON_ONE|PERSON_TWO|PERSON_1|PERSON_2|Narrator|Host|Speaker)\s*:\s*", "", text, flags=re.IGNORECASE)
+    # Strip leading speaker prefixes on lines, ignoring quiz choices A:, B:, C:, D:
+    text = re.sub(r"(?m)^\s*(?![A-D]\b)[\w\s-]{2,30}:\s*", "", text)
     # Strip formatting markdown
     text = text.replace("**", "").replace("*", "")
     # Normalize unicode quotes and dashes

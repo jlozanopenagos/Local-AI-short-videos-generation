@@ -150,6 +150,31 @@ class TestSubtitleBuilder(unittest.TestCase):
         # Should match golden script words, capitalized for Hormozi style
         self.assertEqual(texts, ["SAPEVI", "IL", "ALFABETO", "LETTERA", "GEI", "JEANS"])
 
+    def test_build_ass_strips_roleplay_speaker_labels(self):
+        """Verify that speaker labels like PERSON_ONE (Panicked): and PERSON_TWO: are stripped from subtitles."""
+        whisper_words = [
+            {"word": "I", "start": 1.0, "end": 1.2},
+            {"word": "forgot", "start": 1.2, "end": 1.5},
+            {"word": "Relax", "start": 2.0, "end": 2.3},
+        ]
+        script_data = {
+            "content_metadata": {
+                "script": {
+                    "dialogue_part_1": "PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax"
+                }
+            }
+        }
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+        self.assertNotIn("PERSON_ONE:", texts)
+        self.assertNotIn("PERSON_TWO:", texts)
+        self.assertNotIn("PANICKED", texts)
+        self.assertNotIn("CALM", texts)
+        self.assertEqual(texts, ["I", "FORGOT", "RELAX"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

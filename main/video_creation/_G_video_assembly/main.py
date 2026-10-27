@@ -237,10 +237,14 @@ def process_script(
                         whisper_lang = v
                         break
 
-                script_dict = script_data.get("content_metadata", {}).get("script", {})
-                if script_dict and isinstance(script_dict, dict):
-                    full_p = " ".join(str(v) for k, v in script_dict.items() if k.lower() != "title")
-                    initial_prompt = full_p[:800]
+                target_expr = (
+                    script_data.get("prompt_params", {}).get("target_expression")
+                    or script_data.get("content_metadata", {}).get("target_expression")
+                )
+                if target_expr and isinstance(target_expr, str) and len(target_expr) < 60:
+                    initial_prompt = target_expr.strip()
+                else:
+                    initial_prompt = None
 
             words = transcriber.transcribe(audio_path, language=whisper_lang, initial_prompt=initial_prompt)
             

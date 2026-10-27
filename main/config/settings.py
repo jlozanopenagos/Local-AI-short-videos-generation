@@ -156,9 +156,9 @@ NARRATOR_VOICES = {
 }
 
 DEFAULT_PAUSES = {
-    "section_gap": 0.30,           # Snappy transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
-    "dialogue_section_gap": 0.12,  # Tight transition between consecutive dialogue parts (Part 1 -> Part 2)
-    "dialogue_gap": 0.08,          # Natural human conversational micro-latching between speakers (80ms)
+    "section_gap": 0.35,           # Natural transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
+    "dialogue_section_gap": 0.20,  # Natural transition between consecutive dialogue parts (Part 1 -> Part 2)
+    "dialogue_gap": 0.15,          # Natural human conversational turn latching between speakers (150ms)
     "paragraph_gap": 0.20,         # Crisp paragraph pause for narration
     "pressure_gap": 2.20,          # Suspenseful countdown pause for GAME videos (between pressure and answer)
 }

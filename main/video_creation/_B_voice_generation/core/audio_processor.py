@@ -60,9 +60,9 @@ def concatenate_audios(
             pauses = None
         if not pauses:
             pauses = {
-                "section_gap": 0.30,           # Snappy transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
-                "dialogue_section_gap": 0.12,  # Tight bridge across dialogue parts (Part 1 -> Part 2)
-                "dialogue_gap": 0.08,          # Natural human conversational micro-latching (80ms)
+                "section_gap": 0.35,           # Natural transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
+                "dialogue_section_gap": 0.20,  # Natural bridge across dialogue parts (Part 1 -> Part 2)
+                "dialogue_gap": 0.15,          # Natural human conversational turn latching (150ms)
                 "paragraph_gap": 0.20,         # Crisp paragraph pause for narration
                 "pressure_gap": 2.20           # Suspenseful countdown pause for quiz games
             }

@@ -74,15 +74,15 @@ class TestAudioProcessor(unittest.TestCase):
 
     def test_standard_pause_gap_durations(self):
         pauses = {
-            "section_gap": 0.30,
-            "dialogue_section_gap": 0.12,
-            "dialogue_gap": 0.08,
+            "section_gap": 0.35,
+            "dialogue_section_gap": 0.20,
+            "dialogue_gap": 0.15,
             "paragraph_gap": 0.20,
             "pressure_gap": 2.20
         }
-        self.assertEqual(pauses["section_gap"], 0.30)
-        self.assertEqual(pauses["dialogue_section_gap"], 0.12)
-        self.assertEqual(pauses["dialogue_gap"], 0.08)
+        self.assertEqual(pauses["section_gap"], 0.35)
+        self.assertEqual(pauses["dialogue_section_gap"], 0.20)
+        self.assertEqual(pauses["dialogue_gap"], 0.15)
         self.assertEqual(pauses["paragraph_gap"], 0.20)
         self.assertEqual(pauses["pressure_gap"], 2.20)
 

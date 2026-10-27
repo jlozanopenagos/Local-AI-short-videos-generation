@@ -119,12 +119,12 @@ class ComfyClient:
             
             # Generation parameters tuned for lively pace, zero robotic artifacts, and stable speaker timbre
             is_dialogue = "dialogue" in context.lower() or "roleplay" in context.lower()
-            # Natural acoustic temperature: higher for dialogue to unlock lively vocal elasticity
-            node_inputs["temperature"] = 0.75 if not is_dialogue else 0.82
-            node_inputs["top_p"] = 0.90 if not is_dialogue else 0.95
+            # Natural acoustic temperature: balanced for dialogue to unlock natural vocal elasticity without rushing
+            node_inputs["temperature"] = 0.75 if not is_dialogue else 0.78
+            node_inputs["top_p"] = 0.90 if not is_dialogue else 0.92
             node_inputs["top_k"] = 50
-            # Elevate subtalker_temperature for dialogue to unlock rich emotional micro-prosody and pitch variation
-            node_inputs["subtalker_temperature"] = 0.75 if not is_dialogue else 0.92
+            # Calibrated subtalker_temperature for dialogue to unlock natural emotional micro-prosody and pitch variation
+            node_inputs["subtalker_temperature"] = 0.75 if not is_dialogue else 0.84
 
             # Gentle repetition penalty (1.02) avoids audio token looping while preserving natural vowel duration and resonance
             node_inputs["repetition_penalty"] = 1.02
@@ -140,9 +140,9 @@ class ComfyClient:
             if is_dialogue:
                 role_clause = f"as {context}" if context else "as a character"
                 node_inputs["instruct"] = (
-                    f"Speak {role_clause} in {language} with high vocal energy and authentic theatrical acting. "
+                    f"Speak {role_clause} in {language} with natural vocal energy and authentic theatrical acting. "
                     f"Acting tone: {emotion}. Energy level: {energy.upper()}. "
-                    f"Delivery: {style}. Rapid conversational momentum, natural breath, vibrant emotional pitch inflections, and immediate reactive banter."
+                    f"Delivery: {style}. Natural conversational tempo, clear confident articulation, authentic emotional cadence, expressive human inflection, and engaging reactive dialogue."
                 )
             else:
                 personality_clause = f" Persona: {context}." if context else ""

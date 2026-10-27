@@ -382,7 +382,7 @@ def process_script(
                 style = (
                     "crisp energetic delivery, upbeat broadcast cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
                     if not is_dialogue
-                    else "brisk theatrical dialogue, lively conversational banter, quick animated cadence, expressive emotional inflection, sharp human momentum"
+                    else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
                 )
 
         target_text = text
