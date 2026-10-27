@@ -93,7 +93,7 @@ class VideoAssembler:
                 y_expr = "ih/2-(ih/zoom/2)"
 
             stream = (
-                ffmpeg.input(current['path'].resolve().as_posix())
+                ffmpeg.input(current['path'].resolve().as_posix(), thread_queue_size=16 + i)
                 .filter('scale', '4608x8192', force_original_aspect_ratio='increase')  
                 .filter('crop', '4608', '8192') 
                 .filter('zoompan', z=z_expr, d=frames, x='iw/2-(iw/zoom/2)', y=y_expr, s='576x1024')
