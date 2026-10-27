@@ -23,6 +23,7 @@ from core.cli_prompt import (
     prompt_mass_ready_scripts_mode,
     prompt_fun_facts_cards_variant,
 )
+# pyrefly: ignore[missing-import]
 from config.settings import resolve_opening_closure_paths
 
 
@@ -515,10 +516,12 @@ class TestCLICSVMode(unittest.TestCase):
         self.assertIn("british", close_uk.name.lower())
 
         # Spanish Latin American vs Spain
-        _, close_latam = resolve_opening_closure_paths(script_sf, dialect="latin_american")
+        open_latam, close_latam = resolve_opening_closure_paths(script_sf, dialect="latin_american")
+        self.assertIn("latin_american", open_latam.name.lower())
         self.assertIn("latin_american", close_latam.name.lower())
 
-        _, close_spain = resolve_opening_closure_paths(script_sf, dialect="spain")
+        open_spain, close_spain = resolve_opening_closure_paths(script_sf, dialect="spain")
+        self.assertIn("spain", open_spain.name.lower())
         self.assertIn("spain", close_spain.name.lower())
 
 

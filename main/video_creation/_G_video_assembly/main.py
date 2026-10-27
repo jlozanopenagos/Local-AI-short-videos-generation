@@ -170,6 +170,7 @@ def process_script(
             try:
                 from core.cli_prompt import prompt_fun_facts_cards_variant
             except (ImportError, ModuleNotFoundError):
+                # pyrefly: ignore[missing-import]
                 from cli_prompt import prompt_fun_facts_cards_variant
             dialect = prompt_fun_facts_cards_variant(
                 script_data,

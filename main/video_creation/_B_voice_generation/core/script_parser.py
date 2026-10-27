@@ -32,6 +32,10 @@ def normalize_spoken_dialogue(text: str) -> str:
     text = re.sub(r"\b([A-D])\)\s*", r"\1: ", text)
     # Replace mid-sentence multiple dots/ellipses that cause awkward 1-second gaps: "Break a... what?" -> "Break a, what?"
     text = re.sub(r"\.{2,}", ", ", text)
+    # Normalize multiple exclamation and question marks that create disjointed pauses
+    text = re.sub(r"\?{2,}", "?", text)
+    text = re.sub(r"!{2,}", "!", text)
+    text = re.sub(r"[!?]{2,}", "?", text)
     # Collapse whitespace
     text = re.sub(r"\s+", " ", text).strip()
     return text

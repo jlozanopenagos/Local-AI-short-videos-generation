@@ -6,8 +6,16 @@ import soundfile as sf
 from pathlib import Path
 from typing import Dict, List, Optional
 
-def trim_trailing_silence(data: np.ndarray, sr: int, threshold: float = 0.01, pad_seconds: float = 0.15) -> np.ndarray:
-    """Trims trailing dead silence from generated TTS segments to keep pacing tight."""
+def trim_audio_silence(
+    data: np.ndarray,
+    sr: int,
+    threshold: float = 0.012,
+    pad_leading: float = 0.025,
+    pad_trailing: float = 0.05
+) -> np.ndarray:
+    """Trims both leading dead silence (from neural TTS latency) and trailing silence
+    from generated segments to ensure crisp, human-like turn-taking pacing.
+    """
     if len(data) == 0:
         return data
     abs_data = np.abs(data)
@@ -15,10 +23,16 @@ def trim_trailing_silence(data: np.ndarray, sr: int, threshold: float = 0.01, pa
         abs_data = np.max(abs_data, axis=1)
     non_silent = np.where(abs_data > threshold)[0]
     if len(non_silent) > 0:
-        pad_samples = int(pad_seconds * sr)
-        end_idx = min(len(data), non_silent[-1] + pad_samples)
-        return data[:end_idx]
+        lead_samples = int(pad_leading * sr)
+        trail_samples = int(pad_trailing * sr)
+        start_idx = max(0, non_silent[0] - lead_samples)
+        end_idx = min(len(data), non_silent[-1] + trail_samples)
+        return data[start_idx:end_idx]
     return data
+
+def trim_trailing_silence(data: np.ndarray, sr: int, threshold: float = 0.01, pad_seconds: float = 0.15) -> np.ndarray:
+    """Trims trailing dead silence from generated TTS segments (backwards-compatible alias)."""
+    return trim_audio_silence(data, sr, threshold=threshold, pad_leading=0.0, pad_trailing=pad_seconds)
 
 def concatenate_audios(
     segments_metadata: List[Dict],
@@ -39,12 +53,19 @@ def concatenate_audios(
         return None
 
     if not pauses:
-        pauses = {
-            "section_gap": 0.40,   # Snappy transition between sections for YouTube Shorts
-            "dialogue_gap": 0.20,  # Natural, quick conversational turn
-            "paragraph_gap": 0.30, # Crisp paragraph pause
-            "pressure_gap": 2.20   # Suspenseful thinking/countdown pause for quiz games
-        }
+        try:
+            import config
+            pauses = getattr(config, "DEFAULT_PAUSES", None)
+        except Exception:
+            pauses = None
+        if not pauses:
+            pauses = {
+                "section_gap": 0.30,           # Snappy transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
+                "dialogue_section_gap": 0.12,  # Tight bridge across dialogue parts (Part 1 -> Part 2)
+                "dialogue_gap": 0.08,          # Natural human conversational micro-latching (80ms)
+                "paragraph_gap": 0.20,         # Crisp paragraph pause for narration
+                "pressure_gap": 2.20           # Suspenseful countdown pause for quiz games
+            }
 
     combined_data = []
     master_samplerate = None
@@ -60,7 +81,8 @@ def concatenate_audios(
             continue
 
         data, sr = sf.read(str(path))
-        data = trim_trailing_silence(data, sr)
+        # Trim both leading dead latency and trailing dead silence
+        data = trim_audio_silence(data, sr, threshold=0.012, pad_leading=0.025, pad_trailing=0.05)
         
         if master_samplerate is None:
             master_samplerate = sr
@@ -77,14 +99,25 @@ def concatenate_audios(
             prev_seg = segments_metadata[i - 1]
             pause_duration = 0.0
 
-            if prev_seg["section"] == "pressure" and seg["section"] == "answer":
+            prev_sec = (prev_seg.get("section") or "").lower()
+            cur_sec = (seg.get("section") or "").lower()
+            is_prev_diag = "dialogue" in prev_sec
+            is_cur_diag = "dialogue" in cur_sec
+
+            if prev_sec == "pressure" and cur_sec == "answer":
                 pause_duration = pauses.get("pressure_gap", 2.20)
-            elif prev_seg["section"] != seg["section"]:
-                pause_duration = pauses.get("section_gap", 0.40)
+            elif is_prev_diag and is_cur_diag:
+                # Dialogue-to-dialogue transition: preserve conversational latching
+                if prev_seg["speaker"] != seg["speaker"]:
+                    pause_duration = pauses.get("dialogue_gap", 0.08)
+                else:
+                    pause_duration = pauses.get("dialogue_section_gap", 0.12)
+            elif prev_sec != cur_sec:
+                pause_duration = pauses.get("section_gap", 0.30)
             elif prev_seg["speaker"] != seg["speaker"]:
-                pause_duration = pauses.get("dialogue_gap", 0.20)
+                pause_duration = pauses.get("dialogue_gap", 0.08)
             else:
-                pause_duration = pauses.get("paragraph_gap", 0.30)
+                pause_duration = pauses.get("paragraph_gap", 0.20)
 
             if pause_duration > 0:
                 num_pause_samples = int(pause_duration * master_samplerate)

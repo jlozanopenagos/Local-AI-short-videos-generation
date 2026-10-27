@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 # pyrefly: ignore [missing-import]
-from video_creation._B_voice_generation.core.audio_processor import trim_trailing_silence
+from video_creation._B_voice_generation.core.audio_processor import trim_trailing_silence, trim_audio_silence
 
 
 class TestAudioProcessor(unittest.TestCase):
@@ -14,6 +14,22 @@ class TestAudioProcessor(unittest.TestCase):
         empty = np.array([])
         result = trim_trailing_silence(empty, sr=24000)
         self.assertEqual(len(result), 0)
+
+    def test_trim_audio_silence_cuts_leading_and_trailing(self):
+        sr = 24000
+        # 0.5s leading silence + 1.0s speech (0.5) + 0.5s trailing silence
+        silence_lead = np.zeros(int(0.5 * sr), dtype=np.float32)
+        speech = np.ones(sr, dtype=np.float32) * 0.5
+        silence_trail = np.zeros(int(0.5 * sr), dtype=np.float32)
+        audio = np.concatenate([silence_lead, speech, silence_trail])
+
+        pad_lead = 0.025
+        pad_trail = 0.05
+        trimmed = trim_audio_silence(audio, sr=sr, threshold=0.01, pad_leading=pad_lead, pad_trailing=pad_trail)
+
+        expected_samples = int(pad_lead * sr) + sr + int(pad_trail * sr)
+        self.assertAlmostEqual(len(trimmed), expected_samples, delta=2)
+        self.assertLess(len(trimmed), len(audio))
 
     def test_trim_trailing_silence_cuts_dead_tail(self):
         sr = 24000
@@ -58,14 +74,16 @@ class TestAudioProcessor(unittest.TestCase):
 
     def test_standard_pause_gap_durations(self):
         pauses = {
-            "section_gap": 0.40,
-            "dialogue_gap": 0.20,
-            "paragraph_gap": 0.30,
+            "section_gap": 0.30,
+            "dialogue_section_gap": 0.12,
+            "dialogue_gap": 0.08,
+            "paragraph_gap": 0.20,
             "pressure_gap": 2.20
         }
-        self.assertEqual(pauses["section_gap"], 0.40)
-        self.assertEqual(pauses["dialogue_gap"], 0.20)
-        self.assertEqual(pauses["paragraph_gap"], 0.30)
+        self.assertEqual(pauses["section_gap"], 0.30)
+        self.assertEqual(pauses["dialogue_section_gap"], 0.12)
+        self.assertEqual(pauses["dialogue_gap"], 0.08)
+        self.assertEqual(pauses["paragraph_gap"], 0.20)
         self.assertEqual(pauses["pressure_gap"], 2.20)
 
 

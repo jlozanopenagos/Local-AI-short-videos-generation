@@ -119,11 +119,12 @@ class ComfyClient:
             
             # Generation parameters tuned for lively pace, zero robotic artifacts, and stable speaker timbre
             is_dialogue = "dialogue" in context.lower() or "roleplay" in context.lower()
-            # Natural acoustic temperature (0.75-0.80) unlocks human vocal elasticity and pitch micro-contours
-            node_inputs["temperature"] = 0.75 if not is_dialogue else 0.80
+            # Natural acoustic temperature: higher for dialogue to unlock lively vocal elasticity
+            node_inputs["temperature"] = 0.75 if not is_dialogue else 0.82
             node_inputs["top_p"] = 0.90 if not is_dialogue else 0.95
             node_inputs["top_k"] = 50
-            node_inputs["subtalker_temperature"] = 0.75 if not is_dialogue else 0.80
+            # Elevate subtalker_temperature for dialogue to unlock rich emotional micro-prosody and pitch variation
+            node_inputs["subtalker_temperature"] = 0.75 if not is_dialogue else 0.92
 
             # Gentle repetition penalty (1.02) avoids audio token looping while preserving natural vowel duration and resonance
             node_inputs["repetition_penalty"] = 1.02
@@ -135,16 +136,16 @@ class ComfyClient:
             words_count = max(1, len(target_text.split()))
             node_inputs["max_new_tokens"] = max(128, min(2048, words_count * 18))
             
-            # Format the system-level instruction prompt with vivid theatrical acting directives
-            personality_clause = f" Persona: {context}." if context else ""
+            # Format the system-level instruction prompt with direct theatrical acting directives
             if is_dialogue:
+                role_clause = f"as {context}" if context else "as a character"
                 node_inputs["instruct"] = (
-                    f"A {gender.lower()} voice actor performing authentic, natural conversational dialogue in {language}.{personality_clause} "
-                    f"Emotional acting tone: {emotion}. "
-                    f"Energy level: {energy.upper()}. "
-                    f"Delivery: {style}. Natural spoken cadence, fluid phoneme blending, authentic breath, and human intonation. Avoid any robotic or monotone cadence."
+                    f"Speak {role_clause} in {language} with high vocal energy and authentic theatrical acting. "
+                    f"Acting tone: {emotion}. Energy level: {energy.upper()}. "
+                    f"Delivery: {style}. Rapid conversational momentum, natural breath, vibrant emotional pitch inflections, and immediate reactive banter."
                 )
             else:
+                personality_clause = f" Persona: {context}." if context else ""
                 node_inputs["instruct"] = (
                     f"A {gender.lower()} narrator delivering a lively YouTube Shorts presentation in {language}.{personality_clause} "
                     f"Tone: {emotion}. "

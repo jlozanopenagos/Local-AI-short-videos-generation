@@ -120,11 +120,11 @@ NARRATOR_VOICES = {
         "english/male/english_male_open_swara_144.wav"
     ],
     ("english", "female"): [
-        "english/female/english_female_open_swara_080.wav",
-        "english/female/english_female_open_swara_085.wav",
-        "english/female/english_female_open_swara_096.wav",
-        "english/female/english_female_open_swara_125.wav",
-        "english/female/english_female_open_swara_127.wav"
+        "english/female/english_female_open_swara_011.wav",
+        "english/female/english_female_open_swara_035.wav",
+        "english/female/english_female_open_swara_055.wav",
+        "english/female/english_female_open_swara_118.wav",
+        "english/female/english_female_open_swara_125.wav"
     ],
     ("french", "male"): [
         "french/male/french_male_open_swara_009.wav",
@@ -132,7 +132,7 @@ NARRATOR_VOICES = {
         "french/male/french_male_open_swara_050.wav"
     ],
     ("french", "female"): [
-        "french/female/french_female_open_swara_001.wav",
+        "french/female/french_female_open_swara_002.wav",
         "french/female/french_female_open_swara_026.wav",
         "french/female/french_female_open_swara_074.wav"
     ],
@@ -150,16 +150,17 @@ NARRATOR_VOICES = {
         "italian/male/italian_male_open_swara_002.wav"
     ],
     ("italian", "female"): [
-        "italian/female/italian_female_open_swara_001.wav",
-        "italian/female/italian_female_open_swara_002.wav"
+        "italian/female/italian_female_open_swara_007.wav",
+        "italian/female/italian_female_open_swara_008.wav"
     ]
 }
 
 DEFAULT_PAUSES = {
-    "section_gap": 0.40,
-    "dialogue_gap": 0.20,
-    "paragraph_gap": 0.30,
-    "pressure_gap": 2.20,  # Suspenseful countdown pause for GAME videos (between pressure and answer)
+    "section_gap": 0.30,           # Snappy transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
+    "dialogue_section_gap": 0.12,  # Tight transition between consecutive dialogue parts (Part 1 -> Part 2)
+    "dialogue_gap": 0.08,          # Natural human conversational micro-latching between speakers (80ms)
+    "paragraph_gap": 0.20,         # Crisp paragraph pause for narration
+    "pressure_gap": 2.20,          # Suspenseful countdown pause for GAME videos (between pressure and answer)
 }
 
 # Static Narrator Personality (Dynamic YouTube Shorts Creator, not a boring book reader)
@@ -324,7 +325,7 @@ def resolve_opening_closure_paths(
         elif lang == "spanish":
             if any(k in d_clean for k in ("spain", "españ", "cast", "penin")):
                 spanish_dialect = "spain"
-            elif any(k in d_clean for k in ("latin", "amer", "mex", "col")):
+            elif any(k in d_clean for k in ("latin", "latam", "amer", "mex", "col")):
                 spanish_dialect = "latin_american"
             else:
                 spanish_dialect = d_clean
@@ -350,9 +351,11 @@ def resolve_opening_closure_paths(
             open_lang_dir = open_parent / lang
             if cat_name == "fun_facts":
                 if lang == "english":
-                    open_path = _find_image_in_dir(open_lang_dir, keywords=[english_dialect])
+                    kw_list = ["american", "us", "usa"] if english_dialect == "american" else ["british", "uk", "britain"]
+                    open_path = _find_image_in_dir(open_lang_dir, keywords=kw_list)
                 elif lang == "spanish":
-                    open_path = _find_image_in_dir(open_lang_dir, keywords=[spanish_dialect])
+                    kw_list = ["latin_american", "latam", "latin"] if spanish_dialect == "latin_american" else ["spain", "españa", "espana", "castellano", "peninsular"]
+                    open_path = _find_image_in_dir(open_lang_dir, keywords=kw_list)
                 else:
                     open_path = _find_image_in_dir(open_lang_dir)
             else:
@@ -362,9 +365,11 @@ def resolve_opening_closure_paths(
             close_lang_dir = close_parent / lang
             if cat_name == "fun_facts":
                 if lang == "english":
-                    close_path = _find_image_in_dir(close_lang_dir, keywords=[english_dialect])
+                    kw_list = ["american", "us", "usa"] if english_dialect == "american" else ["british", "uk", "britain"]
+                    close_path = _find_image_in_dir(close_lang_dir, keywords=kw_list)
                 elif lang == "spanish":
-                    close_path = _find_image_in_dir(close_lang_dir, keywords=[spanish_dialect])
+                    kw_list = ["latin_american", "latam", "latin"] if spanish_dialect == "latin_american" else ["spain", "españa", "espana", "castellano", "peninsular"]
+                    close_path = _find_image_in_dir(close_lang_dir, keywords=kw_list)
                 else:
                     close_path = _find_image_in_dir(close_lang_dir)
             else:

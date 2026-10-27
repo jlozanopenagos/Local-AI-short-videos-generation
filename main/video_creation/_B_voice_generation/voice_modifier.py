@@ -139,8 +139,14 @@ def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
 
 def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None, section: str = None, is_game: bool = False) -> str:
     """Infers rich acting emotions from dialogue text, section role, and punctuation."""
-    if explicit_emotion and explicit_emotion.lower() not in ["neutral", "none", "", "normal"]:
-        return explicit_emotion
+    if explicit_emotion:
+        exp_clean = explicit_emotion.lower().strip()
+        # In theatrical roleplay Shorts, a "calm" character should never sound like a slow sedative reading;
+        # they represent grounding, confident, supportive conversational banter.
+        if exp_clean in ["calm", "calme", "tranquilo", "calmo"]:
+            return "grounded, confident, and warm conversational banter"
+        if exp_clean not in ["neutral", "none", "", "normal"]:
+            return explicit_emotion
         
     t = text.lower()
     spk = speaker.lower()
@@ -178,27 +184,27 @@ def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None
     # Dialogue characters (Person One, Person Two, roleplay characters)
     # 1. Nervousness, anxiety, stage fright
     if any(w in t for w in ["shaking", "panic", "can't believe", "nervous", "stage fright", "scared", "afraid", "tremble", "peur", "miedo", "nervioso", "angoisse", "paura", "ansia", "agitato", "tremando"]):
-        return "anxious, nervous, and trembling with stage fright"
+        return "intensely anxious, breathless, and trembling with stage fright urgency"
         
     # 2. Confusion, suspicion, disbelief, questioning
     if any(w in t for w in ["what does that even mean", "bad luck", "what?", "quoi", "qué", "comment", "really?", "de verdad", "cosa?", "davvero?", "sul serio?"]):
-        return "confused, bewildered, and questioning"
+        return "sharp comedic disbelief, incredulous, and completely baffled"
         
     # 3. Reassurance, comfort, soothing
     if any(w in t for w in ["calm down", "remember this", "don't worry", "relax", "t'inquiète", "tranquilo", "respira", "calme-toi", "calmati", "non ti preoccupare", "rilassati"]):
-        return "warm, reassuring, and comforting"
+        return "grounded, confident, and high-spirited encouragement"
         
     # 4. Encouragement, inspiration, cheering
     if any(w in t for w in ["shine", "got this", "do a great job", "no!", "good luck", "bonne chance", "buena suerte", "briller", "tu peux le faire", "buona fortuna", "in bocca al lupo", "ce la puoi fare", "forza"]):
-        return "cheerful, enthusiastic, and highly encouraging"
+        return "enthusiastic, cheerful, and highly energetic banter"
         
     # 5. Relief, discovery, gratitude
     if any(w in t for w in ["oh!", "get it now", "thanks", "feel a lot better", "relieved", "merci", "compris", "soulagé", "gracias", "alivio", "grazie", "meno male", "sollevato"]):
-        return "relieved, thankful, and genuinely happy"
+        return "relieved, excited, and genuinely bright"
         
     # 6. High excitement, cheering, celebration
     if any(w in t for w in ["superstar", "go get 'em", "go get them", "awesome", "crush it", "vas-y", "génial", "vamos", "campeón", "fantastico", "bravissimo", "campione", "grandioso"]):
-        return "excited, cheering, and hyped up"
+        return "hyped up, celebratory, and shouting with excitement"
         
     # Punctuation heuristics
     if "?" in text:
@@ -427,7 +433,7 @@ def main():
                 style = (
                     "crisp energetic delivery, upbeat broadcast cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
                     if not is_dialogue
-                    else "lively, fast-paced authentic dialogue, upbeat and spontaneous conversational tempo, quick natural cadence, expressive human intonation, energetic roleplay"
+                    else "brisk theatrical dialogue, lively conversational banter, quick animated cadence, expressive emotional inflection, sharp human momentum"
                 )
 
         target_text = text
