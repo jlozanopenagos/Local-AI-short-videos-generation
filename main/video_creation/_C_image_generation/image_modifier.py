@@ -562,13 +562,7 @@ def modify_group_interactive(
         sec: sections.get(sec, f"Illustration for {sec} ({topic_str})")
         for sec in valid_sections
     }
-    if video_type == "ROLEPLAY":
-        d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
-        d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
-        if d1 and "hook" in sections_for_storyboard:
-            sections_for_storyboard["hook"] = f"{sections_for_storyboard['hook']}\n{d1}".strip()
-        if d4 and "payoff" in sections_for_storyboard:
-            sections_for_storyboard["payoff"] = f"{d4}\n{sections_for_storyboard['payoff']}".strip()
+
 
     generated_scene_prompts: Dict[str, str] = {}
     try:
@@ -624,15 +618,7 @@ def modify_group_interactive(
     for idx, sec in enumerate(valid_sections, 1):
         dest_image_path = images_dir / f"script_{script_id}_{sec}.png"
         sec_text = sections.get(sec, f"Illustration for {sec} ({topic_str})")
-        if video_type == "ROLEPLAY":
-            if sec.lower() == "hook":
-                d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
-                if d1:
-                    sec_text = f"{sec_text}\n{d1}".strip()
-            elif sec.lower() == "payoff":
-                d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
-                if d4:
-                    sec_text = f"{d4}\n{sec_text}".strip()
+
 
         print(f"\n{'─' * 60}")
         print(f"[{idx}/{total_scenes}] Processing Scene: {sec.upper()}")
@@ -774,7 +760,7 @@ def modify_scene_interactive(
         "chalkboard_exercise", "target_expression", "roleplay_scenario"
     }
     VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
-    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_2", "dialogue_part_3", "payoff"}
+    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"}
 
     sections = parse_sections(script_text)
     valid_sections = []
@@ -922,15 +908,7 @@ def modify_scene_interactive(
 
         first_run = False
         scene_text = sections.get(chosen_section, f"Illustration for {chosen_section} ({topic})")
-        if video_type == "ROLEPLAY":
-            if chosen_section.lower() == "hook":
-                d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
-                if d1:
-                    scene_text = f"{scene_text}\n{d1}".strip()
-            elif chosen_section.lower() == "payoff":
-                d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
-                if d4:
-                    scene_text = f"{d4}\n{scene_text}".strip()
+
         dest_image_path = images_dir / f"script_{script_id}_{chosen_section}.png"
 
         content_meta = script_data.get("content_metadata", {})

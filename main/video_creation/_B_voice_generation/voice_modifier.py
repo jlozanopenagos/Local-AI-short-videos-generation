@@ -137,14 +137,83 @@ def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
 
     return False
 
+EMOTION_TRANSLATION_MAP = {
+    # French
+    "frustré": "intensely frustrated, exasperated, and complaining with lively reactive banter",
+    "frustre": "intensely frustrated, exasperated, and complaining with lively reactive banter",
+    "calme": "calm, confident, and warm conversational banter",
+    "surpris": "sharp comedic surprise, incredulous and completely baffled",
+    "souriant": "warm, smiling, and playfully cheerful conversational banter",
+    "rassuré": "relieved, reassured, and bright friendly banter",
+    "rassure": "relieved, reassured, and bright friendly banter",
+    "inquiet": "anxious, worried, and breathless with urgency",
+    "amusé": "amused, playful, and chuckling friendly banter",
+    "amuse": "amused, playful, and chuckling friendly banter",
+    "enthousiaste": "enthusiastic, cheerful, and highly energetic banter",
+    "curieux": "intrigued, curious, and animated conversational tone",
+    "confus": "bewildered, comedic confusion and questioning",
+    "déterminé": "determined, confident, and energetic tone",
+    "determine": "determined, confident, and energetic tone",
+    "fier": "proud, boastful, and cheerful confident banter",
+    "ironique": "witty, ironic, and playful sarcastic banter",
+    "soulagé": "relieved, excited, and genuinely bright",
+    "soulage": "relieved, excited, and genuinely bright",
+    # Spanish
+    "frustrado": "intensely frustrated, exasperated, and complaining with lively reactive banter",
+    "tranquilo": "calm, confident, and warm conversational banter",
+    "sorprendido": "sharp comedic surprise, incredulous and completely baffled",
+    "asombrado": "sharp comedic surprise, incredulous and completely baffled",
+    "sonriente": "warm, smiling, and playfully cheerful conversational banter",
+    "aliviado": "relieved, reassured, and bright friendly banter",
+    "tranquilizado": "relieved, reassured, and bright friendly banter",
+    "preocupado": "anxious, worried, and breathless with urgency",
+    "divertido": "amused, playful, and chuckling friendly banter",
+    "entusiasta": "enthusiastic, cheerful, and highly energetic banter",
+    "curioso": "intrigued, curious, and animated conversational tone",
+    "confuso": "bewildered, comedic confusion and questioning",
+    "determinado": "determined, confident, and energetic tone",
+    "orgulloso": "proud, boastful, and cheerful confident banter",
+    "irónico": "witty, ironic, and playful sarcastic banter",
+    "ironico": "witty, ironic, and playful sarcastic banter",
+    # Italian
+    "frustrato": "intensely frustrated, exasperated, and complaining with lively reactive banter",
+    "calmo": "calm, confident, and warm conversational banter",
+    "sorpreso": "sharp comedic surprise, incredulous and completely baffled",
+    "sorridente": "warm, smiling, and playfully cheerful conversational banter",
+    "sollevato": "relieved, reassured, and bright friendly banter",
+    "tranquillizzato": "relieved, reassured, and bright friendly banter",
+    "preoccupato": "anxious, worried, and breathless with urgency",
+    "divertito": "amused, playful, and chuckling friendly banter",
+    "curioso": "intrigued, curious, and animated conversational tone",
+    "confuso": "bewildered, comedic confusion and questioning",
+    "determinato": "determined, confident, and energetic tone",
+    "orgoglioso": "proud, boastful, and cheerful confident banter",
+    "ironico": "witty, ironic, and playful sarcastic banter",
+    "arrabbiato": "sharp, annoyed, and playfully heated banter",
+    # English
+    "calm": "calm, confident, and warm conversational banter",
+    "frustrated": "intensely frustrated, exasperated, and complaining with lively reactive banter",
+    "surprised": "sharp comedic surprise, incredulous and completely baffled",
+    "smiling": "warm, smiling, and playfully cheerful conversational banter",
+    "reassured": "relieved, reassured, and bright friendly banter",
+    "relieved": "relieved, reassured, and bright friendly banter",
+    "worried": "anxious, worried, and breathless with urgency",
+    "amused": "amused, playful, and chuckling friendly banter",
+    "enthusiastic": "enthusiastic, cheerful, and highly energetic banter",
+    "curious": "intrigued, curious, and animated conversational tone",
+    "confused": "bewildered, comedic confusion and questioning",
+    "proud": "proud, boastful, and cheerful confident banter",
+}
+
 def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None, section: str = None, is_game: bool = False) -> str:
     """Infers rich acting emotions from dialogue text, section role, and punctuation."""
     if explicit_emotion:
         exp_clean = explicit_emotion.lower().strip()
-        # In theatrical roleplay Shorts, a "calm" character should never sound like a slow sedative reading;
-        # they represent grounding, confident, supportive conversational banter.
-        if exp_clean in ["calm", "calme", "tranquilo", "calmo"]:
-            return "grounded, confident, and warm conversational banter"
+        if exp_clean in EMOTION_TRANSLATION_MAP:
+            return EMOTION_TRANSLATION_MAP[exp_clean]
+        for k, v in EMOTION_TRANSLATION_MAP.items():
+            if k in exp_clean:
+                return v
         if exp_clean not in ["neutral", "none", "", "normal"]:
             return explicit_emotion
         
@@ -156,7 +225,7 @@ def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None
         if "hook" in sec:
             return "vibrant, enthusiastic, and electrifying trivia host bursting with excitement and game-show spirit"
         elif "challenge" in sec:
-            return "clear, articulate, and engaging quizmaster presenting a puzzle"
+            return "lively, charismatic, and enthusiastic game-show host presenting a fun quiz challenge"
         elif "pressure" in sec:
             return "tense, dramatic game-show suspense and countdown anticipation"
         elif "answer" in sec:
@@ -220,7 +289,7 @@ def map_emotion_to_energy(emotion: str) -> str:
     emo_lower = emotion.lower()
     if any(k in emo_lower for k in ["superstar", "go get", "furious", "screaming", "hyped", "crier", "shouting", "electrifying", "bursting", "trivia host"]):
         return "very high"
-    elif any(k in emo_lower for k in ["whisper", "sad", "hesitant", "chuchot", "quizmaster"]):
+    elif any(k in emo_lower for k in ["whisper", "sad", "hesitant", "chuchot"]):
         return "medium"
     return "high"
 
@@ -324,21 +393,26 @@ def main():
     except (KeyboardInterrupt, EOFError):
         pass
 
-    # Get previously assigned genders
+    # Get previously assigned genders and voices
     speakers_gender = script_data.get("content_metadata", {}).get("speakers_gender", {})
+    speakers_voice = script_data.get("content_metadata", {}).get("speakers_voice", {})
     
-    # Assign NEW voices, strictly enforcing distinct genders for characters, and proper Narrator logic
-    voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders, manual_voice_paths)
+    # Assign NEW voices, strictly preserving character genders and distinct identities
+    effective_genders = {**speakers_gender, **manual_genders}
+    voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders=effective_genders, manual_voice_paths=manual_voice_paths)
     
     for speaker in unique_speakers:
         gender, abs_path, _ = voice_manager.get_speaker_voice(speaker, clean_language)
         speakers_gender[speaker] = gender
+        if abs_path:
+            speakers_voice[speaker] = abs_path.name
         rel_path = abs_path.name if abs_path else "Fallback"
         print(f"Assigned new voice for '{speaker}': {gender} -> {rel_path}")
 
     if "content_metadata" not in script_data:
         script_data["content_metadata"] = {}
     script_data["content_metadata"]["speakers_gender"] = speakers_gender
+    script_data["content_metadata"]["speakers_voice"] = speakers_voice
     state_manager.save_script_state(script_id, script_data)
         
     video_type = (
@@ -347,6 +421,7 @@ def main():
         or ""
     ).upper()
     is_game = video_type == "GAME" or any(s.get("section") in ["challenge", "pressure"] for s in segments)
+    is_roleplay = video_type == "ROLEPLAY" or any("dialogue" in (s.get("section") or "").lower() for s in segments)
     is_script_stress_vital = is_stress_pronunciation_vital(script_data)
 
     segments_to_concat = []
@@ -367,10 +442,10 @@ def main():
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
         if is_game and "narrator" in speaker.lower():
             if is_seg_stress_vital and "challenge" in sec_name:
-                context = f"Articulate quizmaster presenting a clear pronunciation and word stress challenge in {language}"
+                context = f"Charismatic game show host presenting a clear pronunciation and word stress challenge in {language}"
                 style = (
-                    "deliberate articulate broadcast pacing, clear and steady cadence, distinct pauses between options, engaging quizmaster delivery. "
-                    "Crucial pronunciation directive: Deliver educational focus words with crystal-clear syllable stress and authentic vowel reduction."
+                    "lively and articulate game show host delivery, upbeat conversational tempo, distinct options with clear syllable stress. "
+                    "Crucial pronunciation directive: Deliver educational focus words with authentic syllable stress and natural vowel reduction."
                 )
             elif is_seg_stress_vital and "answer" in sec_name:
                 context = f"Triumphant game show host explaining the correct syllable stress in {language}"
@@ -380,19 +455,19 @@ def main():
                 )
             elif "hook" in sec_name:
                 context = f"Vibrant, charismatic TV trivia show host presenting an educational quiz in {language}"
-                style = "electrifying game show host delivery, bold dynamic vocal projection, energetic high-spirited broadcast cadence, punchy and enthusiastic, magnetic trivia spirit, charismatic and inviting"
+                style = "electrifying game show host delivery, bold dynamic vocal projection, energetic high-spirited conversational momentum, punchy and enthusiastic, magnetic trivia spirit, charismatic and inviting, warm human flow"
             elif "challenge" in sec_name:
-                context = f"Articulate quizmaster presenting a multiple-choice question clearly to viewers in {language}"
-                style = "deliberate articulate broadcast pacing, clear and steady cadence, distinct pauses between options, engaging quizmaster delivery, never rushed"
+                context = f"Charismatic and engaging trivia host presenting a multiple-choice challenge in {language}"
+                style = "lively game show host delivery, engaging conversational momentum, crisp clear presentation of options with upbeat natural cadence, lively human flow without mechanical stalling"
             elif "pressure" in sec_name:
                 context = f"Suspenseful game show host leading an intense countdown in {language}"
-                style = "deliberate dramatic suspense cadence, steady countdown urgency, gripping anticipation, building intense pressure, dramatic and measured delivery, not rushed"
+                style = "gripping game show host countdown, dramatic suspense and urgent anticipation, building high-energy excitement, punchy and thrilling delivery"
             elif "answer" in sec_name:
                 context = f"Enthusiastic game show host revealing the correct answer in {language}"
-                style = "triumphant celebratory delivery, joyful game show reveal cadence, energetic and punchy intonation"
+                style = "triumphant celebratory delivery, joyful game show reveal cadence, energetic punchy intonation, warm human flow"
             else:
                 context = f"Charismatic language coach explaining the answer in {language}"
-                style = "crisp energetic delivery, upbeat broadcast cadence, charismatic and encouraging, clear dynamic intonation"
+                style = "magnetic storyteller cadence, lively and encouraging, clear dynamic intonation, natural and punchy, warm human flow"
         else:
             char_personalities = script_data.get("content_metadata", {}).get("character_personalities", {})
             speaker_personality = char_personalities.get(speaker, "")
@@ -422,19 +497,33 @@ def main():
                         "deliberate articulate broadcast delivery, crystal-clear phoneme articulation, natural rhythm, and measured educational pacing."
                     )
             else:
-                context = (
-                    f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
-                    if (is_dialogue and speaker_personality)
-                    else (f"Narrator ({speaker_personality}) presenting in {language}" if speaker_personality
-                          else (f"Character '{speaker}' participating in a {language} conversational dialogue" if is_dialogue
-                                 else f"Narrator introducing a language learning topic in {language}"))
-                )
-                # Upbeat, fast-paced conversational style to avoid sleepy audiobook reading
-                style = (
-                    "crisp energetic delivery, upbeat broadcast cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
-                    if not is_dialogue
-                    else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
-                )
+                if is_roleplay:
+                    context = (
+                        f"Charismatic storyteller ({speaker_personality}) in a {language} roleplay short"
+                        if speaker_personality
+                        else f"Charismatic YouTube Shorts storyteller and viral language mentor in a {language} roleplay narrative"
+                    ) if not is_dialogue else (
+                        f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
+                        if speaker_personality else f"Character '{speaker}' participating in a {language} conversational dialogue"
+                    )
+                    style = (
+                        "magnetic storyteller cadence, snappy conversational momentum, expressive theatrical inflection, lively and captivating rhythm, warm human flow"
+                        if not is_dialogue
+                        else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
+                    )
+                else:
+                    context = (
+                        f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
+                        if (is_dialogue and speaker_personality)
+                        else (f"Narrator ({speaker_personality}) presenting in {language}" if speaker_personality
+                              else (f"Character '{speaker}' participating in a {language} conversational dialogue" if is_dialogue
+                                     else f"Narrator introducing a language learning topic in {language}"))
+                    )
+                    style = (
+                        "magnetic storyteller cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
+                        if not is_dialogue
+                        else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
+                    )
 
         target_text = text
         detected_stress_words = []

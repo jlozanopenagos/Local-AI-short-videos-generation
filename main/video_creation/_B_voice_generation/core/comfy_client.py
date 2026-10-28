@@ -118,13 +118,22 @@ class ComfyClient:
                 node_inputs["seed"] = random.randint(1, 10**15)
             
             # Generation parameters tuned for lively pace, zero robotic artifacts, and stable speaker timbre
-            is_dialogue = "dialogue" in context.lower() or "roleplay" in context.lower()
-            # Natural acoustic temperature: balanced for dialogue to unlock natural vocal elasticity without rushing
-            node_inputs["temperature"] = 0.75 if not is_dialogue else 0.78
-            node_inputs["top_p"] = 0.90 if not is_dialogue else 0.92
-            node_inputs["top_k"] = 50
-            # Calibrated subtalker_temperature for dialogue to unlock natural emotional micro-prosody and pitch variation
-            node_inputs["subtalker_temperature"] = 0.75 if not is_dialogue else 0.84
+            is_dialogue_speaker = "dialogue" in context.lower() or ("character" in context.lower() and "narrator" not in context.lower())
+            
+            # - Dialogue characters: calibrated temperature (0.78) and subtalker_temperature (0.80)
+            #   locks acoustic diffusion tightly to the reference voice while maintaining natural human prosody and pitch inflection.
+            # - Narrator / Storyteller: higher subtalker_temperature (0.84) and temperature (0.78)
+            #   unlocks dynamic melodic prosody and storytelling pace without robotic monotone.
+            if is_dialogue_speaker:
+                node_inputs["temperature"] = 0.78
+                node_inputs["top_p"] = 0.90
+                node_inputs["top_k"] = 50
+                node_inputs["subtalker_temperature"] = 0.80
+            else:
+                node_inputs["temperature"] = 0.78
+                node_inputs["top_p"] = 0.92
+                node_inputs["top_k"] = 50
+                node_inputs["subtalker_temperature"] = 0.84
 
             # Gentle repetition penalty (1.02) avoids audio token looping while preserving natural vowel duration and resonance
             node_inputs["repetition_penalty"] = 1.02
@@ -137,20 +146,22 @@ class ComfyClient:
             node_inputs["max_new_tokens"] = max(128, min(2048, words_count * 18))
             
             # Format the system-level instruction prompt with direct theatrical acting directives
-            if is_dialogue:
+            if is_dialogue_speaker:
                 role_clause = f"as {context}" if context else "as a character"
                 node_inputs["instruct"] = (
-                    f"Speak {role_clause} in {language} with natural vocal energy and authentic theatrical acting. "
+                    f"A consistent {gender.lower()} native speaker character with a stable vocal timbre and natural conversational pacing in {language}. "
+                    f"Speak {role_clause} with natural vocal energy and authentic theatrical acting. "
                     f"Acting tone: {emotion}. Energy level: {energy.upper()}. "
                     f"Delivery: {style}. Natural conversational tempo, clear confident articulation, authentic emotional cadence, expressive human inflection, and engaging reactive dialogue."
                 )
             else:
                 personality_clause = f" Persona: {context}." if context else ""
                 node_inputs["instruct"] = (
-                    f"A {gender.lower()} narrator delivering a lively YouTube Shorts presentation in {language}.{personality_clause} "
+                    f"A charismatic {gender.lower()} storyteller delivering an exciting YouTube Shorts presentation in {language}.{personality_clause} "
                     f"Tone: {emotion}. "
                     f"Energy level: {energy.upper()}. "
-                    f"Delivery: {style}. Highly articulate, fluent, charismatic, and engaging with seamless vocal transitions."
+                    f"Delivery: {style}. Natural conversational tempo, lively storytelling momentum, expressive emotional inflection, captivating cadence, and warm human flow. "
+                    f"Avoid any stiff, mechanical, monotone, or robotic announcer enunciation."
                 )
 
         return wf

@@ -336,11 +336,13 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
        - Discovery: Medium Action Shot (waist-up breakthrough moment, radiant eureka expression).
        - Example: Dynamic Medium Action Shot (waist-up active motion, dynamic verb/action demonstration).
        - Payoff: Medium Close-Up (chest-up, warm triumphant celebratory resolution).
-     * FOR ROLEPLAY SHORTS (DYNAMIC 4-BEAT CINEMATIC PROGRESSION):
-       - Hook: Scenario Establishing Shot (medium-wide framing, establishing opening dilemma, physical tension, and creative visual metaphor).
-       - Dialogue_Part_2: Two-Shot or Over-The-Shoulder Shot focusing on the reaction and doubt/question in the dialogue.
-       - Dialogue_Part_3: Kinetic Interaction & Demonstration Shot (active motion demonstrating the concept/prop, energetic body language).
-       - Payoff: Triumphant Resolution Two-Shot (shared mastery, confident outro reflecting the resolution).
+     * FOR ROLEPLAY SHORTS (DYNAMIC 6-BEAT CINEMATIC PROGRESSION):
+       - Hook: Scenario Establishing Two-Shot (medium-wide 35mm lens, establishing opening dilemma, physical tension, environment, and soft ambient lighting).
+       - Dialogue_Part_1: Solo Medium Close-Up on PERSON_ONE (85mm portrait lens, shallow depth of field, dramatic key lighting, intense facial stress/question, PERSON_TWO is strictly off-camera).
+       - Dialogue_Part_2: Solo Reverse-Angle Medium Close-Up on PERSON_TWO (85mm portrait lens, 180° reverse angle, warm fill light, calm mentoring/guidance, PERSON_ONE is strictly off-camera).
+       - Dialogue_Part_3: Over-The-Shoulder Prop Demonstration Shot (50mm lens, dynamic OTS or Dutch tilt, active concept/prop demonstration, energetic body language).
+       - Dialogue_Part_4: Solo Heroic Eureka Reaction on PERSON_ONE (85mm low-angle heroic lens, radiant relief, beaming clarity, determination, PERSON_TWO is strictly off-camera).
+       - Payoff: Celebratory Resolution Two-Shot (28mm wide cinematic lens, dramatic stage backlighting, shared triumph, dynamic motion).
      * FOR GAME SHORTS:
        - Hook: Scenario Dilemma Shot (medium shot establishing the real-world dilemma / challenge).
        - Answer: Eureka Moment (character experiencing joyful breakthrough relief upon solving the puzzle).
@@ -397,7 +399,7 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
       * For ROLEPLAY videos: You MUST strictly adhere to the exact assigned genders for PERSON_ONE and PERSON_TWO. NEVER swap their genders, and NEVER make them identical unless explicitly instructed!
 
 OUTPUT FORMAT:
-You MUST output ONLY a valid JSON object mapping each scene name (in lowercase, e.g. "hook", "setup", "discovery", "example", "payoff" or for roleplay: "hook", "dialogue_part_2", "dialogue_part_3", "payoff") to its final Z-Image-Turbo prompt string. Do not include markdown code block formatting or explanations outside the JSON object.
+You MUST output ONLY a valid JSON object mapping each scene name (in lowercase, e.g. "hook", "setup", "discovery", "example", "payoff" or for roleplay: "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff") to its final Z-Image-Turbo prompt string. Do not include markdown code block formatting or explanations outside the JSON object.
 """
 
 
@@ -754,43 +756,46 @@ def _build_user_context(
         shot_direction = ""
         if scene_lower == "hook":
             shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — SCENARIO ESTABLISHING SHOT: "
+                f"\n6. CINEMATIC SHOT VARIATION — SCENARIO ESTABLISHING TWO-SHOT (35mm LENS): "
                 f"Medium-wide establishing shot setting up the opening real-world dilemma and environment. "
                 f"Both characters are visible in frame with explicit genders (PERSON_ONE as {p1_g}, PERSON_TWO as {p2_g}), "
-                f"establishing their authentic outfits, physical location, and opening contrast."
+                f"establishing their authentic outfits, physical location, opening tension, and soft ambient lighting."
             )
         elif scene_lower in ["dialogue_part_1", "part_1"]:
             shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — OVER-THE-SHOULDER / PERSON_ONE FOCUS: "
-                f"Over-the-shoulder shot angled squarely toward PERSON_ONE ({p1_g}), highlighting their expressive face, "
-                f"nervous or questioning body language, and opening dilemma. "
-                f"PERSON_TWO ({p2_g}) is visible in the foreground/shoulder listening attentively."
+                f"\n6. CINEMATIC SHOT VARIATION — SOLO MEDIUM CLOSE-UP ON PERSON_ONE (85mm PORTRAIT LENS): "
+                f"Single-character solo medium close-up shot focused ENTIRELY on PERSON_ONE ({p1_g}). "
+                f"Dramatic key lighting, shallow depth of field with softly blurred background. "
+                f"Highlighting their intense facial acting, nervous or questioning body language, and opening dilemma. "
+                f"PERSON_TWO is strictly off-camera / NOT visible in this frame."
             )
         elif scene_lower in ["dialogue_part_2", "part_2"]:
             shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — 180° REVERSE ANGLE / PERSON_TWO FOCUS: "
-                f"Dramatic camera flip! Reverse angle over-the-shoulder shot focused squarely on PERSON_TWO ({p2_g}), "
-                f"who gestures patiently and articulates the key linguistic insight/correction. "
-                f"PERSON_ONE ({p1_g}) is seen reacting in the frame with confusion or curiosity."
+                f"\n6. CINEMATIC SHOT VARIATION — SOLO 180° REVERSE-ANGLE ON PERSON_TWO (85mm PORTRAIT LENS): "
+                f"Dramatic 180° reverse-angle camera switch! Single-character solo medium close-up focused ENTIRELY on PERSON_TWO ({p2_g}). "
+                f"Warm fill light, shallow depth of field. Highlighting their calm, confident, reassuring facial expression, "
+                f"smirking or gesturing smoothly as they mentor and articulate the explanation. "
+                f"PERSON_ONE is strictly off-camera / NOT visible in this frame."
             )
         elif scene_lower in ["dialogue_part_3", "part_3"]:
             shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — KINETIC PROP & CONCEPT DEMONSTRATION ACTION: "
-                f"Dynamic interactive two-shot with active physical motion! Both characters interact with the key physical prop "
-                f"or engage in an energetic demonstration of the concept. "
-                f"Explicitly describe both characters by sex: one {p1_g} and one {p2_g} in dynamic motion!"
+                f"\n6. CINEMATIC SHOT VARIATION — OVER-THE-SHOULDER PROP DEMONSTRATION ACTION (50mm LENS): "
+                f"Dynamic over-the-shoulder (OTS) or Dutch tilt action shot! "
+                f"Camera shoots over one character's shoulder (blurred foreground) as the other character actively demonstrates the concept "
+                f"using a realistic scenario prop (pointing to text, demonstrating physical action) with energetic body language."
             )
         elif scene_lower in ["dialogue_part_4", "part_4"]:
             shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — BREAKTHROUGH REACTION CLOSE-UP: "
-                f"Medium close-up shot capturing PERSON_ONE ({p1_g}) beaming with sudden clarity, relief, and confidence! "
-                f"PERSON_TWO ({p2_g}) is in frame giving an encouraging nod, smile, or supportive gesture."
+                f"\n6. CINEMATIC SHOT VARIATION — SOLO HEROIC EUREKA REACTION (85mm LOW-ANGLE LENS): "
+                f"Single-character solo close-up reaction shot focused ENTIRELY on PERSON_ONE ({p1_g}). "
+                f"Low-angle heroic framing capturing PERSON_ONE beaming with sudden clarity, relief, and newfound confidence (e.g. fists clenched with determination)! "
+                f"Bright key lighting and vibrant specular highlights. PERSON_TWO is strictly off-camera / NOT visible in this frame."
             )
         elif scene_lower in ["payoff", "resolution"]:
             shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — CELEBRATORY TRIUMPH / DYNAMIC OUTRO: "
-                f"Triumphant celebratory two-shot in a celebratory micro-zone! Both characters (one {p1_g} and one {p2_g}) "
-                f"celebrate success (high-five, walking triumphantly together into the event, shared laughter, proudly holding the item)."
+                f"\n6. CINEMATIC SHOT VARIATION — CELEBRATORY TRIUMPH TWO-SHOT (28mm WIDE CINEMATIC LENS): "
+                f"Dynamic celebratory two-shot in motion! Both characters (one {p1_g} and one {p2_g}) "
+                f"celebrate success with dynamic movement and dramatic stage backlighting (high-five, walking triumphantly into the event/stage together)."
             )
 
         text_rule = (
@@ -1079,24 +1084,22 @@ def _build_storyboard_context(
         p1_word = "girl" if "F" in p1 else "boy"
         p2_word = "girl" if "F" in p2 else "boy"
         director_task = (
-            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (CHRONOLOGICAL 4-SCENE PROGRESSION):\n"
-            f"Transform this two-character roleplay dialogue into a dynamic, narrative-faithful 4-scene visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
-            f"CRITICAL DIRECTIVES FOR SCRIPT DIALOGUE ENACTMENT & SCENE PROGRESSION:\n"
-            f"1. FAITHFUL DIALOGUE ENACTMENT (HIGHEST PRIORITY):\n"
-            f"   Every scene MUST directly illustrate the specific spoken dialogue lines and emotional interaction of that scene:\n"
-            f"   - HOOK: Illustrate the specific opening problem/stress in this line! Depict the characters' physical actions and facial expressions directly acting out the words (e.g. deadline tension, holding scenario props like scripts or clapperboards).\n"
-            f"   - DIALOGUE_PART_2: Illustrate the exact doubt, question, or confusion spoken in this dialogue! Show the character's facial expression reacting with genuine puzzlement to the words being discussed.\n"
-            f"   - DIALOGUE_PART_3: Illustrate the native explanation, rule demonstration, or solution spoken in this dialogue! Characters must physically demonstrate the concept using realistic scenario props (pointing to text, showing physical actions). STRICTLY BAN surreal fantasy effects (NO glowing energy beams from chest, NO floating graphics).\n"
-            f"   - PAYOFF: Illustrate the triumphant resolution of this specific story! Show genuine relief, confidence, and mastery directly reflecting the final lines of the dialogue (DO NOT default to generic high-fives unless the dialogue calls for it).\n"
-            f"2. MANDATORY CHARACTER APPEARANCE REPETITION (ZERO-DRIFT IDENTITY):\n"
-            f"   In EVERY scene prompt, explicitly describe BOTH characters using their exact locked traits from the General Prompt:\n"
-            f"   - Restate Character 1: 15-year-old high-school student {p1_word} (tall slender proportions), exact hair color, exact hairstyle, and exact wardrobe!\n"
-            f"   - Restate Character 2: 15-year-old high-school student {p2_word} (tall slender proportions), exact hair color, exact hairstyle, and exact wardrobe!\n"
-            f"   - NEVER omit hair color, hairstyle, or wardrobe in any scene prompt!\n"
-            f"3. AVOID REPETITIVE TWO-SHOTS: Vary camera angles (medium, over-the-shoulder, reaction shot, two-shot) and distinct character poses across scenes.\n"
-            f"4. ZERO-AMBIGUITY MULTI-CHARACTER GENDER RULE: Explicitly specify the sex of EACH character (e.g. 'one adolescent 14-year-old teen {p1_word}' and 'one adolescent 15-year-old teen {p2_word}'). Strictly ban generic words like 'two teens', 'two friends', or 'the characters'!\n"
-            f"5. LENGTH: Around 70-110 words per scene prompt (rich enough to include the full character continuity description, action, props, and setting).\n\n"
-            f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, dialogue_part_2, dialogue_part_3, payoff) to its final prompt string."
+            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (6-BEAT CINEMATIC SHOT-REVERSE-SHOT PROGRESSION):\n"
+            f"Transform this two-character roleplay dialogue into a dynamic, multi-camera 6-scene visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
+            f"CRITICAL DIRECTIVES FOR CINEMATIC COVERAGE & ZERO REPETITION (MANDATORY):\n"
+            f"To guarantee that no two images ever look like copies of each other, you MUST strictly follow this shot-by-shot coverage and camera matrix:\n\n"
+            f"1. SCENE-BY-SCENE SUBJECT & CAMERA MATRIX (STRICTLY ENFORCED):\n"
+            f"   - HOOK [ESTABLISHING TWO-SHOT (35mm LENS)]: Both characters in frame. Medium-wide 35mm establishing shot setting up the opening real-world dilemma, spatial relationship, and environment. Soft ambient lighting.\n"
+            f"   - DIALOGUE_PART_1 [SOLO CLOSE-UP ON PERSON_ONE (85mm LENS)]: ONLY PERSON_ONE ({p1_word}) is in the frame. Tight 85mm portrait lens, chest-up medium close-up, dramatic key lighting, shallow depth of field with softly blurred background. Focus entirely on PERSON_ONE's intense facial acting (panicked/stress, clutching costume or script). PERSON_TWO is strictly off-camera!\n"
+            f"   - DIALOGUE_PART_2 [SOLO REVERSE-ANGLE ON PERSON_TWO (85mm LENS)]: ONLY PERSON_TWO ({p2_word}) is in the frame. 180° reverse-angle 85mm portrait lens, chest-up medium close-up, warm fill light. Focus entirely on PERSON_TWO's calm, reassuring expression, smirking or gesturing smoothly as they explain/mentor. PERSON_ONE is strictly off-camera!\n"
+            f"   - DIALOGUE_PART_3 [OVER-THE-SHOULDER PROP INTERACTION (50mm LENS)]: Dynamic 50mm Over-The-Shoulder (OTS) or Dutch tilt shot. Camera looks over one character's shoulder (blurred foreground) as the other character actively demonstrates the concept using a realistic scenario prop (pointing to text, showing physical action).\n"
+            f"   - DIALOGUE_PART_4 [SOLO EUREKA REACTION ON PERSON_ONE (85mm LENS)]: ONLY PERSON_ONE ({p1_word}) is in the frame. Low-angle 85mm heroic medium close-up. Radiant breakthrough moment: face shifts from panic to radiant clarity, confidence, and determination (e.g. fists clenched, beaming smile). PERSON_TWO is strictly off-camera!\n"
+            f"   - PAYOFF [CELEBRATORY ACTION TWO-SHOT (28mm LENS)]: Both characters in dynamic motion. 28mm wide cinematic lens, dramatic backlighting (e.g. stepping toward the stage lights, triumphant high-five, walking triumphantly together into the event).\n\n"
+            f"2. ZERO-AMBIGUITY CHARACTER DESCRIPTION & CONTINUITY:\n"
+            f"   - For solo shots (dialogue_part_1, dialogue_part_2, dialogue_part_4): Explicitly describe ONLY the single featured character with their locked traits (age, gender, hair, wardrobe). Explicitly state: 'Single character solo shot. The other character is off-camera.'\n"
+            f"   - For two-shots (hook, payoff): Explicitly specify the sex of EACH character (e.g. 'one 15-year-old teen {p1_word}' and 'one 15-year-old teen {p2_word}'). Strictly ban generic words like 'two teens' or 'the characters'!\n\n"
+            f"3. LENGTH: Around 70-110 words per scene prompt.\n\n"
+            f"Return ONLY a valid JSON object mapping all 6 scene names in lowercase (hook, dialogue_part_1, dialogue_part_2, dialogue_part_3, dialogue_part_4, payoff) to their final prompt string."
         )
     elif video_type_upper == "GAME":
         director_task = (

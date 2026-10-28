@@ -114,44 +114,58 @@ SPEAKER_GENDER_MAP = {
 
 NARRATOR_VOICES = {
     ("english", "male"): [
-        "english/male/english_male_open_swara_130.wav",
+        "english/male/english_male_open_swara_149.wav",
+        "english/male/english_male_open_swara_113.wav",
+        "english/male/english_male_open_swara_027.wav",
+        "english/male/english_male_open_swara_120.wav",
         "english/male/english_male_open_swara_134.wav",
         "english/male/english_male_open_swara_135.wav",
-        "english/male/english_male_open_swara_144.wav"
     ],
     ("english", "female"): [
-        "english/female/english_female_open_swara_011.wav",
         "english/female/english_female_open_swara_035.wav",
-        "english/female/english_female_open_swara_055.wav",
+        "english/female/english_female_open_swara_065.wav",
+        "english/female/english_female_open_swara_190.wav",
+        "english/female/english_female_open_swara_186.wav",
+        "english/female/english_female_open_swara_011.wav",
         "english/female/english_female_open_swara_118.wav",
-        "english/female/english_female_open_swara_125.wav"
     ],
     ("french", "male"): [
+        "french/male/french_male_open_swara_019.wav",
+        "french/male/french_male_open_swara_012.wav",
+        "french/male/french_male_open_swara_038.wav",
+        "french/male/french_male_open_swara_027.wav",
         "french/male/french_male_open_swara_009.wav",
-        "french/male/french_male_open_swara_011.wav",
-        "french/male/french_male_open_swara_050.wav"
+        "french/male/french_male_open_swara_042.wav",
     ],
     ("french", "female"): [
-        "french/female/french_female_open_swara_002.wav",
-        "french/female/french_female_open_swara_026.wav",
-        "french/female/french_female_open_swara_074.wav"
+        "french/female/french_female_open_swara_017.wav",
+        "french/female/french_female_open_swara_071.wav",
+        "french/female/french_female_open_swara_083.wav",
+        "french/female/french_female_open_swara_025.wav",
+        "french/female/french_female_open_swara_030.wav",
+        "french/female/french_female_open_swara_034.wav",
     ],
     ("spanish", "male"): [
-        "spanish/male/spanish_male_open_swara_001.wav",
-        "spanish/male/spanish_male_open_swara_004.wav"
+        "spanish/male/spanish_male_open_swara_008.wav",
+        "spanish/male/spanish_male_open_swara_005.wav",
+        "spanish/male/spanish_male_open_swara_002.wav",
+        "spanish/male/spanish_male_open_swara_009.wav",
+        "spanish/male/spanish_male_open_swara_006.wav",
     ],
     ("spanish", "female"): [
-        "spanish/female/spanish_female_open_swara_003.wav",
         "spanish/female/spanish_female_open_swara_006.wav",
-        "spanish/female/spanish_female_open_swara_008.wav"
+        "spanish/female/spanish_female_open_swara_009.wav",
+        "spanish/female/spanish_female_open_swara_007.wav",
+        "spanish/female/spanish_female_open_swara_004.wav",
     ],
     ("italian", "male"): [
+        "italian/male/italian_male_open_swara_002.wav",
+        "italian/male/italian_male_english_open_swara_002.wav",
+        "italian/male/italian_male_english_open_swara_001.wav",
         "italian/male/italian_male_open_swara_001.wav",
-        "italian/male/italian_male_open_swara_002.wav"
     ],
     ("italian", "female"): [
         "italian/female/italian_female_open_swara_007.wav",
-        "italian/female/italian_female_open_swara_008.wav"
     ]
 }
 

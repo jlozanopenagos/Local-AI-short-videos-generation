@@ -42,36 +42,118 @@ def clean_token(token: str) -> str:
     return re.sub(r"[^\w]", "", token).lower()
 
 
+def premerge_whisper_words(whisper_words: List[Dict]) -> List[Dict]:
+    """
+    Pre-merges Whisper's split contraction tokens, elisions, and hyphenated fragments.
+    E.g.:
+      ['n', "'arrive"] -> ["n'arrive"]
+      ['l', "'expression"] -> ["l'expression"]
+      ['c', "'est"] -> ["c'est"]
+      ['rendez', '-vous'] -> ["rendez-vous"]
+      ['don', "'t"] -> ["don't"]
+      ['it', "'s"] -> ["it's"]
+      ['l', "'amico"] -> ["l'amico"]
+    Also filters out standalone punctuation marks emitted as words by Whisper (e.g. '?').
+    """
+    if not whisper_words:
+        return []
+
+    merged = []
+    contraction_prefixes = {
+        "l", "d", "c", "j", "m", "t", "s", "n", "qu",
+        "l'", "d'", "c'", "j'", "m'", "t'", "s'", "n'", "qu'",
+        "un'", "all'", "dell'", "dall'", "nell'", "sull'",
+        "don", "doesn", "didn", "won", "can", "couldn", "shouldn", "wouldn", "isn", "aren", "wasn", "weren", "haven", "hasn", "hadn"
+    }
+
+    for w in whisper_words:
+        w_text = w.get("word", "").strip()
+        if not w_text:
+            continue
+        # Drop standalone punctuation emitted as words by Whisper
+        if w_text in {".", ",", "!", "?", ";", ":", "...", "…", "-", "–", "—", "--"}:
+            continue
+
+        # Case 1: Previous token was a contraction prefix
+        if merged and (
+            merged[-1]["word"].lower() in contraction_prefixes
+            or (len(merged[-1]["word"]) <= 2 and merged[-1]["word"].isalpha() and (w_text.startswith("'") or w_text.isalpha()))
+        ):
+            prev = merged[-1]["word"]
+            if not prev.endswith("'") and (w_text.startswith("'") or len(prev) <= 2):
+                if not w_text.startswith("'"):
+                    prev += "'"
+            clean_curr = w_text.lstrip("'")
+            merged[-1]["word"] = prev + clean_curr
+            merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
+
+        # Case 2: Current word starts with hyphen (e.g. '-vous')
+        elif w_text.startswith("-") and merged:
+            merged[-1]["word"] += w_text
+            merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
+
+        # Case 3: Previous word ended with hyphen (e.g. 'rendez-')
+        elif merged and merged[-1]["word"].endswith("-"):
+            merged[-1]["word"] += w_text
+            merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
+
+        # Case 4: Current word starts with apostrophe suffix (e.g. "'t", "'s", "'ve", "'ll", "'re", "'d")
+        elif w_text.startswith("'") and merged and not (w_text.endswith("'") and len(w_text) > 1):
+            merged[-1]["word"] += w_text
+            merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
+
+        else:
+            merged.append(dict(w))
+
+    return merged
+
+
 def clean_spoken_text(text: str) -> str:
-    """Strips parentheticals, speaker labels (PERSON_ONE, Narrator, etc.), formatting asterisks, and normalizes conversational quotes."""
+    """
+    Strips parentheticals, explicit speaker labels (PERSON_ONE, Narrator, etc.), formatting asterisks,
+    while carefully preserving spoken conversational cues that contain colons (e.g. 'Dis juste :', 'Por ejemplo :').
+    """
     # Strip parentheticals like (smiling), (Panicked), or (Agent)
     text = re.sub(r"\([^)]+\)", "", text)
-    # Strip explicit roleplay speaker labels anywhere (e.g. PERSON_ONE:, PERSON_TWO:)
-    text = re.sub(r"\b(PERSON_ONE|PERSON_TWO|PERSON_1|PERSON_2|Narrator|Host|Speaker)\s*:\s*", "", text, flags=re.IGNORECASE)
-    # Strip leading speaker prefixes on lines, ignoring quiz choices A:, B:, C:, D:
-    text = re.sub(r"(?m)^\s*(?![A-D]\b)[\w\s-]{2,30}:\s*", "", text)
+    # Strip bold speaker tags (e.g. **PERSON_ONE:** or **Narrator:**)
+    text = re.sub(r"\*\*([^*:]+)\s*:\*\*\s*", "", text)
+    # Strip bracketed speaker tags (e.g. [PERSON_ONE] or [Narrator])
+    text = re.sub(r"\[[A-Za-z0-9_\s-]+\]\s*", "", text)
+    # Strip explicit roleplay speaker labels anywhere (e.g. PERSON_ONE:, PERSON_TWO:, Narrator:)
+    text = re.sub(
+        r"\b(PERSON_ONE|PERSON_TWO|PERSON_1|PERSON_2|Narrator|Host|Speaker)\s*:\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Strip standalone uppercase speaker tags on lines (e.g. "ALICE: Hello" or "BOB:"), ignoring quiz choices A:, B:, C:, D:
+    text = re.sub(r"(?m)^\s*(?![A-D]\b)[A-Z0-9_]{2,20}\s*:\s*", "", text)
     # Strip formatting markdown
     text = text.replace("**", "").replace("*", "")
     # Normalize unicode quotes and dashes
-    text = text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("–", "-")
+    text = text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("–", "-").replace("—", "-")
     return text.strip()
 
 
 def tokenize_script_text(text: str) -> List[str]:
     """
     Splits spoken script text into subtitle tokens.
-    Attaches punctuation appropriately to avoid isolated punctuation marks.
+    Attaches trailing and leading punctuation appropriately and discards orphan non-spoken dash separators.
     """
     text = clean_spoken_text(text)
     raw_tokens = text.split()
     tokens = []
     
     trailing_punct = {".", ",", "!", "?", ";", ":", "...", "…"}
+    dash_punct = {"-", "–", "—", "--"}
     leading_punct = {"¿", "¡"}
 
     for tok in raw_tokens:
         tok = tok.strip()
         if not tok:
+            continue
+        # Standalone dash separators (e.g. "À ton tour  -  utilise") are pause markers, not spoken words
+        if tok in dash_punct:
             continue
         if tok in trailing_punct and tokens:
             tokens[-1] = tokens[-1] + tok
@@ -82,7 +164,9 @@ def tokenize_script_text(text: str) -> List[str]:
                 tokens[-1] = tokens[-1] + tok
             else:
                 tokens.append(tok)
-    return tokens
+
+    # Discard any remaining orphan tokens that contain no word characters
+    return [t for t in tokens if re.search(r"[\w]", t)]
 
 
 def align_tokens_to_whisper(
@@ -97,6 +181,10 @@ def align_tokens_to_whisper(
     """
     if not script_tokens:
         return []
+
+    # Pre-merge Whisper contractions, elisions, and hyphens for robust 1:1 token correspondence
+    whisper_words = premerge_whisper_words(whisper_words)
+
     if not whisper_words:
         duration = max(1.0, default_end - default_start)
         step = duration / max(1, len(script_tokens))
@@ -279,12 +367,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         merged_words = []
         for w in words:
             word_str = w.get("word", "").strip()
-            if not word_str:
+            if not word_str or word_str in ["-", "–", "—", "--"]:
                 continue
-            if word_str.startswith("-") and merged_words:
+            clean_hw = re.sub(r"[^\w-]", "", word_str)
+            if not clean_hw:
+                continue
+
+            # Only merge if it's an actual syllable affix (starts with '-' with characters after it)
+            if word_str.startswith("-") and len(word_str) > 1 and merged_words:
                 merged_words[-1]["word"] = f"{merged_words[-1]['word']}{word_str}"
                 merged_words[-1]["end"] = max(merged_words[-1]["end"], w.get("end", merged_words[-1]["end"]))
-            elif merged_words and merged_words[-1]["word"].endswith("-"):
+            elif merged_words and merged_words[-1]["word"].endswith("-") and len(merged_words[-1]["word"]) > 1:
                 merged_words[-1]["word"] = f"{merged_words[-1]['word']}{word_str}"
                 merged_words[-1]["end"] = max(merged_words[-1]["end"], w.get("end", merged_words[-1]["end"]))
             else:

@@ -174,6 +174,99 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.assertNotIn("CALM", texts)
         self.assertEqual(texts, ["I", "FORGOT", "RELAX"])
 
+    def test_build_ass_french_conversational_colon_and_elision(self):
+        """Verify that conversational colons (e.g. 'Dis juste :') are preserved and French elisions are aligned."""
+        whisper_words = [
+            {"word": "Dis", "start": 0.0, "end": 0.2},
+            {"word": "juste,", "start": 0.2, "end": 0.5},
+            {"word": "il", "start": 0.5, "end": 0.7},
+            {"word": "a", "start": 0.7, "end": 0.8},
+            {"word": "posé", "start": 0.8, "end": 1.1},
+            {"word": "un", "start": 1.1, "end": 1.2},
+            {"word": "lapin,", "start": 1.2, "end": 1.5},
+            {"word": "c", "start": 1.5, "end": 1.6},
+            {"word": "'est", "start": 1.6, "end": 1.8},
+            {"word": "pas", "start": 1.8, "end": 2.0},
+            {"word": "grave,", "start": 2.0, "end": 2.3},
+            {"word": "on", "start": 2.3, "end": 2.4},
+            {"word": "se", "start": 2.4, "end": 2.5},
+            {"word": "calme", "start": 2.5, "end": 2.8},
+            {"word": "un", "start": 2.8, "end": 2.9},
+            {"word": "autre", "start": 2.9, "end": 3.1},
+            {"word": "truc.", "start": 3.1, "end": 3.4},
+        ]
+        script_data = {
+            "content_metadata": {
+                "script": {
+                    "example": "Dis juste : 'Il a posé un lapin, c'est pas grave, on se cale un autre truc.'"
+                }
+            }
+        }
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+
+        self.assertIn("DIS", texts)
+        self.assertIn("JUSTE:", texts)
+        self.assertIn("C'EST", texts)
+        self.assertIn("CALE", texts)
+        self.assertNotIn("CALME", texts)
+
+    def test_build_ass_dash_separator_never_glues_words(self):
+        """Verify that dash separators (e.g. 'À ton tour  -  utilise') are not merged into glued compounds like 'TOUR-UTILISE'."""
+        whisper_words = [
+            {"word": "À", "start": 0.0, "end": 0.2},
+            {"word": "ton", "start": 0.2, "end": 0.4},
+            {"word": "tour", "start": 0.4, "end": 0.7},
+            {"word": "utilise", "start": 0.8, "end": 1.1},
+            {"word": "cette", "start": 1.1, "end": 1.4},
+            {"word": "expression", "start": 1.4, "end": 1.8},
+        ]
+        script_data = {
+            "content_metadata": {
+                "script": {
+                    "payoff": "À ton tour  -  utilise cette expression dans une phrase en commentaire !"
+                }
+            }
+        }
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+
+        self.assertNotIn("TOUR-UTILISE", texts)
+        self.assertIn("TOUR", texts)
+        self.assertIn("UTILISE", texts)
+
+    def test_build_ass_multilingual_contractions_and_elisions(self):
+        """Verify Italian, English, and Spanish elisions / punctuation marks align faithfully."""
+        whisper_words = [
+            {"word": "L", "start": 0.0, "end": 0.1},
+            {"word": "'amico", "start": 0.1, "end": 0.4},
+            {"word": "non", "start": 0.4, "end": 0.6},
+            {"word": "e", "start": 0.6, "end": 0.8},
+            {"word": "c", "start": 0.8, "end": 0.9},
+            {"word": "'è", "start": 0.9, "end": 1.1},
+            {"word": "un", "start": 1.1, "end": 1.3},
+            {"word": "problema.", "start": 1.3, "end": 1.6},
+        ]
+        script_data = {
+            "content_metadata": {
+                "script": {
+                    "hook": "L'amico non è c'è un problema."
+                }
+            }
+        }
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        content = self.out_path.read_text(encoding="utf-8")
+        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
+        texts = [l.split(",")[-1] for l in dialogue_lines]
+
+        self.assertIn("L'AMICO", texts)
+        self.assertIn("È", texts)
+        self.assertIn("C'È", texts)
+
 
 if __name__ == "__main__":
     unittest.main()

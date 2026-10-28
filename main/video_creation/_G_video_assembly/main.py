@@ -240,6 +240,8 @@ def process_script(
                 target_expr = (
                     script_data.get("prompt_params", {}).get("target_expression")
                     or script_data.get("content_metadata", {}).get("target_expression")
+                    or script_data.get("prompt_params", {}).get("EXPRESSION")
+                    or script_data.get("content_metadata", {}).get("topic")
                 )
                 if target_expr and isinstance(target_expr, str) and len(target_expr) < 60:
                     initial_prompt = target_expr.strip()

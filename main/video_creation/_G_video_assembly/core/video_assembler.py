@@ -57,12 +57,19 @@ class VideoAssembler:
             print("Error: No images found to assemble video.")
             return False
 
+        # Consolidate consecutive identical companion images to prevent zoom pops/resets
+        consolidated_sections = []
+        for sec in available_sections:
+            if consolidated_sections and consolidated_sections[-1]["path"] == sec["path"]:
+                continue
+            consolidated_sections.append(sec)
+
         print("Building FFMPEG filter graph for Ken Burns effect...")
         video_streams = []
-        for i in range(len(available_sections)):
-            current = available_sections[i]
-            if i < len(available_sections) - 1:
-                next_item = available_sections[i+1]
+        for i in range(len(consolidated_sections)):
+            current = consolidated_sections[i]
+            if i < len(consolidated_sections) - 1:
+                next_item = consolidated_sections[i+1]
                 current_start = current["start"] if i > 0 else 0.0
                 duration = next_item["start"] - current_start
             else:
@@ -84,12 +91,22 @@ class VideoAssembler:
                 
             # zoompan: d is duration in frames (25 fps)
             frames = int(duration * 25)
-            if current.get("punch_in", False):
-                # Dynamic punch-in cut (1.25x crop/zoom, framed slightly higher on faces)
-                z_expr = "if(lte(on,1),1.25,min(zoom+0.001,1.55))"
-                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.04))"
+            sec_name = current.get("section", "").lower()
+            file_name = current.get("path", Path()).name.lower()
+            is_chalkboard = (sec_name == "challenge") or ("challenge" in file_name) or ("chalkboard" in file_name)
+
+            if is_chalkboard:
+                # Ultra-slow, readable cinematic float for chalkboard quizzes (+0.12% per sec, max 2% zoom)
+                # Preserves complete legibility so viewers can focus and all option boxes (A, B, C, D) remain fully in view
+                z_expr = "min(zoom+0.00005,1.02)"
+                y_expr = "ih/2-(ih/zoom/2)"
+            elif current.get("punch_in", False):
+                # Gentle punch-in cut (1.18x crop/zoom, framed slightly higher on faces)
+                z_expr = "if(lte(on,1),1.18,min(zoom+0.0004,1.28))"
+                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.03))"
             else:
-                z_expr = "min(zoom+0.0015,1.5)"
+                # Slower, elegant cinematic float (+1.5% zoom per sec)
+                z_expr = "min(zoom+0.0006,1.15)"
                 y_expr = "ih/2-(ih/zoom/2)"
 
             stream = (

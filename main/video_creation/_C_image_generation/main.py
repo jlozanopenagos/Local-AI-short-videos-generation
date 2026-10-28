@@ -129,7 +129,7 @@ def process_script(
         return False
 
     VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
-    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_2", "dialogue_part_3", "payoff"}
+    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"}
     METADATA_IGNORE_KEYS = {
         "title", "difficulty", "emotion", "game_type", "related_content",
         "category", "subcategory", "topic", "learning_objective",
@@ -237,13 +237,7 @@ def process_script(
             k: v for k, v in sections.items()
             if k.strip().lower() in valid_active_sections
         }
-        if video_type == "ROLEPLAY":
-            d1 = sections.get("dialogue_part_1") or sections.get("DIALOGUE_PART_1") or ""
-            d4 = sections.get("dialogue_part_4") or sections.get("DIALOGUE_PART_4") or ""
-            if d1 and "hook" in sections_for_storyboard:
-                sections_for_storyboard["hook"] = f"{sections_for_storyboard['hook']}\n{d1}".strip()
-            if d4 and "payoff" in sections_for_storyboard:
-                sections_for_storyboard["payoff"] = f"{d4}\n{sections_for_storyboard['payoff']}".strip()
+
         storyboard_prompts = prompt_builder.build_storyboard_prompts(
             script_text=script_text,
             label=label,
