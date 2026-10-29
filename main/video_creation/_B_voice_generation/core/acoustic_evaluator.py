@@ -369,3 +369,189 @@ def select_best_voice_candidate(
                 pass
 
     return dest_path
+
+
+def compute_pitch_metrics(audio_data: np.ndarray, sr: int) -> Tuple[float, float, float]:
+    """Computes mean pitch (F0), standard deviation, and variance ratio (std/mean) on voiced frames.
+    Uses short-term autocorrelation with energy gating.
+    Returns (mean_pitch_hz, std_pitch_hz, variance_ratio).
+    """
+    if len(audio_data.shape) > 1:
+        audio_data = audio_data[:, 0]
+    frame_len = int(0.03 * sr)
+    hop = int(0.01 * sr)
+    pitches = []
+
+    for i in range(0, len(audio_data) - frame_len, hop):
+        frame = audio_data[i:i + frame_len]
+        energy = np.mean(frame ** 2)
+        if energy < 0.0005:  # unvoiced or silence
+            continue
+        corr = np.correlate(frame, frame, mode='full')
+        corr = corr[len(frame) - 1:]
+        min_lag = int(sr / 450)  # max 450 Hz
+        max_lag = int(sr / 75)   # min 75 Hz
+        if max_lag >= len(corr):
+            continue
+        peak_lag = min_lag + np.argmax(corr[min_lag:max_lag])
+        if corr[0] > 0 and (corr[peak_lag] / corr[0]) > 0.40:
+            pitches.append(sr / peak_lag)
+
+    if len(pitches) < 8:
+        return 0.0, 0.0, 0.0
+    mean_f0 = float(np.mean(pitches))
+    std_f0 = float(np.std(pitches))
+    var_ratio = std_f0 / max(1.0, mean_f0)
+    return round(mean_f0, 1), round(std_f0, 1), round(var_ratio, 3)
+
+
+def evaluate_voice_take(
+    audio_path: Union[str, Path],
+    target_text: str = "",
+    language: str = "english"
+) -> Tuple[float, bool, List[str], Dict[str, Any]]:
+    """Evaluates an individual synthesized speech take against acoustic quality criteria:
+    - Pitch variance (rejects flat robotic monotone < 11.0%)
+    - Tempo / Speech rate (rejects sluggish < 8.0 CPS or rushed > 19.0 CPS)
+    - Audio energy (rejects muffled / low RMS < 0.05)
+    - Internal silence (rejects awkward mid-sentence freezes > 0.85s)
+
+    Returns:
+        (composite_score, passes_quality_gate, issues_list, metrics_dict)
+    """
+    audio_path = Path(audio_path)
+    if not audio_path.exists() or audio_path.stat().st_size == 0:
+        return 0.0, False, ["File missing or empty"], {"error": "Missing file"}
+
+    try:
+        data, sr = sf.read(str(audio_path))
+    except Exception as exc:
+        return 0.0, False, [f"Unreadable audio: {exc}"], {"error": str(exc)}
+
+    if len(data.shape) > 1:
+        data = data[:, 0]
+
+    duration = len(data) / sr
+    if duration < 0.3:
+        return 0.0, False, ["Duration too short (< 0.3s)"], {"duration": duration}
+
+    rms = float(np.sqrt(np.mean(data ** 2)))
+    mean_f0, std_f0, var_ratio = compute_pitch_metrics(data, sr)
+
+    # Calculate speech rate (characters per second of clean spoken text)
+    clean_text = re.sub(r"\[.*?\]|\(.*?\)", "", target_text or "").strip()
+    char_count = len(re.sub(r"\s+", "", clean_text))
+    cps = char_count / max(0.1, duration) if char_count > 0 else 12.0
+
+    # Check max internal silence (> 0.01 threshold)
+    hop = int(0.02 * sr)
+    frame_rms = [np.sqrt(np.mean(data[j:j + hop] ** 2)) for j in range(0, len(data) - hop, hop)]
+    max_silent_frames = 0
+    cur_silent_frames = 0
+    for r in frame_rms:
+        if r < 0.008:
+            cur_silent_frames += 1
+            if cur_silent_frames > max_silent_frames:
+                max_silent_frames = cur_silent_frames
+        else:
+            cur_silent_frames = 0
+    max_silence_sec = max_silent_frames * 0.02
+
+    issues = []
+
+    # 1. Pitch Variance Check (reject monotone)
+    if var_ratio < 0.110:
+        issues.append(f"Monotone / robotic pitch variance ({var_ratio*100:.1f}% < 11.0%)")
+
+    # 2. Tempo Check
+    if char_count > 10:
+        if cps < 8.0:
+            issues.append(f"Sluggish / dragging tempo ({cps:.1f} chars/s < 8.0)")
+        elif cps > 19.0:
+            issues.append(f"Rushed / slurred tempo ({cps:.1f} chars/s > 19.0)")
+
+    # 3. Energy Check
+    if rms < 0.05:
+        issues.append(f"Very low audio volume / muffled (RMS: {rms:.4f} < 0.05)")
+
+    # 4. Silence Freeze Check
+    if duration > 2.5 and max_silence_sec > 0.85:
+        issues.append(f"Internal silence freeze ({max_silence_sec:.2f}s > 0.85s)")
+
+    passes_gate = len(issues) == 0
+
+    # Calculate continuous score [0.0 - 1.0]
+    pitch_score = min(1.0, max(0.0, (var_ratio - 0.08) / 0.08))
+    target_cps = 13.5
+    tempo_diff = abs(cps - target_cps)
+    tempo_score = min(1.0, max(0.0, 1.0 - (tempo_diff / 8.0)))
+    energy_score = min(1.0, max(0.0, rms / 0.15))
+    penalty = 0.5 ** len(issues)
+
+    composite_score = round((0.45 * pitch_score + 0.35 * tempo_score + 0.20 * energy_score) * penalty, 2)
+
+    metrics = {
+        "duration": round(duration, 2),
+        "mean_f0": mean_f0,
+        "std_f0": std_f0,
+        "pitch_variance": var_ratio,
+        "pitch_score": round(pitch_score, 2),
+        "cps": round(cps, 1),
+        "tempo_score": round(tempo_score, 2),
+        "rms": round(rms, 4),
+        "max_internal_silence": round(max_silence_sec, 2),
+        "score": composite_score,
+        "passes_gate": passes_gate,
+        "issues": issues
+    }
+
+    return composite_score, passes_gate, issues, metrics
+
+
+def select_best_general_candidate(
+    candidate_paths: List[Path],
+    target_text: str,
+    language: str,
+    dest_path: Path
+) -> Path:
+    """Evaluates multiple voice takes and promotes the highest scoring candidate to dest_path.
+    Cleans up all non-winning candidate files.
+    """
+    dest_path = Path(dest_path)
+    if not candidate_paths:
+        return dest_path
+
+    if len(candidate_paths) == 1:
+        winner = candidate_paths[0]
+        if winner != dest_path:
+            shutil.move(str(winner), str(dest_path))
+        return dest_path
+
+    print(f"  [Quality Gate]: Evaluating {len(candidate_paths)} candidate takes...")
+    scored = []
+    for idx, cand in enumerate(candidate_paths, 1):
+        score, passes, issues, metrics = evaluate_voice_take(cand, target_text, language)
+        issue_str = f" [Flagged: {', '.join(issues)}]" if issues else " [Clean]"
+        print(f"    Take #{idx} ({cand.name}): Score = {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s{issue_str}")
+        scored.append((cand, score, passes, metrics))
+
+    # Sort descending by score
+    scored.sort(key=lambda x: x[1], reverse=True)
+    winner_cand, best_score, best_passes, best_metrics = scored[0]
+
+    print(f"  -> Winner Selected: {winner_cand.name} (Score: {best_score:.2f}, PitchVar: {best_metrics['pitch_variance']*100:.1f}%)")
+
+    # Move winner to dest_path
+    if dest_path.exists():
+        dest_path.unlink()
+    shutil.move(str(winner_cand), str(dest_path))
+
+    # Clean up rejected candidates
+    for cand, _, _, _ in scored:
+        if cand != winner_cand and cand.exists():
+            try:
+                cand.unlink()
+            except Exception:
+                pass
+
+    return dest_path

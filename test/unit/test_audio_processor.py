@@ -6,7 +6,12 @@ import unittest
 import numpy as np
 
 # pyrefly: ignore [missing-import]
-from video_creation._B_voice_generation.core.audio_processor import trim_trailing_silence, trim_audio_silence
+from video_creation._B_voice_generation.core.audio_processor import (
+    trim_trailing_silence,
+    trim_audio_silence,
+    measure_lufs,
+    master_and_normalize_audio,
+)
 
 
 class TestAudioProcessor(unittest.TestCase):
@@ -85,6 +90,34 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertEqual(pauses["dialogue_gap"], 0.15)
         self.assertEqual(pauses["paragraph_gap"], 0.20)
         self.assertEqual(pauses["pressure_gap"], 2.20)
+
+    def test_measure_lufs_silence_and_tone(self):
+        """Verify ITU-R BS.1770 LUFS calculation on silence and tone."""
+        sr = 24000
+        silence = np.zeros(sr, dtype=np.float32)
+        lufs_silence = measure_lufs(silence, sr)
+        self.assertEqual(lufs_silence, -70.0)
+
+        t = np.linspace(0, 1.0, sr, endpoint=False)
+        tone = 0.2 * np.sin(2 * np.pi * 1000 * t)
+        lufs_tone = measure_lufs(tone, sr)
+        self.assertGreater(lufs_tone, -25.0)
+        self.assertLess(lufs_tone, -10.0)
+
+    def test_master_and_normalize_audio_target_lufs(self):
+        """Verify master_and_normalize_audio normalizes loudness and limits true peak."""
+        sr = 24000
+        duration = 2.0
+        t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+
+        # Quiet audio (-30 LUFS region) with DC/rumble offset
+        quiet_sig = 0.03 * np.sin(2 * np.pi * 300 * t) + 0.05 * np.sin(2 * np.pi * 30 * t)
+        mastered, orig_lufs, final_lufs = master_and_normalize_audio(quiet_sig, sr, target_lufs=-16.0)
+
+        # Final LUFS should be close to -16 LUFS (+- 2 dB)
+        self.assertAlmostEqual(final_lufs, -16.0, delta=2.5)
+        # Peak must never exceed ceiling 0.891
+        self.assertLessEqual(np.max(np.abs(mastered)), 0.892)
 
 
 if __name__ == "__main__":

@@ -12,13 +12,19 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+# pyrefly: ignore[missing-import]
 import numpy as np
+# pyrefly: ignore[missing-import]
 import soundfile as sf
 
+# pyrefly: ignore[missing-import]
 from video_creation._B_voice_generation.core.acoustic_evaluator import (
     detect_roles_in_text,
     evaluate_acoustic_prominence,
     select_best_voice_candidate,
+    compute_pitch_metrics,
+    evaluate_voice_take,
+    select_best_general_candidate,
 )
 
 
@@ -160,6 +166,78 @@ class TestAcousticEvaluator(unittest.TestCase):
                 self.assertEqual(result, dest)
                 self.assertTrue(dest.exists())
                 self.assertEqual(dest.read_text(), "studio_verified_clip")
+
+    def test_compute_pitch_metrics_constant_vs_modulated(self):
+        """Verify pitch metrics accurately distinguish constant monotone from pitch modulated speech."""
+        sr = 24000
+        duration = 1.0
+        t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+
+        # Monotone 180 Hz sine wave
+        mono_sig = 0.5 * np.sin(2 * np.pi * 180 * t)
+        m_mono, s_mono, v_mono = compute_pitch_metrics(mono_sig, sr)
+        self.assertAlmostEqual(m_mono, 180.0, delta=2.0)
+        self.assertLess(v_mono, 0.05)  # Pitch variance < 5%
+
+        # Modulated 150 to 220 Hz sine wave
+        f_mod = 185 + 35 * np.sin(2 * np.pi * 3 * t)
+        phase = 2 * np.pi * np.cumsum(f_mod) / sr
+        mod_sig = 0.5 * np.sin(phase)
+        m_mod, s_mod, v_mod = compute_pitch_metrics(mod_sig, sr)
+        self.assertGreater(v_mod, 0.10)  # Pitch variance > 10%
+
+    def test_evaluate_voice_take_clean_vs_monotone(self):
+        """Verify evaluate_voice_take detects monotone takes and validates healthy takes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            clean_path = Path(tmpdir) / "clean.flac"
+            mono_path = Path(tmpdir) / "mono.flac"
+            sr = 24000
+            duration = 2.0
+            t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+
+            # Monotone tone
+            mono_sig = 0.3 * np.sin(2 * np.pi * 150 * t)
+            sf.write(str(mono_path), mono_sig, sr)
+
+            # Modulated tone with realistic speech duration
+            f_mod = 180 + 40 * np.sin(2 * np.pi * 4 * t)
+            phase = 2 * np.pi * np.cumsum(f_mod) / sr
+            clean_sig = 0.3 * np.sin(phase)
+            sf.write(str(clean_path), clean_sig, sr)
+
+            # Monotone take should be flagged for robotic variance
+            score_m, pass_m, issues_m, met_m = evaluate_voice_take(mono_path, "This is a sample sentence with normal length.", "english")
+            self.assertFalse(pass_m)
+            self.assertTrue(any("Monotone" in iss for iss in issues_m))
+
+            # Modulated take should pass
+            score_c, pass_c, issues_c, met_c = evaluate_voice_take(clean_path, "This is a sample sentence with normal length.", "english")
+            self.assertTrue(pass_c)
+            self.assertGreater(score_c, 0.50)
+
+    def test_select_best_general_candidate(self):
+        """Verify select_best_general_candidate selects higher scoring take and unlinks rejected take."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cand1 = Path(tmpdir) / "cand1.flac"
+            cand2 = Path(tmpdir) / "cand2.flac"
+            dest = Path(tmpdir) / "dest.flac"
+            sr = 24000
+            duration = 1.5
+            t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+
+            # cand1: flat monotone
+            sf.write(str(cand1), 0.3 * np.sin(2 * np.pi * 160 * t), sr)
+
+            # cand2: dynamic pitch modulation
+            f_mod = 180 + 45 * np.sin(2 * np.pi * 4 * t)
+            phase = 2 * np.pi * np.cumsum(f_mod) / sr
+            sf.write(str(cand2), 0.3 * np.sin(phase), sr)
+
+            winner = select_best_general_candidate([cand1, cand2], "Sample sentence for candidate selection test.", "english", dest)
+            self.assertEqual(winner, dest)
+            self.assertTrue(dest.exists())
+            # The losing candidate (cand1) should be unlinked
+            self.assertFalse(cand1.exists())
 
 
 if __name__ == "__main__":

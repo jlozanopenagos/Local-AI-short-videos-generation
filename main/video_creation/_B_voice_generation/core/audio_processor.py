@@ -34,6 +34,92 @@ def trim_trailing_silence(data: np.ndarray, sr: int, threshold: float = 0.01, pa
     """Trims trailing dead silence from generated TTS segments (backwards-compatible alias)."""
     return trim_audio_silence(data, sr, threshold=threshold, pad_leading=0.0, pad_trailing=pad_seconds)
 
+def create_k_weighting_filter(fs: int):
+    """Generates coefficients for ITU-R BS.1770 K-weighting pre-filter and RLB filter."""
+    f0, G, Q = 1681.974450955533, 3.999843853973347, 0.7071752369554196
+    K = np.tan(np.pi * f0 / fs)
+    Vh = 10.0 ** (G / 20.0)
+    Vb = Vh ** 0.4996667741545416
+    a0 = 1.0 + K / Q + K * K
+    b_pre = [(Vh + Vb * K / Q + K * K) / a0, 2.0 * (K * K - Vh) / a0, (Vh - Vb * K / Q + K * K) / a0]
+    a_pre = [1.0, 2.0 * (K * K - 1.0) / a0, (1.0 - K / Q + K * K) / a0]
+
+    f0, Q = 38.13547087602444, 0.5003270373238773
+    K = np.tan(np.pi * f0 / fs)
+    a0 = 1.0 + K / Q + K * K
+    b_rlb = [1.0 / a0, -2.0 / a0, 1.0 / a0]
+    a_rlb = [1.0, 2.0 * (K * K - 1.0) / a0, (1.0 - K / Q + K * K) / a0]
+    return (b_pre, a_pre), (b_rlb, a_rlb)
+
+def measure_lufs(data: np.ndarray, sr: int) -> float:
+    """Calculates integrated loudness in LUFS according to ITU-R BS.1770."""
+    if len(data) == 0:
+        return -70.0
+    mono = np.mean(data, axis=1) if len(data.shape) > 1 else data
+    try:
+        # pyrefly: ignore[missing-import]
+        from scipy import signal
+        (b_pre, a_pre), (b_rlb, a_rlb) = create_k_weighting_filter(sr)
+        y1 = signal.lfilter(b_pre, a_pre, mono)
+        y2 = signal.lfilter(b_rlb, a_rlb, y1)
+        ms = np.mean(y2 ** 2)
+        if ms <= 1e-12:
+            return -70.0
+        return float(-0.691 + 10.0 * np.log10(ms))
+    except Exception:
+        # Fallback approximation via RMS
+        rms = float(np.sqrt(np.mean(mono ** 2)))
+        if rms <= 1e-6:
+            return -70.0
+        return float(-0.691 + 20.0 * np.log10(rms))
+
+def master_and_normalize_audio(
+    data: np.ndarray,
+    sr: int,
+    target_lufs: float = -16.0,
+    peak_ceiling: float = 0.891
+) -> tuple:
+    """Applies studio post-processing and EBU R128 loudness normalization:
+    1. 80 Hz high-pass filter (sub-bass rumble and vocoder DC offset removal)
+    2. ITU-R BS.1770 K-weighted loudness measurement
+    3. Gain adjustment to target_lufs (-16 LUFS for YouTube Shorts / TikTok)
+    4. Soft peak limiter to guarantee no digital clipping (> -1.0 dBFS)
+    Returns:
+        (mastered_data, original_lufs, final_lufs)
+    """
+    if len(data) == 0:
+        return data, -70.0, -70.0
+
+    try:
+        # pyrefly: ignore[missing-import]
+        from scipy import signal
+        # 1. 80Hz rumble cut
+        b_hp, a_hp = signal.butter(2, 80 / (sr / 2), btype='highpass')
+        cleaned = signal.lfilter(b_hp, a_hp, data, axis=0)
+    except Exception:
+        cleaned = data.copy()
+
+    # 2. Measure loudness
+    cur_lufs = measure_lufs(cleaned, sr)
+    if cur_lufs > -60.0:
+        gain_db = target_lufs - cur_lufs
+        # Limit extreme gain jumps (-24dB to +24dB)
+        gain_db = max(-24.0, min(24.0, gain_db))
+        gain_lin = 10.0 ** (gain_db / 20.0)
+        boosted = cleaned * gain_lin
+    else:
+        boosted = cleaned
+
+    # 3. Soft peak limiter (prevent clipping above peak_ceiling)
+    abs_b = np.abs(boosted)
+    peak = np.max(abs_b)
+    if peak > peak_ceiling:
+        scale = peak_ceiling / peak
+        boosted = boosted * scale
+
+    final_lufs = measure_lufs(boosted, sr)
+    return boosted.astype(np.float32), cur_lufs, final_lufs
+
 def concatenate_audios(
     segments_metadata: List[Dict],
     output_path: Path,
@@ -138,9 +224,11 @@ def concatenate_audios(
 
     if combined_data:
         merged = np.concatenate(combined_data, axis=0)
+        # Apply EBU R128 loudness normalization (-16.0 LUFS) and studio rumble cut
+        mastered, cur_lufs, final_lufs = master_and_normalize_audio(merged, master_samplerate, target_lufs=-16.0)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        sf.write(str(output_path), merged, master_samplerate)
-        print(f"Merged audio successfully saved to: {output_path}")
+        sf.write(str(output_path), mastered, master_samplerate)
+        print(f"Merged audio successfully mastered ({cur_lufs:.1f} -> {final_lufs:.1f} LUFS) and saved to: {output_path}")
         
         # Save timings map
         timings_path = output_path.parent / "timings.json"

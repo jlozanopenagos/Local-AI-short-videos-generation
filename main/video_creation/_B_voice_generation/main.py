@@ -1,5 +1,6 @@
 import argparse
 import re
+import shutil
 import sys
 import time
 import traceback
@@ -38,7 +39,11 @@ try:
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
     from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
-    from video_creation._B_voice_generation.core.acoustic_evaluator import select_best_voice_candidate
+    from video_creation._B_voice_generation.core.acoustic_evaluator import (
+        select_best_voice_candidate,
+        select_best_general_candidate,
+        evaluate_voice_take
+    )
 except (ImportError, ModuleNotFoundError):
     try:
         from core.script_parser import get_script_segments
@@ -46,7 +51,11 @@ except (ImportError, ModuleNotFoundError):
         from core.voice_manager import VoiceManager
         from core.audio_processor import concatenate_audios
         from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
-        from core.acoustic_evaluator import select_best_voice_candidate
+        from core.acoustic_evaluator import (
+            select_best_voice_candidate,
+            select_best_general_candidate,
+            evaluate_voice_take
+        )
     except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.script_parser import get_script_segments
@@ -59,7 +68,11 @@ except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
         # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.acoustic_evaluator import select_best_voice_candidate
+        from _B_voice_generation.core.acoustic_evaluator import (
+            select_best_voice_candidate,
+            select_best_general_candidate,
+            evaluate_voice_take
+        )
 
 def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
     """Detects if a script or specific segment requires vital stress pronunciation or phonetic precision.
@@ -490,12 +503,21 @@ def process_script(
         dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
         dest_path = script_output_dir / dest_filename
 
-        # Determine candidate sampling count:
-        # If user explicitly supplied --candidates, respect it.
-        # Otherwise, default to 2 candidate takes for stress-vital segments with detected target words.
+        # Option 3 Hybrid Engine:
+        # High-impact retention sections (hook, pressure countdown, payoff, cta, reveal, game answer)
+        # always generate 2 candidate takes (Best-of-2) and promote the highest-scoring take.
+        # Standard dialogue and explanation sections generate Take 1 and run the Smart Quality Gate;
+        # if flagged (monotone, rushed, sluggish, or muffled), it auto-generates Take 2 with seed+555
+        # and selects the better take.
+        is_high_impact = (
+            any(k in sec_name for k in ["hook", "pressure", "payoff", "cta", "reveal"])
+            or (is_game and "answer" in sec_name)
+            or (is_seg_stress_vital and bool(detected_stress_words))
+        )
+
         if candidates is not None:
             seg_candidates = max(1, candidates)
-        elif is_seg_stress_vital and detected_stress_words:
+        elif is_high_impact:
             seg_candidates = 2
         else:
             seg_candidates = 1
@@ -504,14 +526,16 @@ def process_script(
             print(f"Audio segment already exists at {dest_path.name}. Skipping API call.")
         else:
             try:
-                if seg_candidates > 1 and is_seg_stress_vital and detected_stress_words:
+                if is_seg_stress_vital and detected_stress_words:
+                    # Heteronym stress-contrast candidate generation
                     candidate_paths = []
-                    for take_idx in range(seg_candidates):
+                    num_takes = max(2, seg_candidates)
+                    for take_idx in range(num_takes):
                         take_seed = seed + (take_idx * 101)
                         take_prefix = f"{output_prefix}_take{take_idx+1}"
                         take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
                         take_path = script_output_dir / take_filename
-                        print(f"  [Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
+                        print(f"  [Take #{take_idx+1}/{num_takes}]: Generating candidate with seed {take_seed}...")
                         comfy_client.generate_voice_segment(
                             ref_audio_name=ref_filename,
                             target_text=target_text,
@@ -533,7 +557,38 @@ def process_script(
                         text_context=text,
                         dest_path=dest_path
                     )
+                elif seg_candidates > 1:
+                    # High-impact Best-of-N Candidate Generation
+                    candidate_paths = []
+                    for take_idx in range(seg_candidates):
+                        take_seed = seed + (take_idx * 777)
+                        take_prefix = f"{output_prefix}_take{take_idx+1}"
+                        take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
+                        take_path = script_output_dir / take_filename
+                        print(f"  [High-Impact Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
+                        comfy_client.generate_voice_segment(
+                            ref_audio_name=ref_filename,
+                            target_text=target_text,
+                            language=language,
+                            gender=gender,
+                            context=context,
+                            emotion=emotion,
+                            energy=energy,
+                            style=style,
+                            output_prefix=take_prefix,
+                            dest_path=take_path,
+                            seed=take_seed
+                        )
+                        candidate_paths.append(take_path)
+
+                    select_best_general_candidate(
+                        candidate_paths=candidate_paths,
+                        target_text=target_text,
+                        language=language,
+                        dest_path=dest_path
+                    )
                 else:
+                    # Standard Take 1 with Smart Quality Gate & Conditional Auto-Retry
                     comfy_client.generate_voice_segment(
                         ref_audio_name=ref_filename,
                         target_text=target_text,
@@ -547,6 +602,39 @@ def process_script(
                         dest_path=dest_path,
                         seed=seed
                     )
+                    score, passes_gate, issues, metrics = evaluate_voice_take(
+                        dest_path, target_text=target_text, language=language
+                    )
+                    if passes_gate:
+                        print(f"  [Quality Gate]: Pass (Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s)")
+                    else:
+                        print(f"  [Quality Gate]: Take #1 flagged: {', '.join(issues)}. Auto-retrying with seed {seed + 555}...")
+                        take1_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take1.flac"
+                        take2_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take2.flac"
+                        if dest_path.exists():
+                            if take1_path.exists():
+                                take1_path.unlink()
+                            shutil.move(str(dest_path), str(take1_path))
+
+                        comfy_client.generate_voice_segment(
+                            ref_audio_name=ref_filename,
+                            target_text=target_text,
+                            language=language,
+                            gender=gender,
+                            context=context,
+                            emotion=emotion,
+                            energy=energy,
+                            style=style,
+                            output_prefix=f"{output_prefix}_take2",
+                            dest_path=take2_path,
+                            seed=seed + 555
+                        )
+                        select_best_general_candidate(
+                            candidate_paths=[take1_path, take2_path],
+                            target_text=target_text,
+                            language=language,
+                            dest_path=dest_path
+                        )
             except Exception as exc:
                 print(f"API Error on segment {idx}: {exc}", file=sys.stderr)
                 return False

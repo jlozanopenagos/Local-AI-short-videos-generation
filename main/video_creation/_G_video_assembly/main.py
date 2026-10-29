@@ -16,7 +16,8 @@ for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_
 from config import (
     BASE_DIR, VIDEO_WIDTH, VIDEO_HEIGHT, WATERMARK_DIR, OPENING_CLOSURE_DIR,
     get_script_output_dir, require_services, resolve_opening_closure_paths,
-    BANK_MUSIC_DIR, resolve_script_language, resolve_script_video_type
+    BANK_MUSIC_DIR, resolve_script_language, resolve_script_video_type,
+    GAME_IMAGES_DIR,
 )
 # pyrefly: ignore [missing-import]
 from state_manager import StateManager
@@ -285,6 +286,33 @@ def process_script(
             print(f"Generated subtitles at {ass_path.name}")
         
         # 3. Assemble Video
+        if resolve_script_video_type(script_data) == "game":
+            try:
+                from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
+                content_meta = script_data.get("content_metadata", {})
+                nested_meta = (
+                    content_meta.get("content_metadata", {})
+                    if isinstance(content_meta.get("content_metadata"), dict)
+                    else {}
+                )
+                exercise_text = (
+                    nested_meta.get("chalkboard_exercise")
+                    or content_meta.get("chalkboard_exercise")
+                    or content_meta.get("script", {}).get("challenge", "")
+                )
+                chalkboard_model = GAME_IMAGES_DIR / "empty_chalkboard.png"
+                if exercise_text and chalkboard_model.exists():
+                    challenge_img_path = image_dir / f"script_{script_id}_challenge.png"
+                    render_chalkboard_image(
+                        empty_chalkboard_path=chalkboard_model,
+                        exercise_text=exercise_text,
+                        dest_path=challenge_img_path,
+                        target_size=(VIDEO_WIDTH, VIDEO_HEIGHT),
+                    )
+                    print(f"[{script_id}] Synced chalkboard image from state: {challenge_img_path.name}")
+            except Exception as cb_exc:
+                print(f"[{script_id}] Warning syncing chalkboard image: {cb_exc}")
+
         if assembler is None:
             assembler = VideoAssembler()
 
