@@ -37,8 +37,9 @@ try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
+    from video_creation._B_voice_generation.core.kokoro_engine import get_kokoro_engine
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
-    from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+    from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive, normalize_multiple_choice_options_for_tts, detect_intentional_stress_errors
     from video_creation._B_voice_generation.core.acoustic_evaluator import (
         select_best_voice_candidate,
         select_best_general_candidate,
@@ -49,8 +50,9 @@ except (ImportError, ModuleNotFoundError):
         from core.script_parser import get_script_segments
         from core.comfy_client import ComfyClient
         from core.voice_manager import VoiceManager
+        from core.kokoro_engine import get_kokoro_engine
         from core.audio_processor import concatenate_audios
-        from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+        from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive, normalize_multiple_choice_options_for_tts, detect_intentional_stress_errors
         from core.acoustic_evaluator import (
             select_best_voice_candidate,
             select_best_general_candidate,
@@ -64,9 +66,11 @@ except (ImportError, ModuleNotFoundError):
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.voice_manager import VoiceManager
         # pyrefly: ignore [missing-import]
+        from _B_voice_generation.core.kokoro_engine import get_kokoro_engine
+        # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.audio_processor import concatenate_audios
         # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+        from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive, normalize_multiple_choice_options_for_tts, detect_intentional_stress_errors
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.acoustic_evaluator import (
             select_best_voice_candidate,
@@ -250,31 +254,24 @@ def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None
         return "confident, energetic, and engaging"
         
     # Dialogue characters (Person One, Person Two, roleplay characters)
-    # 1. Nervousness, anxiety, stage fright
     if any(w in t for w in ["shaking", "panic", "can't believe", "nervous", "stage fright", "scared", "afraid", "tremble", "peur", "miedo", "nervioso", "angoisse", "paura", "ansia", "agitato", "tremando"]):
         return "intensely anxious, breathless, and trembling with stage fright urgency"
         
-    # 2. Confusion, suspicion, disbelief, questioning
     if any(w in t for w in ["what does that even mean", "bad luck", "what?", "quoi", "qué", "comment", "really?", "de verdad", "cosa?", "davvero?", "sul serio?"]):
         return "sharp comedic disbelief, incredulous, and completely baffled"
         
-    # 3. Reassurance, comfort, soothing
     if any(w in t for w in ["calm down", "remember this", "don't worry", "relax", "t'inquiète", "tranquilo", "respira", "calme-toi", "calmati", "non ti preoccupare", "rilassati"]):
         return "grounded, confident, and high-spirited encouragement"
         
-    # 4. Encouragement, inspiration, cheering
     if any(w in t for w in ["shine", "got this", "do a great job", "no!", "good luck", "bonne chance", "buena suerte", "briller", "tu peux le faire", "buona fortuna", "in bocca al lupo", "ce la puoi fare", "forza"]):
         return "enthusiastic, cheerful, and highly energetic banter"
         
-    # 5. Relief, discovery, gratitude
     if any(w in t for w in ["oh!", "get it now", "thanks", "feel a lot better", "relieved", "merci", "compris", "soulagé", "gracias", "alivio", "grazie", "meno male", "sollevato"]):
         return "relieved, excited, and genuinely bright"
         
-    # 6. High excitement, cheering, celebration
     if any(w in t for w in ["superstar", "go get 'em", "go get them", "awesome", "crush it", "vas-y", "génial", "vamos", "campeón", "fantastico", "bravissimo", "campione", "grandioso"]):
         return "hyped up, celebratory, and shouting with excitement"
         
-    # Punctuation heuristics
     if "?" in text:
         return "curious, engaged, and questioning"
     if "!" in text:
@@ -295,11 +292,12 @@ def map_emotion_to_energy(emotion: str) -> str:
 def process_script(
     script_data: dict,
     state_manager: StateManager,
-    comfy_client: ComfyClient,
+    comfy_client: Optional[ComfyClient],
     voice_manager: VoiceManager,
     force: bool,
     base_dir: Path,
-    candidates: Optional[int] = None
+    candidates: Optional[int] = None,
+    cli_engine_override: Optional[str] = None,
 ) -> bool:
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
@@ -339,31 +337,63 @@ def process_script(
         
     print(f"Found {len(segments)} segments to synthesize.")
     
+    kokoro_engine = get_kokoro_engine()
+    kokoro_ready = bool(kokoro_engine and kokoro_engine.is_ready)
+
     unique_speakers = list(set(seg["speaker"] for seg in segments))
     existing_genders = script_data.get("content_metadata", {}).get("speakers_gender", {})
     existing_voices = script_data.get("content_metadata", {}).get("speakers_voice", {})
     manual_voice_paths = {}
     if existing_voices and isinstance(existing_voices, dict):
         for spk, vname in existing_voices.items():
-            if vname:
+            if vname and str(vname).endswith(".wav"):
                 resolved_p = voice_manager.open_swara_dir / vname if not Path(vname).is_absolute() else Path(vname)
                 if not resolved_p.exists():
                     for p in voice_manager.open_swara_dir.rglob("*.wav"):
                         if p.name.lower() == Path(vname).name.lower():
                             resolved_p = p
                             break
-                if resolved_p.exists():
+                if resolved_p.exists() and voice_manager._is_acceptable_ref(resolved_p, clean_language):
                     manual_voice_paths[spk] = resolved_p
 
-    voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders=existing_genders, manual_voice_paths=manual_voice_paths)
+    video_type = config.resolve_script_video_type(script_data)
+    voice_manager.assign_voices_for_script(
+        unique_speakers,
+        clean_language,
+        manual_genders=existing_genders,
+        manual_voice_paths=manual_voice_paths,
+        video_type=video_type,
+    )
     
-    # Save the assigned genders and voice filenames into the script state
+    # Save the assigned genders and voice identifiers into the script state
     speakers_gender = {}
     speakers_voice = {}
+    is_multi_spk = len(unique_speakers) > 1
+    used_kokoro_voices = set()
     for spk in unique_speakers:
         gender, vpath, _ = voice_manager.get_speaker_voice(spk, clean_language)
+        is_spk_dialogue = "narrator" not in spk.lower()
+        eng_name, k_voice = voice_manager.resolve_engine_for_speaker(
+            clean_language,
+            gender=gender,
+            speaker=spk,
+            is_dialogue=is_spk_dialogue,
+            cli_engine_override=cli_engine_override,
+            kokoro_available=kokoro_ready,
+            is_multi_speaker_script=is_multi_spk,
+        )
         speakers_gender[spk] = gender
-        if vpath:
+        if eng_name == "kokoro" and k_voice:
+            # If user explicitly set a custom Kokoro voice recipe (e.g. *_alt or *_narrator) in state JSON, honor it
+            existing_k = str(existing_voices.get(spk) or "").strip()
+            if existing_k and not existing_k.endswith(".wav") and re.match(r"^[a-z]{2}_[a-z0-9_]+$", existing_k):
+                k_voice = existing_k
+            # Guarantee no two speakers in the same script share the exact same Kokoro voice recipe
+            if k_voice in used_kokoro_voices:
+                k_voice = f"{k_voice}_alt" if not k_voice.endswith("_alt") else f"{k_voice[:-4]}_narrator"
+            used_kokoro_voices.add(k_voice)
+            speakers_voice[spk] = k_voice
+        elif vpath:
             speakers_voice[spk] = Path(vpath).name
         
     if "content_metadata" not in script_data:
@@ -396,6 +426,77 @@ def process_script(
         print(f"\n--- Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
         
         gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
+        seg_engine, kokoro_voice = voice_manager.resolve_engine_for_speaker(
+            clean_language,
+            gender=gender,
+            speaker=speaker,
+            is_dialogue=is_dialogue,
+            cli_engine_override=cli_engine_override,
+            kokoro_available=kokoro_ready,
+            is_multi_speaker_script=is_multi_spk,
+        )
+        if seg_engine == "kokoro" and speakers_voice.get(speaker) and not str(speakers_voice[speaker]).endswith(".wav"):
+            kokoro_voice = speakers_voice[speaker]
+
+        output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
+        dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
+        dest_path = script_output_dir / dest_filename
+
+        if dest_path.exists() and not force:
+            print(f"Audio segment already exists at {dest_path.name}. Skipping synthesis.")
+            segments_to_concat.append({
+                "path": dest_path,
+                "section": seg["section"],
+                "speaker": speaker
+            })
+            continue
+
+        norm_text = normalize_multiple_choice_options_for_tts(text, language=clean_language)
+        if norm_text != text:
+            print(f"  [TTS MC Options Normalized]: '{norm_text}'")
+
+        # Attempt Kokoro-82M synthesis when configured and ready
+        if seg_engine == "kokoro" and kokoro_ready:
+            seg_emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
+            seg_energy = map_emotion_to_energy(seg_emotion)
+            print(f"[{speaker}] Engine: Kokoro-82M (Voice: {kokoro_voice}, Gender: {gender}) | Emotion: '{seg_emotion}' | Energy: '{seg_energy}'")
+            res_path = kokoro_engine.synthesize_text(
+                text=norm_text,
+                output_path=dest_path,
+                language=clean_language,
+                voice=kokoro_voice,
+                gender=gender,
+                emotion=seg_emotion,
+                energy=seg_energy,
+                section=seg.get("section"),
+                speaker=speaker,
+            )
+            if res_path and dest_path.exists():
+                score, passes_gate, issues, metrics = evaluate_voice_take(
+                    dest_path, target_text=text, language=clean_language
+                )
+                print(
+                    f"  [Kokoro Quality Gate]: Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | "
+                    f"Tempo: {metrics['cps']} c/s"
+                )
+                segments_to_concat.append({
+                    "path": dest_path,
+                    "section": seg["section"],
+                    "speaker": speaker
+                })
+                continue
+            else:
+                print(f"  [Warning] Kokoro synthesis failed for segment {idx}; falling back to Qwen3-TTS...")
+
+        # Fallback or primary Qwen3-TTS ComfyUI synthesis
+        if comfy_client is None:
+            try:
+                require_services(comfy=True)
+                comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
+            except Exception as exc:
+                print(f"Error: Qwen3-TTS ComfyUI required for segment {idx} but unavailable: {exc}", file=sys.stderr)
+                return False
+
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
         
         if is_game and "narrator" in speaker.lower():
@@ -483,11 +584,16 @@ def process_script(
                         else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
                     )
 
-        target_text = text
+        target_text = normalize_multiple_choice_options_for_tts(text, language=language)
         detected_stress_words = []
         if is_seg_stress_vital:
-            target_text, detected_stress_words = enhance_stress_text_for_tts(text, language=language)
-            style = build_stress_style_directive(detected_stress_words, language=language, base_style=style)
+            target_text, detected_stress_words = enhance_stress_text_for_tts(target_text, language=language)
+            style = build_stress_style_directive(detected_stress_words, language=language, base_style=style, raw_text=text)
+            intentional_errs = detect_intentional_stress_errors(text, detected_stress_words)
+            if intentional_errs:
+                err_summary = ", ".join([f"{e['token']} -> {e['visual_role']} (in {e['syntactic_role']} slot)" for e in intentional_errs])
+                print(f"  [Intentional Pronunciation Error Active]: {err_summary}")
+                context += f" (Character intentionally makes a pronunciation mistake on '{err_summary}' for educational contrast)"
             if target_text != text or detected_stress_words:
                 print(f"  [TTS Stress Enhanced]: '{target_text}' (Target words: {detected_stress_words})")
 
@@ -499,16 +605,6 @@ def process_script(
         pers_log = f" | Persona: '{context}'" if context else ""
         print(f"[{speaker}] Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
         
-        output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
-        dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
-        dest_path = script_output_dir / dest_filename
-
-        # Option 3 Hybrid Engine:
-        # High-impact retention sections (hook, pressure countdown, payoff, cta, reveal, game answer)
-        # always generate 2 candidate takes (Best-of-2) and promote the highest-scoring take.
-        # Standard dialogue and explanation sections generate Take 1 and run the Smart Quality Gate;
-        # if flagged (monotone, rushed, sluggish, or muffled), it auto-generates Take 2 with seed+555
-        # and selects the better take.
         is_high_impact = (
             any(k in sec_name for k in ["hook", "pressure", "payoff", "cta", "reveal"])
             or (is_game and "answer" in sec_name)
@@ -522,73 +618,16 @@ def process_script(
         else:
             seg_candidates = 1
         
-        if dest_path.exists() and not force:
-            print(f"Audio segment already exists at {dest_path.name}. Skipping API call.")
-        else:
-            try:
-                if is_seg_stress_vital and detected_stress_words:
-                    # Heteronym stress-contrast candidate generation
-                    candidate_paths = []
-                    num_takes = max(2, seg_candidates)
-                    for take_idx in range(num_takes):
-                        take_seed = seed + (take_idx * 101)
-                        take_prefix = f"{output_prefix}_take{take_idx+1}"
-                        take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
-                        take_path = script_output_dir / take_filename
-                        print(f"  [Take #{take_idx+1}/{num_takes}]: Generating candidate with seed {take_seed}...")
-                        comfy_client.generate_voice_segment(
-                            ref_audio_name=ref_filename,
-                            target_text=target_text,
-                            language=language,
-                            gender=gender,
-                            context=context,
-                            emotion=emotion,
-                            energy=energy,
-                            style=style,
-                            output_prefix=take_prefix,
-                            dest_path=take_path,
-                            seed=take_seed
-                        )
-                        candidate_paths.append(take_path)
-                    
-                    select_best_voice_candidate(
-                        candidate_paths=candidate_paths,
-                        target_words=detected_stress_words,
-                        text_context=text,
-                        dest_path=dest_path
-                    )
-                elif seg_candidates > 1:
-                    # High-impact Best-of-N Candidate Generation
-                    candidate_paths = []
-                    for take_idx in range(seg_candidates):
-                        take_seed = seed + (take_idx * 777)
-                        take_prefix = f"{output_prefix}_take{take_idx+1}"
-                        take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
-                        take_path = script_output_dir / take_filename
-                        print(f"  [High-Impact Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
-                        comfy_client.generate_voice_segment(
-                            ref_audio_name=ref_filename,
-                            target_text=target_text,
-                            language=language,
-                            gender=gender,
-                            context=context,
-                            emotion=emotion,
-                            energy=energy,
-                            style=style,
-                            output_prefix=take_prefix,
-                            dest_path=take_path,
-                            seed=take_seed
-                        )
-                        candidate_paths.append(take_path)
-
-                    select_best_general_candidate(
-                        candidate_paths=candidate_paths,
-                        target_text=target_text,
-                        language=language,
-                        dest_path=dest_path
-                    )
-                else:
-                    # Standard Take 1 with Smart Quality Gate & Conditional Auto-Retry
+        try:
+            if is_seg_stress_vital and detected_stress_words:
+                candidate_paths = []
+                num_takes = max(2, seg_candidates)
+                for take_idx in range(num_takes):
+                    take_seed = seed + (take_idx * 101)
+                    take_prefix = f"{output_prefix}_take{take_idx+1}"
+                    take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
+                    take_path = script_output_dir / take_filename
+                    print(f"  [Take #{take_idx+1}/{num_takes}]: Generating candidate with seed {take_seed}...")
                     comfy_client.generate_voice_segment(
                         ref_audio_name=ref_filename,
                         target_text=target_text,
@@ -598,46 +637,97 @@ def process_script(
                         emotion=emotion,
                         energy=energy,
                         style=style,
-                        output_prefix=output_prefix,
-                        dest_path=dest_path,
-                        seed=seed
+                        output_prefix=take_prefix,
+                        dest_path=take_path,
+                        seed=take_seed
                     )
-                    score, passes_gate, issues, metrics = evaluate_voice_take(
-                        dest_path, target_text=target_text, language=language
+                    candidate_paths.append(take_path)
+                
+                select_best_voice_candidate(
+                    candidate_paths=candidate_paths,
+                    target_words=detected_stress_words,
+                    text_context=text,
+                    dest_path=dest_path
+                )
+            elif seg_candidates > 1:
+                candidate_paths = []
+                for take_idx in range(seg_candidates):
+                    take_seed = seed + (take_idx * 777)
+                    take_prefix = f"{output_prefix}_take{take_idx+1}"
+                    take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
+                    take_path = script_output_dir / take_filename
+                    print(f"  [High-Impact Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
+                    comfy_client.generate_voice_segment(
+                        ref_audio_name=ref_filename,
+                        target_text=target_text,
+                        language=language,
+                        gender=gender,
+                        context=context,
+                        emotion=emotion,
+                        energy=energy,
+                        style=style,
+                        output_prefix=take_prefix,
+                        dest_path=take_path,
+                        seed=take_seed
                     )
-                    if passes_gate:
-                        print(f"  [Quality Gate]: Pass (Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s)")
-                    else:
-                        print(f"  [Quality Gate]: Take #1 flagged: {', '.join(issues)}. Auto-retrying with seed {seed + 555}...")
-                        take1_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take1.flac"
-                        take2_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take2.flac"
-                        if dest_path.exists():
-                            if take1_path.exists():
-                                take1_path.unlink()
-                            shutil.move(str(dest_path), str(take1_path))
+                    candidate_paths.append(take_path)
 
-                        comfy_client.generate_voice_segment(
-                            ref_audio_name=ref_filename,
-                            target_text=target_text,
-                            language=language,
-                            gender=gender,
-                            context=context,
-                            emotion=emotion,
-                            energy=energy,
-                            style=style,
-                            output_prefix=f"{output_prefix}_take2",
-                            dest_path=take2_path,
-                            seed=seed + 555
-                        )
-                        select_best_general_candidate(
-                            candidate_paths=[take1_path, take2_path],
-                            target_text=target_text,
-                            language=language,
-                            dest_path=dest_path
-                        )
-            except Exception as exc:
-                print(f"API Error on segment {idx}: {exc}", file=sys.stderr)
-                return False
+                select_best_general_candidate(
+                    candidate_paths=candidate_paths,
+                    target_text=target_text,
+                    language=language,
+                    dest_path=dest_path
+                )
+            else:
+                comfy_client.generate_voice_segment(
+                    ref_audio_name=ref_filename,
+                    target_text=target_text,
+                    language=language,
+                    gender=gender,
+                    context=context,
+                    emotion=emotion,
+                    energy=energy,
+                    style=style,
+                    output_prefix=output_prefix,
+                    dest_path=dest_path,
+                    seed=seed
+                )
+                score, passes_gate, issues, metrics = evaluate_voice_take(
+                    dest_path, target_text=target_text, language=language
+                )
+                if passes_gate:
+                    print(f"  [Quality Gate]: Pass (Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s)")
+                else:
+                    print(f"  [Quality Gate]: Take #1 flagged: {', '.join(issues)}. Auto-retrying with seed {seed + 555}...")
+                    take1_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take1.flac"
+                    take2_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take2.flac"
+                    if dest_path.exists():
+                        if take1_path.exists():
+                            take1_path.unlink()
+                        shutil.move(str(dest_path), str(take1_path))
+
+                    comfy_client.generate_voice_segment(
+                        ref_audio_name=ref_filename,
+                        target_text=target_text,
+                        language=language,
+                        gender=gender,
+                        context=context,
+                        emotion=emotion,
+                        energy=energy,
+                        style=style,
+                        output_prefix=f"{output_prefix}_take2",
+                        dest_path=take2_path,
+                        seed=seed + 555
+                    )
+                    select_best_general_candidate(
+                        candidate_paths=[take1_path, take2_path],
+                        target_text=target_text,
+                        language=language,
+                        dest_path=dest_path
+                    )
+        except Exception as exc:
+            print(f"API Error on segment {idx}: {exc}", file=sys.stderr)
+            return False
                 
         segments_to_concat.append({
             "path": dest_path,
@@ -655,12 +745,10 @@ def process_script(
         )
         if merged_file:
             print(f"Successfully generated master audio: {merged_file}")
-            # Update state manager
             script_data["assets"]["audio_path"] = str(merged_file)
             script_data["status"]["voice_generation"] = "done"
             state_manager.save_script_state(script_id, script_data)
             
-            # Cleanup intermediate segment files
             for seg in segments_to_concat:
                 try:
                     if seg["path"].exists():
@@ -668,7 +756,6 @@ def process_script(
                 except Exception:
                     pass
             
-            # Cleanup ComfyUI input references
             voice_manager.cleanup_comfy_input()
             
             return True
@@ -678,10 +765,17 @@ def process_script(
     return False
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="LingoVerse Shorts Voice Generator (Qwen3-TTS)")
+    parser = argparse.ArgumentParser(description="LingoVerse Shorts Voice Generator (Kokoro-82M & Qwen3-TTS)")
     parser.add_argument("--script-id", type=str, default=None, help="Target specific script ID(s) (e.g. EE01, FG02 or comma-separated)")
     parser.add_argument("--force", action="store_true", help="Force regeneration even if voice is already generated")
     parser.add_argument("--auto", action="store_true", help="Auto-generate without interactive terminal prompts")
+    parser.add_argument(
+        "--engine",
+        type=str,
+        default="auto",
+        choices=["auto", "kokoro", "qwen3", "hybrid"],
+        help="Voice synthesis engine override (default: 'auto' uses VOICE_ENGINE_BY_LANGUAGE)"
+    )
     parser.add_argument(
         "--fun-facts",
         "--fun-facts-only",
@@ -742,21 +836,23 @@ def main() -> int:
     state_manager = StateManager(base_dir)
     
     workflow_template_path = VOICE_WORKFLOW_PATH
-    if not workflow_template_path.exists():
+    comfy_client = None
+    kokoro_engine = get_kokoro_engine()
+    if workflow_template_path.exists():
+        try:
+            require_services(comfy=True)
+            comfy_client = ComfyClient(COMFY_API_URL, workflow_template_path, COMFY_OUTPUT_DIR)
+            print("AI services connection (ComfyUI) verified.")
+        except ConnectionError as e:
+            if kokoro_engine and kokoro_engine.is_ready and args.engine != "qwen3":
+                print(f"[Notice] ComfyUI offline ({e}); continuing with local Kokoro-82M engine.")
+            else:
+                print(f"Error: {e}", file=sys.stderr)
+                return 1
+    elif not (kokoro_engine and kokoro_engine.is_ready):
         print(f"Error: Could not locate template {workflow_template_path}", file=sys.stderr)
         return 1
-            
-    comfy_client = ComfyClient(COMFY_API_URL, workflow_template_path, COMFY_OUTPUT_DIR)
-    try:
-        print("Checking AI services connection (ComfyUI)...")
-        require_services(comfy=True)
-        print("AI services connection verified.")
-    except ConnectionError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
 
-    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
-    # pyrefly: ignore [missing-import]
     try:
         # pyrefly: ignore [missing-import]
         from core.cli_prompt import (
@@ -807,7 +903,6 @@ def main() -> int:
     voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
 
     while True:
-        # Determine target video type filter
         target_video_type = None
         if selected_mode == "fun_facts" or args.fun_facts_only:
             target_video_type = "fun_facts"
@@ -816,7 +911,6 @@ def main() -> int:
 
         target_language = args.language if args.language and args.language.lower() != "all" else None
 
-        # Query pending scripts via Pipeline Status Tracker
         try:
             try:
                 # pyrefly: ignore [missing-import]
@@ -899,9 +993,18 @@ def main() -> int:
         for i, script in enumerate(pending, start=1):
             try:
                 print(f"[{i}/{len(pending)}] Processing Script ID: {script['id']} for Voice...")
-                if process_script(script, state_manager, comfy_client, voice_manager, args.force, base_dir, candidates=args.candidates):
+                if process_script(
+                    script,
+                    state_manager,
+                    comfy_client,
+                    voice_manager,
+                    args.force,
+                    base_dir,
+                    candidates=args.candidates,
+                    cli_engine_override=args.engine,
+                ):
                     success_count += 1
-                    time.sleep(0.3)  # Cooldown between scripts ("go ahead, don't stop")
+                    time.sleep(0.3)
                 else:
                     print(f"Failed to generate voice for script ID {script['id']}.", file=sys.stderr)
                     return 1
@@ -912,7 +1015,6 @@ def main() -> int:
                 
         print(f"\n[Completed] Process complete. Successfully voiced {success_count} script(s).")
 
-        # If in group_range, fun_facts, ready_scripts, or mass_ready_scripts mode, prompt whether to process more
         if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
             try:
                 create_more = input("\nDo you want to voice more scripts? [y/N]: ").strip().lower()

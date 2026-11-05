@@ -342,13 +342,19 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 "payoff": lines[4],
             }
         elif len(lines) == 4:
-            parsed = {
-                "hook": lines[0],
-                "setup": lines[1],
-                "discovery": lines[1],
-                "example": lines[2],
-                "payoff": lines[3],
-            }
+            # Cleanly divide lines[1] into setup and discovery if it contains multiple sentences
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", lines[1]) if s.strip()]
+            if len(sentences) >= 2:
+                parsed = {
+                    "hook": lines[0],
+                    "setup": sentences[0],
+                    "discovery": " ".join(sentences[1:]),
+                    "example": lines[2],
+                    "payoff": lines[3],
+                }
+            else:
+                # Do NOT artificially duplicate lines[1]; defer to LLM for intelligent partitioning
+                return None
         elif len(lines) > 5:
             parsed = {
                 "hook": lines[0],
@@ -357,14 +363,8 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 "example": lines[-2],
                 "payoff": lines[-1],
             }
-        elif len(lines) >= 3:
-            parsed = {
-                "hook": lines[0],
-                "setup": lines[1],
-                "discovery": lines[1],
-                "example": lines[2],
-                "payoff": lines[-1],
-            }
+        else:
+            return None
 
     elif vtype == "GAME":
         if len(lines) == 5:
@@ -396,14 +396,9 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                     "answer": answer,
                     "explanation": explanation,
                 }
-            elif len(lines) >= 4:
-                parsed = {
-                    "hook": lines[0],
-                    "challenge": "\n".join(lines[1:-3]) if len(lines) > 4 else lines[1],
-                    "pressure": lines[-3] if len(lines) > 3 else lines[-1],
-                    "answer": lines[-2] if len(lines) > 2 else lines[-1],
-                    "explanation": lines[-1],
-                }
+            else:
+                # Do NOT arbitrarily duplicate challenge into pressure; defer to LLM for intelligent partitioning
+                return None
 
     elif vtype == "ROLEPLAY":
         char_pattern = re.compile(
@@ -546,6 +541,20 @@ Required "script" object structure for EXPRESSION:
 }
 """
 
+    vtype_upper = (vtype or "EXPRESSION").upper()
+    tlang_lower = (target_language or "").lower()
+
+    if vtype_upper == "EXPRESSION":
+        title_directive = f"Create a short, catchy, high-impact title (under 7 words, STRICTLY ZERO EMOJIS) in {target_language.upper()} capturing the cultural lore or real-world usage (e.g. '{expression_or_topic}: Why Good Luck is a Curse'). NEVER use 'Native Secret', 'The Secret', or emojis."
+    elif vtype_upper == "GAME":
+        title_directive = f"Create a short, high-energy challenge/quiz title (under 7 words, STRICTLY ZERO EMOJIS) in {target_language.upper()} focusing on the ear test or option showdown (e.g. 'A vs B: Which One Did You Hear?' or '{expression_or_topic}: Test Your Instincts'). NEVER use 'Native Secret', 'The Secret', or emojis."
+    elif vtype_upper == "ROLEPLAY":
+        title_directive = f"Create a short, situational scene title (under 7 words, STRICTLY ZERO EMOJIS) in {target_language.upper()} reflecting the dramatic scenario or peer misunderstanding (e.g. '{expression_or_topic}: When Your Friend Takes It Literally'). NEVER use 'Native Secret', 'The Secret', or emojis."
+    elif vtype_upper == "FUN_FACTS":
+        title_directive = f"Create a short, intriguing curiosity title (under 7 words, STRICTLY ZERO EMOJIS) in {target_language.upper()} reflecting the linguistic anomaly (e.g. '{expression_or_topic}: The Bizarre Truth'). NEVER use 'Native Secret', 'The Secret', or emojis."
+    else:
+        title_directive = f"Create a short, catchy title (under 7 words, STRICTLY ZERO EMOJIS) in {target_language.upper()}. NEVER use 'Native Secret', 'The Secret', or emojis."
+
     prompt = f"""You are an expert short-form video script formatter for LingoVerse YouTube Shorts.
 
 TARGET INFORMATION:
@@ -564,7 +573,7 @@ CRITICAL IMMUTABILITY RULE (MANDATORY):
 1. You MUST NOT edit, rephrase, rewrite, correct, polish, summarize, or alter ANY spoken words or sentences from the user's script!
 2. Every single word and sentence in the spoken sections MUST BE COPIED VERBATIM from the user's script above.
 3. Your job is STRICTLY to:
-   a) Create a short, catchy, high-impact YouTube Shorts title (under 8 words) as the FIRST key "title" in the script object (e.g. "{expression_or_topic}: The Native Secret"). Never use boring suffixes like "Shorts Guide".
+   a) {title_directive} Never use boring suffixes like "Shorts Guide".
    b) Partition the provided text into the required JSON section keys without losing or changing a single word.
    c) Generate the surrounding metadata for the video.
 
@@ -664,22 +673,73 @@ def format_script_with_llm(
         for k, v in direct_parsed.items():
             script_field[k] = v
 
-    # Resolve and clean up a catchy title
+    # Resolve and clean up a format-differentiated, emoji-free title
+    tlang_lower = (target_language or "").lower()
+    vtype_upper = (video_type or "EXPRESSION").upper()
+
+    clean_expr_base = re.sub(
+        r"^(?:quiz|in action|en acci[óo]n|en action|in azione|origin|origen|origine)\s*[:：]\s*",
+        "",
+        str(expression_or_topic),
+        flags=re.IGNORECASE,
+    ).strip()
+
+    if vtype_upper == "GAME":
+        default_native_title = f"Quiz : {clean_expr_base}" if tlang_lower == "french" else f"Quiz: {clean_expr_base}"
+    elif vtype_upper == "ROLEPLAY":
+        if tlang_lower == "spanish":
+            default_native_title = f"En Acción: {clean_expr_base}"
+        elif tlang_lower == "french":
+            default_native_title = f"En Action : {clean_expr_base}"
+        elif tlang_lower == "italian":
+            default_native_title = f"In Azione: {clean_expr_base}"
+        else:
+            default_native_title = f"In Action: {clean_expr_base}"
+    elif vtype_upper == "FUN_FACTS":
+        if tlang_lower == "spanish":
+            default_native_title = f"Origen: {clean_expr_base}"
+        elif tlang_lower == "french":
+            default_native_title = f"Origine : {clean_expr_base}"
+        elif tlang_lower == "italian":
+            default_native_title = f"Origine: {clean_expr_base}"
+        else:
+            default_native_title = f"Origin: {clean_expr_base}"
+    else:
+        default_native_title = clean_expr_base
+
     raw_title = (
         script_field.get("title")
         or parsed_json.get("title")
         or existing_content_metadata.get("script", {}).get("title")
         or existing_content_metadata.get("title")
-        or f"{expression_or_topic}: The Native Secret"
+        or default_native_title
     )
     if isinstance(raw_title, str):
         title_str = raw_title.strip().strip('"').strip("'")
         # Strip generic fallback suffix ': Shorts Guide'
         title_str = re.sub(r":\s*Shorts(?:\s*Guide)?$", "", title_str, flags=re.IGNORECASE).strip()
+        # Strip formulaic secret suffixes
+        title_str = re.sub(r":\s*(?:the\s+)?native\s+secret.*$", "", title_str, flags=re.IGNORECASE).strip()
+        title_str = re.sub(r":\s*(?:le\s+)?secret\s+des\s+natifs.*$", "", title_str, flags=re.IGNORECASE).strip()
+        title_str = re.sub(r":\s*(?:il\s+)?segreto\s+dei\s+nativi.*$", "", title_str, flags=re.IGNORECASE).strip()
+        title_str = re.sub(r":\s*(?:el\s+)?secreto\s+de\s+los\s+nativos.*$", "", title_str, flags=re.IGNORECASE).strip()
         if not title_str:
-            title_str = f"{expression_or_topic}: The Native Secret"
+            title_str = default_native_title
     else:
-        title_str = f"{expression_or_topic}: The Native Secret"
+        title_str = default_native_title
+
+    try:
+        from video_creation._A_video_scripts.core.metadata_builder import sanitize_title, strip_emojis
+        title_str = strip_emojis(title_str)
+        title_str = sanitize_title(title_str)
+    except Exception:
+        pass
+
+    try:
+        from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import sanitize_thumbnail_title
+        title_str = sanitize_thumbnail_title(title_str, lang=target_language, expression=expression_or_topic)
+    except Exception:
+        pass
 
     # Enforce canonical ordering: 'title' MUST ALWAYS be first
     vtype_key = video_type.upper()

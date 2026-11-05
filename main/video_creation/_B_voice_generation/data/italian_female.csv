@@ -1,2 +1,6 @@
-VOICE_NAME,FILE_PATH,GENDER,LANGUAGE
-italian_female_open_swara_007,italian/female/italian_female_open_swara_007.wav,female,italian
+LANGUAGE_KEY,GENDER,FILE_PATH
+italian,female,italian/female/italian_female_kokoro_golden_narrator.wav
+italian,female,italian/female/italian_female_kokoro_golden_char1.wav
+italian,female,italian/female/italian_female_kokoro_golden_char2.wav
+italian,female,italian/female/italian_female_open_swara_007.wav
+italian,female,italian/female/italian_female_open_swara_008.wav

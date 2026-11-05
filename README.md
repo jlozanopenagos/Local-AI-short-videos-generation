@@ -73,7 +73,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 244 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 275 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers
@@ -97,6 +97,20 @@ py main/tools/auditing/status_scraper.py
 
 # Mass reset pipeline stage status across state files (e.g. voice_generation to pending)
 py main/tools/reset_stage_status.py --stage voice_generation --yes
+
+# Audit and synchronize Column D script corrections (from Google Sheets) to State JSONs
+py main/tools/check_script_changes.py --check-only
+py main/tools/check_script_changes.py --apply
+
+# Audit and upgrade titles across state JSONs (strictly emoji-free, format-differentiated)
+py main/tools/upgrade_titles.py
+py main/tools/upgrade_titles.py --apply
+
+# Headless ComfyUI Supervisor (Windowless background daemon, zero QuickEdit freezes)
+py main/tools/comfy.py start
+py main/tools/comfy.py status
+py main/tools/comfy.py logs -f
+py main/tools/comfy.py stop
 ```
 
 ### 6. Google Sheets Connectivity Suite
@@ -106,6 +120,10 @@ py main/connectivity/sync_sheets.py
 
 # Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/
 py main/connectivity/fetch_corrected_scripts.py
+
+# Feature 2b: Audit and apply Column D script changes to local state JSONs (resetting downstream stages)
+py main/connectivity/check_script_changes.py --check-only
+py main/connectivity/check_script_changes.py --apply
 
 # Feature 3: Reconcile local scripts to match Google Sheets order into scripts_to_post/
 py main/connectivity/reconcile_scripts.py
@@ -130,6 +148,51 @@ py main/connectivity/scan_ready_scripts.py --all
 ---
 
 ## Recent Changes
+
+### Stable Release: Headless ComfyUI Supervisor, Connection Pool & VRAM Arbiter
+- **Headless ComfyUI Process Supervisor (`tools/comfy.py` & `core/comfy_manager.py`)**:
+  - Eliminates the need for manual bash/cmd terminal windows entirely.
+  - Spawns ComfyUI in the background via `pythonw.exe` (`CREATE_NO_WINDOW | DETACHED_PROCESS`), completely immunizing the system against Windows QuickEdit terminal freeze deadlocks.
+  - Provides a complete CLI management tool: `start`, `stop`, `restart`, `status`, and `logs -f`.
+  - Redirects all runtime logs to `main/logs/comfyui/comfyui.log` with automatic log rotation.
+- **Connection Pool & VRAM Arbiter (`core/comfy_pool.py`)**:
+  - Replaces per-request socket churn with a persistent `requests.Session` connection pool with keep-alive and retry adapters.
+  - Implements thread and file-based VRAM mutex guards (`vram_guard`) preventing concurrent collisions between Flux image generation and Qwen3-TTS voice generation on constrained GPUs (e.g. 6GB RTX 2060).
+  - Automatically invokes `/free` memory reclamation between generation cycles.
+- **Senior QA Test Suite Expansion**:
+  - Expanded test suite to **287 automated tests** passing across all 5 test layers with 100% green status.
+
+### Previous Release: Title & Metadata Singularity, Strict Emoji Ban & Mass Upgrade
+- **Title & Metadata Singularity Architecture**:
+  - Eliminated repetitive *"Native Secret"* / *"El Secreto de los Nativos"* / *"Il Segreto dei Nativi"* / *"Le Secret des Natifs"* clichés across the entire pipeline.
+  - Implemented format-differentiated title archetypes across all 4 formats (`EXPRESSION`, `GAME`, `ROLEPLAY`, `FUN_FACTS`), guaranteeing distinct angles even when sharing an underlying expression.
+  - Two-tier title model: punchy 3–6 word chalkboard titles for Tito (`content_metadata.script.title`) and curiosity-driven uppercase trigger titles for YouTube Shorts (`metadata.TITLE`).
+- **Strict Universal Emoji Purge**:
+  - Emojis strictly banned from all YouTube titles, descriptions, and chalkboard titles.
+  - Integrated `strip_emojis()` and negative prompting across `prompts_data.py`, `metadata_builder.py`, `script_modifier.py`, and `thumbnail_renderer.py`.
+- **Title & Metadata Upgrader Tool (`upgrade_titles.py`)**:
+  - Upgraded **1,220 state JSON files** with canonical SQLite expression resolution (preventing 30-word scenario leakage from Roleplay prompts).
+  - Contaminated cliché titles dropped from 35.1% (430 state files) down to 0.5% (6 files representing literal historical titles).
+  - 100% of titles across all 1,220 state files are confirmed emoji-free.
+  - All downstream statuses (`voice_generation`, `image_generation`, `video_assembly`) 100% preserved.
+
+### Previous Release: Script Change Auditor, Zero-Duplication Ingestion & Thumbnail Localization
+- **Script Change Auditor (`check_script_changes.py`)**:
+  - Automated comparison and synchronization engine between CSV Column D corrections (`input/csv/script_to_change/`) and local runtime state JSONs (`main/state/`).
+  - Implements speaker prefix stripping (`Narrator:`), quotation mark normalization, and whitespace cleanup to eliminate false positives.
+  - Automatically resets downstream generation stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'` upon application.
+  - Supports `--check-only`, `--apply`, targeting specific CSVs (`--csv <filename>`), or single scripts (`--script-id <ID>`).
+  - Available as `main/tools/check_script_changes.py` and convenience alias `main/connectivity/check_script_changes.py`.
+- **Zero-Duplication Parsing Fix (`script_modifier.py`)**:
+  - Resolved legacy 4-paragraph duplication bug that previously duplicated `setup` into `discovery` for `EXPRESSION` or `challenge` into `pressure` for `GAME`.
+  - Multi-sentence lines are now cleanly partitioned across canonical schema keys or intelligently structured by the LLM with zero duplication.
+- **Chalkboard Thumbnail Title Sanitization & Localization (`_F_thumbnail_image_generation`)**:
+  - Implemented `sanitize_thumbnail_title()` in `thumbnail_renderer.py` and `script_modifier.py` to eliminate English title leakage on chalkboard thumbnails for Latin languages (Spanish, French, Italian).
+  - Automatically translates formulaic English suffixes (`: The Native Secret`, `: The Secret`, `: The Native Sound Trap`) into authentic native equivalents (`: El Secreto de los Nativos`, `: Le Secret des Natifs`, `: Il Segreto dei Nativi`) and restores the native target expression.
+- **100% State Synchronization**:
+  - All 359 scripts with human modifications across all 16 CSV queues in `input/csv/script_to_change/` audited and 100% synchronized with state JSONs on disk.
+- **Senior QA Test Suite Expansion**:
+  - Test suite expanded to **275 automated tests** passing across all 5 test layers with 100% success in ~20 seconds.
 
 ### Story World Anchor, Hairstyle Sanitization & Visual Director 2.0
 - **Master Story World Anchor & Locked General Prompt**:
@@ -195,5 +258,11 @@ py main/connectivity/scan_ready_scripts.py --all
 - **Reconciliation Engine (`reconcile_scripts.py`)**:
   - Audits local `scripts_to_see` against Google Sheets canonical order, preserving sheet ordering and appending new local entries.
 - **Comprehensive Test Suite Expansion**:
-  - 223 automated tests passing across all 5 QA layers (unit, integration, contracts, security, connectivity).
-
+  - 275 automated tests passing across all 5 QA layers (unit, integration, contracts, security, connectivity).
+### Controlled Learner Pronunciation Error Simulation & Dynamic Phonetic Vowel Rewriting
+- **Pedagogical Controlled Errors**: In roleplay learning scenarios, learners intentionally make realistic mispronunciations (e.g. saying the verb `/rɪˈkɔːrd/` when attempting to say the noun `REcord`, or `/pərˈmɪt/` for `PERmit`).
+- **Dynamic Phonetic Vowel Rewriting (`stress_enhancer.py`)**: Neural TTS models (like Qwen3-TTS) have strong language priors that favor standard grammar (forcing noun vowels after *"a new..."*). When visual capitalization indicates an intentional mistake, the system dynamically rewrites the TTS input to its exact phonetic vowel counterpart (`ri-cord`, `per-mit`, `pri-zent`, `pruh-jekt`, `ub-jekt`) to force genuine vowel reduction and stress shift.
+- **Citation-Context Safety**: Protects quotation / citation sentences (e.g. *"you must say PERmit"*, *"the word is REcord"*) from being falsely identified as errors.
+- **Acoustic Prominence Gate Inversion (`acoustic_evaluator.py`)**: The multi-candidate evaluator scores takes based on the intended error contrast and accounts for Whisper phonetic variations (`RyCord`, `purmit`), ensuring pedagogical error takes win candidate selection.
+- **Visual Display & Subtitle Fidelity**: Subtitles (`subtitle_builder.py`) and state JSONs preserve the exact visual capitalization (`reCORD`, `perMIT`) for the viewer.
+- **Senior QA Test Suite**: Expanded to **305 automated tests** passing across all layers in ~10 seconds.

@@ -87,12 +87,15 @@ def detect_roles_in_text(text: str, target_words: List[str]) -> List[Tuple[str, 
         role = None
         raw = token.strip("'-")
 
-        # 1. Check uppercase syllable notation (e.g. PREsent vs preSENT)
-        if len(raw) >= 4:
-            if raw[:3].isupper() and raw[-3:].islower():
+        # 1. Visual casing is the absolute highest priority intent:
+        # e.g. REcord, PERmit, PROject, PREsent -> NOUN (1st syllable stressed)
+        # e.g. reCORD, perMIT, proJECT, preSENT -> VERB (2nd syllable stressed)
+        raw_no_dash = raw.replace("-", "")
+        if len(raw_no_dash) >= 4:
+            if re.search(r'^[A-Z]{2,}[a-z]+', raw_no_dash) or (raw_no_dash[:2].isupper() and raw_no_dash[-2:].islower()):
                 role = "noun"
-            elif raw[:3].islower() and raw[-3:].isupper():
-                role = "verb"
+            elif re.search(r'^[a-z]+[A-Z]{2,}', raw_no_dash) or (raw_no_dash[:2].islower() and raw_no_dash[-2:].isupper()):
+                role = "verb" 
 
         # 2. Check preceding carrier / determiner context (closest marker takes precedence)
         if not role:
@@ -171,13 +174,32 @@ def evaluate_acoustic_prominence(
     expected_roles = detect_roles_in_text(text_context, target_words)
 
     # Locate detected target words in Whisper transcript
+    # Allow phonetic variant spellings that Whisper outputs for heteronym learner errors
+    # (e.g. 'rycord', 'ry-cord' for intentional verb 'reCORD'; 'purmit' for 'PERmit')
+    PHONETIC_WHISPER_VARIANTS = {
+        "reco": ["ryco", "ri-c", "re-c", "ry-k"],
+        "perm": ["purm"],
+        "pres": ["priz"],
+        "proj": ["pruh"],
+        "obje": ["ubje"]
+    }
     detected = []
     stems = {w.lower()[:4]: w.lower() for w in target_words}
     for w_text, st, en in words:
-        clean_w = re.sub(r"[^\w]", "", w_text)
+        clean_w = re.sub(r"[^\w]", "", w_text).lower()
+        matched = False
         for stem in stems:
             if stem in clean_w:
                 detected.append((w_text, st, en))
+                matched = True
+                break
+            # Check phonetic variants
+            for variant in PHONETIC_WHISPER_VARIANTS.get(stem, []):
+                if variant in clean_w:
+                    detected.append((w_text, st, en))
+                    matched = True
+                    break
+            if matched:
                 break
 
     if not detected:
@@ -320,7 +342,10 @@ def select_best_voice_candidate(
 
     # Phase 3 Precision Quality Gate: If all candidate takes fell below acceptable contrast (< 0.80),
     # fallback to verified studio clip from Heteronym Pronunciation Bank if available
-    if best_score < 0.80:
+    # ONLY IF the text being voiced is an isolated word demonstration or very short carrier (<= 3 words),
+    # because replacing a full conversational sentence with an isolated word clip destroys the sentence!
+    words_in_context = len(re.findall(r"[\w'-]+", text_context)) if text_context else 0
+    if best_score < 0.80 and words_in_context <= 3:
         try:
             from video_creation._B_voice_generation.core.pronunciation_bank import get_pronunciation_clip
         except (ImportError, ModuleNotFoundError):
@@ -336,7 +361,7 @@ def select_best_voice_candidate(
                 role = expected_roles[0][1]
                 bank_clip = get_pronunciation_clip(target_word, role)
                 if bank_clip and bank_clip.exists():
-                    print(f"  [Pronunciation Bank]: Low candidate score ({best_score:.2f} < 0.80). Fallback to verified studio clip: {bank_clip.name}")
+                    print(f"  [Pronunciation Bank]: Low candidate score ({best_score:.2f} < 0.80) on short drill ({words_in_context} words). Fallback to verified studio clip: {bank_clip.name}")
                     if dest_path.exists():
                         dest_path.unlink()
                     shutil.copyfile(str(bank_clip), str(dest_path))
@@ -477,6 +502,10 @@ def evaluate_voice_take(
     # 4. Silence Freeze Check
     if duration > 2.5 and max_silence_sec > 0.85:
         issues.append(f"Internal silence freeze ({max_silence_sec:.2f}s > 0.85s)")
+
+    # 5. Excessive Shrillness / High Pitch Check (reject ear-fatiguing high pitch > 285.0 Hz)
+    if mean_f0 > 285.0:
+        issues.append(f"Excessive shrillness / high pitch ({mean_f0:.1f} Hz > 285.0 Hz)")
 
     passes_gate = len(issues) == 0
 

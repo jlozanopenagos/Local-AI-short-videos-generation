@@ -795,6 +795,14 @@ def handle_prompt(
                             payoff_val = payoff_val.replace(bad_phr, replacement).strip()
                             script_field[payoff_key] = payoff_val
 
+            # Sanitize script title (zero emojis, zero formulaic clichés)
+            if "title" in script_field and isinstance(script_field["title"], str):
+                try:
+                    from core.metadata_builder import sanitize_title, strip_emojis
+                except ImportError:
+                    from video_creation._A_video_scripts.core.metadata_builder import sanitize_title, strip_emojis
+                script_field["title"] = sanitize_title(strip_emojis(script_field["title"]))
+
             parsed_json["script"] = script_field
 
         if isinstance(script_field, dict):
@@ -938,11 +946,7 @@ def load_ready_prompts_from_csv(base_dir: Path) -> list:
         if not csv_files:
             csv_files.extend(sorted(input_dir.glob("*READY_PROMPTS_*.csv")))
 
-    # 4. Fallback: legacy data/ directory
-    if not csv_files:
-        fallback_dir = Path(__file__).parent / "data"
-        if fallback_dir.exists():
-            csv_files.extend(sorted(fallback_dir.glob("*READY_PROMPTS_*.csv")))
+
 
     queued = []
     max_indices = {}

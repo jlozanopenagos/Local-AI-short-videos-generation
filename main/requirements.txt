@@ -8,3 +8,6 @@ torchaudio
 scipy
 pillow
 faster-whisper
+kokoro-onnx
+soundfile
+numpy

@@ -11,11 +11,7 @@ import sys
 from connectivity.core import endpoints
 from connectivity.sheet_sync import sync_service
 
-# Backward-compatibility aliases for legacy module paths
-sys.modules.setdefault("connectivity.endpoints", endpoints)
-sys.modules.setdefault("connectivity.sheets_fetcher", sync_service)
-sys.modules.setdefault("main.connectivity.endpoints", endpoints)
-sys.modules.setdefault("main.connectivity.sheets_fetcher", sync_service)
+
 
 from connectivity.core.endpoints import (
     get_endpoint,

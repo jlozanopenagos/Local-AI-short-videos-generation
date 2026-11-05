@@ -68,10 +68,6 @@ if not WATERMARK_DIR.exists() and (BASE_DIR / "watermark_image").exists():
     WATERMARK_DIR = BASE_DIR / "watermark_image"
 
 THUMBNAIL_MODELS_DIR = INPUT_IMAGES_DIR / "thumbnail_models"
-if not THUMBNAIL_MODELS_DIR.exists():
-    legacy_thumb_dir = BASE_DIR / "video_creation" / "_F_thumbnail_image_generation" / "input_images"
-    if legacy_thumb_dir.exists():
-        THUMBNAIL_MODELS_DIR = legacy_thumb_dir
 
 # API Keys (Loaded from .env)
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
@@ -114,60 +110,90 @@ SPEAKER_GENDER_MAP = {
 
 NARRATOR_VOICES = {
     ("english", "male"): [
+        "english/male/english_male_kokoro_golden_narrator.wav",
+        "english/male/english_male_kokoro_golden_char1.wav",
+        "english/male/english_male_kokoro_golden_char2.wav",
         "english/male/english_male_open_swara_149.wav",
         "english/male/english_male_open_swara_113.wav",
         "english/male/english_male_open_swara_027.wav",
-        "english/male/english_male_open_swara_120.wav",
-        "english/male/english_male_open_swara_134.wav",
-        "english/male/english_male_open_swara_135.wav",
     ],
     ("english", "female"): [
+        "english/female/english_female_kokoro_golden_narrator.wav",
+        "english/female/english_female_kokoro_golden_char1.wav",
+        "english/female/english_female_kokoro_golden_char2.wav",
         "english/female/english_female_open_swara_035.wav",
         "english/female/english_female_open_swara_065.wav",
         "english/female/english_female_open_swara_190.wav",
-        "english/female/english_female_open_swara_186.wav",
-        "english/female/english_female_open_swara_011.wav",
-        "english/female/english_female_open_swara_118.wav",
     ],
     ("french", "male"): [
-        "french/male/french_male_open_swara_019.wav",
-        "french/male/french_male_open_swara_012.wav",
-        "french/male/french_male_open_swara_038.wav",
-        "french/male/french_male_open_swara_027.wav",
-        "french/male/french_male_open_swara_009.wav",
-        "french/male/french_male_open_swara_042.wav",
+        "french/male/french_male_kokoro_golden_narrator.wav",
+        "french/male/french_male_kokoro_golden_baritone.wav",
+        "french/male/french_male_kokoro_golden_tenor.wav",
+        "french/male/french_male_kokoro_golden_bass.wav",
     ],
     ("french", "female"): [
-        "french/female/french_female_open_swara_017.wav",
-        "french/female/french_female_open_swara_071.wav",
-        "french/female/french_female_open_swara_083.wav",
-        "french/female/french_female_open_swara_025.wav",
-        "french/female/french_female_open_swara_030.wav",
-        "french/female/french_female_open_swara_034.wav",
+        "french/female/french_female_kokoro_golden_narrator.wav",
+        "french/female/french_female_kokoro_golden_alto.wav",
+        "french/female/french_female_kokoro_golden_mezzo.wav",
     ],
     ("spanish", "male"): [
-        "spanish/male/spanish_male_open_swara_008.wav",
-        "spanish/male/spanish_male_open_swara_005.wav",
-        "spanish/male/spanish_male_open_swara_002.wav",
-        "spanish/male/spanish_male_open_swara_009.wav",
-        "spanish/male/spanish_male_open_swara_006.wav",
+        "spanish/male/spanish_male_kokoro_golden_narrator.wav",
+        "spanish/male/spanish_male_kokoro_golden_baritone.wav",
+        "spanish/male/spanish_male_kokoro_golden_tenor.wav",
+        "spanish/male/spanish_male_kokoro_golden_bass.wav",
     ],
     ("spanish", "female"): [
-        "spanish/female/spanish_female_open_swara_006.wav",
-        "spanish/female/spanish_female_open_swara_009.wav",
-        "spanish/female/spanish_female_open_swara_007.wav",
-        "spanish/female/spanish_female_open_swara_004.wav",
+        "spanish/female/spanish_female_kokoro_golden_narrator.wav",
+        "spanish/female/spanish_female_kokoro_golden_alto.wav",
+        "spanish/female/spanish_female_kokoro_golden_mezzo.wav",
     ],
     ("italian", "male"): [
-        "italian/male/italian_male_open_swara_002.wav",
-        "italian/male/italian_male_english_open_swara_002.wav",
-        "italian/male/italian_male_english_open_swara_001.wav",
-        "italian/male/italian_male_open_swara_001.wav",
+        "italian/male/italian_male_kokoro_golden_narrator.wav",
+        "italian/male/italian_male_kokoro_golden_baritone.wav",
+        "italian/male/italian_male_kokoro_golden_tenor.wav",
+        "italian/male/italian_male_kokoro_golden_bass.wav",
     ],
     ("italian", "female"): [
-        "italian/female/italian_female_open_swara_007.wav",
+        "italian/female/italian_female_kokoro_golden_narrator.wav",
+        "italian/female/italian_female_kokoro_golden_alto.wav",
+        "italian/female/italian_female_kokoro_golden_mezzo.wav",
     ]
 }
+
+# Voice Engine Configuration (Two-Stage Kokoro Golden Reference -> ComfyUI Qwen3-TTS Expressive Acting)
+# Default 'qwen3' uses Kokoro-82M's studio-clean Golden Reference WAVs + exact transcripts inside
+# ComfyUI's Qwen3-TTS workflow (with In-Context Learning and emotion/persona `instruct` prompts).
+VOICE_ENGINE_BY_LANGUAGE = {
+    "english": os.getenv("VOICE_ENGINE_ENGLISH", "qwen3").strip().lower(),
+    "spanish": os.getenv("VOICE_ENGINE_SPANISH", "qwen3").strip().lower(),
+    "french": os.getenv("VOICE_ENGINE_FRENCH", "qwen3").strip().lower(),
+    "italian": os.getenv("VOICE_ENGINE_ITALIAN", "qwen3").strip().lower(),
+}
+
+KOKORO_VOICES = {
+    ("english", "female"): ["af_heart", "af_bella", "af_sarah"],
+    ("english", "male"): ["am_michael", "am_adam", "am_fenrir"],
+    ("spanish", "female"): ["ef_dora"],
+    ("spanish", "male"): ["em_alex"],
+    ("french", "female"): ["ff_siwis"],
+    # French v1.0 only ships with female voice 'ff_siwis'. In 'hybrid' mode, French male dialogue
+    # falls back to Qwen3-TTS ICL cloning; in pure 'kokoro' mode, 'ff_siwis_male' (pitch-shifted) is used.
+    ("french", "male"): ["ff_siwis_male"],
+    ("italian", "female"): ["if_sara"],
+    ("italian", "male"): ["im_nicola"],
+}
+
+KOKORO_SPEEDS = {
+    "english": float(os.getenv("KOKORO_SPEED_ENGLISH", "0.94")),
+    "spanish": float(os.getenv("KOKORO_SPEED_SPANISH", "0.93")),
+    "french": float(os.getenv("KOKORO_SPEED_FRENCH", "0.92")),
+    "italian": float(os.getenv("KOKORO_SPEED_ITALIAN", "0.93")),
+}
+
+# Qwen3-TTS Cloning Quality Settings (used when Qwen3-TTS is active or serves as fallback)
+QWEN3_USE_ICL = os.getenv("QWEN3_USE_ICL", "true").strip().lower() in ("1", "true", "yes")
+QWEN3_LOCALIZE_INSTRUCT = os.getenv("QWEN3_LOCALIZE_INSTRUCT", "true").strip().lower() in ("1", "true", "yes")
+REF_TRANSCRIPTS_PATH = OUTPUT_DIR / "voice_quality" / "audit" / "ref_transcripts.json"
 
 DEFAULT_PAUSES = {
     "section_gap": 0.35,           # Natural transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
@@ -513,4 +539,3 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 SCRIPTS_TO_SEE_DIR.mkdir(parents=True, exist_ok=True)
 BANK_MUSIC_DIR.mkdir(parents=True, exist_ok=True)
-

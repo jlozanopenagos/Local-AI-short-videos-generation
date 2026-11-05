@@ -167,6 +167,36 @@ class TestAcousticEvaluator(unittest.TestCase):
                 self.assertTrue(dest.exists())
                 self.assertEqual(dest.read_text(), "studio_verified_clip")
 
+    def test_select_best_voice_candidate_preserves_full_sentence_even_if_low_score(self):
+        """Verify that full sentences (>3 words) never fall back to single-word bank clips."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cand1 = Path(tmpdir) / "cand1.flac"
+            cand2 = Path(tmpdir) / "cand2.flac"
+            bank_clip = Path(tmpdir) / "record_verb.flac"
+            dest = Path(tmpdir) / "final.flac"
+
+            cand1.write_text("sentence_candidate_1")
+            cand2.write_text("sentence_candidate_2")
+            bank_clip.write_text("single_word_record")
+
+            def mock_eval(path, targets, text):
+                score = 0.65 if "cand1" in str(path) else 0.70
+                return score, {"transcript": "full sentence spoken", "occurrences": []}
+
+            with patch(
+                "video_creation._B_voice_generation.core.acoustic_evaluator.evaluate_acoustic_prominence",
+                side_effect=mock_eval
+            ), patch(
+                "video_creation._B_voice_generation.core.pronunciation_bank.get_pronunciation_clip",
+                return_value=bank_clip
+            ):
+                full_sentence = "Did you hear that our favorite band just released a new reCORD?"
+                result = select_best_voice_candidate([cand1, cand2], ["reCORD"], full_sentence, dest)
+                self.assertEqual(result, dest)
+                self.assertTrue(dest.exists())
+                # Must pick winning sentence candidate (cand2 with 0.70 score), NOT the single-word bank clip!
+                self.assertEqual(dest.read_text(), "sentence_candidate_2")
+
     def test_compute_pitch_metrics_constant_vs_modulated(self):
         """Verify pitch metrics accurately distinguish constant monotone from pitch modulated speech."""
         sr = 24000

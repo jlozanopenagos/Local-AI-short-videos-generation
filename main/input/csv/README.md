@@ -43,7 +43,8 @@ input/csv/
   - `script_to_change/model_ids_to_fetch.csv`: Reference template schema (`ID`).
   - `script_to_change/ids_to_fetch.csv`: Active list of IDs to fetch from Google Sheets when running Option 4 (CSV ID list).
 - **Verbatim Ingestion Guarantee**: Paragraphs are parsed directly into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff` for Expression; `hook`, `challenge`, `pressure`, `answer`, `explanation` for Game; `hook`, `DIALOGUE_PART_1`..`4`, `PAYOFF` for Roleplay; `hook`, `setup`, `discovery`, `payoff` for Fun Facts). Spoken text is injected **100% verbatim** into `content_metadata.script` with zero LLM paraphrasing or summarization.
-- **State Rule**: Automatically updates the state JSON property from `"script_generation": "done"` to `"pending"` BEFORE generating new metadata, and invalidates downstream stages (`voice_generation`, `image_generation`, `video_assembly`).
+- **State Rule**: Automatically updates the state JSON property from `"script_generation": "done"` to `"pending"` BEFORE generating new metadata, and invalidates downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`).
+- **Automated Verification & Sync Tool (`check_script_changes.py`)**: Creators can run `py main/tools/check_script_changes.py --check-only` at any time to compare all CSVs in `script_to_change/` against local state JSONs, previewing diffs and word counts. Running with `--apply` performs a batch sync with zero section duplication.
 - **Robust CSV Parsing**: Sanitizes multiline quoted text and spaces after commas before quotes (`skipinitialspace=True`) to prevent truncation or malformed rows.
 
 ### 0b. VOICE TO CHANGE (`voice_to_change/*.csv`)

@@ -108,7 +108,7 @@ SCRIPT STRUCTURE (MANDATORY)
 -----------------------------
 Your JSON `script` object MUST contain EXACTLY these 5 spoken sections (plus title) and NO OTHERS:
 
-- "title": Catchy, intriguing trivia title in the TARGET_LANGUAGE.
+- "title": Catchy, high-energy trivia challenge or ear test title in TARGET_LANGUAGE (3-6 words, STRICTLY ZERO EMOJIS, e.g. "Bad vs Bed: Can Your Ears Hear It?"). STRICTLY BANNED: "Native Secret", "The Secret", "Le Secret des Natifs", "Il Segreto dei Nativi", "El Secreto de los Nativos", "Shorts Guide", and all emojis.
 - "hook": Immediate, high-energy trivia challenge hook setting up the situation/dilemma (100% in TARGET_LANGUAGE). Never mention podcasts!
 - "challenge": Direct test sentence spoken naturally by the Narrator (NO raw "___" in spoken audio!) and explicitly voiced options (A vs B, or A, B, C) in TARGET_LANGUAGE.
 - "pressure": Fast, snappy countdown line encouraging immediate response, tailored to the specific game context (100% in TARGET_LANGUAGE).

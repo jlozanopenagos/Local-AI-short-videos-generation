@@ -226,9 +226,11 @@ def align_tokens_to_whisper(
                     "end": round(w_e, 2)
                 })
         elif tag == "delete":
-            prev_end = aligned[-1]["end"] if aligned else whisper_words[0]["start"]
-            step = 0.25
-            for idx, sw in enumerate(script_tokens[i1:i2]):
+            prev_end = aligned[-1]["end"] if aligned else (whisper_words[0]["start"] if whisper_words else default_start)
+            remaining_tokens = script_tokens[i1:i2]
+            available_time = max(0.1, default_end - prev_end) if default_end > prev_end else 0.25 * len(remaining_tokens)
+            step = min(0.25, available_time / max(1, len(remaining_tokens)))
+            for idx, sw in enumerate(remaining_tokens):
                 aligned.append({
                     "word": sw,
                     "start": round(prev_end, 2),
@@ -245,6 +247,24 @@ def align_tokens_to_whisper(
             aligned[i]["start"] = aligned[i - 1]["end"]
         if aligned[i]["end"] <= aligned[i]["start"]:
             aligned[i]["end"] = round(aligned[i]["start"] + 0.15, 2)
+
+    # Prevent section subtitle spillover into adjacent sections
+    if default_end > default_start and aligned:
+        if aligned[-1]["end"] > default_end:
+            allowed_span = default_end - aligned[0]["start"]
+            current_span = aligned[-1]["end"] - aligned[0]["start"]
+            if allowed_span > 0.2 and current_span > 0:
+                scale = allowed_span / current_span
+                base_s = aligned[0]["start"]
+                for w in aligned:
+                    w["start"] = round(base_s + (w["start"] - base_s) * scale, 2)
+                    w["end"] = round(base_s + (w["end"] - base_s) * scale, 2)
+            else:
+                for w in aligned:
+                    if w["end"] > default_end:
+                        w["end"] = round(default_end, 2)
+                    if w["start"] >= w["end"]:
+                        w["start"] = round(max(default_start, w["end"] - 0.1), 2)
 
     return aligned
 

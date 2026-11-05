@@ -91,11 +91,7 @@ def resolve_bank_music(script_data: dict, script_output_dir: Path, base_dir: Pat
             print(f"[{script_id}] Music Bank assigned: {selected_wav.name} (from category wavs)")
             return selected_wav
 
-    # Fallback to legacy per-script BGM if it exists
-    legacy_bgm = script_output_dir / f"script_{script_id}_bgm.wav"
-    if legacy_bgm.exists():
-        print(f"[{script_id}] Using legacy per-script BGM: {legacy_bgm.name}")
-        return legacy_bgm
+
 
     print(f"[{script_id}] Notice: No background music found in bank ({lang}/{vtype}). Assembling video without BGM.")
     return None

@@ -11,6 +11,7 @@ import unittest
 from video_creation._B_voice_generation.core.stress_enhancer import (
     enhance_stress_text_for_tts,
     build_stress_style_directive,
+    detect_intentional_stress_errors,
     HETERONYM_TTS_PHONETIC_REPLACEMENTS,
     HETERONYM_IPA_GUIDE,
 )
@@ -88,6 +89,53 @@ class TestStressEnhancer(unittest.TestCase):
 
         it_directive = build_stress_style_directive([], language="italian")
         self.assertIn("dizione italiana", it_directive)
+
+    def test_ipa_slashes_sanitized_for_tts(self):
+        """Verify raw IPA phonetics in slashes (e.g. /ˈrek.ɚd/ vs /rɪˈkɔːrd/) normalize safely to clean words."""
+        text = "Speakers confuse the noun /ˈrek.ɚd/ with the verb /rɪˈkɔːrd/."
+        enhanced, detected = enhance_stress_text_for_tts(text, language="english")
+        self.assertIn("record", enhanced)
+        self.assertIn("the noun a record", enhanced)
+        self.assertIn("the verb to record", enhanced)
+        self.assertNotIn("/ˈrek.ɚd/", enhanced)
+        self.assertNotIn("/rɪˈkɔːrd/", enhanced)
+
+    def test_detect_intentional_stress_errors_verb_in_noun_slot(self):
+        """Verify deliberate error (reCORD or perMIT in noun context) is accurately flagged."""
+        text = "Did you hear that our favorite band just released a new reCORD?"
+        errs = detect_intentional_stress_errors(text, ["record"])
+        self.assertEqual(len(errs), 1)
+        self.assertEqual(errs[0]["word"], "record")
+        self.assertEqual(errs[0]["token"], "reCORD")
+        self.assertEqual(errs[0]["visual_role"], "verb")
+        self.assertEqual(errs[0]["syntactic_role"], "noun")
+
+        text_permit = "I finally received the official perMIT from the city."
+        errs_permit = detect_intentional_stress_errors(text_permit, ["permit"])
+        self.assertEqual(len(errs_permit), 1)
+        self.assertEqual(errs_permit[0]["visual_role"], "verb")
+        self.assertEqual(errs_permit[0]["syntactic_role"], "noun")
+
+    def test_detect_intentional_stress_errors_noun_in_verb_slot(self):
+        """Verify deliberate error (REcord in verb context) is flagged."""
+        text = "Tomorrow they will REcord a new track."
+        errs = detect_intentional_stress_errors(text, ["record"])
+        self.assertEqual(len(errs), 1)
+        self.assertEqual(errs[0]["visual_role"], "noun")
+        self.assertEqual(errs[0]["syntactic_role"], "verb")
+
+    def test_detect_intentional_stress_errors_correct_matching(self):
+        """Verify that correctly matched casing has zero intentional errors flagged."""
+        text = "Bro, they released a REcord! And tomorrow they will reCORD a new track!"
+        errs = detect_intentional_stress_errors(text, ["record"])
+        self.assertEqual(len(errs), 0)
+
+    def test_build_stress_style_directive_with_intentional_error(self):
+        """Verify style directive injects explicit learner mistake acting instruction."""
+        text = "Did you hear that our favorite band just released a new reCORD?"
+        directive = build_stress_style_directive(["record"], language="english", raw_text=text)
+        self.assertIn("intentionally makes a pronunciation mistake", directive)
+        self.assertIn("verb /ri-KORD/", directive)
 
 
 if __name__ == "__main__":

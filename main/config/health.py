@@ -199,8 +199,10 @@ def require_services(
 
     if failed:
         errors = "\n".join([f" - {name} ({url}): {msg}" for name, url, msg in failed])
+        comfy_tip = "\n💡 To start ComfyUI headless in the background (zero terminal windows), run:\n   py tools/comfy.py start\n" if any(name == "ComfyUI" for name, _, _ in failed) else ""
         raise ConnectionError(
             f"\nPre-flight service verification failed:\n{errors}\n"
+            f"{comfy_tip}"
             "Please ensure required background servers are running before executing this workflow."
         )
 

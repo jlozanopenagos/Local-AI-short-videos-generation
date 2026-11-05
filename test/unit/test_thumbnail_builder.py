@@ -17,6 +17,7 @@ from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import
     detect_chalkboard_bounds,
     extract_thumbnail_title,
     render_thumbnail_chalkboard,
+    sanitize_thumbnail_title,
 )
 
 
@@ -102,6 +103,44 @@ class TestThumbnailChalkboardRenderer(unittest.TestCase):
             self.assertTrue(out2.exists())
             with Image.open(out2) as im2:
                 self.assertEqual(im2.size, (576, 1024))
+
+
+    def test_sanitize_thumbnail_title_latin_languages(self):
+        """Verify English clichés and leakage are stripped or replaced with clean target expression."""
+        # Italian: strip English suffix cliché
+        self.assertEqual(
+            sanitize_thumbnail_title("In bocca al lupo: The Native Secret", "italian", "In bocca al lupo"),
+            "In bocca al lupo",
+        )
+        # Spanish: strip English suffix cliché
+        self.assertEqual(
+            sanitize_thumbnail_title("Costar un ojo de la cara: The Native Secret", "spanish", "Costar un ojo de la cara"),
+            "Costar un ojo de la cara",
+        )
+        # French: strip English suffix cliché
+        self.assertEqual(
+            sanitize_thumbnail_title("Poser un lapin: The Native Secret", "french", "Poser un lapin"),
+            "Poser un lapin",
+        )
+        # Italian: 100% English title replaced with clean target expression title
+        self.assertEqual(
+            sanitize_thumbnail_title("The Secret Italian Phrase for Good Luck", "italian", "In bocca al lupo"),
+            "In bocca al lupo",
+        )
+        # Already native titles preserved untouched
+        self.assertEqual(
+            sanitize_thumbnail_title("Poser un Lapin : L'expression des natifs", "french", "Poser un lapin"),
+            "Poser un Lapin : L'expression des natifs",
+        )
+        self.assertEqual(
+            sanitize_thumbnail_title("Solo 21 Lettere: Il Segreto dell'Alfabeto Italiano", "italian", "L'alfabeto italiano"),
+            "Solo 21 Lettere: Il Segreto dell'Alfabeto Italiano",
+        )
+        # English scripts remain untouched
+        self.assertEqual(
+            sanitize_thumbnail_title("Break a leg: The Native Secret", "english", "Break a leg"),
+            "Break a leg: The Native Secret",
+        )
 
 
 if __name__ == "__main__":

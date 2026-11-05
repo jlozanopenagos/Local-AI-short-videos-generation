@@ -53,10 +53,16 @@
         "related_content": [
             "Good luck vs. Break a leg comparison",
             "Theater slang idioms"
-        ]
+        ],
+        "speakers_gender": {
+            "Narrator": "female"
+        },
+        "speakers_voice": {
+            "Narrator": "english_female_kokoro_golden_narrator.wav"
+        }
     },
     "metadata": {
-        "TITLE": "Break a leg \ud83c\udfad Why Good Luck Is a Curse",
+        "TITLE": "Break a leg 🎭 Why Good Luck Is a Curse",
         "DESCRIPTION": "Stop saying 'good luck' before a play. That phrase is actually considered bad luck in the theater world.\n#EnglishLearning #LearnEnglish #Idioms",
         "SHORT_DESCRIPTION": "Break a leg is the secret theater secret you need to know. #EnglishIdioms #LearnEnglish",
         "TAGS": "english, break a leg, english idioms, theater idioms, learn english, vocabulary",

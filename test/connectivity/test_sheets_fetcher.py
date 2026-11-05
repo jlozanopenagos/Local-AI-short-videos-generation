@@ -285,7 +285,7 @@ class TestSheetsFetcher(unittest.TestCase):
     def test_prompt_include_script_changed_choices(self):
         """Verify prompt_include_script_changed in cli.py handles user responses correctly."""
         # pyrefly: ignore [missing-import]
-        from connectivity.cli import prompt_include_script_changed
+        from connectivity.sync_sheets import prompt_include_script_changed
 
         # Test affirmative choices
         for aff in ["y", "yes", "2", "4", "Y", "YES"]:
@@ -297,16 +297,7 @@ class TestSheetsFetcher(unittest.TestCase):
             with patch("builtins.input", return_value=neg), patch("builtins.print"):
                 self.assertFalse(prompt_include_script_changed())
 
-    def test_legacy_backward_compatibility_imports(self):
-        """Verify legacy module import paths (connectivity.endpoints and connectivity.sheets_fetcher) continue to resolve."""
-        import connectivity
-        # pyrefly: ignore [missing-import]
-        from connectivity.endpoints import get_endpoint as legacy_get_endpoint
-        # pyrefly: ignore [missing-import]
-        from connectivity.sheets_fetcher import sync_sheet as legacy_sync_sheet
 
-        self.assertTrue(callable(legacy_get_endpoint))
-        self.assertTrue(callable(legacy_sync_sheet))
 
 
 if __name__ == "__main__":

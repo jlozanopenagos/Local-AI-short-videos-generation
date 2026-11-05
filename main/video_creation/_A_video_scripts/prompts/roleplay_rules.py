@@ -189,7 +189,7 @@ LANGUAGE PURITY IN DIALOGUE (STRICT — ALL LANGUAGES):
 MANDATORY JSON STRUCTURE:
 -----------------------------
 The "script" object for ROLEPLAY MUST contain EXACTLY these 7 keys:
-1. "title": Catchy short title in TARGET_LANGUAGE (unique, fresh).
+1. "title": Catchy, short situational scene title in TARGET_LANGUAGE (3-6 words, STRICTLY ZERO EMOJIS, reflecting the scenario drama or setting, e.g. "Airport Panic: The False Friend Trap"). STRICTLY BANNED: "Native Secret", "The Secret", "Le Secret des Natifs", "Il Segreto dei Nativi", "El Secreto de los Nativos", "Shorts Guide", and all emojis.
 2. "hook": Spoken by NARRATOR (15-20 words). High-energy setup (100% in TARGET_LANGUAGE).
 3. "DIALOGUE_PART_1": Spoken by PERSON_ONE then PERSON_TWO (30-38 words). Both lines separated by \\n.
 4. "DIALOGUE_PART_2": Spoken by PERSON_ONE then PERSON_TWO (30-38 words). Reaction to trigger. Both lines separated by \\n.
@@ -219,7 +219,7 @@ Example 1 (Word Stress Contrast - English):
 
 Example 2 (Idiom in Action - English):
 "script": {
-  "title": "Stage Fright Secrets",
+  "title": "Stage Fright Panic",
   "hook": "Ever hear someone wish you harm right before the biggest moment of your life? Here is the secret native meaning.",
   "DIALOGUE_PART_1": "PERSON_ONE (Nervous): My audition starts in five minutes, my hands are shaking and I'm sweating buckets!\\nPERSON_TWO (Encouraging): Take a deep breath! You practiced all week, so walk out there and break a leg!",
   "DIALOGUE_PART_2": "PERSON_ONE (Shocked): Break a leg?! Are you seriously wishing me an orthopedic emergency right before I sing?\\nPERSON_TWO (Chuckling): It is old theater superstition! Saying good luck brings bad vibes, so performers say break a leg instead.",

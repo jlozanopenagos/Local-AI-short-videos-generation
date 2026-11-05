@@ -15,8 +15,6 @@ main/connectivity/
 ├── reconcile_scripts.py                 # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                      # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
 ├── scan_ready_scripts.py                # Principal Runner 5: Scans ready scripts and exports by date
-├── cli.py                               # Backward-compatibility alias for sync_sheets.py
-├── corrected_scripts_fetching.py        # Backward-compatibility alias for fetch_corrected_scripts.py
 ├── core/                                # Shared infrastructure & HTTP client
 │   ├── endpoints.py                     # All 16 endpoints, Option A master router & spreadsheet ID extractor
 │   ├── client.py                        # Resilient HTTP GET & POST client (302 redirects, auto-retries, error parsing)
@@ -87,6 +85,27 @@ main/connectivity/
   py main/connectivity/fetch_corrected_scripts.py
 
   # (Backward-compatibility alias: py main/connectivity/corrected_scripts_fetching.py also supported)
+  ```
+
+
+### 2b. Audit & Synchronize Script Changes (`check_script_changes.py`)
+- **Action**: Bridges the gap between fetched Column D corrections in `main/input/csv/script_to_change/` and local State JSON files (`main/state/`).
+- **Functionality**:
+  - Compares every row in every CSV in `script_to_change/` against its local State JSON.
+  - Normalizes speaker prefixes (`Narrator:`), quotation marks, and line structures to eliminate false-positive diff reports.
+  - Displays word count diffs and snippet previews.
+  - Applying updates (`--apply`) cleanly saves modified scripts with zero section duplication and resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'`.
+- **Usage**:
+  ```powershell
+  # Check for differences without modifying state JSONs:
+  py main/connectivity/check_script_changes.py --check-only
+
+  # Apply all detected script updates across all sheets:
+  py main/connectivity/check_script_changes.py --apply
+
+  # Target a specific CSV or script ID:
+  py main/connectivity/check_script_changes.py --csv english_game_script_to_change.csv --apply
+  py main/connectivity/check_script_changes.py --script-id EE56 --apply
   ```
 
 ### 3. Reconcile & Reorganize Scripts (`reconcile_scripts.py`)

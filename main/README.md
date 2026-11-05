@@ -527,6 +527,10 @@ python video_creation/_F_thumbnail_image_generation/main.py --from-ready-scripts
 python video_creation/_G_video_assembly/main.py --script-id EE01
 python video_creation/_G_video_assembly/main.py --script-id EE01 --keep-subtitles
 python video_creation/_G_video_assembly/main.py --from-ready-scripts
+
+# Create a Little Short / Teaser Clip (interactive or scripted)
+python video_creation/_G_video_assembly/little_short_creation.py
+python video_creation/_G_video_assembly/little_short_creation.py --id EE01 --lapse 10-16
 ```
 
 ### Database, Auditing & Maintenance Utilities
@@ -548,6 +552,20 @@ python tools/auditing/audit_all_csvs.py
 python tools/reset_stage_status.py --stage voice_generation --yes
 python tools/reset_stage_status.py --stage image_generation -l french -t expression --yes
 python tools/reset_stage_status.py --stage voice_generation --dry-run
+
+# Audit & synchronize Column D script changes to state JSONs
+python tools/check_script_changes.py --check-only
+python tools/check_script_changes.py --apply
+
+# Upgrade titles & metadata across state JSONs (strictly emoji-free, format-differentiated)
+python tools/upgrade_titles.py
+python tools/upgrade_titles.py --apply
+
+# Headless ComfyUI Process Supervisor & CLI
+python tools/comfy.py start
+python tools/comfy.py status
+python tools/comfy.py logs -f
+python tools/comfy.py stop
 ```
 
 ### Google Sheets Connectivity Suite

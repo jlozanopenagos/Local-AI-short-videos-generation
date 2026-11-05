@@ -62,7 +62,7 @@ If FORMAT is specified in the prompt parameters, follow that format. Otherwise, 
 
 FORMAT A — 3 FACTS:
 Mandatory sections in JSON `script`:
-- "title": Catchy, curiosity-inducing title.
+- "title": Catchy, curiosity-inducing title in TARGET_LANGUAGE (3-7 words, STRICTLY ZERO EMOJIS, reflecting the anomaly or question). STRICTLY BANNED: "Native Secret", "The Secret", "Le Secret des Natifs", "Il Segreto dei Nativi", "El Secreto de los Nativos", "Shorts Guide", and all emojis.
 - "hook": Instant curiosity trigger (e.g. "3 things you probably didn't know about French.").
 - "fact_1": First surprising fact with immediate clarity.
 - "fact_2": Second curiosity escalating the interest.

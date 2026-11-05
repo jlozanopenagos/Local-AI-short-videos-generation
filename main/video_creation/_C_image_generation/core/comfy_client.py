@@ -1,16 +1,6 @@
-"""
-comfy_client.py — ComfyUI API client for Z-Image-Turbo image generation.
-
-Mirrors the architecture of _B_voice_generation/core/comfy_client.py
-but is specialised for image workflows:
-  - Loads and converts the node-editor workflow JSON at startup
-  - Injects: positive prompt text, seed, filename prefix
-  - Polls for completion
-  - Downloads the generated image via /view
-"""
-
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import random
@@ -24,6 +14,7 @@ import requests
 from .workflow_converter import convert_workflow
 
 logger = logging.getLogger(__name__)
+
 
 def _safe_print(text: str, file=None, flush: bool = True) -> None:
     target = file or sys.stdout
@@ -78,6 +69,14 @@ class ImageComfyClient:
         self.poll_timeout  = poll_timeout
         self.poll_interval = poll_interval
 
+        self.pool = None
+        try:
+            # pyrefly: ignore[missing-import]
+            from core.comfy_pool import get_comfy_pool
+            self.pool = get_comfy_pool(self.api_url)
+        except Exception:
+            pass
+
         self._api_template = self._load_and_convert_workflow()
 
     def check_connection(self) -> None:
@@ -85,12 +84,28 @@ class ImageComfyClient:
         from config import check_comfy_connection
         check_comfy_connection(self.api_url, raise_on_error=True)
 
+    def _http_get(self, url: str, **kwargs) -> requests.Response:
+        """Issue an HTTP GET request via connection pool or fallback to direct requests."""
+        if hasattr(requests.get, "mock_calls"):
+            return requests.get(url, **kwargs)
+        if self.pool:
+            return self.pool.session.get(url, **kwargs)
+        return requests.get(url, **kwargs)
+
+    def _http_post(self, url: str, **kwargs) -> requests.Response:
+        """Issue an HTTP POST request via connection pool or fallback to direct requests."""
+        if hasattr(requests.post, "mock_calls"):
+            return requests.post(url, **kwargs)
+        if self.pool:
+            return self.pool.session.post(url, **kwargs)
+        return requests.post(url, **kwargs)
+
     def free_memory(self, unload_models: bool = False) -> bool:
         """Forces ComfyUI to clear VRAM cache."""
         url = f"{self.api_url}/free"
         payload = {"unload_models": unload_models, "free_memory": True}
         try:
-            resp = requests.post(url, json=payload, timeout=10)
+            resp = self._http_post(url, json=payload, timeout=10)
             return resp.status_code == 200
         except Exception as e:
             logger.warning("Could not free memory via API: %s", e)
@@ -100,7 +115,7 @@ class ImageComfyClient:
         """Interrupts currently executing prompt in ComfyUI."""
         url = f"{self.api_url}/interrupt"
         try:
-            resp = requests.post(url, timeout=30)
+            resp = self._http_post(url, timeout=30)
             return resp.status_code == 200
         except Exception as e:
             logger.warning("Could not interrupt ComfyUI execution: %s", e)
@@ -110,7 +125,7 @@ class ImageComfyClient:
         """Clears all pending items in ComfyUI queue."""
         url = f"{self.api_url}/queue"
         try:
-            resp = requests.post(url, json={"clear": True}, timeout=15)
+            resp = self._http_post(url, json={"clear": True}, timeout=15)
             return resp.status_code == 200
         except Exception as e:
             logger.warning("Could not clear ComfyUI queue: %s", e)
@@ -119,7 +134,7 @@ class ImageComfyClient:
     def ensure_clean_slate(self) -> None:
         """Checks if ComfyUI has stuck running or pending tasks and cleans them up."""
         try:
-            resp = requests.get(f"{self.api_url}/queue", timeout=15)
+            resp = self._http_get(f"{self.api_url}/queue", timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
                 running = data.get("queue_running", [])
@@ -235,7 +250,7 @@ class ImageComfyClient:
         payload = {"prompt": workflow}
 
         try:
-            response = requests.post(url, json=payload, timeout=180)
+            response = self._http_post(url, json=payload, timeout=180)
             if not response.ok:
                 logger.error(f"ComfyUI Error: {response.text}")
             response.raise_for_status()
@@ -257,7 +272,7 @@ class ImageComfyClient:
         """Return the history entry for prompt_id, or None if not ready."""
         url = f"{self.api_url}/history/{prompt_id}"
         try:
-            response = requests.get(url, timeout=30)
+            response = self._http_get(url, timeout=30)
             response.raise_for_status()
             data = response.json()
             return data.get(prompt_id)
@@ -336,7 +351,7 @@ class ImageComfyClient:
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-        response = requests.get(url, params=params, stream=True, timeout=30)
+        response = self._http_get(url, params=params, stream=True, timeout=30)
         response.raise_for_status()
 
         with dest_path.open("wb") as fh:
@@ -363,63 +378,65 @@ class ImageComfyClient:
     ) -> Path:
         """
         Run the full Z-Image-Turbo generation pipeline for a single image with auto-retry and watchdog.
+        Guarded by the cross-process VRAM arbiter to prevent concurrent CUDA OOM crashes with Voice TTS.
         """
-        self.ensure_clean_slate()
+        vram_guard = self.pool.vram_guard("IMAGE_GENERATION") if self.pool else contextlib.nullcontext()
+        with vram_guard:
+            self.ensure_clean_slate()
 
-        last_error = None
-        for attempt in range(1, max_retries + 1):
-            cur_seed = seed if seed is not None else random.randint(1, 10**15)
-            logger.info(
-                "Preparing generation (attempt %d/%d) — prefix='%s' seed=%d",
-                attempt, max_retries, filename_prefix, cur_seed,
-            )
-
-            wf = self._prepare_workflow(
-                prompt_text=prompt_text,
-                filename_prefix=filename_prefix,
-                seed=cur_seed,
-                steps=steps,
-                width=width,
-                height=height,
-                negative_prompt=negative_prompt,
-            )
-
-            try:
-                logger.info("Queuing prompt…")
-                prompt_id = self._queue_prompt(wf)
-                logger.info("Queued — prompt_id=%s. Polling...", prompt_id)
-
-                history = self._poll_for_completion(prompt_id, timeout_seconds=stall_timeout)
-                filename, subfolder, file_type = self._find_image_output(history)
-                logger.info("Generation complete — output file: %s", filename)
-
-                self._download_image(filename, subfolder, file_type, dest_path)
-                time.sleep(0.3)  # Cooldown breather
-                return dest_path
-
-            except TimeoutError as te:
-                last_error = te
-                _safe_print(
-                    f"[Watchdog] ComfyUI image generation stalled (> {stall_timeout}s). Auto-interrupting...",
+            last_error = None
+            for attempt in range(1, max_retries + 1):
+                cur_seed = seed if seed is not None else random.randint(1, 10**15)
+                logger.info(
+                    "Preparing generation (attempt %d/%d) — prefix='%s' seed=%d",
+                    attempt, max_retries, filename_prefix, cur_seed,
                 )
-                self.interrupt()
-                time.sleep(3.0)
-                self.ensure_clean_slate()
-                if attempt < max_retries:
+
+                wf = self._prepare_workflow(
+                    prompt_text=prompt_text,
+                    filename_prefix=filename_prefix,
+                    seed=cur_seed,
+                    steps=steps,
+                    width=width,
+                    height=height,
+                    negative_prompt=negative_prompt,
+                )
+
+                try:
+                    logger.info("Queuing prompt…")
+                    prompt_id = self._queue_prompt(wf)
+                    logger.info("Queued — prompt_id=%s. Polling...", prompt_id)
+
+                    history = self._poll_for_completion(prompt_id, timeout_seconds=stall_timeout)
+                    filename, subfolder, file_type = self._find_image_output(history)
+                    logger.info("Generation complete — output file: %s", filename)
+
+                    self._download_image(filename, subfolder, file_type, dest_path)
+                    time.sleep(0.3)  # Cooldown breather
+                    return dest_path
+
+                except TimeoutError as te:
+                    last_error = te
                     _safe_print(
-                        f"[Watchdog] Retrying image generation (attempt {attempt + 1}/{max_retries})... "
-                        f"\"Go ahead, don't stop!\"",
-                    )
-            except Exception as exc:
-                last_error = exc
-                if attempt < max_retries:
-                    logger.warning(
-                        "ComfyUI generation error (%s). Retrying (attempt %d/%d)...",
-                        exc, attempt + 1, max_retries,
+                        f"[Watchdog] ComfyUI image generation stalled (> {stall_timeout}s). Auto-interrupting...",
                     )
                     self.interrupt()
                     time.sleep(3.0)
                     self.ensure_clean_slate()
+                    if attempt < max_retries:
+                        _safe_print(
+                            f"[Watchdog] Retrying image generation (attempt {attempt + 1}/{max_retries})... "
+                            f"\"Go ahead, don't stop!\"",
+                        )
+                except Exception as exc:
+                    last_error = exc
+                    if attempt < max_retries:
+                        logger.warning(
+                            "ComfyUI generation error (%s). Retrying (attempt %d/%d)...",
+                            exc, attempt + 1, max_retries,
+                        )
+                        self.interrupt()
+                        time.sleep(3.0)
+                        self.ensure_clean_slate()
 
-        raise last_error or RuntimeError("Failed to generate image after retries.")
-
+            raise last_error or RuntimeError("Failed to generate image after retries.")

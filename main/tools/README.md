@@ -9,10 +9,10 @@ This folder contains command-line utilities and interactive review tools for the
 | Subdirectory | Focus / Responsibility | Tools Included |
 | :--- | :--- | :--- |
 | **`modifiers/`** | Canonical interactive asset & script modification forwarders | `script_modifier.py`, `voice_modifier.py`, `image_modifier.py`, `subtitles_modifier.py` |
-| **`auditing/`** | Quality inspection, metrics & health checks | `audit_all_csvs.py`, `status_scraper.py`, `json_health_checker.py`, `check_language_mixing.py`, `scrapper_script.py` |
+| **`auditing/`** | Quality inspection, metrics & health checks | `check_script_changes.py`, `audit_all_csvs.py`, `status_scraper.py`, `json_health_checker.py`, `check_language_mixing.py`, `scrapper_script.py` |
 | **`database/`** | Expression database, queue sync, stage resets & ID assignment | `db.py`, `sync_prompts.py`, `assign_ids.py`, `reset_stage_status.py` |
 | **`prompt_builders/`**| System editor prompts generator | `generate_editor_prompts_csv.py` |
-| **Root Tools** | Heteronym audio bank management, acoustic auditing & Kokoro-82M population | `manage_pronunciation_bank.py` |
+| **Root Tools** | Headless ComfyUI supervisor, connection pool, mass title upgrades & bank management | `comfy.py`, `manage_pronunciation_bank.py`, `upgrade_titles.py`, `reset_stage_status.py` |
 
 ---
 
@@ -72,6 +72,27 @@ py tools/reset_stage_status.py --stage voice_generation --dry-run
 ---
 
 ### 2. Auditing & Inspection (`tools/auditing/`)
+
+#### Script Change Auditor & Automated Synchronizer (`check_script_changes.py`)
+Scans all CSV files in `main/input/csv/script_to_change/` (populated from Google Sheets Column D `SCRIPT_CHANGED` via `fetch_corrected_scripts.py`), compares them against local State JSON files, reports detailed diffs and word counts, and synchronizes changes.
+- **Zero-Duplication Assurance**: Leverages the updated `script_modifier.py` parsing engine to cleanly partition sentences without duplicating lines across `setup`/`discovery` or `challenge`/`pressure`.
+- **Intelligent Normalization**: Strips speaker prefixes (`Narrator:`, etc.), curly quotes, and detects section reordering without false positives.
+- **Safe State Invalidation**: Automatically resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'` upon applying updates.
+- **Dual Placement**: Available directly in `main/tools/check_script_changes.py` or `main/connectivity/check_script_changes.py`.
+
+```bash
+# Preview pending changes across all 16 CSVs without writing
+py tools/check_script_changes.py --check-only
+
+# Apply all pending script changes and reset downstream stages
+py tools/check_script_changes.py --apply
+
+# Audit/apply a specific CSV queue
+py tools/check_script_changes.py --csv english_game_script_to_change.csv --apply
+
+# Audit/apply a single script ID
+py tools/check_script_changes.py --script-id EE56 --apply
+```
 
 #### Master CSV Prompt & Encoding Auditor (`audit_all_csvs.py`)
 Deep-audits all 16 prompt CSV files across English, Spanish, French, and Italian for UTF-8 with BOM integrity, absence of mojibake/encoding artifacts, zero duplicate scenarios, zero lazy boilerplate strings, and 1-to-1 cross-format alignment.
@@ -196,4 +217,55 @@ py tools/manage_pronunciation_bank.py --import my_recording.wav --word present -
 
 # Export bank registry and metadata to JSON
 py tools/manage_pronunciation_bank.py --export-json bank_metadata.json
+```
+---
+
+### 6. Title & Metadata Singularity Upgrader (`tools/upgrade_titles.py`)
+
+Automated utility to eliminate repetitive title formulas (e.g. *"Native Secret"*, *"El Secreto de los Nativos"*, *"Il Segreto dei Nativi"*, *"Le Secret des Natifs"*) and purge all emojis from `script.title` (Tito's chalkboard graphic) and `metadata.TITLE` (YouTube Shorts title) across all State JSON files.
+
+- **Two-Tier Option B Architecture**:
+  - **Chalkboard Title (`content_metadata.script.title`)**: Standardized format indicators (`<Expression>` for Expression, `Quiz: <Expression>` for Game, `In Action: <Expression>` for Roleplay, `Origin: <Expression>` for Fun Facts, localized per language) that split cleanly on colon into Tito's chalkboard header and phrase.
+  - **YouTube Title (`metadata.TITLE`)**: Shorts-optimized (45–75 chars), uppercase hook triggers, high-curiosity tension, format-differentiated, and strictly zero emojis.
+- **Format Singularity**: Generates distinct pedagogical titles for all four formats (`EXPRESSION`, `GAME`, `ROLEPLAY`, `FUN_FACTS`), even when sharing an underlying expression.
+- **Canonical Expression Resolution**: Maps Roleplay (`ER`, `FR`, `SR`, `IR`) and Game IDs back to canonical base expressions from SQLite, eliminating narrative scenario leakage into titles.
+- **Downstream Preservation**: Upgrades titles and metadata in-place while strictly preserving `voice_generation`, `image_generation`, and `video_assembly` statuses without invalidating existing renders.
+
+```bash
+# Audit titles across all state JSON files (dry-run preview)
+py tools/upgrade_titles.py
+
+# Apply title upgrades across all state files
+py tools/upgrade_titles.py --apply
+
+# Filter by language or video type
+py tools/upgrade_titles.py -l french -t roleplay --apply
+
+# Upgrade specific script IDs
+py tools/upgrade_titles.py -id EE01,FR02,SG05 --apply
+```
+---
+
+### 7. Headless ComfyUI Process Supervisor (`tools/comfy.py`)
+
+A windowless process supervisor and CLI manager for ComfyUI. Completely decouples ComfyUI from visible terminal sessions, eliminates Windows console QuickEdit freeze deadlocks, directs output to rotating logs (`main/logs/comfyui/comfyui.log`), and arbitrates VRAM concurrency between Voice TTS and Image Diffusion.
+
+```bash
+# Start ComfyUI headless in the background (zero terminal windows)
+py tools/comfy.py start
+
+# Check status, PID, active GPU, VRAM usage, and queue metrics
+py tools/comfy.py status
+
+# Inspect recent runtime logs
+py tools/comfy.py logs
+
+# Follow live log output (press Ctrl+C to stop following; ComfyUI keeps running)
+py tools/comfy.py logs -f
+
+# Restart ComfyUI cleanly
+py tools/comfy.py restart
+
+# Stop ComfyUI process cleanly
+py tools/comfy.py stop
 ```

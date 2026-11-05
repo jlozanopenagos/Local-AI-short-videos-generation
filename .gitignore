@@ -102,6 +102,13 @@ scratch/
 main/scratch/
 **/scratch/
 
+# --- Application Logs & Runtime PIDs ---
+logs/
+main/logs/
+**/logs/
+*.pid
+!**/logs/**/.gitkeep
+
 # --- Python Bytecode & Cache ---
 __pycache__/
 **/__pycache__/

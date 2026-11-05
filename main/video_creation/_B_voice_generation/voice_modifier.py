@@ -51,265 +51,58 @@ try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
+    from video_creation._B_voice_generation.core.kokoro_engine import get_kokoro_engine
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
-    from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
+    from video_creation._B_voice_generation.core.stress_enhancer import (
+        enhance_stress_text_for_tts,
+        build_stress_style_directive,
+        detect_intentional_stress_errors
+    )
     from video_creation._B_voice_generation.core.acoustic_evaluator import (
         select_best_voice_candidate,
         select_best_general_candidate,
         evaluate_voice_take
     )
+    from video_creation._B_voice_generation.main import (
+        is_stress_pronunciation_vital,
+        EMOTION_TRANSLATION_MAP,
+        infer_dialogue_emotion,
+        map_emotion_to_energy,
+    )
 except (ImportError, ModuleNotFoundError):
-    try:
-        from core.script_parser import get_script_segments
-        from core.comfy_client import ComfyClient
-        from core.voice_manager import VoiceManager
-        from core.audio_processor import concatenate_audios
-        from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
-        from core.acoustic_evaluator import (
-            select_best_voice_candidate,
-            select_best_general_candidate,
-            evaluate_voice_take
-        )
-    except (ImportError, ModuleNotFoundError):
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.script_parser import get_script_segments
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.comfy_client import ComfyClient
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.voice_manager import VoiceManager
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.audio_processor import concatenate_audios
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.acoustic_evaluator import (
-            select_best_voice_candidate,
-            select_best_general_candidate,
-            evaluate_voice_take
-        )
-
-def is_stress_pronunciation_vital(script_data: dict, text: str = "") -> bool:
-    """Detects if a script or specific segment requires vital stress pronunciation or phonetic precision.
-    
-    Checks:
-    1. Capitalized syllable stress notation in text (e.g. 'REcord', 'reCORD', 're-CORD', 'PERmit', 'perMIT').
-    2. Linguistic pronunciation, word stress, heteronym, minimal pair, or double-consonant keywords in metadata.
-    3. Excludes false positives from non-linguistic / psychological stress (e.g. 'stress des examens').
-    """
-    metadata = script_data.get("metadata", {})
-    label = metadata.get("LABEL", "").lower()
-    prompt_params = script_data.get("prompt_params", {})
-    content_metadata = script_data.get("content_metadata", {})
-
-    # 1. First priority: Check if text contains capitalized syllable stress notation
-    # (e.g. REcord, reCORD, re-CORD, PERmit, perMIT)
-    stress_pattern = r'\b[a-z]+[A-Z]{2,}\b|\b[A-Z]{2,}[a-z]+\b|\b[a-zA-Z]+-[A-Z]{2,}\b|\b[A-Z]{2,}-[a-zA-Z]+\b'
-    if text and re.search(stress_pattern, text):
-        m = re.findall(stress_pattern, text)
-        if any(w not in ("XIXe", "XVIIIe", "XXe", "A-NN") for w in m):
-            return True
-
-    full_script = script_data.get("script_text", "")
-    if isinstance(full_script, dict):
-        full_text = str(full_script)
-    else:
-        full_text = str(full_script)
-    if full_text and re.search(stress_pattern, full_text):
-        m = re.findall(stress_pattern, full_text)
-        if any(w not in ("XIXe", "XVIIIe", "XXe", "A-NN") for w in m):
-            return True
-
-    # 2. Check linguistic pronunciation / phonetic / rhythm keywords in metadata
-    subject = str(prompt_params.get("SUBJECT", "")).lower()
-    lex_field = str(prompt_params.get("LEXICAL_FIELD", "")).lower()
-    topic = str(content_metadata.get("topic", "")).lower()
-    category = str(content_metadata.get("category", "")).lower()
-    subcategory = str(content_metadata.get("subcategory", "")).lower()
-    obj = str(content_metadata.get("learning_objective", "")).lower()
-
-    meta_text = f"{label} {subject} {lex_field} {topic} {category} {subcategory} {obj}".lower()
-
-    # Check for non-linguistic / psychological stress false positives (e.g. exam stress, managing anxiety)
-    is_psych_stress = any(p in meta_text for p in [
-        "stress des examens", "gestion du stress", "gérer le stress", "stressé par",
-        "situation de stress", "high-stress situation", "situations de stress", "ansia", "panico"
-    ])
-
-    linguistic_terms = [
-        "word stress", "syllable stress", "heteronym", "minimal pair", "sound shift",
-        "pronunciation", "prononciation", "pronuncia", "pronunciación",
-        "doppie consonanti", "accento", "dizione", "phonetic", "fonetica", "fonética",
-        "rhythm", "rythme", "cadenza vocale", "acoustic contrast"
-    ]
-
-    has_linguistic = any(term in meta_text for term in linguistic_terms)
-    if has_linguistic:
-        if is_psych_stress:
-            return any(k in f"{category} {subcategory} {subject}" for k in ["pronunciation", "phonetic", "doppie", "fonet"])
-        return True
-
-    return False
-
-EMOTION_TRANSLATION_MAP = {
-    # French
-    "frustré": "intensely frustrated, exasperated, and complaining with lively reactive banter",
-    "frustre": "intensely frustrated, exasperated, and complaining with lively reactive banter",
-    "calme": "calm, confident, and warm conversational banter",
-    "surpris": "sharp comedic surprise, incredulous and completely baffled",
-    "souriant": "warm, smiling, and playfully cheerful conversational banter",
-    "rassuré": "relieved, reassured, and bright friendly banter",
-    "rassure": "relieved, reassured, and bright friendly banter",
-    "inquiet": "anxious, worried, and breathless with urgency",
-    "amusé": "amused, playful, and chuckling friendly banter",
-    "amuse": "amused, playful, and chuckling friendly banter",
-    "enthousiaste": "enthusiastic, cheerful, and highly energetic banter",
-    "curieux": "intrigued, curious, and animated conversational tone",
-    "confus": "bewildered, comedic confusion and questioning",
-    "déterminé": "determined, confident, and energetic tone",
-    "determine": "determined, confident, and energetic tone",
-    "fier": "proud, boastful, and cheerful confident banter",
-    "ironique": "witty, ironic, and playful sarcastic banter",
-    "soulagé": "relieved, excited, and genuinely bright",
-    "soulage": "relieved, excited, and genuinely bright",
-    # Spanish
-    "frustrado": "intensely frustrated, exasperated, and complaining with lively reactive banter",
-    "tranquilo": "calm, confident, and warm conversational banter",
-    "sorprendido": "sharp comedic surprise, incredulous and completely baffled",
-    "asombrado": "sharp comedic surprise, incredulous and completely baffled",
-    "sonriente": "warm, smiling, and playfully cheerful conversational banter",
-    "aliviado": "relieved, reassured, and bright friendly banter",
-    "tranquilizado": "relieved, reassured, and bright friendly banter",
-    "preocupado": "anxious, worried, and breathless with urgency",
-    "divertido": "amused, playful, and chuckling friendly banter",
-    "entusiasta": "enthusiastic, cheerful, and highly energetic banter",
-    "curioso": "intrigued, curious, and animated conversational tone",
-    "confuso": "bewildered, comedic confusion and questioning",
-    "determinado": "determined, confident, and energetic tone",
-    "orgulloso": "proud, boastful, and cheerful confident banter",
-    "irónico": "witty, ironic, and playful sarcastic banter",
-    "ironico": "witty, ironic, and playful sarcastic banter",
-    # Italian
-    "frustrato": "intensely frustrated, exasperated, and complaining with lively reactive banter",
-    "calmo": "calm, confident, and warm conversational banter",
-    "sorpreso": "sharp comedic surprise, incredulous and completely baffled",
-    "sorridente": "warm, smiling, and playfully cheerful conversational banter",
-    "sollevato": "relieved, reassured, and bright friendly banter",
-    "tranquillizzato": "relieved, reassured, and bright friendly banter",
-    "preoccupato": "anxious, worried, and breathless with urgency",
-    "divertito": "amused, playful, and chuckling friendly banter",
-    "curioso": "intrigued, curious, and animated conversational tone",
-    "confuso": "bewildered, comedic confusion and questioning",
-    "determinato": "determined, confident, and energetic tone",
-    "orgoglioso": "proud, boastful, and cheerful confident banter",
-    "ironico": "witty, ironic, and playful sarcastic banter",
-    "arrabbiato": "sharp, annoyed, and playfully heated banter",
-    # English
-    "calm": "calm, confident, and warm conversational banter",
-    "frustrated": "intensely frustrated, exasperated, and complaining with lively reactive banter",
-    "surprised": "sharp comedic surprise, incredulous and completely baffled",
-    "smiling": "warm, smiling, and playfully cheerful conversational banter",
-    "reassured": "relieved, reassured, and bright friendly banter",
-    "relieved": "relieved, reassured, and bright friendly banter",
-    "worried": "anxious, worried, and breathless with urgency",
-    "amused": "amused, playful, and chuckling friendly banter",
-    "enthusiastic": "enthusiastic, cheerful, and highly energetic banter",
-    "curious": "intrigued, curious, and animated conversational tone",
-    "confused": "bewildered, comedic confusion and questioning",
-    "proud": "proud, boastful, and cheerful confident banter",
-}
-
-def infer_dialogue_emotion(speaker: str, text: str, explicit_emotion: str = None, section: str = None, is_game: bool = False) -> str:
-    """Infers rich acting emotions from dialogue text, section role, and punctuation."""
-    if explicit_emotion:
-        exp_clean = explicit_emotion.lower().strip()
-        if exp_clean in EMOTION_TRANSLATION_MAP:
-            return EMOTION_TRANSLATION_MAP[exp_clean]
-        for k, v in EMOTION_TRANSLATION_MAP.items():
-            if k in exp_clean:
-                return v
-        if exp_clean not in ["neutral", "none", "", "normal"]:
-            return explicit_emotion
-        
-    t = text.lower()
-    spk = speaker.lower()
-    sec = (section or "").lower()
-    
-    if is_game:
-        if "hook" in sec:
-            return "vibrant, enthusiastic, and electrifying trivia host bursting with excitement and game-show spirit"
-        elif "challenge" in sec:
-            return "lively, charismatic, and enthusiastic game-show host presenting a fun quiz challenge"
-        elif "pressure" in sec:
-            return "tense, dramatic game-show suspense and countdown anticipation"
-        elif "answer" in sec:
-            return "triumphant, celebratory, and excited game-show answer reveal"
-        elif "explanation" in sec:
-            return "charismatic, warm, and highly encouraging language mentor"
-
-    if "narrator" in spk:
-        if "hook" in sec or any(w in t for w in ["panic", "crazy", "stop", "secret", "hack", "danger", "attention", "incroyable", "cuidado", "racing", "weird", "terrified", "hear", "attenzione", "incredibile"]):
-            return "dramatic, intriguing, and suspenseful"
-        if sec in ["mystery", "clues", "setup"]:
-            return "intriguing, playful, and mysterious language detective"
-        if sec in ["discovery", "reveal", "surprise"]:
-            return "fascinated, delighted, and wonderfully surprised"
-        if sec in ["example", "explanation"]:
-            return "natural, conversational, and lively, demonstrating a real-life situation"
-        if sec in ["fact_1", "fact_2", "fact_3", "item_1", "item_2", "item_3", "comparison_a", "comparison_b"]:
-            return "engaging, punchy, and lively storyteller sharing a curious discovery"
-        if sec in ["thinking_time"]:
-            return "playful, suspenseful countdown with high curiosity"
-        if "payoff" in sec or "cta" in sec or any(w in t for w in ["remember", "next time", "follow", "try it", "learn", "ricorda", "tocca a te"]):
-            return "charismatic, warm, and highly encouraging"
-        return "confident, energetic, and engaging"
-        
-    # Dialogue characters (Person One, Person Two, roleplay characters)
-    # 1. Nervousness, anxiety, stage fright
-    if any(w in t for w in ["shaking", "panic", "can't believe", "nervous", "stage fright", "scared", "afraid", "tremble", "peur", "miedo", "nervioso", "angoisse", "paura", "ansia", "agitato", "tremando"]):
-        return "intensely anxious, breathless, and trembling with stage fright urgency"
-        
-    # 2. Confusion, suspicion, disbelief, questioning
-    if any(w in t for w in ["what does that even mean", "bad luck", "what?", "quoi", "qué", "comment", "really?", "de verdad", "cosa?", "davvero?", "sul serio?"]):
-        return "sharp comedic disbelief, incredulous, and completely baffled"
-        
-    # 3. Reassurance, comfort, soothing
-    if any(w in t for w in ["calm down", "remember this", "don't worry", "relax", "t'inquiète", "tranquilo", "respira", "calme-toi", "calmati", "non ti preoccupare", "rilassati"]):
-        return "grounded, confident, and high-spirited encouragement"
-        
-    # 4. Encouragement, inspiration, cheering
-    if any(w in t for w in ["shine", "got this", "do a great job", "no!", "good luck", "bonne chance", "buena suerte", "briller", "tu peux le faire", "buona fortuna", "in bocca al lupo", "ce la puoi fare", "forza"]):
-        return "enthusiastic, cheerful, and highly energetic banter"
-        
-    # 5. Relief, discovery, gratitude
-    if any(w in t for w in ["oh!", "get it now", "thanks", "feel a lot better", "relieved", "merci", "compris", "soulagé", "gracias", "alivio", "grazie", "meno male", "sollevato"]):
-        return "relieved, excited, and genuinely bright"
-        
-    # 6. High excitement, cheering, celebration
-    if any(w in t for w in ["superstar", "go get 'em", "go get them", "awesome", "crush it", "vas-y", "génial", "vamos", "campeón", "fantastico", "bravissimo", "campione", "grandioso"]):
-        return "hyped up, celebratory, and shouting with excitement"
-        
-    # Punctuation heuristics
-    if "?" in text:
-        return "curious, engaged, and questioning"
-    if "!" in text:
-        return "expressive, spirited, and energetic"
-        
-    return "natural, expressive, and lively"
-
-def map_emotion_to_energy(emotion: str) -> str:
-    if not emotion:
-        return "high"
-    emo_lower = emotion.lower()
-    if any(k in emo_lower for k in ["superstar", "go get", "furious", "screaming", "hyped", "crier", "shouting", "electrifying", "bursting", "trivia host"]):
-        return "very high"
-    elif any(k in emo_lower for k in ["whisper", "sad", "hesitant", "chuchot"]):
-        return "medium"
-    return "high"
+    from core.script_parser import get_script_segments
+    from core.comfy_client import ComfyClient
+    from core.voice_manager import VoiceManager
+    from core.kokoro_engine import get_kokoro_engine
+    from core.audio_processor import concatenate_audios
+    from core.stress_enhancer import (
+        enhance_stress_text_for_tts,
+        build_stress_style_directive,
+        detect_intentional_stress_errors
+    )
+    from core.acoustic_evaluator import (
+        select_best_voice_candidate,
+        select_best_general_candidate,
+        evaluate_voice_take
+    )
+    from main import (
+        is_stress_pronunciation_vital,
+        EMOTION_TRANSLATION_MAP,
+        infer_dialogue_emotion,
+        map_emotion_to_energy,
+    )
 
 def main():
     parser = argparse.ArgumentParser(description="Modify or regenerate voice for a specific script.")
     parser.add_argument("--script-id", type=str, default=None, help="Script ID to modify (e.g. EE04, 1, script_1.json)")
     parser.add_argument("--candidates", type=int, default=None, help="Number of candidate takes to generate for stress-vital segments (default: 2)")
+    parser.add_argument(
+        "--engine",
+        type=str,
+        default="auto",
+        choices=["auto", "kokoro", "qwen3", "hybrid"],
+        help="Voice synthesis engine override (default: 'auto' uses VOICE_ENGINE_BY_LANGUAGE)"
+    )
     args = parser.parse_args()
 
     script_id_raw = args.script_id
@@ -327,7 +120,6 @@ def main():
     
     script_data = state_manager.get_script_state(script_id)
     
-    # Check if script actually exists / has text
     if not script_data.get("script_text"):
         print(f"Error: Script {script_id} not found or has no script_text.")
         return
@@ -345,13 +137,20 @@ def main():
     script_output_dir = get_script_output_dir(script_id, clean_language, base_dir)
     script_output_dir.mkdir(parents=True, exist_ok=True)
     
-    print("Checking ComfyUI connection...")
+    kokoro_engine = get_kokoro_engine()
+    kokoro_ready = bool(kokoro_engine and kokoro_engine.is_ready)
+
+    comfy_client = None
     try:
+        print("Checking ComfyUI connection...")
         require_services(comfy=True)
+        comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
     except ConnectionError as e:
-        print(f"Error: {e}")
-        return
-    comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
+        if kokoro_ready and args.engine != "qwen3":
+            print(f"[Notice] ComfyUI offline ({e}); continuing with local Kokoro-82M engine.")
+        else:
+            print(f"Error: {e}")
+            return
         
     voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
     
@@ -362,7 +161,6 @@ def main():
         
     unique_speakers = list(set(seg["speaker"] for seg in segments))
     
-    # Prompt for manual voice casting / gender selection
     manual_genders = {}
     manual_voice_paths = {}
     try:
@@ -406,21 +204,38 @@ def main():
     except (KeyboardInterrupt, EOFError):
         pass
 
-    # Get previously assigned genders and voices
     speakers_gender = script_data.get("content_metadata", {}).get("speakers_gender", {})
     speakers_voice = script_data.get("content_metadata", {}).get("speakers_voice", {})
     
-    # Assign NEW voices, strictly preserving character genders and distinct identities
     effective_genders = {**speakers_gender, **manual_genders}
     voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders=effective_genders, manual_voice_paths=manual_voice_paths)
     
+    is_multi_spk = len(unique_speakers) > 1
+    used_kokoro_voices = set()
     for speaker in unique_speakers:
         gender, abs_path, _ = voice_manager.get_speaker_voice(speaker, clean_language)
+        is_spk_diag = "narrator" not in speaker.lower()
+        eng_name, k_voice = voice_manager.resolve_engine_for_speaker(
+            clean_language,
+            gender=gender,
+            speaker=speaker,
+            is_dialogue=is_spk_diag,
+            cli_engine_override=args.engine,
+            kokoro_available=kokoro_ready,
+            is_multi_speaker_script=is_multi_spk,
+        )
         speakers_gender[speaker] = gender
-        if abs_path:
-            speakers_voice[speaker] = abs_path.name
-        rel_path = abs_path.name if abs_path else "Fallback"
-        print(f"Assigned new voice for '{speaker}': {gender} -> {rel_path}")
+        if eng_name == "kokoro" and k_voice:
+            if k_voice in used_kokoro_voices:
+                k_voice = f"{k_voice}_alt" if not k_voice.endswith("_alt") else f"{k_voice[:-4]}_narrator"
+            used_kokoro_voices.add(k_voice)
+            speakers_voice[speaker] = k_voice
+            print(f"Assigned new voice for '{speaker}': {gender} -> {k_voice} (Kokoro-82M)")
+        else:
+            if abs_path:
+                speakers_voice[speaker] = abs_path.name
+            rel_path = abs_path.name if abs_path else "Fallback"
+            print(f"Assigned new voice for '{speaker}': {gender} -> {rel_path}")
 
     if "content_metadata" not in script_data:
         script_data["content_metadata"] = {}
@@ -452,6 +267,58 @@ def main():
         print(f"\n--- Generating Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
         
         gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
+        seg_engine, kokoro_voice = voice_manager.resolve_engine_for_speaker(
+            clean_language,
+            gender=gender,
+            speaker=speaker,
+            is_dialogue=is_dialogue,
+            cli_engine_override=args.engine,
+            kokoro_available=kokoro_ready,
+            is_multi_speaker_script=is_multi_spk,
+        )
+        if seg_engine == "kokoro" and speakers_voice.get(speaker) and not str(speakers_voice[speaker]).endswith(".wav"):
+            kokoro_voice = speakers_voice[speaker]
+
+        output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
+        dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
+        dest_path = script_output_dir / dest_filename
+
+        if seg_engine == "kokoro" and kokoro_ready:
+            seg_emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
+            seg_energy = map_emotion_to_energy(seg_emotion)
+            print(f"[{speaker}] Engine: Kokoro-82M (Voice: {kokoro_voice}, Gender: {gender}) | Emotion: '{seg_emotion}' | Energy: '{seg_energy}'")
+            res_path = kokoro_engine.synthesize_text(
+                text=text,
+                output_path=dest_path,
+                language=clean_language,
+                voice=kokoro_voice,
+                gender=gender,
+                emotion=seg_emotion,
+                energy=seg_energy,
+                section=seg.get("section"),
+                speaker=speaker,
+            )
+            if res_path and dest_path.exists():
+                score, passes_gate, issues, metrics = evaluate_voice_take(
+                    dest_path, target_text=text, language=clean_language
+                )
+                print(
+                    f"  [Kokoro Quality Gate]: Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | "
+                    f"Tempo: {metrics['cps']} c/s"
+                )
+                segments_to_concat.append({
+                    "path": dest_path,
+                    "section": seg["section"],
+                    "speaker": speaker
+                })
+                continue
+            else:
+                print(f"  [Warning] Kokoro synthesis failed for segment {idx}; falling back to Qwen3-TTS...")
+
+        if comfy_client is None:
+            print(f"Error: Qwen3-TTS ComfyUI is offline and needed for segment {idx}.")
+            return
+
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
         if is_game and "narrator" in speaker.lower():
             if is_seg_stress_vital and "challenge" in sec_name:
@@ -542,7 +409,12 @@ def main():
         detected_stress_words = []
         if is_seg_stress_vital:
             target_text, detected_stress_words = enhance_stress_text_for_tts(text, language=language)
-            style = build_stress_style_directive(detected_stress_words, language=language, base_style=style)
+            style = build_stress_style_directive(detected_stress_words, language=language, base_style=style, raw_text=text)
+            intentional_errs = detect_intentional_stress_errors(text, detected_stress_words)
+            if intentional_errs:
+                err_summary = ", ".join([f"{e['token']} -> {e['visual_role']} (in {e['syntactic_role']} slot)" for e in intentional_errs])
+                print(f"  [Intentional Pronunciation Error Active]: {err_summary}")
+                context += f" (Character intentionally makes a pronunciation mistake on '{err_summary}' for educational contrast)"
             if target_text != text or detected_stress_words:
                 print(f"  [TTS Stress Enhanced]: '{target_text}' (Target words: {detected_stress_words})")
 
@@ -554,12 +426,6 @@ def main():
         pers_log = f" | Persona: '{context}'" if context else ""
         print(f"[{speaker}] Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
         
-        # Option 3 Hybrid Engine:
-        # High-impact retention sections (hook, pressure countdown, payoff, cta, reveal, game answer)
-        # always generate 2 candidate takes (Best-of-2) and promote the highest-scoring take.
-        # Standard dialogue and explanation sections generate Take 1 and run the Smart Quality Gate;
-        # if flagged (monotone, rushed, sluggish, or muffled), it auto-generates Take 2 with seed+555
-        # and selects the better take.
         is_high_impact = (
             any(k in sec_name for k in ["hook", "pressure", "payoff", "cta", "reveal"])
             or (is_game and "answer" in sec_name)
@@ -572,14 +438,9 @@ def main():
             seg_candidates = 2
         else:
             seg_candidates = 1
-
-        output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
-        dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
-        dest_path = script_output_dir / dest_filename
         
         try:
             if is_seg_stress_vital and detected_stress_words:
-                # Heteronym stress-contrast candidate generation
                 candidate_paths = []
                 num_takes = max(2, seg_candidates)
                 for take_idx in range(num_takes):
@@ -610,7 +471,6 @@ def main():
                     dest_path=dest_path
                 )
             elif seg_candidates > 1:
-                # High-impact Best-of-N Candidate Generation
                 candidate_paths = []
                 for take_idx in range(seg_candidates):
                     take_seed = seed + (take_idx * 777)
@@ -640,7 +500,6 @@ def main():
                     dest_path=dest_path
                 )
             else:
-                # Standard Take 1 with Smart Quality Gate & Conditional Auto-Retry
                 comfy_client.generate_voice_segment(
                     ref_audio_name=ref_filename,
                     target_text=target_text,
@@ -708,14 +567,12 @@ def main():
         if merged_file:
             print(f"Successfully generated new master audio: {merged_file}")
             print("The previous master voice file has been replaced.")
-            # Update state manager
             if "assets" not in script_data:
                 script_data["assets"] = {}
             script_data["assets"]["audio_path"] = str(merged_file)
             script_data["status"]["voice_generation"] = "done"
             state_manager.save_script_state(script_id, script_data)
             
-            # Cleanup intermediate segment files
             for seg in segments_to_concat:
                 try:
                     if seg["path"].exists():
@@ -723,7 +580,6 @@ def main():
                 except Exception:
                     pass
             
-            # Cleanup ComfyUI input references
             voice_manager.cleanup_comfy_input()
             
     except Exception as exc:

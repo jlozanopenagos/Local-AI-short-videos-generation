@@ -154,7 +154,7 @@ ARCHETYPE PRIORITY GUIDANCE:
 MANDATORY SCRIPT STRUCTURE & JSON SCHEMA
 -----------------------------
 The "script" object for EXPRESSION MUST contain EXACTLY these 6 keys:
-1. "title": Catchy short title in TARGET_LANGUAGE (unique, fresh, never copied from examples).
+1. "title": Catchy, short title in TARGET_LANGUAGE (3-6 words, STRICTLY ZERO EMOJIS, focusing on the cultural lore or real usage, e.g. "Break a Leg: Why Good Luck Is a Curse"). STRICTLY BANNED: "Native Secret", "The Secret", "Le Secret des Natifs", "Il Segreto dei Nativi", "El Secreto de los Nativos", "Shorts Guide", and all emojis.
 2. "hook": Spoken by Narrator (10-15 words). High-energy curiosity hook (100% in TARGET_LANGUAGE, naming English trap word if false friend).
 3. "setup": Spoken by Narrator (20-25 words). Sets up the story, contrast, or dilemma.
 4. "discovery": Spoken by Narrator (20-25 words). Reveals the authentic expression, nuance, or street usage.

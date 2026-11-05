@@ -16,7 +16,7 @@ test/
 │
 ├── unit/                   # Layer 1: Fast deterministic unit tests (0 network/GPU calls)
 │                           # Audio processor, chalkboard, ID generator, JSON parser, metadata,
-│                           # music jam matcher, prompt rules, roleplay lens, subtitles, watchdog, thumbnail builder
+│                           # music jam matcher, prompt rules, roleplay lens, subtitles, watchdog, thumbnail builder, check_script_changes
 │
 ├── integration/            # Layer 2: Component interaction, schemas & security tests
 │                           # Database gates, health checks, pipeline status tracker, verbatim ingestion,
@@ -31,7 +31,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **244 automated tests** across all QA layers with zero external dependencies in ~1.5 seconds:
+Executes all **275 automated tests** across all QA layers with zero external dependencies in ~1.5 seconds:
 ```bash
 py test/run_tests.py
 ```

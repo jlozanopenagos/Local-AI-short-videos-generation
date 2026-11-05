@@ -28,7 +28,14 @@ def clean_thumbnail_title(text: str) -> str:
     if not text:
         return "LEARN WITH TITO"
 
-    cleaned = re.sub(r"\s+", " ", str(text)).strip()
+    # Strip all emojis from chalkboard display
+    text_no_emoji = re.sub(
+        r"[\U0001F1E0-\U0001F1FF\U0001F300-\U0001F5FF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251\U00002600-\U000026FF\U00002300-\U000023FF]+",
+        "",
+        str(text),
+        flags=re.UNICODE,
+    )
+    cleaned = re.sub(r"\s+", " ", text_no_emoji).strip()
 
     # Strip wrapping outer quotes if the entire title is enclosed in quotes
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in ("'", '"'):
@@ -52,10 +59,54 @@ def clean_thumbnail_title(text: str) -> str:
     return cleaned or "LEARN WITH TITO"
 
 
+def sanitize_thumbnail_title(title: str, lang: str, expression: str = "") -> str:
+    """Sanitizes and localizes thumbnail titles for non-English languages,
+    stripping formulaic clichés and English leakage from Latin language chalkboards.
+    """
+    lang = (lang or "").lower().strip()
+    if not title:
+        return expression or "LEARN WITH TITO"
+
+    cleaned = title.strip()
+
+    if lang in ("italian", "spanish", "french"):
+        # 1. Strip formulaic suffix clichés entirely
+        banned_patterns = [
+            r":\s*(?:the\s+)?native\s+(?:secret|trick|way)\b.*$",
+            r":\s*(?:le\s+)?secret\s+des\s+natifs\b.*$",
+            r":\s*(?:el\s+)?secreto\s+de\s+los\s+nativos\b.*$",
+            r":\s*(?:il\s+)?segreto\s+dei\s+nativi\b.*$",
+            r":\s*(?:the\s+)?secret\s*$",
+        ]
+        for pat in banned_patterns:
+            cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE).strip()
+
+        # 2. Check if the entire title is in English (e.g. "The Secret Italian Phrase for Good Luck", "Stop Saying 'Look At Me'!")
+        english_markers = {
+            "the", "secret", "phrase", "luck", "stop", "saying", "instead", "wrong",
+            "tense", "truth", "about", "spelling", "word", "words", "how", "to",
+            "why", "never", "use", "ultimate", "trap", "chaos", "family"
+        }
+        words = re.findall(r"[a-zA-Z]+", cleaned.lower())
+        if words:
+            english_word_count = sum(1 for w in words if w in english_markers)
+            is_english = False
+            if cleaned.lower().startswith(("the secret ", "stop saying ", "stop using ", "how to ")):
+                is_english = True
+            elif len(words) >= 3 and (english_word_count / len(words)) >= 0.4:
+                is_english = True
+
+            if is_english and expression:
+                return expression
+
+    return cleaned
+
+
 def extract_thumbnail_title(state: Dict[str, Any]) -> str:
     """Extracts the chalkboard title for a script from its state dictionary.
     Prioritizes content_metadata.script.title (or title from script_text),
     falling back to content_metadata.target_expression or prompt_params.EXPRESSION.
+    Sanitizes against English leakage for Latin languages.
     """
     if not isinstance(state, dict):
         return "LEARN WITH TITO"
@@ -64,43 +115,65 @@ def extract_thumbnail_title(state: Dict[str, Any]) -> str:
     if not isinstance(content_meta, dict):
         content_meta = {}
 
+    title = None
     script_obj = content_meta.get("script")
     if isinstance(script_obj, dict):
-        title = script_obj.get("title") or script_obj.get("TITLE")
-        if title and str(title).strip():
-            return clean_thumbnail_title(str(title))
+        t = script_obj.get("title") or script_obj.get("TITLE")
+        if t and str(t).strip():
+            title = str(t).strip()
 
-    if content_meta.get("title") and str(content_meta.get("title")).strip():
-        return clean_thumbnail_title(str(content_meta["title"]))
+    if not title and content_meta.get("title") and str(content_meta.get("title")).strip():
+        title = str(content_meta["title"]).strip()
 
     # Try parsing script_text JSON if present
-    script_text = state.get("script_text")
-    if isinstance(script_text, str) and script_text.strip():
-        raw = script_text.strip()
-        if raw.startswith("{"):
-            try:
-                parsed = json.loads(raw)
-                if isinstance(parsed, dict):
-                    t = parsed.get("title") or parsed.get("TITLE")
-                    if t and str(t).strip():
-                        return clean_thumbnail_title(str(t))
-            except Exception:
-                pass
+    if not title:
+        script_text = state.get("script_text")
+        if isinstance(script_text, str) and script_text.strip():
+            raw = script_text.strip()
+            if raw.startswith("{"):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, dict):
+                        t = parsed.get("title") or parsed.get("TITLE")
+                        if t and str(t).strip():
+                            title = str(t).strip()
+                except Exception:
+                    pass
 
     # Fallback to target_expression / EXPRESSION / TOPIC
     prompt_params = state.get("prompt_params")
     if not isinstance(prompt_params, dict):
         prompt_params = {}
 
-    fallback = (
+    expression = (
         content_meta.get("target_expression")
         or prompt_params.get("EXPRESSION")
         or content_meta.get("topic")
         or prompt_params.get("TOPIC")
-        or state.get("metadata", {}).get("TITLE")
-        or "LEARN WITH TITO"
+        or ""
     )
-    return clean_thumbnail_title(str(fallback))
+
+    # Resolve language
+    lang = ""
+    try:
+        from config import resolve_script_language
+        lang = resolve_script_language(state)
+    except Exception:
+        lang = str(
+            content_meta.get("language")
+            or prompt_params.get("TARGET_LANGUAGE")
+            or ""
+        ).lower()
+
+    if not title:
+        title = (
+            expression
+            or state.get("metadata", {}).get("TITLE")
+            or "LEARN WITH TITO"
+        )
+
+    sanitized = sanitize_thumbnail_title(str(title), lang=lang, expression=str(expression))
+    return clean_thumbnail_title(sanitized)
 
 
 def detect_chalkboard_bounds(img: Image.Image) -> Tuple[int, int, int, int]:

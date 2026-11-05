@@ -4,6 +4,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import config
 
+# Known problematic / accented Open-Swara reference clips excluded for native target-language cloning
+EXCLUDED_NON_ENGLISH_PATTERNS = (
+    "_english_",
+    "french_male_open_swara_001.wav",
+    "french_male_open_swara_019.wav",
+)
+
+
 class VoiceManager:
     def __init__(self, open_swara_dir: Path, comfy_input_dir: Path):
         self.open_swara_dir = open_swara_dir
@@ -17,6 +25,73 @@ class VoiceManager:
         # Ensure ComfyUI input folder exists
         self.comfy_input_dir.mkdir(parents=True, exist_ok=True)
         self._load_csv_pools()
+
+    @staticmethod
+    def _is_acceptable_ref(path: Path, lang: str) -> bool:
+        """Filters out cross-accented or corrupted reference clips for non-English scripts."""
+        if lang == "english":
+            return True
+        name_low = path.name.lower()
+        return not any(pat in name_low for pat in EXCLUDED_NON_ENGLISH_PATTERNS)
+
+    @classmethod
+    def resolve_engine_for_speaker(
+        cls,
+        language: str,
+        gender: str = "female",
+        speaker: str = "narrator",
+        is_dialogue: bool = False,
+        cli_engine_override: Optional[str] = None,
+        kokoro_available: bool = True,
+        is_multi_speaker_script: bool = False,
+    ) -> Tuple[str, Optional[str]]:
+        """Determines whether a speaker segment should be synthesized with 'kokoro' or 'qwen3',
+        and returns `(engine_name, kokoro_voice_id_or_None)`.
+
+        Engine modes (`VOICE_ENGINE_BY_LANGUAGE` or `--engine`):
+          - 'qwen3'  : Always use Qwen3-TTS via ComfyUI.
+          - 'kokoro' : Always use Kokoro-82M (using `ff_siwis_male` pitch-shifted if French male,
+                       and `*_narrator` timbre variant for the 3rd speaker in Roleplays).
+          - 'hybrid' : Use Kokoro-82M when a native gender voice exists (`ef_dora`, `em_alex`,
+                       `ff_siwis`, `if_sara`, `im_nicola`); for French male dialogue (since Kokoro
+                       v1.0 has no native male French voice), fall back to Qwen3-TTS ICL cloning.
+        """
+        lang = cls.normalize_language(language)
+        gend = "male" if str(gender).strip().lower() == "male" else "female"
+
+        mode = (cli_engine_override or "").strip().lower()
+        if not mode or mode == "auto":
+            engine_map = getattr(config, "VOICE_ENGINE_BY_LANGUAGE", {})
+            mode = engine_map.get(lang, "qwen3").strip().lower()
+
+        if mode == "qwen3" or not kokoro_available:
+            return "qwen3", None
+
+        kokoro_voices = getattr(config, "KOKORO_VOICES", {})
+        voice_list = kokoro_voices.get((lang, gend), [])
+        chosen_voice = voice_list[0] if voice_list else None
+
+        if mode == "hybrid":
+            # In French, Kokoro v1.0 only has a native female voice (ff_siwis).
+            # Narrator uses ff_siwis_narrator, while a male dialogue speaker falls back to Qwen3-TTS ICL.
+            if lang == "french" and gend == "male":
+                if is_dialogue:
+                    return "qwen3", None
+                # Single-narrator French script: prefer native female voice ff_siwis_narrator
+                return "kokoro", "ff_siwis_narrator"
+
+        if not chosen_voice:
+            from video_creation._B_voice_generation.core.kokoro_engine import KokoroEngine
+            chosen_voice = KokoroEngine.resolve_voice(lang, gender=gend)
+
+        # Always give the Narrator a dedicated `_narrator` energetic host persona
+        # (brighter style blend + lively storytelling pitch/cadence) so the Narrator
+        # never sounds sleepy or identical to a dialogue character (`PERSON_ONE` / `PERSON_TWO`).
+        if not is_dialogue and "narrator" in speaker.lower() and chosen_voice:
+            if not chosen_voice.endswith("_narrator"):
+                chosen_voice = f"{chosen_voice}_narrator"
+
+        return "kokoro", chosen_voice
 
     @staticmethod
     def normalize_language(language: str) -> str:
@@ -46,16 +121,33 @@ class VoiceManager:
         for csv_file in self.data_dir.glob("*.csv"):
             name = csv_file.stem
             parts = name.split("_")
-            if len(parts) == 2:
+            if len(parts) == 2 and parts[0] in ("english", "french", "spanish", "italian"):
                 lang, gend = parts
                 self.voice_pools[(lang, gend)] = []
                 try:
                     with open(csv_file, "r", encoding="utf-8") as f:
                         reader = csv.DictReader(f)
                         for row in reader:
-                            self.voice_pools[(lang, gend)].append(row["FILE_PATH"])
+                            if "FILE_PATH" in row:
+                                self.voice_pools[(lang, gend)].append(row["FILE_PATH"])
                 except Exception as e:
                     print(f"Error reading {csv_file}: {e}")
+
+        # Also discover and index any newly generated filesystem reference audio in open_swara
+        if self.open_swara_dir and self.open_swara_dir.exists():
+            for lang in ("english", "french", "spanish", "italian"):
+                for gend in ("male", "female"):
+                    key = (lang, gend)
+                    if key not in self.voice_pools:
+                        self.voice_pools[key] = []
+                    target_dir = self.open_swara_dir / lang / gend
+                    if target_dir.exists():
+                        existing_set = set(self.voice_pools[key])
+                        for p in sorted(target_dir.glob("*.wav")):
+                            rel = f"{lang}/{gend}/{p.name}"
+                            if rel not in existing_set and p.name not in existing_set:
+                                self.voice_pools[key].append(rel)
+                                existing_set.add(rel)
 
     def get_available_voices(self, language: str, gender: str) -> List[Path]:
         """Returns all existing reference voice WAV paths available for the given language and gender."""
@@ -67,14 +159,14 @@ class VoiceManager:
         # 1. From NARRATOR_VOICES in config
         for rel in getattr(config, "NARRATOR_VOICES", {}).get((lang, gend), []):
             p = self.open_swara_dir / rel
-            if p.exists() and p.name not in seen:
+            if p.exists() and p.name not in seen and self._is_acceptable_ref(p, lang):
                 voices.append(p)
                 seen.add(p.name)
 
         # 2. From voice pools CSVs
         for rel in self.voice_pools.get((lang, gend), []):
             p = self.open_swara_dir / rel
-            if p.exists() and p.name not in seen:
+            if p.exists() and p.name not in seen and self._is_acceptable_ref(p, lang):
                 voices.append(p)
                 seen.add(p.name)
 
@@ -82,18 +174,62 @@ class VoiceManager:
         target_dir = self.open_swara_dir / lang / gend
         if target_dir.exists():
             for p in sorted(target_dir.glob("*.wav")):
-                if p.name not in seen:
+                if p.name not in seen and self._is_acceptable_ref(p, lang):
                     voices.append(p)
                     seen.add(p.name)
 
         return sorted(voices, key=lambda x: x.name)
+
+    @staticmethod
+    def _rank_voice_by_tier(path_str: str, gender: str, role: str, video_type: Optional[str] = None) -> int:
+        """Assigns priority ranking (lower is better) based on video type and acoustic pitch tier."""
+        name = Path(path_str).stem.lower()
+        vtype = (video_type or "expression").lower()
+        is_narrator = "narrator" in role.lower()
+        gend = "male" if gender == "male" else "female"
+
+        # Tier preferences (priority from highest=0 to lowest=10)
+        if vtype == "roleplay":
+            if is_narrator:
+                if gend == "male":
+                    tiers = ["baritone", "narrator", "bass", "tenor", "char1", "char2"]
+                else:
+                    tiers = ["mezzo", "narrator", "alto", "char2", "char1", "soprano"]
+            else:
+                if gend == "male":
+                    tiers = ["bass", "char2", "baritone", "char1", "tenor", "narrator"]
+                else:
+                    tiers = ["alto", "char1", "mezzo", "char2", "narrator", "soprano"]
+        elif vtype in ("expression", "explanation"):
+            if gend == "male":
+                tiers = ["baritone", "narrator", "char1", "bass", "tenor", "char2"]
+            else:
+                tiers = ["alto", "mezzo", "narrator", "char1", "char2", "soprano"]
+        elif vtype == "fun_facts":
+            if gend == "male":
+                tiers = ["tenor", "baritone", "narrator", "char1", "bass", "char2"]
+            else:
+                tiers = ["mezzo", "soprano", "narrator", "char2", "alto", "char1"]
+        elif vtype == "game":
+            if gend == "male":
+                tiers = ["baritone", "narrator", "char1", "tenor", "bass", "char2"]
+            else:
+                tiers = ["mezzo", "narrator", "char2", "alto", "char1", "soprano"]
+        else:
+            tiers = ["narrator", "baritone", "mezzo", "alto", "char1", "char2"]
+
+        for idx, t in enumerate(tiers):
+            if f"_{t}" in name:
+                return idx
+        return len(tiers) + 1
 
     def assign_voices_for_script(
         self,
         unique_speakers: list,
         language: str,
         manual_genders: dict = None,
-        manual_voice_paths: dict = None
+        manual_voice_paths: dict = None,
+        video_type: Optional[str] = None
     ):
         self.current_assignments.clear()
         self.speaker_seeds.clear()
@@ -106,24 +242,34 @@ class VoiceManager:
 
         if len(unique_speakers) == 1:
             speaker = list(unique_speakers)[0]
-            # Random gender for single narrator
-            gender = manual_genders.get(speaker) or random.choice(["male", "female"])
+            # Random gender for single narrator (for French in hybrid/kokoro mode, prefer female where native ff_siwis exists)
+            engine_mode = getattr(config, "VOICE_ENGINE_BY_LANGUAGE", {}).get(lang, "qwen3")
+            if speaker in manual_genders:
+                gender = manual_genders[speaker]
+            elif lang == "french" and engine_mode in ("kokoro", "hybrid"):
+                gender = "female"
+            else:
+                gender = random.choice(["male", "female"])
             abs_path = manual_voice_paths.get(speaker)
             
             if not abs_path or not Path(abs_path).exists():
-                # Use random narrator voice from the NARRATOR_VOICES list if available
                 preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, gender), [])
                 valid_preferred = [
                     self.open_swara_dir / p for p in preferred_pool
-                    if (self.open_swara_dir / p).exists()
+                    if (self.open_swara_dir / p).exists() and self._is_acceptable_ref(self.open_swara_dir / p, lang)
                 ]
                 if valid_preferred:
-                    abs_path = random.choice(valid_preferred)
+                    golden = [p for p in valid_preferred if "kokoro_golden" in p.name]
+                    if golden:
+                        golden.sort(key=lambda p: self._rank_voice_by_tier(str(p), gender, "narrator", video_type))
+                        abs_path = golden[0]
+                    else:
+                        abs_path = random.choice(valid_preferred)
                 else:
                     pool = self.voice_pools.get((lang, gender), [])
                     valid_pool = [
                         self.open_swara_dir / p for p in pool
-                        if (self.open_swara_dir / p).exists()
+                        if (self.open_swara_dir / p).exists() and self._is_acceptable_ref(self.open_swara_dir / p, lang)
                     ]
                     if valid_pool:
                         abs_path = random.choice(valid_pool)
@@ -155,7 +301,6 @@ class VoiceManager:
                     gender = self.resolve_speaker_gender(speaker)
                     
                     # Force opposite gender if this gender is already taken by another character
-                    # This guarantees Person 1 and Person 2 will have different voices (Male/Female)
                     if gender != "unknown" and gender in char_genders.values():
                         gender = "female" if gender == "male" else "male"
                         
@@ -180,6 +325,10 @@ class VoiceManager:
                     genders_present = list(char_genders.values())
                     if len(genders_present) >= 2 and all(g == genders_present[0] for g in genders_present):
                         narrator_gender = "female" if genders_present[0] == "male" else "male"
+                    elif characters and char_genders.get(characters[0]) in ("male", "female"):
+                        narrator_gender = "male" if char_genders[characters[0]] == "female" else "female"
+                    elif lang == "french":
+                        narrator_gender = "female"
                     else:
                         narrator_gender = random.choice(["male", "female"])
                     
@@ -194,14 +343,22 @@ class VoiceManager:
                 if not abs_path or not Path(abs_path).exists():
                     pool = self.voice_pools.get((lang, gender), [])
                     
-                    # Exclude ALL narrator voices and previously used paths from the character's pool
                     narrator_voices = getattr(config, "NARRATOR_VOICES", {}).get((lang, gender), [])
                     available_pool = [
                         p for p in pool
-                        if p not in used_paths and p not in narrator_voices and (self.open_swara_dir / p).exists()
+                        if p not in used_paths
+                        and p not in narrator_voices
+                        and (self.open_swara_dir / p).exists()
+                        and self._is_acceptable_ref(self.open_swara_dir / p, lang)
                     ]
+                    golden_char_pool = [p for p in available_pool if "kokoro_golden" in p]
                     
-                    if available_pool:
+                    if golden_char_pool:
+                        golden_char_pool.sort(key=lambda p: self._rank_voice_by_tier(p, gender, speaker, video_type))
+                        rel_path = golden_char_pool[0]
+                        abs_path = self.open_swara_dir / rel_path
+                        used_paths.add(rel_path)
+                    elif available_pool:
                         rel_path = random.choice(available_pool)
                         abs_path = self.open_swara_dir / rel_path
                         used_paths.add(rel_path)
@@ -222,22 +379,30 @@ class VoiceManager:
                 if not abs_path or not Path(abs_path).exists():
                     pool = self.voice_pools.get((lang, narrator_gender), [])
                     
-                    # Prioritize NARRATOR_VOICES explicitly reserved in config
                     preferred_pool = getattr(config, "NARRATOR_VOICES", {}).get((lang, narrator_gender), [])
                     available_preferred = [
                         p for p in preferred_pool
-                        if p not in used_paths and (self.open_swara_dir / p).exists()
+                        if p not in used_paths
+                        and (self.open_swara_dir / p).exists()
+                        and self._is_acceptable_ref(self.open_swara_dir / p, lang)
                     ]
+                    golden_narrator_pool = [p for p in available_preferred if "kokoro_golden" in p]
                     
-                    if available_preferred:
+                    if golden_narrator_pool:
+                        golden_narrator_pool.sort(key=lambda p: self._rank_voice_by_tier(p, narrator_gender, "narrator", video_type))
+                        rel_path = golden_narrator_pool[0]
+                        abs_path = self.open_swara_dir / rel_path
+                        used_paths.add(rel_path)
+                    elif available_preferred:
                         rel_path = random.choice(available_preferred)
                         abs_path = self.open_swara_dir / rel_path
                         used_paths.add(rel_path)
                     else:
-                        # Fallback if no NARRATOR_VOICES available
                         available_pool = [
                             p for p in pool
-                            if p not in used_paths and (self.open_swara_dir / p).exists()
+                            if p not in used_paths
+                            and (self.open_swara_dir / p).exists()
+                            and self._is_acceptable_ref(self.open_swara_dir / p, lang)
                         ]
                         if available_pool:
                             rel_path = random.choice(available_pool)
@@ -268,12 +433,10 @@ class VoiceManager:
             if abs_path and abs_path.exists():
                 return gender, abs_path, seed
                 
-            # If absolute path was missing or invalid, resolve via fallback and persist it
             fallback_voice = self.find_reference_voice(lang, gender)
             self.current_assignments[speaker] = (gender, fallback_voice)
             return gender, fallback_voice, seed
         
-        # Complete fallback for unknown speaker: resolve and permanently store
         gender = self.resolve_speaker_gender(speaker)
         if gender == "unknown":
             gender = random.choice(["male", "female"])
@@ -287,28 +450,21 @@ class VoiceManager:
         """Determines the gender (male/female) of a speaker name using heuristics."""
         name_clean = speaker_name.strip().lower()
         
-        # Check explicit mapping in config
         if name_clean in config.SPEAKER_GENDER_MAP:
             return config.SPEAKER_GENDER_MAP[name_clean]
             
-        # Try checking parts of the name (e.g. "agent (stressé)" -> "agent")
         for key, gender in config.SPEAKER_GENDER_MAP.items():
             if key in name_clean or name_clean in key:
                 return gender
 
-        # Heuristic rules for romance languages (Spanish/French)
-        # Ends with a -> female
         if name_clean.endswith("a") or name_clean.endswith("á"):
             return "female"
-        # Ends with o or er or or -> male
         if name_clean.endswith("o") or name_clean.endswith("ó") or name_clean.endswith("or") or name_clean.endswith("er"):
             return "male"
             
-        # If it's a generic tag like person_one, return unknown to trigger randomization
         if "person" in name_clean or "speaker" in name_clean:
             return "unknown"
             
-        # Default fallback
         return "female"
 
     def find_reference_voice(self, language: str, gender: str) -> Path:
@@ -324,7 +480,9 @@ class VoiceManager:
             available_pref = [
                 self.open_swara_dir / p
                 for p in preferred_pool
-                if (self.open_swara_dir / p).exists() and (self.open_swara_dir / p) not in self.fallback_used_paths
+                if (self.open_swara_dir / p).exists()
+                and (self.open_swara_dir / p) not in self.fallback_used_paths
+                and self._is_acceptable_ref(self.open_swara_dir / p, lang)
             ]
             if available_pref:
                 chosen = random.choice(available_pref)
@@ -337,17 +495,21 @@ class VoiceManager:
             available_csv = [
                 self.open_swara_dir / p
                 for p in csv_pool
-                if (self.open_swara_dir / p).exists() and (self.open_swara_dir / p) not in self.fallback_used_paths
+                if (self.open_swara_dir / p).exists()
+                and (self.open_swara_dir / p) not in self.fallback_used_paths
+                and self._is_acceptable_ref(self.open_swara_dir / p, lang)
             ]
             if available_csv:
                 chosen = random.choice(available_csv)
                 self.fallback_used_paths.add(chosen)
                 return chosen
 
-        # 3. Try scanning the target directory for any .wav files
+        # 3. Try scanning the target directory for any acceptable .wav files
         target_dir = self.open_swara_dir / lang / gend
         if target_dir.exists():
-            wav_files = list(target_dir.glob("*.wav"))
+            wav_files = [f for f in target_dir.glob("*.wav") if self._is_acceptable_ref(f, lang)]
+            if not wav_files:
+                wav_files = list(target_dir.glob("*.wav"))
             if wav_files:
                 available = [f for f in wav_files if f not in self.fallback_used_paths]
                 if not available:
@@ -359,12 +521,13 @@ class VoiceManager:
         # 4. Fallback: Check general target language directory
         lang_dir = self.open_swara_dir / lang
         if lang_dir.exists():
-            wav_files = list(lang_dir.rglob("*.wav"))
+            wav_files = [f for f in lang_dir.rglob("*.wav") if self._is_acceptable_ref(f, lang)]
+            if not wav_files:
+                wav_files = list(lang_dir.rglob("*.wav"))
             if wav_files:
                 available = [f for f in wav_files if f not in self.fallback_used_paths]
                 if not available:
                     available = wav_files
-                # Find file matching gender if possible
                 matching = [f for f in available if f"_{gend}_" in f.name.lower() or gend in f.parent.name.lower()]
                 chosen = random.choice(matching if matching else available)
                 self.fallback_used_paths.add(chosen)
@@ -408,7 +571,6 @@ class VoiceManager:
         import shutil
         dest_file_path = self.comfy_input_dir / voice_file_path.name
         
-        # Copy file if it doesn't exist, or has different size
         if not dest_file_path.exists() or dest_file_path.stat().st_size != voice_file_path.stat().st_size:
             print(f"Copying reference voice '{voice_file_path.name}' to ComfyUI input folder...")
             shutil.copy2(voice_file_path, dest_file_path)
