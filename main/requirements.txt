@@ -11,3 +11,5 @@ faster-whisper
 kokoro-onnx
 soundfile
 numpy
+fastapi
+uvicorn[standard]

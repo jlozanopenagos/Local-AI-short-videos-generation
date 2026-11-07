@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LingoVerse — Local AI Shorts Automation</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+      color: #38bdf8;
+    }
+    p {
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .badge {
+      display: inline-block;
+      background: #0369a1;
+      color: #e0f2fe;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .links {
+      margin-top: 24px;
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    a.btn {
+      background: #0284c7;
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    a.btn:hover {
+      background: #0369a1;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">API & Server Active</div>
+    <h1>LingoVerse Studio</h1>
+    <p>Local Web UI backend is online and serving the API.</p>
+    <div class="links">
+      <a class="btn" href="/docs" target="_blank">OpenAPI Docs (/docs)</a>
+      <a class="btn" href="/api/system/status" target="_blank">System Status JSON</a>
+    </div>
+  </div>
+</body>
+</html>

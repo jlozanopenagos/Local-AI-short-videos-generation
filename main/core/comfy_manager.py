@@ -408,3 +408,15 @@ class ComfyManager:
                         time.sleep(0.5)
             except KeyboardInterrupt:
                 print("\n[Stopped following logs]")
+
+
+_COMFY_MANAGER_INSTANCE: Optional[ComfyManager] = None
+
+
+def get_comfy_manager() -> ComfyManager:
+    """Returns singleton ComfyManager instance."""
+    global _COMFY_MANAGER_INSTANCE
+    if _COMFY_MANAGER_INSTANCE is None:
+        _COMFY_MANAGER_INSTANCE = ComfyManager()
+    return _COMFY_MANAGER_INSTANCE
+
