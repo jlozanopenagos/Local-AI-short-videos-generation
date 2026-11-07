@@ -15,12 +15,16 @@ test/
 ├── conftest.py             # Shared fixtures and mock helpers
 │
 ├── unit/                   # Layer 1: Fast deterministic unit tests (0 network/GPU calls)
-│                           # Audio processor, chalkboard, ID generator, JSON parser, metadata,
-│                           # music jam matcher, prompt rules, roleplay lens, subtitles, watchdog, thumbnail builder, check_script_changes
+│                           # Audio processor, chalkboard, CLI prompts, ComfyUI supervisor & pool,
+│                           # visual prompt builder, metadata & JSON parser, music jam matcher,
+│                           # prompt rules, roleplay lens, state manager & ID generator,
+│                           # stress enhancer, acoustic evaluator, subtitles, thumbnail builder,
+│                           # voice manager & modifier, and watchdog recovery
 │
 ├── integration/            # Layer 2: Component interaction, schemas & security tests
-│                           # Database gates, health checks, pipeline status tracker, verbatim ingestion,
-│                           # CSV/JSON schema contracts, system prompt editor, privacy & secret leak prevention
+│                           # Database gates, health checks, pipeline status tracker,
+│                           # verbatim ingestion & check_script_changes, CSV/JSON/system prompt
+│                           # schema contracts, privacy & secret leak prevention
 │
 └── connectivity/           # Layer 3: Google Sheets integration & data contract tests
                             # Sheets fetcher, corrections extractor, reconciliation, poster, ready scripts scanner
@@ -31,7 +35,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **275 automated tests** across all QA layers with zero external dependencies in ~1.5 seconds:
+Executes all **273 automated tests** across 22 curated test files in 3 QA layers (`unit/`, `integration/`, `connectivity/`) with zero external dependencies:
 ```bash
 py test/run_tests.py
 ```

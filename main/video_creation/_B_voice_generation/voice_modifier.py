@@ -5,6 +5,7 @@ import shutil
 import sys
 import traceback
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 # Add project root, video_creation, core, and module directory to path
 MODULE_DIR = Path(__file__).parent.resolve()
@@ -51,12 +52,12 @@ try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
-    from video_creation._B_voice_generation.core.kokoro_engine import get_kokoro_engine
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
     from video_creation._B_voice_generation.core.stress_enhancer import (
         enhance_stress_text_for_tts,
         build_stress_style_directive,
-        detect_intentional_stress_errors
+        detect_intentional_stress_errors,
+        normalize_multiple_choice_options_for_tts,
     )
     from video_creation._B_voice_generation.core.acoustic_evaluator import (
         select_best_voice_candidate,
@@ -73,12 +74,12 @@ except (ImportError, ModuleNotFoundError):
     from core.script_parser import get_script_segments
     from core.comfy_client import ComfyClient
     from core.voice_manager import VoiceManager
-    from core.kokoro_engine import get_kokoro_engine
     from core.audio_processor import concatenate_audios
     from core.stress_enhancer import (
         enhance_stress_text_for_tts,
         build_stress_style_directive,
-        detect_intentional_stress_errors
+        detect_intentional_stress_errors,
+        normalize_multiple_choice_options_for_tts,
     )
     from core.acoustic_evaluator import (
         select_best_voice_candidate,
@@ -92,38 +93,165 @@ except (ImportError, ModuleNotFoundError):
         map_emotion_to_energy,
     )
 
+
+def resolve_user_script_id(raw_input: str, state_manager: StateManager) -> Optional[str]:
+    """Resolves raw user input into a valid canonical Script ID (e.g. ER114, EE01, 114)."""
+    cleaned = raw_input.strip().upper().replace("SCRIPT_", "").replace(".JSON", "")
+    if not cleaned:
+        return None
+
+    if state_manager.script_exists(cleaned):
+        return cleaned
+
+    # Match numeric indices (e.g. '114' or '04')
+    if cleaned.isdigit():
+        padded = f"{int(cleaned):02d}"
+        all_scripts = state_manager.get_all_scripts()
+        matches = [
+            s.get("id") for s in all_scripts
+            if s.get("id") and s.get("id").endswith(padded)
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) > 1:
+            print(f"\nMultiple scripts match index '{cleaned}': {', '.join(matches[:8])}")
+            print("Please enter the full canonical ID (e.g. ER114, EE04).")
+
+    return None
+
+
+def parse_gender_token(token: str, default: str = "male") -> str:
+    """Normalizes raw input tokens ('m', 'f', 'male', 'female', etc.) to 'male' or 'female'."""
+    t = str(token).strip().lower()
+    if t in ("f", "female", "girl", "woman"):
+        return "female"
+    if t in ("m", "male", "boy", "man"):
+        return "male"
+    return default
+
+
+def prompt_speaker_genders(
+    unique_speakers: List[str],
+    current_genders: Dict[str, str],
+    video_type: str,
+    cli_genders: Optional[str] = None
+) -> Dict[str, str]:
+    """Interactively prompts the user to select the gender ('genre') for each speaker.
+    Users only choose genders; reference voices are automatically randomized from the pool.
+    """
+    # Separate characters from narrator for structured roleplay prompts
+    characters = [s for s in unique_speakers if "narrator" not in s.lower()]
+    narrators = [s for s in unique_speakers if "narrator" in s.lower()]
+    ordered_speakers = characters + narrators
+
+    # 1. Handle CLI override if supplied (e.g. --genders "male, female" or --genders "f")
+    if cli_genders:
+        tokens = [t.strip().lower() for t in cli_genders.split(",") if t.strip()]
+        result = {}
+        for idx, spk in enumerate(ordered_speakers):
+            fallback = current_genders.get(spk, "female" if "two" in spk.lower() else "male")
+            if idx < len(tokens):
+                result[spk] = parse_gender_token(tokens[idx], fallback)
+            else:
+                result[spk] = fallback
+        return result
+
+    # 2. Interactive display and prompting
+    print("\n" + "-" * 60)
+    print("SPEAKER GENDER SELECTION (Voices will be randomly cast):")
+    for idx, spk in enumerate(ordered_speakers, 1):
+        curr = current_genders.get(spk, "female" if "two" in spk.lower() else "male").lower()
+        role_label = " (Dialogue Character)" if "narrator" not in spk.lower() else " (Storyteller / Mentor)"
+        print(f"  [{idx}] {spk:12s}: {curr.upper()}{role_label}")
+    print("-" * 60)
+
+    selected_genders = {}
+
+    if video_type == "ROLEPLAY" and len(characters) >= 2:
+        default_str = ", ".join(
+            current_genders.get(s, "female" if "two" in s.lower() else "male").lower()
+            for s in ordered_speakers
+        )
+        try:
+            prompt_msg = (
+                f"Enter genders for [{', '.join(ordered_speakers)}]\n"
+                f"  (e.g. 'm, f, m' or 'male, female, female', Enter to keep [{default_str.upper()}]): "
+            )
+            raw_input = timed_input(prompt_msg, timeout=30.0, default="").strip()
+            if raw_input:
+                tokens = [t.strip().lower() for t in raw_input.split(",") if t.strip()]
+                if len(tokens) == len(ordered_speakers):
+                    for idx, spk in enumerate(ordered_speakers):
+                        selected_genders[spk] = parse_gender_token(tokens[idx], current_genders.get(spk, "male"))
+                    return selected_genders
+        except (KeyboardInterrupt, EOFError):
+            pass
+
+    # Step-by-step fallback / confirmation per speaker
+    for spk in ordered_speakers:
+        curr = current_genders.get(spk, "female" if "two" in spk.lower() else "male").lower()
+        prompt_msg = f"  Gender for '{spk}' [m = Male / f = Female, Enter to keep '{curr.upper()}']: "
+        try:
+            choice = timed_input(prompt_msg, timeout=20.0, default=curr).strip().lower()
+            selected_genders[spk] = parse_gender_token(choice, curr)
+        except (KeyboardInterrupt, EOFError):
+            selected_genders[spk] = curr
+
+    return selected_genders
+
+
 def main():
     parser = argparse.ArgumentParser(description="Modify or regenerate voice for a specific script.")
-    parser.add_argument("--script-id", type=str, default=None, help="Script ID to modify (e.g. EE04, 1, script_1.json)")
+    parser.add_argument("--script-id", type=str, default=None, help="Script ID to modify (e.g. ER114, EE04)")
+    parser.add_argument("--genders", type=str, default=None, help="Comma-separated genders for speakers (e.g. 'male, female' or 'm, f, m')")
     parser.add_argument("--candidates", type=int, default=None, help="Number of candidate takes to generate for stress-vital segments (default: 2)")
-    parser.add_argument(
-        "--engine",
-        type=str,
-        default="auto",
-        choices=["auto", "kokoro", "qwen3", "hybrid"],
-        help="Voice synthesis engine override (default: 'auto' uses VOICE_ENGINE_BY_LANGUAGE)"
-    )
     args = parser.parse_args()
 
-    script_id_raw = args.script_id
-    if not script_id_raw:
-        try:
-            script_id_raw = input("Enter the script number to change (e.g. 1 or EE04): ").strip()
-        except EOFError:
-            print("Run this script interactively or supply --script-id.")
-            return
-
-    script_id = script_id_raw.replace("script_", "").replace(".json", "")
-    
     base_dir = BASE_DIR
     state_manager = StateManager(base_dir)
-    
+
+    print("\n" + "=" * 64)
+    print("               VOICE MODIFIER & RANDOM RECASTER")
+    print("=" * 64)
+
+    # 1. Pre-flight Connection Checks (MUST run before any prompt)
+    print("\n" + "=" * 64)
+    print("Pre-flight Connection Checks:")
+    comfy_client = None
+    try:
+        require_services(comfy=True)
+        comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
+        print("  [OK] Qwen3-TTS ComfyUI connected")
+    except ConnectionError as e:
+        print(f"  [ERROR] {e}")
+        return
+    print("=" * 64 + "\n")
+
+    # 2. Resolve Script ID
+    script_id = None
+    if args.script_id:
+        script_id = resolve_user_script_id(args.script_id, state_manager)
+        if not script_id:
+            print(f"Error: Script '{args.script_id}' not found.")
+            return
+    else:
+        while not script_id:
+            try:
+                raw = input("Enter Video ID to modify (e.g. ER114, EE01, FG02) [or 'q' to quit]: ").strip()
+            except (KeyboardInterrupt, EOFError):
+                return
+            if raw.lower() in ("q", "quit", "exit"):
+                print("Exiting.")
+                return
+            script_id = resolve_user_script_id(raw, state_manager)
+            if not script_id:
+                print("Script not found. Please try again.")
+
     script_data = state_manager.get_script_state(script_id)
-    
-    if not script_data.get("script_text"):
+    if not script_data.get("script_text") and not script_data.get("content_metadata", {}).get("script"):
         print(f"Error: Script {script_id} not found or has no script_text.")
         return
-        
+
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
     label = metadata.get("LABEL", "english")
@@ -133,127 +261,139 @@ def main():
         extracted = extract_language_from_label(label)
         if extracted != "english":
             clean_language = extracted
-    
+
+    video_type = config.resolve_script_video_type(script_data).upper()
+    topic = (
+        script_data.get("prompt_params", {}).get("ROLEPLAY_SCENARIO")
+        or script_data.get("prompt_params", {}).get("EXPRESSION")
+        or script_data.get("content_metadata", {}).get("topic")
+        or ""
+    )
+
     script_output_dir = get_script_output_dir(script_id, clean_language, base_dir)
     script_output_dir.mkdir(parents=True, exist_ok=True)
-    
-    kokoro_engine = get_kokoro_engine()
-    kokoro_ready = bool(kokoro_engine and kokoro_engine.is_ready)
 
-    comfy_client = None
-    try:
-        print("Checking ComfyUI connection...")
-        require_services(comfy=True)
-        comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
-    except ConnectionError as e:
-        if kokoro_ready and args.engine != "qwen3":
-            print(f"[Notice] ComfyUI offline ({e}); continuing with local Kokoro-82M engine.")
-        else:
-            print(f"Error: {e}")
-            return
-        
-    voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
-    
     segments = get_script_segments(script_id, script_text, label)
+    if not segments:
+        # Fallback to structured content_metadata.script if script_text had formatting quirks
+        script_dict = script_data.get("content_metadata", {}).get("script")
+        if script_dict and isinstance(script_dict, dict):
+            import json
+            segments = get_script_segments(script_id, json.dumps(script_dict), label)
+            if segments:
+                script_data["script_text"] = json.dumps(script_dict, indent=2)
+                state_manager.save_script_state(script_id, script_data)
+
     if not segments:
         print(f"Error: Script {script_id} has no valid segments.")
         return
-        
+
     unique_speakers = list(set(seg["speaker"] for seg in segments))
-    
-    manual_genders = {}
-    manual_voice_paths = {}
-    try:
-        choose_manual = timed_input(
-            "Do you want to choose the voices manually? (y/n) [default: n]: ",
-            timeout=10.0,
-            default="n",
-            default_msg="Automatically keeping default voice assignment."
-        ).strip().lower()
-        if choose_manual == 'y':
-            print(f"\nManual Voice Casting for Language: {clean_language.upper()}")
-            for speaker in unique_speakers:
-                while True:
-                    g = input(f"Gender for '{speaker}' (male/female): ").strip().lower()
-                    if g in ['male', 'female']:
-                        manual_genders[speaker] = g
-                        break
-                    else:
-                        print("Invalid input. Please enter 'male' or 'female'.")
 
-                pool = voice_manager.get_available_voices(clean_language, g)
-                if pool:
-                    print(f"  Available reference voices for {speaker} ({clean_language} - {g}):")
-                    max_display = min(len(pool), 10)
-                    for i, v_path in enumerate(pool[:max_display], 1):
-                        print(f"    [{i}] {v_path.name}")
-                    if len(pool) > max_display:
-                        print(f"    ... and {len(pool) - max_display} more available voices in pool.")
-                    pick = input(f"  Select voice [1-{max_display}], enter filename, or press Enter for random: ").strip()
-                    if pick:
-                        if pick.isdigit() and 1 <= int(pick) <= len(pool):
-                            manual_voice_paths[speaker] = pool[int(pick) - 1]
-                            print(f"  -> Selected: {manual_voice_paths[speaker].name}")
-                        else:
-                            matched = [p for p in pool if pick.lower() in p.name.lower()]
-                            if matched:
-                                manual_voice_paths[speaker] = matched[0]
-                                print(f"  -> Selected: {manual_voice_paths[speaker].name}")
-                            else:
-                                print(f"  -> Voice '{pick}' not found in pool. Using random from {clean_language} pool.")
-    except (KeyboardInterrupt, EOFError):
-        pass
+    # Display Script Overview
+    print("\n" + "=" * 64)
+    print(f"🎬 SCRIPT [{script_id}] — {clean_language.upper()} / {video_type}")
+    if topic:
+        print(f"   Topic:    {topic[:70]}")
+    print(f"   Speakers: {', '.join(unique_speakers)}")
+    print("=" * 64)
 
-    speakers_gender = script_data.get("content_metadata", {}).get("speakers_gender", {})
-    speakers_voice = script_data.get("content_metadata", {}).get("speakers_voice", {})
-    
-    effective_genders = {**speakers_gender, **manual_genders}
-    voice_manager.assign_voices_for_script(unique_speakers, clean_language, manual_genders=effective_genders, manual_voice_paths=manual_voice_paths)
-    
-    is_multi_spk = len(unique_speakers) > 1
-    used_kokoro_voices = set()
-    for speaker in unique_speakers:
+    voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
+
+    # 2. Gender Selection (No manual file selection requested; user chooses genders)
+    existing_genders = script_data.get("content_metadata", {}).get("speakers_gender", {})
+    if not isinstance(existing_genders, dict):
+        existing_genders = {}
+
+    selected_genders = prompt_speaker_genders(
+        unique_speakers=unique_speakers,
+        current_genders=existing_genders,
+        video_type=video_type,
+        cli_genders=args.genders
+    )
+
+    print("\n-> Confirmed Genders:")
+    for spk, g in selected_genders.items():
+        print(f"     {spk:12s}: {g.upper()}")
+
+    # 3. Automatic Random Voice Casting with Strict Roleplay Differentiation
+    print("\n[Voice Casting] Selecting randomized distinct high-quality voices...")
+    voice_manager.assign_voices_for_script(
+        unique_speakers,
+        clean_language,
+        manual_genders=selected_genders,
+        manual_voice_paths={},  # Empty dictionary ensures fresh randomized assignment
+        video_type=video_type,
+    )
+
+    # ENFORCE RULE: In roleplay videos, narrator and any character sharing the same
+    # gender MUST NOT share the same voice. Every speaker must have a unique reference voice.
+    used_reference_names = set()
+    speakers_gender = {}
+    speakers_voice = {}
+
+    # Order characters first, narrator last so narrator can adapt to avoid character voice collisions
+    characters = [s for s in unique_speakers if "narrator" not in s.lower()]
+    narrators = [s for s in unique_speakers if "narrator" in s.lower()]
+    ordered_speakers = characters + narrators
+
+    for speaker in ordered_speakers:
         gender, abs_path, _ = voice_manager.get_speaker_voice(speaker, clean_language)
-        is_spk_diag = "narrator" not in speaker.lower()
-        eng_name, k_voice = voice_manager.resolve_engine_for_speaker(
-            clean_language,
-            gender=gender,
-            speaker=speaker,
-            is_dialogue=is_spk_diag,
-            cli_engine_override=args.engine,
-            kokoro_available=kokoro_ready,
-            is_multi_speaker_script=is_multi_spk,
-        )
-        speakers_gender[speaker] = gender
-        if eng_name == "kokoro" and k_voice:
-            if k_voice in used_kokoro_voices:
-                k_voice = f"{k_voice}_alt" if not k_voice.endswith("_alt") else f"{k_voice[:-4]}_narrator"
-            used_kokoro_voices.add(k_voice)
-            speakers_voice[speaker] = k_voice
-            print(f"Assigned new voice for '{speaker}': {gender} -> {k_voice} (Kokoro-82M)")
-        else:
-            if abs_path:
-                speakers_voice[speaker] = abs_path.name
-            rel_path = abs_path.name if abs_path else "Fallback"
-            print(f"Assigned new voice for '{speaker}': {gender} -> {rel_path}")
+        vname = abs_path.name if abs_path else None
 
+        # Collision avoidance: if this reference voice was already assigned to another speaker
+        if vname and (vname in used_reference_names):
+            pool = voice_manager.get_available_voices(clean_language, gender)
+            candidates = [p for p in pool if p.name not in used_reference_names]
+            if candidates:
+                # Prefer golden voices if available, or any acceptable candidate
+                golden_cand = [p for p in candidates if "kokoro_golden" in p.name]
+                new_vpath = random.choice(golden_cand if golden_cand else candidates)
+                voice_manager.current_assignments[speaker] = (gender, new_vpath)
+                abs_path = new_vpath
+                vname = new_vpath.name
+
+        if vname:
+            used_reference_names.add(vname)
+
+        speakers_gender[speaker] = gender
+        if abs_path:
+            speakers_voice[speaker] = abs_path.name
+
+    print("\n" + "=" * 64)
+    print("🎤 NEW VOICE CASTING:")
+    for spk in ordered_speakers:
+        g = speakers_gender[spk]
+        v = speakers_voice.get(spk, "default")
+        print(f"  - {spk:12s} ({g.upper()}): {v}")
+    print("=" * 64 + "\n")
+
+    # Update state with new voice assignments
     if "content_metadata" not in script_data:
         script_data["content_metadata"] = {}
     script_data["content_metadata"]["speakers_gender"] = speakers_gender
     script_data["content_metadata"]["speakers_voice"] = speakers_voice
     state_manager.save_script_state(script_id, script_data)
-        
-    video_type = (
-        script_data.get("content_metadata", {}).get("video_type")
-        or script_data.get("prompt_params", {}).get("VIDEO_TYPE")
-        or ""
-    ).upper()
+
+    # 4. Clean up old audio files so no stale segments linger
+    for old_file in script_output_dir.glob("*.flac"):
+        try:
+            old_file.unlink()
+        except Exception:
+            pass
+    for old_file in script_output_dir.glob("*.wav"):
+        try:
+            old_file.unlink()
+        except Exception:
+            pass
+
     is_game = video_type == "GAME" or any(s.get("section") in ["challenge", "pressure"] for s in segments)
     is_roleplay = video_type == "ROLEPLAY" or any("dialogue" in (s.get("section") or "").lower() for s in segments)
     is_script_stress_vital = is_stress_pronunciation_vital(script_data)
 
     segments_to_concat = []
-    
+
+    # 5. Synthesize segments
     for seg in segments:
         idx = seg["index"]
         speaker = seg["speaker"]
@@ -263,57 +403,18 @@ def main():
         is_dialogue = seg["is_dialogue"]
         sec_name = (seg.get("section") or "").lower()
         is_seg_stress_vital = is_script_stress_vital or is_stress_pronunciation_vital(script_data, text)
-        
+
         print(f"\n--- Generating Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
-        
+
         gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
-        seg_engine, kokoro_voice = voice_manager.resolve_engine_for_speaker(
-            clean_language,
-            gender=gender,
-            speaker=speaker,
-            is_dialogue=is_dialogue,
-            cli_engine_override=args.engine,
-            kokoro_available=kokoro_ready,
-            is_multi_speaker_script=is_multi_spk,
-        )
-        if seg_engine == "kokoro" and speakers_voice.get(speaker) and not str(speakers_voice[speaker]).endswith(".wav"):
-            kokoro_voice = speakers_voice[speaker]
 
         output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
         dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
         dest_path = script_output_dir / dest_filename
 
-        if seg_engine == "kokoro" and kokoro_ready:
-            seg_emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
-            seg_energy = map_emotion_to_energy(seg_emotion)
-            print(f"[{speaker}] Engine: Kokoro-82M (Voice: {kokoro_voice}, Gender: {gender}) | Emotion: '{seg_emotion}' | Energy: '{seg_energy}'")
-            res_path = kokoro_engine.synthesize_text(
-                text=text,
-                output_path=dest_path,
-                language=clean_language,
-                voice=kokoro_voice,
-                gender=gender,
-                emotion=seg_emotion,
-                energy=seg_energy,
-                section=seg.get("section"),
-                speaker=speaker,
-            )
-            if res_path and dest_path.exists():
-                score, passes_gate, issues, metrics = evaluate_voice_take(
-                    dest_path, target_text=text, language=clean_language
-                )
-                print(
-                    f"  [Kokoro Quality Gate]: Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | "
-                    f"Tempo: {metrics['cps']} c/s"
-                )
-                segments_to_concat.append({
-                    "path": dest_path,
-                    "section": seg["section"],
-                    "speaker": speaker
-                })
-                continue
-            else:
-                print(f"  [Warning] Kokoro synthesis failed for segment {idx}; falling back to Qwen3-TTS...")
+        norm_text = normalize_multiple_choice_options_for_tts(text, language=clean_language)
+        if norm_text != text:
+            print(f"  [TTS MC Options Normalized]: '{norm_text}'")
 
         if comfy_client is None:
             print(f"Error: Qwen3-TTS ComfyUI is offline and needed for segment {idx}.")
@@ -405,10 +506,10 @@ def main():
                         else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
                     )
 
-        target_text = text
+        target_text = normalize_multiple_choice_options_for_tts(text, language=language)
         detected_stress_words = []
         if is_seg_stress_vital:
-            target_text, detected_stress_words = enhance_stress_text_for_tts(text, language=language)
+            target_text, detected_stress_words = enhance_stress_text_for_tts(target_text, language=language)
             style = build_stress_style_directive(detected_stress_words, language=language, base_style=style, raw_text=text)
             intentional_errs = detect_intentional_stress_errors(text, detected_stress_words)
             if intentional_errs:
@@ -425,7 +526,7 @@ def main():
         energy = map_emotion_to_energy(emotion)
         pers_log = f" | Persona: '{context}'" if context else ""
         print(f"[{speaker}] Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
-        
+
         is_high_impact = (
             any(k in sec_name for k in ["hook", "pressure", "payoff", "cta", "reveal"])
             or (is_game and "answer" in sec_name)
@@ -438,7 +539,7 @@ def main():
             seg_candidates = 2
         else:
             seg_candidates = 1
-        
+
         try:
             if is_seg_stress_vital and detected_stress_words:
                 candidate_paths = []
@@ -549,16 +650,16 @@ def main():
         except Exception as exc:
             print(f"API Error on segment {idx}: {exc}")
             return
-            
+
         segments_to_concat.append({
             "path": dest_path,
             "section": seg["section"],
             "speaker": speaker
         })
-        
+
     print(f"\nSyntheses complete. Merging {len(segments_to_concat)} segments...")
     master_path = script_output_dir / f"script_{script_id}_master.wav"
-    
+
     try:
         merged_file = concatenate_audios(
             segments_metadata=segments_to_concat,
@@ -566,24 +667,27 @@ def main():
         )
         if merged_file:
             print(f"Successfully generated new master audio: {merged_file}")
-            print("The previous master voice file has been replaced.")
             if "assets" not in script_data:
                 script_data["assets"] = {}
             script_data["assets"]["audio_path"] = str(merged_file)
             script_data["status"]["voice_generation"] = "done"
+            # Set video assembly to pending so it can be reassembled with the new audio
+            script_data["status"]["video_assembly"] = "pending"
             state_manager.save_script_state(script_id, script_data)
-            
+
             for seg in segments_to_concat:
                 try:
                     if seg["path"].exists():
                         seg["path"].unlink()
                 except Exception:
                     pass
-            
+
             voice_manager.cleanup_comfy_input()
-            
+            print(f"\n[Done] Master voice for {script_id} successfully replaced. Video assembly is set to pending.")
+
     except Exception as exc:
         print(f"Error during audio merge: {exc}")
+
 
 if __name__ == "__main__":
     main()

@@ -139,45 +139,15 @@ class TestAcousticEvaluator(unittest.TestCase):
                 # Cand 1 was rejected and should be deleted
                 self.assertFalse(cand1.exists())
 
-    def test_select_best_voice_candidate_pronunciation_bank_fallback(self):
-        """Verify that when all candidate takes score below threshold, system falls back to pronunciation bank."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cand1 = Path(tmpdir) / "cand1.flac"
-            cand2 = Path(tmpdir) / "cand2.flac"
-            bank_clip = Path(tmpdir) / "present_noun.flac"
-            dest = Path(tmpdir) / "final.flac"
-
-            cand1.write_text("low_score_1")
-            cand2.write_text("low_score_2")
-            bank_clip.write_text("studio_verified_clip")
-
-            # Mock both candidates to score below 0.80 (e.g. 0.45 and 0.55)
-            def mock_low_eval(path, targets, text):
-                return 0.55, {"transcript": "present", "occurrences": []}
-
-            with patch(
-                "video_creation._B_voice_generation.core.acoustic_evaluator.evaluate_acoustic_prominence",
-                side_effect=mock_low_eval
-            ), patch(
-                "video_creation._B_voice_generation.core.pronunciation_bank.get_pronunciation_clip",
-                return_value=bank_clip
-            ):
-                result = select_best_voice_candidate([cand1, cand2], ["present"], "a PREsent", dest)
-                self.assertEqual(result, dest)
-                self.assertTrue(dest.exists())
-                self.assertEqual(dest.read_text(), "studio_verified_clip")
-
     def test_select_best_voice_candidate_preserves_full_sentence_even_if_low_score(self):
-        """Verify that full sentences (>3 words) never fall back to single-word bank clips."""
+        """Verify that full sentences (>3 words) select the highest scoring candidate even when below threshold."""
         with tempfile.TemporaryDirectory() as tmpdir:
             cand1 = Path(tmpdir) / "cand1.flac"
             cand2 = Path(tmpdir) / "cand2.flac"
-            bank_clip = Path(tmpdir) / "record_verb.flac"
             dest = Path(tmpdir) / "final.flac"
 
             cand1.write_text("sentence_candidate_1")
             cand2.write_text("sentence_candidate_2")
-            bank_clip.write_text("single_word_record")
 
             def mock_eval(path, targets, text):
                 score = 0.65 if "cand1" in str(path) else 0.70
@@ -186,15 +156,12 @@ class TestAcousticEvaluator(unittest.TestCase):
             with patch(
                 "video_creation._B_voice_generation.core.acoustic_evaluator.evaluate_acoustic_prominence",
                 side_effect=mock_eval
-            ), patch(
-                "video_creation._B_voice_generation.core.pronunciation_bank.get_pronunciation_clip",
-                return_value=bank_clip
             ):
                 full_sentence = "Did you hear that our favorite band just released a new reCORD?"
                 result = select_best_voice_candidate([cand1, cand2], ["reCORD"], full_sentence, dest)
                 self.assertEqual(result, dest)
                 self.assertTrue(dest.exists())
-                # Must pick winning sentence candidate (cand2 with 0.70 score), NOT the single-word bank clip!
+                # Must pick winning sentence candidate (cand2 with 0.70 score)
                 self.assertEqual(dest.read_text(), "sentence_candidate_2")
 
     def test_compute_pitch_metrics_constant_vs_modulated(self):

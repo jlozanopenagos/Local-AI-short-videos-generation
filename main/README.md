@@ -215,38 +215,28 @@ When stochastic generation fails to meet acoustic prominence thresholds, the pip
 ### 5. Syllable Stress Subtitle Synchronization (`subtitle_builder.py`)
 In `_G_video_assembly/core/subtitle_builder.py`, word-level animated subtitles (Hormozi style) preserve mixed-case syllable capitalization (`PREsent` vs `preSENT`, `PROject` vs `proJECT`) while rendering all other words in uppercase. Viewers visually see the exact syllable being emphasized in real time.
 
-### 6. Full Feature Parity Across Production Tools
+### 6. Full Feature Parity Across Production Tools & Streamlined Voice Modifier
 Both the mass orchestrator (`video_creation/_B_voice_generation/main.py`) and the interactive tool (`video_creation/_B_voice_generation/voice_modifier.py`) share full feature parity:
 - `--candidates <INT>`: Configurable candidate sampling (default 3 for stress scripts).
 - `--script-id <ID>`: Targeted single-script execution.
+- `--genders <STR>`: Comma-separated speaker gender overrides (e.g. `'male, female, female'`).
 - Prominence scoring, bank fallback, and dynamic acting emotion inference.
 
-### 7. Bank Management CLI (`tools/manage_pronunciation_bank.py`)
-A dedicated command-line utility for inspecting, auditing, and managing the pronunciation bank:
-```bash
-# Check bank coverage and status
-py tools/manage_pronunciation_bank.py --status
+**Interactive Voice Modifier Workflow (`voice_modifier.py`)**:
+- **Immediate Pre-Flight Connection Checks**: Verifies ComfyUI and Kokoro engine health before prompting for Script ID.
+- **Streamlined Gender Selection**: Eliminates tedious manual `.wav` file selection. Users choose only the gender (`male` / `female`) for each speaker, with pressing `Enter` keeping state defaults.
+- **Automated Random Voice Casting**: Automatically selects random high-quality reference voices from the pool, matching `main.py`.
+- **Strict Roleplay Voice Distinctness**: In multi-speaker roleplay scripts, the **Narrator and any character sharing the same gender are strictly guaranteed to receive distinct reference voices and Kokoro timbres**.
+- **Automatic Downstream State Invalidation**: Sets `status.video_assembly = "pending"` in the state JSON so that video assembly is ready to be re-run with the updated master audio track.
+- **Intermediate File Sanitization**: Automatically purges stale `.flac` and `.wav` clips before synthesizing.
 
-# Run acoustic prominence audit on all bank audio clips
-py tools/manage_pronunciation_bank.py --audit
-
-# Populate all missing clips with Kokoro-82M precision engine
-py tools/manage_pronunciation_bank.py --populate-kokoro
-
-# Import a custom studio recording clip
-py tools/manage_pronunciation_bank.py --import my_clip.wav --word present --role noun
-
-# Export bank metadata to JSON
-py tools/manage_pronunciation_bank.py --export-json bank_metadata.json
-```
-
-### 8. Multilingual Native Diction Guidance
+### 7. Multilingual Native Diction Guidance
 Non-English pronunciation scripts receive native articulatory guidance tailored to each language's phonology:
 - **Italian Dizione**: Crisp distinction between single and double consonants (`t` vs `tt`, `n` vs `nn`), short open vowels preceding geminate consonants, and dental stop precision.
 - **Spanish Dicción**: Sharp contrast between single tap `r` and double alveolar trill `rr`, pure bright vowels without English diphthongs.
 - **French Diction**: Natural phrase-final tonic accent, clean liaison and elision, melodic cadence and prosody.
 
-### 9. Topic Disambiguation: Linguistic vs. Psychological Stress
+### 8. Topic Disambiguation: Linguistic vs. Psychological Stress
 `is_stress_pronunciation_vital()` disambiguates between linguistic pronunciation scripts and conversational/psychological topics (e.g. *"le stress des examens"*, *"gestion du stress"*, *"stress relief"*). Scripts addressing anxiety or relaxation retain standard expressive acting styles with zero phonetic prompt pollution.
 
 ---
@@ -308,8 +298,8 @@ The pipeline is engineered to execute end-to-end on budget and consumer GPUs wit
 │ CPU Chalkboard Typography     │ Pillow + FreeType typography on CPU.   │
 │                               │ Completely replaces heavy Flux Img2Img │
 │                               │ inference for quizzes (0MB VRAM).      │
-│ Smart Cache Preservation      │ Intrusive /free calls removed to       │
-│                               │ allow ComfyUI weight-caching to work.  │
+│ Smart Cache & Stage Cleanup   │ Reclaims VRAM via /free only on stage  │
+│                               │ transitions while keeping model cache. │
 │ Input Folder Auto-Cleanup     │ Temporary reference WAVs/PNGs deleted  │
 │                               │ immediately post-inference.            │
 └───────────────────────────────┴────────────────────────────────────────┘
@@ -375,8 +365,6 @@ main/connectivity/
 ├── reconcile_scripts.py            # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                 # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
 ├── scan_ready_scripts.py           # Principal Runner 5: Scans ready scripts and exports by date
-├── cli.py                          # Backward-compatibility alias for sync_sheets.py
-├── corrected_scripts_fetching.py   # Backward-compatibility alias for fetch_corrected_scripts.py
 ├── core/                           # Endpoints registry & resilient HTTP client (redirects & retries)
 ├── apps_script/                    # Apps Script Web App implementation (doGet/doPost) & deployment guide
 ├── sheet_sync/                     # Syncs Columns A-C (or A:D) to local CSV files
@@ -387,9 +375,9 @@ main/connectivity/
 ```
 
 ### 5 Core Capabilities & Principal Runner Scripts:
-1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`, legacy alias `cli.py`)**:
+1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`)**:
    Fetches records from Google Sheets and writes standardized CSV files to `D:\AI\output\connectivity\synced_sheets\_3_columns\` or `_4_columns\`.
-2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`, legacy alias `corrected_scripts_fetching.py`)**:
+2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`)**:
    Scans Column D (`SCRIPT_CHANGED`) for user or external editor revisions. Outputs filtered modifications to `main/input/csv/script_to_change/<lang>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`. Supports full sheets, ranges (e.g. `01-50`), single IDs, or reading IDs from `input/csv/script_to_change/ids_to_fetch.csv`.
 3. **Reconcile & Reorganize Scripts (`connectivity/reconcile_scripts.py`)**:
    Audits local scripts against Google Sheets order, preserving sheet row sequences and canonical expression names while appending new local entries at the end. Exports clean mass-update CSVs to `D:\AI\output\connectivity\scripts_to_post\`.
@@ -545,21 +533,14 @@ python tools/database/sync_prompts.py
 python tools/auditing/status_scraper.py
 python tools/auditing/status_scraper.py --samples
 
-# Audit encoding, schema, and cross-format alignment across CSVs
-python tools/auditing/audit_all_csvs.py
-
 # Mass reset pipeline stage status across state files and resync status manifest
-python tools/reset_stage_status.py --stage voice_generation --yes
-python tools/reset_stage_status.py --stage image_generation -l french -t expression --yes
-python tools/reset_stage_status.py --stage voice_generation --dry-run
+python tools/database/reset_stage_status.py --stage voice_generation --yes
+python tools/database/reset_stage_status.py --stage image_generation -l french -t expression --yes
+python tools/database/reset_stage_status.py --stage voice_generation --dry-run
 
 # Audit & synchronize Column D script changes to state JSONs
 python tools/check_script_changes.py --check-only
 python tools/check_script_changes.py --apply
-
-# Upgrade titles & metadata across state JSONs (strictly emoji-free, format-differentiated)
-python tools/upgrade_titles.py
-python tools/upgrade_titles.py --apply
 
 # Headless ComfyUI Process Supervisor & CLI
 python tools/comfy.py start
@@ -605,8 +586,6 @@ shorts_automation/
 │   │   ├── reconcile_scripts.py        # Principal Runner 3: Audits & reorganizes local scripts
 │   │   ├── post_scripts.py             # Principal Runner 4: Posts scripts to Google Sheets
 │   │   ├── scan_ready_scripts.py       # Principal Runner 5: Scans ready scripts and exports by date
-│   │   ├── cli.py                      # Backward-compatibility alias for sync_sheets.py
-│   │   ├── corrected_scripts_fetching.py # Backward-compatibility alias for fetch_corrected_scripts.py
 │   │   ├── core/                       # Option A endpoints router & resilient HTTP client
 │   │   ├── apps_script/                # Apps Script Web App implementation & deployment guide
 │   │   ├── sheet_sync/                 # Sheet to CSV synchronization service
@@ -664,9 +643,7 @@ shorts_automation/
 │   └── README.md                       # Comprehensive pipeline manual (this document)
 └── test/                               # Isolated QA test suite and validation layer
     ├── connectivity/                   # Google Sheets integration & data contract tests
-    ├── contracts/                      # CSV, JSON, and prompt schema contract tests
-    ├── integration/                    # DB, status tracker, and mock service health tests
-    ├── security/                       # Secrets, privacy, and oversized binary leak detection
+    ├── integration/                    # DB, status tracker, schema contracts, security & mock service health tests
     ├── unit/                           # Pure unit tests for core pipeline modules
     ├── conftest.py                     # Shared pytest/unittest fixtures & sys.path setup
     ├── pytest.ini                      # Pytest discovery settings and custom test markers

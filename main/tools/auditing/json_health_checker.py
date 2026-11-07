@@ -109,11 +109,11 @@ class ScriptHealthAuditor:
                             vtype = (content_meta.get("video_type") or "EXPRESSION").upper()
 
                         if vtype == "EXPRESSION" and spoken_words < 45:
-                            errors.append(f"Unusually low word count: {spoken_words} words (expected 70-90 for EXPRESSION)")
+                            errors.append(f"Unusually low word count: {spoken_words} words (expected 85-110 for EXPRESSION)")
                         elif vtype == "ROLEPLAY" and spoken_words < 80:
-                            errors.append(f"Unusually low word count: {spoken_words} words (expected 120-140 for ROLEPLAY)")
+                            errors.append(f"Unusually low word count: {spoken_words} words (expected 145-180 for ROLEPLAY)")
                         elif vtype == "GAME" and spoken_words < 50:
-                            errors.append(f"Unusually low word count: {spoken_words} words (expected 75-95 for GAME)")
+                            errors.append(f"Unusually low word count: {spoken_words} words (expected 95-125 for GAME)")
                         elif vtype in ("FUN_FACTS", "FUNFACTS") and spoken_words < 60:
                             errors.append(f"Unusually low word count: {spoken_words} words (expected 95-135 for FUN_FACTS)")
 

@@ -1,7 +1,5 @@
-import csv
 import json
 import re
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 def extract_parenthetical(text: str) -> Tuple[str, Optional[str]]:
@@ -77,12 +75,20 @@ def parse_sections(script_text: str) -> Dict[str, str]:
     
     if json_text.startswith("{") and json_text.endswith("}"):
         try:
-            data = json.loads(json_text)
+            data = json.loads(json_text, strict=False)
             for k, v in data.items():
                 sections[k.strip().lower()] = str(v).strip()
             return sections
         except json.JSONDecodeError:
-            pass
+            try:
+                # Sanitize literal unescaped newlines/tabs inside string values
+                sanitized = re.sub(r'[\r\n]+', ' ', json_text)
+                data = json.loads(sanitized, strict=False)
+                for k, v in data.items():
+                    sections[k.strip().lower()] = str(v).strip()
+                return sections
+            except Exception:
+                pass
             
     current_section = None
     current_lines = []
@@ -254,11 +260,11 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
     
     # Determine the order of sections to vocalize
     known_order = [
-        "hook", "context", "setup", "mystery", "clues", "challenge", "pressure", "thinking_time",
-        "content", "dialogue", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4",
+        "hook", "setup", "mystery", "clues", "challenge", "pressure", "thinking_time",
+        "dialogue", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4",
         "comparison_a", "comparison_b", "fact_1", "fact_2", "fact_3", "item_3", "item_2", "item_1",
-        "discovery", "core_learning", "example", "reveal", "answer", "surprise", "emphasis", "explanation", "interrupt",
-        "payoff", "takeaway", "cta"
+        "discovery", "example", "reveal", "answer", "surprise", "explanation",
+        "payoff", "cta"
     ]
     existing_keys = list(sections.keys())
     
@@ -312,66 +318,3 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
                     
     return all_segments
 
-def load_pending_scripts(prompts_path: Path, metadata_path: Path, completed_ids: set) -> List[Dict]:
-    """Loads scripts and their metadata for all IDs not in completed_ids.
-    Robustly handles CSVs whether they contain header rows or not.
-    """
-    if not prompts_path.exists() or not metadata_path.exists():
-        return []
-        
-    # Read metadata
-    metadata_map = {}
-    with metadata_path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.reader(f)
-        first_row = next(reader, None)
-        if first_row:
-            # Check if the CSV has a header row
-            has_headers = len(first_row) >= 8 and first_row[0].strip().upper() == "ID" and first_row[6].strip().upper() == "LABEL"
-            
-            # Helper to process row
-            def process_meta_row(r):
-                if len(r) >= 7:
-                    # Column 0: ID, Column 6: LABEL
-                    metadata_map[r[0].strip()] = {"ID": r[0].strip(), "LABEL": r[6].strip()}
-            
-            if not has_headers:
-                process_meta_row(first_row)
-            
-            for row in reader:
-                process_meta_row(row)
-
-    # Read prompts
-    pending = []
-    with prompts_path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.reader(f)
-        first_row = next(reader, None)
-        if first_row:
-            # Check if the CSV has a header row
-            has_headers = len(first_row) >= 2 and first_row[0].strip().upper() == "ID" and first_row[1].strip().upper() == "SCRIPT"
-            
-            rows_to_process = []
-            
-            def process_prompt_row(r):
-                if len(r) >= 2:
-                    rows_to_process.append((r[0].strip(), r[1].strip()))
-            
-            if not has_headers:
-                process_prompt_row(first_row)
-                
-            for row in reader:
-                process_prompt_row(row)
-                
-            for script_id, script_text in rows_to_process:
-                if not script_id or script_id in completed_ids:
-                    continue
-                    
-                meta = metadata_map.get(script_id, {})
-                label = meta.get("LABEL", "english")
-                
-                pending.append({
-                    "id": script_id,
-                    "script": script_text,
-                    "label": label
-                })
-            
-    return pending

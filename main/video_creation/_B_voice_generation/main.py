@@ -37,7 +37,6 @@ try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
-    from video_creation._B_voice_generation.core.kokoro_engine import get_kokoro_engine
     from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
     from video_creation._B_voice_generation.core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive, normalize_multiple_choice_options_for_tts, detect_intentional_stress_errors
     from video_creation._B_voice_generation.core.acoustic_evaluator import (
@@ -50,7 +49,6 @@ except (ImportError, ModuleNotFoundError):
         from core.script_parser import get_script_segments
         from core.comfy_client import ComfyClient
         from core.voice_manager import VoiceManager
-        from core.kokoro_engine import get_kokoro_engine
         from core.audio_processor import concatenate_audios
         from core.stress_enhancer import enhance_stress_text_for_tts, build_stress_style_directive, normalize_multiple_choice_options_for_tts, detect_intentional_stress_errors
         from core.acoustic_evaluator import (
@@ -65,8 +63,6 @@ except (ImportError, ModuleNotFoundError):
         from _B_voice_generation.core.comfy_client import ComfyClient
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.voice_manager import VoiceManager
-        # pyrefly: ignore [missing-import]
-        from _B_voice_generation.core.kokoro_engine import get_kokoro_engine
         # pyrefly: ignore [missing-import]
         from _B_voice_generation.core.audio_processor import concatenate_audios
         # pyrefly: ignore [missing-import]
@@ -297,7 +293,6 @@ def process_script(
     force: bool,
     base_dir: Path,
     candidates: Optional[int] = None,
-    cli_engine_override: Optional[str] = None,
 ) -> bool:
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
@@ -336,9 +331,6 @@ def process_script(
         return False
         
     print(f"Found {len(segments)} segments to synthesize.")
-    
-    kokoro_engine = get_kokoro_engine()
-    kokoro_ready = bool(kokoro_engine and kokoro_engine.is_ready)
 
     unique_speakers = list(set(seg["speaker"] for seg in segments))
     existing_genders = script_data.get("content_metadata", {}).get("speakers_gender", {})
@@ -368,32 +360,10 @@ def process_script(
     # Save the assigned genders and voice identifiers into the script state
     speakers_gender = {}
     speakers_voice = {}
-    is_multi_spk = len(unique_speakers) > 1
-    used_kokoro_voices = set()
     for spk in unique_speakers:
         gender, vpath, _ = voice_manager.get_speaker_voice(spk, clean_language)
-        is_spk_dialogue = "narrator" not in spk.lower()
-        eng_name, k_voice = voice_manager.resolve_engine_for_speaker(
-            clean_language,
-            gender=gender,
-            speaker=spk,
-            is_dialogue=is_spk_dialogue,
-            cli_engine_override=cli_engine_override,
-            kokoro_available=kokoro_ready,
-            is_multi_speaker_script=is_multi_spk,
-        )
         speakers_gender[spk] = gender
-        if eng_name == "kokoro" and k_voice:
-            # If user explicitly set a custom Kokoro voice recipe (e.g. *_alt or *_narrator) in state JSON, honor it
-            existing_k = str(existing_voices.get(spk) or "").strip()
-            if existing_k and not existing_k.endswith(".wav") and re.match(r"^[a-z]{2}_[a-z0-9_]+$", existing_k):
-                k_voice = existing_k
-            # Guarantee no two speakers in the same script share the exact same Kokoro voice recipe
-            if k_voice in used_kokoro_voices:
-                k_voice = f"{k_voice}_alt" if not k_voice.endswith("_alt") else f"{k_voice[:-4]}_narrator"
-            used_kokoro_voices.add(k_voice)
-            speakers_voice[spk] = k_voice
-        elif vpath:
+        if vpath:
             speakers_voice[spk] = Path(vpath).name
         
     if "content_metadata" not in script_data:
@@ -426,17 +396,6 @@ def process_script(
         print(f"\n--- Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
         
         gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
-        seg_engine, kokoro_voice = voice_manager.resolve_engine_for_speaker(
-            clean_language,
-            gender=gender,
-            speaker=speaker,
-            is_dialogue=is_dialogue,
-            cli_engine_override=cli_engine_override,
-            kokoro_available=kokoro_ready,
-            is_multi_speaker_script=is_multi_spk,
-        )
-        if seg_engine == "kokoro" and speakers_voice.get(speaker) and not str(speakers_voice[speaker]).endswith(".wav"):
-            kokoro_voice = speakers_voice[speaker]
 
         output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
         dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
@@ -455,40 +414,7 @@ def process_script(
         if norm_text != text:
             print(f"  [TTS MC Options Normalized]: '{norm_text}'")
 
-        # Attempt Kokoro-82M synthesis when configured and ready
-        if seg_engine == "kokoro" and kokoro_ready:
-            seg_emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
-            seg_energy = map_emotion_to_energy(seg_emotion)
-            print(f"[{speaker}] Engine: Kokoro-82M (Voice: {kokoro_voice}, Gender: {gender}) | Emotion: '{seg_emotion}' | Energy: '{seg_energy}'")
-            res_path = kokoro_engine.synthesize_text(
-                text=norm_text,
-                output_path=dest_path,
-                language=clean_language,
-                voice=kokoro_voice,
-                gender=gender,
-                emotion=seg_emotion,
-                energy=seg_energy,
-                section=seg.get("section"),
-                speaker=speaker,
-            )
-            if res_path and dest_path.exists():
-                score, passes_gate, issues, metrics = evaluate_voice_take(
-                    dest_path, target_text=text, language=clean_language
-                )
-                print(
-                    f"  [Kokoro Quality Gate]: Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | "
-                    f"Tempo: {metrics['cps']} c/s"
-                )
-                segments_to_concat.append({
-                    "path": dest_path,
-                    "section": seg["section"],
-                    "speaker": speaker
-                })
-                continue
-            else:
-                print(f"  [Warning] Kokoro synthesis failed for segment {idx}; falling back to Qwen3-TTS...")
-
-        # Fallback or primary Qwen3-TTS ComfyUI synthesis
+        # Qwen3-TTS ComfyUI synthesis
         if comfy_client is None:
             try:
                 require_services(comfy=True)
@@ -765,17 +691,10 @@ def process_script(
     return False
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="LingoVerse Shorts Voice Generator (Kokoro-82M & Qwen3-TTS)")
+    parser = argparse.ArgumentParser(description="LingoVerse Shorts Voice Generator (Qwen3-TTS)")
     parser.add_argument("--script-id", type=str, default=None, help="Target specific script ID(s) (e.g. EE01, FG02 or comma-separated)")
     parser.add_argument("--force", action="store_true", help="Force regeneration even if voice is already generated")
     parser.add_argument("--auto", action="store_true", help="Auto-generate without interactive terminal prompts")
-    parser.add_argument(
-        "--engine",
-        type=str,
-        default="auto",
-        choices=["auto", "kokoro", "qwen3", "hybrid"],
-        help="Voice synthesis engine override (default: 'auto' uses VOICE_ENGINE_BY_LANGUAGE)"
-    )
     parser.add_argument(
         "--fun-facts",
         "--fun-facts-only",
@@ -836,21 +755,16 @@ def main() -> int:
     state_manager = StateManager(base_dir)
     
     workflow_template_path = VOICE_WORKFLOW_PATH
-    comfy_client = None
-    kokoro_engine = get_kokoro_engine()
-    if workflow_template_path.exists():
-        try:
-            require_services(comfy=True)
-            comfy_client = ComfyClient(COMFY_API_URL, workflow_template_path, COMFY_OUTPUT_DIR)
-            print("AI services connection (ComfyUI) verified.")
-        except ConnectionError as e:
-            if kokoro_engine and kokoro_engine.is_ready and args.engine != "qwen3":
-                print(f"[Notice] ComfyUI offline ({e}); continuing with local Kokoro-82M engine.")
-            else:
-                print(f"Error: {e}", file=sys.stderr)
-                return 1
-    elif not (kokoro_engine and kokoro_engine.is_ready):
+    if not workflow_template_path.exists():
         print(f"Error: Could not locate template {workflow_template_path}", file=sys.stderr)
+        return 1
+
+    try:
+        require_services(comfy=True)
+        comfy_client = ComfyClient(COMFY_API_URL, workflow_template_path, COMFY_OUTPUT_DIR)
+        print("AI services connection (ComfyUI) verified.")
+    except ConnectionError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
     try:
@@ -1001,7 +915,6 @@ def main() -> int:
                     args.force,
                     base_dir,
                     candidates=args.candidates,
-                    cli_engine_override=args.engine,
                 ):
                     success_count += 1
                     time.sleep(0.3)

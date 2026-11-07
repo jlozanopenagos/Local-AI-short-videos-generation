@@ -17,7 +17,9 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+# pyrefly: ignore[missing-import]
 import numpy as np
+# pyrefly: ignore[missing-import]
 import soundfile as sf
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,7 @@ def get_whisper_model(model_size: str = "tiny", device: str = "cpu"):
     global _WHISPER_MODEL
     if _WHISPER_MODEL is None:
         try:
+            # pyrefly: ignore[missing-import]
             from faster_whisper import WhisperModel
             # Attempt int8 first; fall back to float32 if needed
             try:
@@ -339,39 +342,6 @@ def select_best_voice_candidate(
     # Pick the candidate with the highest score
     scored_candidates.sort(key=lambda x: x[1], reverse=True)
     winner_cand, best_score, best_details = scored_candidates[0]
-
-    # Phase 3 Precision Quality Gate: If all candidate takes fell below acceptable contrast (< 0.80),
-    # fallback to verified studio clip from Heteronym Pronunciation Bank if available
-    # ONLY IF the text being voiced is an isolated word demonstration or very short carrier (<= 3 words),
-    # because replacing a full conversational sentence with an isolated word clip destroys the sentence!
-    words_in_context = len(re.findall(r"[\w'-]+", text_context)) if text_context else 0
-    if best_score < 0.80 and words_in_context <= 3:
-        try:
-            from video_creation._B_voice_generation.core.pronunciation_bank import get_pronunciation_clip
-        except (ImportError, ModuleNotFoundError):
-            try:
-                from core.pronunciation_bank import get_pronunciation_clip
-            except (ImportError, ModuleNotFoundError):
-                get_pronunciation_clip = None
-
-        if get_pronunciation_clip and len(target_words) == 1:
-            target_word = target_words[0].lower()
-            expected_roles = detect_roles_in_text(text_context, target_words)
-            if len(expected_roles) == 1:
-                role = expected_roles[0][1]
-                bank_clip = get_pronunciation_clip(target_word, role)
-                if bank_clip and bank_clip.exists():
-                    print(f"  [Pronunciation Bank]: Low candidate score ({best_score:.2f} < 0.80) on short drill ({words_in_context} words). Fallback to verified studio clip: {bank_clip.name}")
-                    if dest_path.exists():
-                        dest_path.unlink()
-                    shutil.copyfile(str(bank_clip), str(dest_path))
-                    for cand, _, _ in scored_candidates:
-                        if cand.exists():
-                            try:
-                                cand.unlink()
-                            except Exception:
-                                pass
-                    return dest_path
 
     print(f"  -> Winner Selected: {winner_cand.name} (Contrast Score: {best_score:.2f})")
 

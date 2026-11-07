@@ -6,7 +6,7 @@ Modular integration layer connecting Google Sheets to the `shorts_automation` pi
 
 ## Architecture Overview
 
-The `main/connectivity` package is organized into dedicated functional subpackages, keeping **only the principal executable runner scripts** (and lightweight backward-compatibility aliases) at the root:
+The `main/connectivity` package is organized into dedicated functional subpackages, keeping **only the principal executable runner scripts** at the root:
 
 ```text
 main/connectivity/
@@ -65,8 +65,6 @@ main/connectivity/
 
   # Sync specific sheet:
   py main/connectivity/sync_sheets.py -l french -t expression
-
-  # (Backward-compatibility alias: py main/connectivity/cli.py also supported)
   ```
 
 ### 2. Fetch Corrected Scripts (`fetch_corrected_scripts.py`)
@@ -83,12 +81,10 @@ main/connectivity/
 - **Usage**:
   ```powershell
   py main/connectivity/fetch_corrected_scripts.py
-
-  # (Backward-compatibility alias: py main/connectivity/corrected_scripts_fetching.py also supported)
   ```
 
 
-### 2b. Audit & Synchronize Script Changes (`check_script_changes.py`)
+### 2b. Audit & Synchronize Script Changes (`main/tools/check_script_changes.py`)
 - **Action**: Bridges the gap between fetched Column D corrections in `main/input/csv/script_to_change/` and local State JSON files (`main/state/`).
 - **Functionality**:
   - Compares every row in every CSV in `script_to_change/` against its local State JSON.
@@ -98,14 +94,14 @@ main/connectivity/
 - **Usage**:
   ```powershell
   # Check for differences without modifying state JSONs:
-  py main/connectivity/check_script_changes.py --check-only
+  py main/tools/check_script_changes.py --check-only
 
   # Apply all detected script updates across all sheets:
-  py main/connectivity/check_script_changes.py --apply
+  py main/tools/check_script_changes.py --apply
 
   # Target a specific CSV or script ID:
-  py main/connectivity/check_script_changes.py --csv english_game_script_to_change.csv --apply
-  py main/connectivity/check_script_changes.py --script-id EE56 --apply
+  py main/tools/check_script_changes.py --csv english_game_script_to_change.csv --apply
+  py main/tools/check_script_changes.py --script-id EE56 --apply
   ```
 
 ### 3. Reconcile & Reorganize Scripts (`reconcile_scripts.py`)

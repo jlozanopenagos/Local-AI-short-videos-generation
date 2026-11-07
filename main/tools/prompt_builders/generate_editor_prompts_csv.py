@@ -348,11 +348,11 @@ CORE PRODUCTION MECHANICS & VISUAL RULES
      * Spanish: Warm Cream, Orange, Terracotta, Botanical Green.
      * Italian: Mediterranean Blue, Olive Green, Warm Terracotta, Sunlit Gold.
 
-9. MANDATORY YOUTHFUL TEEN DEMOGRAPHIC (12–15 YEARS OLD — SITUATION-APPROPRIATE ATTIRE):
-   - All characters must be youthful 2D cartoon TEENS (approx. 12–15 years old, junior protagonists).
+9. MANDATORY YOUTHFUL TEEN DEMOGRAPHIC (15–16 YEARS OLD — SITUATION-APPROPRIATE ATTIRE):
+   - All characters must be youthful 2D cartoon TEENS (approx. 15–16 years old, adolescent protagonists).
    - ❌ STRICTLY FORBIDDEN: Childish clothes (dungarees, bibs, kindergarten outfits), toys, or toddler appearances. Also ❌ STRICTLY FORBIDDEN: Middle-aged adults, elderly faces, or mature wrinkles.
    - Characters MUST dress appropriately and stylishly for the authentic situation (e.g. rehearsal casual, creative studio apron, sleek drafting jacket, kitchen apron).
-   - Doctor any references like "a young child" or "a grown man" into "a youthful cartoon teen (13-15 years old)"!
+   - Doctor any references like "a young child" or "a grown man" into "a youthful cartoon teen (15-16 years old)"!
 
 10. WORD ECONOMY & CONCISENESS (MAXIMUM PRESERVATION OF WORDS):
    - Diffusion models degrade when flooded with 300 words of conversational fluff.
@@ -364,7 +364,7 @@ CORE PRODUCTION MECHANICS & VISUAL RULES
 STANDARD MANDATORY STYLE MANDATE ANCHOR
 ==================================================
 Every doctored prompt MUST conclude with this exact, standardized style mandate tail:
-". Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive youthful teen character design (approx. 13-15 years old), large clear cartoon eyes with visible white sclera and specular pupil highlights, situation-appropriate stylish attire, rich detailed environmental interior background with depth and warm atmospheric lighting. (youthful teen protagonist, NO childish clothes, NO toys, NO toddlers, NO middle-aged adults, NO elderly, NO wrinkles, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text)"
+". Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive youthful teen character design (approx. 15-16 years old), large clear cartoon eyes with visible white sclera and specular pupil highlights, situation-appropriate stylish attire, rich detailed environmental interior background with depth and warm atmospheric lighting. (youthful teen protagonist, NO childish clothes, NO toys, NO toddlers, NO middle-aged adults, NO elderly, NO wrinkles, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text)"
 
 ==================================================
 OUTPUT FORMAT (EASY-TO-COPY TEXT BOX)
@@ -422,7 +422,7 @@ with open(readme_file, 'w', encoding='utf-8') as f:
     f.write("- [`IMAGE_PROMPT_AUDITOR.md`](./IMAGE_PROMPT_AUDITOR.md): Audits, steers, and doctors ComfyUI Z-Image Turbo visual prompts (2D cartoon, character eyes, room depth, theme steering, zero text/interjections).\n")
     f.write("- [`EXPRESSION.md`](./EXPRESSION.md): Doctors 5-section Expression Short scripts (Hook, Setup, Discovery, Example, Payoff; 85-110 words).\n")
     f.write("- [`ROLEPLAY.md`](./ROLEPLAY.md): Doctors 6-scene Roleplay Short dialogues (Hook, Dialogue 1-4, Payoff; 145-180 words).\n")
-    f.write("- [`GAME.md`](./GAME.md): Doctors interactive Game/Quiz Shorts (Hook, Challenge, Pressure, Answer, Explanation; 90-120 words).\n")
+    f.write("- [`GAME.md`](./GAME.md): Doctors interactive Game/Quiz Shorts (Hook, Challenge, Pressure, Answer, Explanation; 95-125 words).\n")
     f.write("- [`FUN_FACTS.md`](./FUN_FACTS.md): Doctors curious cultural/linguistic Fun Facts Shorts (Hook, Fact 1-3, Payoff; 95-135 words).\n\n")
     f.write("All prompts are also compiled in the canonical root file [`system_prompts_editor.csv`](../system_prompts_editor.csv).\n")
 print(f"Exported README: {readme_file}")

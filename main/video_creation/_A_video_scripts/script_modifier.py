@@ -196,7 +196,7 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
                     return parsed["script"]
                 # Check for standard keys
                 keys = [k.lower() for k in parsed.keys()]
-                if any(k in keys for k in ["hook", "dialogue_part_1", "challenge", "core_learning"]):
+                if any(k in keys for k in ["hook", "dialogue_part_1", "challenge", "setup", "discovery"]):
                     return parsed
         except Exception:
             pass
@@ -206,9 +206,10 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
     section_patterns = {
         "title": re.compile(r"^(?:title|titre|título|titolo)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "hook": re.compile(r"^(?:hook|accroche|gancho)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "core_learning": re.compile(r"^(?:core[_\s]learning|core|explication|apprentissage)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "emphasis": re.compile(r"^(?:emphasis|emphase|origen|histoire|nuance)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "loop_trigger": re.compile(r"^(?:loop[_\s]trigger|cta|call[_\s]to[_\s]action|conclusion)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "setup": re.compile(r"^(?:setup|contexte|contexto|contesto)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "discovery": re.compile(r"^(?:discovery|découverte|descubrimiento|scoperta)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "example": re.compile(r"^(?:example|exemple|ejemplo|esempio)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "payoff": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion|cta|call[_\s]to[_\s]action)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "DIALOGUE_PART_1": re.compile(r"^(?:dialogue[_\s]part[_\s]1|dialogue[_\s]1|part[_\s]1)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "DIALOGUE_PART_2": re.compile(r"^(?:dialogue[_\s]part[_\s]2|dialogue[_\s]2|part[_\s]2)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "DIALOGUE_PART_3": re.compile(r"^(?:dialogue[_\s]part[_\s]3|dialogue[_\s]3|part[_\s]3)\s*[:：]\s*(.*)$", re.IGNORECASE),

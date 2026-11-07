@@ -150,6 +150,20 @@ class TestWatchdog(unittest.TestCase):
         client.interrupt.assert_called_once()
         self.assertEqual(client._queue_prompt.call_count, 2)
 
+    @patch.object(ImageComfyClient, "_load_and_convert_workflow", return_value={})
+    @patch("video_creation._C_image_generation.core.comfy_client.ImageComfyClient._http_post")
+    def test_comfy_image_queue_prompt_calls_http_post(self, mock_post, mock_load):
+        """Verify _queue_prompt delegates to self._http_post and extracts prompt_id."""
+        client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
+        mock_resp = MagicMock()
+        mock_resp.ok = True
+        mock_resp.json.return_value = {"prompt_id": "test-prompt-id-123"}
+        mock_post.return_value = mock_resp
+
+        pid = client._queue_prompt({"test": "workflow"})
+        self.assertEqual(pid, "test-prompt-id-123")
+        mock_post.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

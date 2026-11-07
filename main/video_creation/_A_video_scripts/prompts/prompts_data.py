@@ -135,5 +135,3 @@ IMPORTANT
 - Output ONLY the JSON object.
 """
 
-# Default prompt for backward compatibility
-METADATA_PROMPT = get_metadata_prompt("EXPRESSION", "English")

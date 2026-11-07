@@ -268,7 +268,6 @@ class PipelineStatusTracker:
         - 'script_generation': script_generation != 'done' and db_status != 'DONE'
         - 'voice_generation': script_generation == 'done' and (force or voice_generation != 'done') and db_status != 'DONE'
         - 'image_generation': script_generation == 'done' and (force or image_generation != 'done') and db_status != 'DONE'
-        - 'music_generation': voice_generation == 'done' and (force or music_generation != 'done') and db_status != 'DONE'
         - 'thumbnail_generation': script_generation == 'done' and (force or thumbnail_generation != 'done') and db_status != 'DONE'
         - 'video_assembly': voice_generation == 'done' and image_generation == 'done' and (force or video_assembly != 'done') and db_status != 'DONE'
         """

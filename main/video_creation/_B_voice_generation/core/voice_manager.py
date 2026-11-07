@@ -34,65 +34,6 @@ class VoiceManager:
         name_low = path.name.lower()
         return not any(pat in name_low for pat in EXCLUDED_NON_ENGLISH_PATTERNS)
 
-    @classmethod
-    def resolve_engine_for_speaker(
-        cls,
-        language: str,
-        gender: str = "female",
-        speaker: str = "narrator",
-        is_dialogue: bool = False,
-        cli_engine_override: Optional[str] = None,
-        kokoro_available: bool = True,
-        is_multi_speaker_script: bool = False,
-    ) -> Tuple[str, Optional[str]]:
-        """Determines whether a speaker segment should be synthesized with 'kokoro' or 'qwen3',
-        and returns `(engine_name, kokoro_voice_id_or_None)`.
-
-        Engine modes (`VOICE_ENGINE_BY_LANGUAGE` or `--engine`):
-          - 'qwen3'  : Always use Qwen3-TTS via ComfyUI.
-          - 'kokoro' : Always use Kokoro-82M (using `ff_siwis_male` pitch-shifted if French male,
-                       and `*_narrator` timbre variant for the 3rd speaker in Roleplays).
-          - 'hybrid' : Use Kokoro-82M when a native gender voice exists (`ef_dora`, `em_alex`,
-                       `ff_siwis`, `if_sara`, `im_nicola`); for French male dialogue (since Kokoro
-                       v1.0 has no native male French voice), fall back to Qwen3-TTS ICL cloning.
-        """
-        lang = cls.normalize_language(language)
-        gend = "male" if str(gender).strip().lower() == "male" else "female"
-
-        mode = (cli_engine_override or "").strip().lower()
-        if not mode or mode == "auto":
-            engine_map = getattr(config, "VOICE_ENGINE_BY_LANGUAGE", {})
-            mode = engine_map.get(lang, "qwen3").strip().lower()
-
-        if mode == "qwen3" or not kokoro_available:
-            return "qwen3", None
-
-        kokoro_voices = getattr(config, "KOKORO_VOICES", {})
-        voice_list = kokoro_voices.get((lang, gend), [])
-        chosen_voice = voice_list[0] if voice_list else None
-
-        if mode == "hybrid":
-            # In French, Kokoro v1.0 only has a native female voice (ff_siwis).
-            # Narrator uses ff_siwis_narrator, while a male dialogue speaker falls back to Qwen3-TTS ICL.
-            if lang == "french" and gend == "male":
-                if is_dialogue:
-                    return "qwen3", None
-                # Single-narrator French script: prefer native female voice ff_siwis_narrator
-                return "kokoro", "ff_siwis_narrator"
-
-        if not chosen_voice:
-            from video_creation._B_voice_generation.core.kokoro_engine import KokoroEngine
-            chosen_voice = KokoroEngine.resolve_voice(lang, gender=gend)
-
-        # Always give the Narrator a dedicated `_narrator` energetic host persona
-        # (brighter style blend + lively storytelling pitch/cadence) so the Narrator
-        # never sounds sleepy or identical to a dialogue character (`PERSON_ONE` / `PERSON_TWO`).
-        if not is_dialogue and "narrator" in speaker.lower() and chosen_voice:
-            if not chosen_voice.endswith("_narrator"):
-                chosen_voice = f"{chosen_voice}_narrator"
-
-        return "kokoro", chosen_voice
-
     @staticmethod
     def normalize_language(language: str) -> str:
         """Normalizes any language string, compound metadata label, or shortcode to canonical lowercase:
@@ -242,12 +183,8 @@ class VoiceManager:
 
         if len(unique_speakers) == 1:
             speaker = list(unique_speakers)[0]
-            # Random gender for single narrator (for French in hybrid/kokoro mode, prefer female where native ff_siwis exists)
-            engine_mode = getattr(config, "VOICE_ENGINE_BY_LANGUAGE", {}).get(lang, "qwen3")
             if speaker in manual_genders:
                 gender = manual_genders[speaker]
-            elif lang == "french" and engine_mode in ("kokoro", "hybrid"):
-                gender = "female"
             else:
                 gender = random.choice(["male", "female"])
             abs_path = manual_voice_paths.get(speaker)
@@ -447,24 +384,22 @@ class VoiceManager:
         return gender, fallback_voice, seed
 
     def resolve_speaker_gender(self, speaker_name: str) -> str:
-        """Determines the gender (male/female) of a speaker name using heuristics."""
+        """Determines the gender (male/female/unknown) of a speaker name using heuristics."""
         name_clean = speaker_name.strip().lower()
-        
-        if name_clean in config.SPEAKER_GENDER_MAP:
-            return config.SPEAKER_GENDER_MAP[name_clean]
-            
-        for key, gender in config.SPEAKER_GENDER_MAP.items():
-            if key in name_clean or name_clean in key:
-                return gender
+
+        if any(k in name_clean for k in ("female", "woman", "girl", "mother", "sister", "wife")):
+            return "female"
+        if any(k in name_clean for k in ("male", "man", "boy", "father", "brother", "husband")):
+            return "male"
+
+        if "person" in name_clean or "speaker" in name_clean or "character" in name_clean:
+            return "unknown"
 
         if name_clean.endswith("a") or name_clean.endswith("á"):
             return "female"
         if name_clean.endswith("o") or name_clean.endswith("ó") or name_clean.endswith("or") or name_clean.endswith("er"):
             return "male"
-            
-        if "person" in name_clean or "speaker" in name_clean:
-            return "unknown"
-            
+
         return "female"
 
     def find_reference_voice(self, language: str, gender: str) -> Path:

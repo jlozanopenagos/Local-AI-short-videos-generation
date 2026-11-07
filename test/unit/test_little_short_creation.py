@@ -18,9 +18,10 @@ TEST_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = TEST_DIR.parent
 MAIN_DIR = REPO_ROOT / "main"
 CORE_DIR = MAIN_DIR / "core"
-ASSEMBLY_DIR = MAIN_DIR / "video_creation" / "_G_video_assembly"
+VIDEO_CREATION_DIR = MAIN_DIR / "video_creation"
+ASSEMBLY_DIR = VIDEO_CREATION_DIR / "_G_video_assembly"
 
-for p in [str(MAIN_DIR), str(CORE_DIR), str(ASSEMBLY_DIR)]:
+for p in [str(MAIN_DIR), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(ASSEMBLY_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 

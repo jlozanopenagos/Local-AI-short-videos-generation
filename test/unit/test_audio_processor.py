@@ -60,37 +60,6 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertEqual(trimmed.shape[1], 2)
         self.assertLess(len(trimmed), len(audio))
 
-    def test_dynamic_token_budget_calculation(self):
-        # Formula: max(96, min(240, words * 12))
-        def calc_tokens(words: int) -> int:
-            return max(96, min(240, words * 12))
-
-        # Low word count clamped to minimum 96
-        self.assertEqual(calc_tokens(5), 96)
-        self.assertEqual(calc_tokens(7), 96)
-
-        # Normal word count scaled proportionally
-        self.assertEqual(calc_tokens(10), 120)
-        self.assertEqual(calc_tokens(15), 180)
-
-        # High word count clamped to maximum 240
-        self.assertEqual(calc_tokens(25), 240)
-        self.assertEqual(calc_tokens(40), 240)
-
-    def test_standard_pause_gap_durations(self):
-        pauses = {
-            "section_gap": 0.35,
-            "dialogue_section_gap": 0.20,
-            "dialogue_gap": 0.15,
-            "paragraph_gap": 0.20,
-            "pressure_gap": 2.20
-        }
-        self.assertEqual(pauses["section_gap"], 0.35)
-        self.assertEqual(pauses["dialogue_section_gap"], 0.20)
-        self.assertEqual(pauses["dialogue_gap"], 0.15)
-        self.assertEqual(pauses["paragraph_gap"], 0.20)
-        self.assertEqual(pauses["pressure_gap"], 2.20)
-
     def test_measure_lufs_silence_and_tone(self):
         """Verify ITU-R BS.1770 LUFS calculation on silence and tone."""
         sr = 24000

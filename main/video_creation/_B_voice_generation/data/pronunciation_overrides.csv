@@ -1,8 +1,0 @@
-LANGUAGE,PATTERN,REPLACEMENT,IS_REGEX,CASE_SENSITIVE,NOTES
-spanish,TikTok,Tik Tok,false,false,Ensure clear two-syllable articulation
-spanish,YouTube,Yu Tub,false,false,Phonetic Spanish spelling for espeak-ng
-french,TikTok,Tik Tok,false,false,Ensure clear two-syllable articulation
-french,YouTube,You Tube,false,false,Natural French loanword pacing
-italian,TikTok,Tik Tok,false,false,Ensure clear two-syllable articulation
-italian,YouTube,Iu Tub,false,false,Phonetic Italian spelling for espeak-ng
-

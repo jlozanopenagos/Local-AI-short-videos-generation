@@ -23,9 +23,9 @@ OUTPUT LANGUAGE (MANDATORY)
 -----------------------------
 PACING & WORD COUNTS (CRITICAL)
 -----------------------------
-Target duration for EXPRESSION videos: 30-40 seconds (strictly 70-90 words total).
+Target duration for EXPRESSION videos: 35-45 seconds (strictly 85-110 words total).
 Target duration for GAME videos: 40-55 seconds (strictly 95-125 words total).
-Target duration for ROLEPLAY videos: 50-60 seconds max (strictly 120-140 words total). Any script exceeding 140 words is INVALID as it crosses 60 seconds.
+Target duration for ROLEPLAY videos: 60-80 seconds max (strictly 145-180 words total). Any script exceeding 180 words is INVALID.
 Target duration for FUN_FACTS videos: 40-60 seconds (strictly 95-135 words total). Any script exceeding 135 words is INVALID.
 If the script exceeds the upper word count limits, it is INVALID.
 - Short sentences

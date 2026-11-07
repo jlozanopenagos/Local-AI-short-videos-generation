@@ -29,9 +29,8 @@ shorts_automation/
 │   ├── .env.example                    # Environment variable configuration template
 │   └── README.md                       # Comprehensive operational manual
 └── test/                               # Isolated QA test suite and validation layer
-    ├── contracts/                      # CSV, JSON, and prompt schema contract tests
-    ├── integration/                    # DB, status tracker, and mock service health tests
-    ├── security/                       # Secrets, privacy, and oversized binary leak detection
+    ├── connectivity/                   # Google Sheets integration & data contract tests
+    ├── integration/                    # DB, status tracker, schema contracts, security & mock service health tests
     ├── unit/                           # Pure unit tests for core pipeline modules
     ├── conftest.py                     # Shared pytest/unittest fixtures & sys.path setup
     ├── pytest.ini                      # Pytest discovery settings and custom test markers
@@ -96,15 +95,11 @@ py main/tools/database/sync_prompts.py
 py main/tools/auditing/status_scraper.py
 
 # Mass reset pipeline stage status across state files (e.g. voice_generation to pending)
-py main/tools/reset_stage_status.py --stage voice_generation --yes
+py main/tools/database/reset_stage_status.py --stage voice_generation --yes
 
 # Audit and synchronize Column D script corrections (from Google Sheets) to State JSONs
 py main/tools/check_script_changes.py --check-only
 py main/tools/check_script_changes.py --apply
-
-# Audit and upgrade titles across state JSONs (strictly emoji-free, format-differentiated)
-py main/tools/upgrade_titles.py
-py main/tools/upgrade_titles.py --apply
 
 # Headless ComfyUI Supervisor (Windowless background daemon, zero QuickEdit freezes)
 py main/tools/comfy.py start
@@ -122,8 +117,8 @@ py main/connectivity/sync_sheets.py
 py main/connectivity/fetch_corrected_scripts.py
 
 # Feature 2b: Audit and apply Column D script changes to local state JSONs (resetting downstream stages)
-py main/connectivity/check_script_changes.py --check-only
-py main/connectivity/check_script_changes.py --apply
+py main/tools/check_script_changes.py --check-only
+py main/tools/check_script_changes.py --apply
 
 # Feature 3: Reconcile local scripts to match Google Sheets order into scripts_to_post/
 py main/connectivity/reconcile_scripts.py
@@ -148,6 +143,20 @@ py main/connectivity/scan_ready_scripts.py --all
 ---
 
 ## Recent Changes
+
+### Latest Release: Streamlined Voice Modifier, Distinct Roleplay Casting & Resilient Parser Architecture
+- **Streamlined Voice Modifier & Recaster (`_B_voice_generation/voice_modifier.py`)**:
+  - **Immediate Pre-Flight Health Assertions**: Runs backend connection checks (`require_services(comfy=True)` and local Kokoro engine readiness) upfront before asking for Script IDs or user input.
+  - **Zero Manual File Selection**: Completely eliminated tedious manual reference file picking and 10-item `.wav` filename lists. Users only specify character/narrator genders (`male`/`female`), and the program automatically randomizes high-quality distinct voices from reference pools matching `main.py`.
+  - **Strict Roleplay Voice Distinctness Mandate**: Enforces that in multi-speaker / roleplay scripts, the **Narrator and any character sharing the same gender NEVER share the same reference voice or Kokoro recipe**. Collision avoidance checks guarantee that every speaker in the script receives a distinct reference voice and Kokoro timbre (`_narrator`, `_alt`).
+  - **Automatic Downstream State Invalidation**: Automatically flags `video_assembly: "pending"` in the script state JSON whenever a new master voiceover is synthesized, ensuring that final assembly is flagged to re-render with the new audio track.
+  - **Intermediate Audio Sanitization**: Cleans up stale `.flac` takes and temporary `.wav` files before synthesis to prevent cross-run pollution.
+- **Resilient JSON Section Parsing & Control-Character Tolerance (`script_parser.py`)**:
+  - Enhanced `parse_sections` with `json.loads(..., strict=False)` and regex sanitization of unescaped literal newlines/tabs inside multi-line JSON values.
+  - Eliminates `JSONDecodeError` (`Invalid control character`) crashes on raw scripts, with automatic state recovery from `content_metadata.script`.
+- **5-Section GAME Format Integrity & Pacing**:
+  - Canonical 5-spoken-section structure (`hook`, `challenge`, `pressure`, `answer`, `explanation`) with strict 95–125 word budget and dedicated 2.20s suspense pause (`pressure_gap`).
+  - Dynamic subtitle suppression strictly during the `challenge` section window to preserve chalkboard legibility.
 
 ### Stable Release: Headless ComfyUI Supervisor, Connection Pool & VRAM Arbiter
 - **Headless ComfyUI Process Supervisor (`tools/comfy.py` & `core/comfy_manager.py`)**:
@@ -182,7 +191,7 @@ py main/connectivity/scan_ready_scripts.py --all
   - Implements speaker prefix stripping (`Narrator:`), quotation mark normalization, and whitespace cleanup to eliminate false positives.
   - Automatically resets downstream generation stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'` upon application.
   - Supports `--check-only`, `--apply`, targeting specific CSVs (`--csv <filename>`), or single scripts (`--script-id <ID>`).
-  - Available as `main/tools/check_script_changes.py` and convenience alias `main/connectivity/check_script_changes.py`.
+  - Available at `main/tools/check_script_changes.py`.
 - **Zero-Duplication Parsing Fix (`script_modifier.py`)**:
   - Resolved legacy 4-paragraph duplication bug that previously duplicated `setup` into `discovery` for `EXPRESSION` or `challenge` into `pressure` for `GAME`.
   - Multi-sentence lines are now cleanly partitioned across canonical schema keys or intelligently structured by the LLM with zero duplication.

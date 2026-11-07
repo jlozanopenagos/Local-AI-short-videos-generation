@@ -8,10 +8,10 @@ import re
 try:
     # pyrefly: ignore [missing-import]
     from core.llm import generate_response
-    from prompts.prompts_data import METADATA_PROMPT, get_metadata_prompt
+    from prompts.prompts_data import get_metadata_prompt
 except (ImportError, ModuleNotFoundError):
     from video_creation._A_video_scripts.core.llm import generate_response
-    from video_creation._A_video_scripts.prompts.prompts_data import METADATA_PROMPT, get_metadata_prompt
+    from video_creation._A_video_scripts.prompts.prompts_data import get_metadata_prompt
 
 # Keys we expect back from the LLM (must match config/prompts.py field names)
 _EXPECTED_KEYS = ("title", "description", "short_description", "tags", "hashtags", "label", "filename")

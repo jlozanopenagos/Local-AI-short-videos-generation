@@ -5,6 +5,16 @@ import unittest
 
 # pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.prompts.prompt_builder import validate_params
+# pyrefly: ignore [missing-import]
+from video_creation._A_video_scripts.prompts.common_rules import COMMON_CONTENT_RULES
+# pyrefly: ignore [missing-import]
+from video_creation._A_video_scripts.prompts.expression_rules import EXPRESSION_RULES
+# pyrefly: ignore [missing-import]
+from video_creation._A_video_scripts.prompts.game_rules import GAME_RULES
+# pyrefly: ignore [missing-import]
+from video_creation._A_video_scripts.prompts.roleplay_rules import ROLEPLAY_RULES
+# pyrefly: ignore [missing-import]
+from video_creation._A_video_scripts.prompts.fun_facts_rules import FUN_FACTS_RULES
 
 
 class TestPromptRules(unittest.TestCase):
@@ -74,17 +84,27 @@ class TestPromptRules(unittest.TestCase):
             validate_params(invalid)
 
     def test_word_budget_standards(self):
-        # Asserts canonical word budget limits documented in AGENTS.md / README.md
-        budgets = {
-            "EXPRESSION": (85, 110),
-            "GAME": (95, 125),
-            "ROLEPLAY": (145, 180),
-            "FUN_FACTS": (95, 135)
-        }
-        for vtype, (min_words, max_words) in budgets.items():
-            self.assertLess(min_words, max_words)
-            self.assertGreaterEqual(min_words, 85)
-            self.assertLessEqual(max_words, 180)
+        """Asserts canonical word budget limits are present in actual prompt rule strings and never use legacy ranges."""
+        self.assertIn("85-110 words", COMMON_CONTENT_RULES)
+        self.assertIn("95-125 words", COMMON_CONTENT_RULES)
+        self.assertIn("145-180 words", COMMON_CONTENT_RULES)
+        self.assertIn("95-135 words", COMMON_CONTENT_RULES)
+
+        self.assertIn("85", EXPRESSION_RULES)
+        self.assertIn("110", EXPRESSION_RULES)
+        self.assertIn("95", GAME_RULES)
+        self.assertIn("125", GAME_RULES)
+        self.assertIn("145", ROLEPLAY_RULES)
+        self.assertIn("180", ROLEPLAY_RULES)
+        self.assertIn("95", FUN_FACTS_RULES)
+        self.assertIn("135", FUN_FACTS_RULES)
+
+        # Ensure legacy outdated word-count bounds never reappear
+        for rule_text in (COMMON_CONTENT_RULES, EXPRESSION_RULES, GAME_RULES, ROLEPLAY_RULES, FUN_FACTS_RULES):
+            self.assertNotIn("70-90", rule_text)
+            self.assertNotIn("120-140", rule_text)
+            self.assertNotIn("70 to 90", rule_text)
+            self.assertNotIn("120 to 140", rule_text)
 
 
 if __name__ == "__main__":

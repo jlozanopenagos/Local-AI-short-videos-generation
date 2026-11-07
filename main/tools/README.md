@@ -9,10 +9,11 @@ This folder contains command-line utilities and interactive review tools for the
 | Subdirectory | Focus / Responsibility | Tools Included |
 | :--- | :--- | :--- |
 | **`modifiers/`** | Canonical interactive asset & script modification forwarders | `script_modifier.py`, `voice_modifier.py`, `image_modifier.py`, `subtitles_modifier.py` |
-| **`auditing/`** | Quality inspection, metrics & health checks | `check_script_changes.py`, `audit_all_csvs.py`, `status_scraper.py`, `json_health_checker.py`, `check_language_mixing.py`, `scrapper_script.py` |
-| **`database/`** | Expression database, queue sync, stage resets & ID assignment | `db.py`, `sync_prompts.py`, `assign_ids.py`, `reset_stage_status.py` |
+| **`auditing/`** | Quality inspection, metrics & health checks | `status_scraper.py`, `json_health_checker.py`, `scrapper_script.py` |
+| **`database/`** | Expression database, queue sync & stage resets | `db.py`, `sync_prompts.py`, `reset_stage_status.py` |
 | **`prompt_builders/`**| System editor prompts generator | `generate_editor_prompts_csv.py` |
-| **Root Tools** | Headless ComfyUI supervisor, connection pool, mass title upgrades & bank management | `comfy.py`, `manage_pronunciation_bank.py`, `upgrade_titles.py`, `reset_stage_status.py` |
+| **`voice_quality/`** | Qwen3-TTS VoiceDesign 7-register generator & reference voice auditor | `build_voicedesign_references.py`, `audit_reference_voices.py` |
+| **Root Tools** | Headless ComfyUI supervisor & script change auditor | `comfy.py`, `check_script_changes.py` |
 
 ---
 
@@ -46,39 +47,32 @@ Validates that all input CSV queues (`EXPRESSION`, `GAME`, `ROLEPLAY`, and `FUN_
 py tools/database/sync_prompts.py
 ```
 
-#### Assign Structured Script IDs (`assign_ids.py`)
-Standardizes canonical `<Lang><Type><02d>` identifiers (e.g. `EE01`, `FR02`, `SG01`) across input CSV files and state JSONs without collisions.
-```bash
-py tools/database/assign_ids.py --dry-run
-py tools/database/assign_ids.py
-```
-
 #### Mass Pipeline Stage Status Reset Tool (`reset_stage_status.py`)
-Resets pipeline stage status (`voice_generation`, `image_generation`, `script_generation`, `thumbnail_generation`, `video_assembly`, or `all`) to `pending` across all 1,224 state files or filtered by language, video type, or script ID. Automatically re-scrapes and synchronizes `state/pipeline_status.csv` master manifest. Accessible via `tools/reset_stage_status.py` or `tools/database/reset_stage_status.py`.
+Resets pipeline stage status (`voice_generation`, `image_generation`, `script_generation`, `thumbnail_generation`, `video_assembly`, or `all`) to `pending` across all 1,224 state files or filtered by language, video type, or script ID. Automatically re-scrapes and synchronizes `state/pipeline_status.csv` master manifest.
 ```bash
 # Reset voice_generation to pending across all 1,224 state files and resync pipeline manifest
-py tools/reset_stage_status.py --stage voice_generation --yes
+py tools/database/reset_stage_status.py --stage voice_generation --yes
 
 # Reset image_generation for all French expressions
-py tools/reset_stage_status.py --stage image_generation -l french -t expression --yes
+py tools/database/reset_stage_status.py --stage image_generation -l french -t expression --yes
 
 # Reset specific scripts
-py tools/reset_stage_status.py --stage voice_generation -id EE01,EE02,FR05 --yes
+py tools/database/reset_stage_status.py --stage voice_generation -id EE01,EE02,FR05 --yes
 
 # Dry run preview (reports counts and breakdown without writing)
-py tools/reset_stage_status.py --stage voice_generation --dry-run
+py tools/database/reset_stage_status.py --stage voice_generation --dry-run
 ```
 
 ---
 
-### 2. Auditing & Inspection (`tools/auditing/`)
+### 2. Auditing & Inspection (`tools/auditing/` & `tools/check_script_changes.py`)
 
-#### Script Change Auditor & Automated Synchronizer (`check_script_changes.py`)
+#### Script Change Auditor & Automated Synchronizer (`tools/check_script_changes.py`)
 Scans all CSV files in `main/input/csv/script_to_change/` (populated from Google Sheets Column D `SCRIPT_CHANGED` via `fetch_corrected_scripts.py`), compares them against local State JSON files, reports detailed diffs and word counts, and synchronizes changes.
 - **Zero-Duplication Assurance**: Leverages the updated `script_modifier.py` parsing engine to cleanly partition sentences without duplicating lines across `setup`/`discovery` or `challenge`/`pressure`.
 - **Intelligent Normalization**: Strips speaker prefixes (`Narrator:`, etc.), curly quotes, and detects section reordering without false positives.
 - **Safe State Invalidation**: Automatically resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'` upon applying updates.
-- **Dual Placement**: Available directly in `main/tools/check_script_changes.py` or `main/connectivity/check_script_changes.py`.
+- **Placement**: Located at `main/tools/check_script_changes.py`.
 
 ```bash
 # Preview pending changes across all 16 CSVs without writing
@@ -92,12 +86,6 @@ py tools/check_script_changes.py --csv english_game_script_to_change.csv --apply
 
 # Audit/apply a single script ID
 py tools/check_script_changes.py --script-id EE56 --apply
-```
-
-#### Master CSV Prompt & Encoding Auditor (`audit_all_csvs.py`)
-Deep-audits all 16 prompt CSV files across English, Spanish, French, and Italian for UTF-8 with BOM integrity, absence of mojibake/encoding artifacts, zero duplicate scenarios, zero lazy boilerplate strings, and 1-to-1 cross-format alignment.
-```bash
-py tools/auditing/audit_all_csvs.py
 ```
 
 #### Pipeline Status Scraper (`status_scraper.py`)
@@ -124,12 +112,6 @@ py tools/auditing/json_health_checker.py --script-id SE01
 
 # Automatically reset all problematic scripts to 'pending' without interactive prompts
 py tools/auditing/json_health_checker.py --auto-reset
-```
-
-#### Language Mixing Checker (`check_language_mixing.py`)
-Audits generated script JSONs across all languages for cross-language contamination (e.g. French in Italian, English in Spanish).
-```bash
-py tools/auditing/check_language_mixing.py
 ```
 
 #### Export Scripts for Human Review (`scrapper_script.py`)
@@ -198,55 +180,20 @@ py tools/prompt_builders/generate_editor_prompts_csv.py
 
 ---
 
-### 5. Pronunciation Bank Management (`tools/manage_pronunciation_bank.py`)
+### 5. Voice Quality & Vocal Register Bank (`tools/voice_quality/`)
 
-A dedicated CLI utility for inspecting, auditing, and managing the standing heteronym audio bank (`main/input/audio/heteronym_bank/`) backed by the Kokoro-82M precision engine.
+Utilities for building and auditing the 7 vocal-register reference clips (`alto`, `mezzo`, `soprano`, `bass`, `baritone`, `tenor`, `narrator`) used by `Qwen3-TTS` across English, French, Spanish, and Italian.
 
 ```bash
-# Check status and audio coverage across all 12 heteronyms
-py tools/manage_pronunciation_bank.py --status
+# Generate the 7 vocal-register golden references via Qwen3-TTS-12Hz-1.7B-VoiceDesign
+py tools/voice_quality/build_voicedesign_references.py
 
-# Run acoustic prominence quality audit (RMS ratio, pitch delta) on all bank clips
-py tools/manage_pronunciation_bank.py --audit
-
-# Populate all missing clips using Kokoro-82M precision engine
-py tools/manage_pronunciation_bank.py --populate-kokoro
-
-# Import a custom studio reference clip
-py tools/manage_pronunciation_bank.py --import my_recording.wav --word present --role noun
-
-# Export bank registry and metadata to JSON
-py tools/manage_pronunciation_bank.py --export-json bank_metadata.json
+# Audit reference WAVs in input/voices/ for SNR, clipping, and Whisper language fidelity
+py tools/voice_quality/audit_reference_voices.py
 ```
 ---
 
-### 6. Title & Metadata Singularity Upgrader (`tools/upgrade_titles.py`)
-
-Automated utility to eliminate repetitive title formulas (e.g. *"Native Secret"*, *"El Secreto de los Nativos"*, *"Il Segreto dei Nativi"*, *"Le Secret des Natifs"*) and purge all emojis from `script.title` (Tito's chalkboard graphic) and `metadata.TITLE` (YouTube Shorts title) across all State JSON files.
-
-- **Two-Tier Option B Architecture**:
-  - **Chalkboard Title (`content_metadata.script.title`)**: Standardized format indicators (`<Expression>` for Expression, `Quiz: <Expression>` for Game, `In Action: <Expression>` for Roleplay, `Origin: <Expression>` for Fun Facts, localized per language) that split cleanly on colon into Tito's chalkboard header and phrase.
-  - **YouTube Title (`metadata.TITLE`)**: Shorts-optimized (45–75 chars), uppercase hook triggers, high-curiosity tension, format-differentiated, and strictly zero emojis.
-- **Format Singularity**: Generates distinct pedagogical titles for all four formats (`EXPRESSION`, `GAME`, `ROLEPLAY`, `FUN_FACTS`), even when sharing an underlying expression.
-- **Canonical Expression Resolution**: Maps Roleplay (`ER`, `FR`, `SR`, `IR`) and Game IDs back to canonical base expressions from SQLite, eliminating narrative scenario leakage into titles.
-- **Downstream Preservation**: Upgrades titles and metadata in-place while strictly preserving `voice_generation`, `image_generation`, and `video_assembly` statuses without invalidating existing renders.
-
-```bash
-# Audit titles across all state JSON files (dry-run preview)
-py tools/upgrade_titles.py
-
-# Apply title upgrades across all state files
-py tools/upgrade_titles.py --apply
-
-# Filter by language or video type
-py tools/upgrade_titles.py -l french -t roleplay --apply
-
-# Upgrade specific script IDs
-py tools/upgrade_titles.py -id EE01,FR02,SG05 --apply
-```
----
-
-### 7. Headless ComfyUI Process Supervisor (`tools/comfy.py`)
+### 6. Headless ComfyUI Process Supervisor (`tools/comfy.py`)
 
 A windowless process supervisor and CLI manager for ComfyUI. Completely decouples ComfyUI from visible terminal sessions, eliminates Windows console QuickEdit freeze deadlocks, directs output to rotating logs (`main/logs/comfyui/comfyui.log`), and arbitrates VRAM concurrency between Voice TTS and Image Diffusion.
 

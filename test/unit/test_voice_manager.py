@@ -1,5 +1,6 @@
 """
-test_layer/unit/test_voice_manager.py — Unit tests for VoiceManager language normalization and voice allocation.
+test/unit/test_voice_manager.py — Unit tests for VoiceManager language normalization, voice allocation,
+ComfyClient ICL / localized instruct generation, and voice_modifier helpers.
 """
 import unittest
 import tempfile
@@ -15,6 +16,14 @@ for p in [str(PROJECT_ROOT), str(MAIN_DIR), str(MAIN_DIR / "core")]:
 
 # pyrefly: ignore[missing-import]
 from video_creation._B_voice_generation.core.voice_manager import VoiceManager
+# pyrefly: ignore[missing-import]
+from video_creation._B_voice_generation.core.comfy_client import ComfyClient
+# pyrefly: ignore[missing-import]
+from video_creation._B_voice_generation.voice_modifier import (
+    is_stress_pronunciation_vital,
+    infer_dialogue_emotion,
+    map_emotion_to_energy,
+)
 # pyrefly: ignore[missing-import]
 import config
 
@@ -107,6 +116,97 @@ class TestVoiceManager(unittest.TestCase):
             self.assertEqual(gender, "male")
             self.assertEqual(voice_path, chosen_manual)
 
+    def test_voice_manager_excludes_english_tagged_italian_refs(self):
+        self.assertFalse(
+            VoiceManager._is_acceptable_ref(Path("italian_male_english_open_swara_001.wav"), "italian")
+        )
+        self.assertTrue(
+            VoiceManager._is_acceptable_ref(Path("italian_male_open_swara_001.wav"), "italian")
+        )
+        self.assertFalse(
+            VoiceManager._is_acceptable_ref(Path("french_male_open_swara_001.wav"), "french")
+        )
+
+    def test_resolve_speaker_gender(self):
+        self.assertEqual(self.vm.resolve_speaker_gender("Narrator"), "male")
+        self.assertEqual(self.vm.resolve_speaker_gender("Person One"), "unknown")
+        self.assertEqual(self.vm.resolve_speaker_gender("Father"), "male")
+        self.assertEqual(self.vm.resolve_speaker_gender("Marie"), "female")
+
+    def test_assign_voices_for_multi_speaker_roleplay_without_manual_genders(self):
+        """Verifies multi-speaker roleplay voice assignment succeeds without manual_genders."""
+        self.vm.assign_voices_for_script(
+            ["Narrator", "Person One", "Person Two"],
+            "english",
+            video_type="ROLEPLAY",
+        )
+        g_narr, v_narr, _ = self.vm.get_speaker_voice("Narrator", "english")
+        g_p1, v_p1, _ = self.vm.get_speaker_voice("Person One", "english")
+        g_p2, v_p2, _ = self.vm.get_speaker_voice("Person Two", "english")
+        self.assertIn(g_narr, ("male", "female"))
+        self.assertIn(g_p1, ("male", "female"))
+        self.assertIn(g_p2, ("male", "female"))
+        self.assertIsNotNone(v_narr)
+        self.assertIsNotNone(v_p1)
+        self.assertIsNotNone(v_p2)
+
+    def test_comfy_client_icl_and_localized_instruct(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wf_path = Path(tmpdir) / "wf.json"
+            wf_path.write_text(
+                '{"6":{"inputs":{}},"8":{"inputs":{}},"35":{"inputs":{"x_vector_only":true,"ref_text":["40",0]}},"39":{"inputs":{}}}',
+                encoding="utf-8",
+            )
+            client = ComfyClient("http://127.0.0.1:8188", wf_path)
+            wf = client._prepare_workflow(
+                ref_audio_name="spanish_female_open_swara_009.wav",
+                target_text="Hola a todos.",
+                language="spanish",
+                gender="female",
+                context="Narrator",
+                emotion="warm",
+                energy="high",
+                style="lively",
+                output_prefix="audio/test",
+                seed=42,
+                use_icl=True,
+                ref_text="Hola, soy una voz de referencia.",
+                localize_instruct=True,
+            )
+            self.assertFalse(wf["35"]["inputs"]["x_vector_only"])
+            self.assertEqual(wf["35"]["inputs"]["ref_text"], "Hola, soy una voz de referencia.")
+            self.assertIn("Un narrador nativo de español", wf["39"]["inputs"]["instruct"])
+
+
+class TestVoiceModifier(unittest.TestCase):
+    def test_is_stress_pronunciation_vital_with_cased_notation(self):
+        script_data = {
+            "metadata": {"LABEL": "english"},
+            "prompt_params": {"SUBJECT": "Grammar"},
+            "content_metadata": {},
+        }
+        self.assertTrue(is_stress_pronunciation_vital(script_data, "Say a PREsent now"))
+        self.assertTrue(is_stress_pronunciation_vital(script_data, "You need to preSENT today"))
+        self.assertFalse(is_stress_pronunciation_vital(script_data, "Hello world, how are you?"))
+
+    def test_is_stress_pronunciation_vital_from_metadata(self):
+        script_data = {
+            "metadata": {"LABEL": "english"},
+            "prompt_params": {"SUBJECT": "Word stress and heteronyms"},
+            "content_metadata": {"learning_objective": "Syllable stress contrast"},
+        }
+        self.assertTrue(is_stress_pronunciation_vital(script_data, "Normal sentence text"))
+
+    def test_map_emotion_to_energy(self):
+        self.assertEqual(map_emotion_to_energy("electrifying trivia host"), "very high")
+        self.assertEqual(map_emotion_to_energy("whisper sad"), "medium")
+        self.assertEqual(map_emotion_to_energy("warm confident"), "high")
+
+    def test_infer_dialogue_emotion_narrator(self):
+        emo = infer_dialogue_emotion("Narrator", "Check this secret out!", section="hook")
+        self.assertIn("dramatic", emo)
+
 
 if __name__ == "__main__":
     unittest.main()
+

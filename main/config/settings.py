@@ -32,7 +32,6 @@ BANK_MUSIC_DIR = OUTPUT_DIR / "bank_music"
 # Database directories
 DATABASE_DIR = BASE_DIR / "database"
 DB_PATH = DATABASE_DIR / "expressions.db"
-DB_CSV_PATH = DATABASE_DIR / "expressions.csv"
 
 # Unified Input directories
 INPUT_DIR = BASE_DIR / "input"
@@ -41,32 +40,12 @@ if not INPUT_CSV_DIR.exists():
     INPUT_CSV_DIR = INPUT_DIR  # fallback to flat input directory
 
 INPUT_IMAGES_DIR = INPUT_DIR / "images"
-if not INPUT_IMAGES_DIR.exists() and (BASE_DIR / "input_images").exists():
-    INPUT_IMAGES_DIR = BASE_DIR / "input_images"
-
 GAME_IMAGES_DIR = INPUT_IMAGES_DIR / "game_images"
-if not GAME_IMAGES_DIR.exists() and (INPUT_DIR / "game_images").exists():
-    GAME_IMAGES_DIR = INPUT_DIR / "game_images"
-elif not GAME_IMAGES_DIR.exists() and (BASE_DIR / "game_images").exists():
-    GAME_IMAGES_DIR = BASE_DIR / "game_images"
-
 OPENING_CLOSURE_DIR = INPUT_IMAGES_DIR / "openning_closure_images"
-if not OPENING_CLOSURE_DIR.exists() and (INPUT_DIR / "openning_closure_images").exists():
-    OPENING_CLOSURE_DIR = INPUT_DIR / "openning_closure_images"
-elif not OPENING_CLOSURE_DIR.exists() and (BASE_DIR / "openning_closure_images").exists():
-    OPENING_CLOSURE_DIR = BASE_DIR / "openning_closure_images"
-if not OPENING_CLOSURE_DIR.exists():
-    if (INPUT_IMAGES_DIR / "opening_closure_images").exists():
-        OPENING_CLOSURE_DIR = INPUT_IMAGES_DIR / "opening_closure_images"
-    elif (INPUT_DIR / "opening_closure_images").exists():
-        OPENING_CLOSURE_DIR = INPUT_DIR / "opening_closure_images"
-    elif (BASE_DIR / "opening_closure_images").exists():
-        OPENING_CLOSURE_DIR = BASE_DIR / "opening_closure_images"
+if not OPENING_CLOSURE_DIR.exists() and (INPUT_IMAGES_DIR / "opening_closure_images").exists():
+    OPENING_CLOSURE_DIR = INPUT_IMAGES_DIR / "opening_closure_images"
 
 WATERMARK_DIR = INPUT_IMAGES_DIR / "watermark"
-if not WATERMARK_DIR.exists() and (BASE_DIR / "watermark_image").exists():
-    WATERMARK_DIR = BASE_DIR / "watermark_image"
-
 THUMBNAIL_MODELS_DIR = INPUT_IMAGES_DIR / "thumbnail_models"
 
 # API Keys (Loaded from .env)
@@ -89,24 +68,10 @@ IMAGE_DEFAULT_WIDTH = 576
 IMAGE_DEFAULT_HEIGHT = 1024
 IMAGE_STALL_TIMEOUT = int(os.getenv("IMAGE_STALL_TIMEOUT", "600"))
 IMAGE_WORKFLOW_PATH = WORKFLOWS_DIR / "AcademiaSD_Z-Image_v05.json"
-if not IMAGE_WORKFLOW_PATH.exists() and (BASE_DIR / "AcademiaSD_Z-Image_v05.json").exists():
-    IMAGE_WORKFLOW_PATH = BASE_DIR / "AcademiaSD_Z-Image_v05.json"
 
 # Voice config
 OPEN_SWARA_DIR = Path(os.getenv("OPEN_SWARA_DIR", str(COMFY_DIR / "open-swara" / "voices")))
 VOICE_WORKFLOW_PATH = WORKFLOWS_DIR / "Qwen3-TTS Voice.json"
-if not VOICE_WORKFLOW_PATH.exists() and (BASE_DIR / "Qwen3-TTS Voice.json").exists():
-    VOICE_WORKFLOW_PATH = BASE_DIR / "Qwen3-TTS Voice.json"
-
-# Thumbnail workflow config
-THUMBNAIL_WORKFLOW_PATH = WORKFLOWS_DIR / "flux1_dev_uso_reference_image_gen.json"
-if not THUMBNAIL_WORKFLOW_PATH.exists() and (BASE_DIR / "flux1_dev_uso_reference_image_gen.json").exists():
-    THUMBNAIL_WORKFLOW_PATH = BASE_DIR / "flux1_dev_uso_reference_image_gen.json"
-
-SPEAKER_GENDER_MAP = {
-    "amigo": "male",
-    "amiga": "female",
-}
 
 NARRATOR_VOICES = {
     ("english", "male"): [
@@ -160,37 +125,7 @@ NARRATOR_VOICES = {
     ]
 }
 
-# Voice Engine Configuration (Two-Stage Kokoro Golden Reference -> ComfyUI Qwen3-TTS Expressive Acting)
-# Default 'qwen3' uses Kokoro-82M's studio-clean Golden Reference WAVs + exact transcripts inside
-# ComfyUI's Qwen3-TTS workflow (with In-Context Learning and emotion/persona `instruct` prompts).
-VOICE_ENGINE_BY_LANGUAGE = {
-    "english": os.getenv("VOICE_ENGINE_ENGLISH", "qwen3").strip().lower(),
-    "spanish": os.getenv("VOICE_ENGINE_SPANISH", "qwen3").strip().lower(),
-    "french": os.getenv("VOICE_ENGINE_FRENCH", "qwen3").strip().lower(),
-    "italian": os.getenv("VOICE_ENGINE_ITALIAN", "qwen3").strip().lower(),
-}
-
-KOKORO_VOICES = {
-    ("english", "female"): ["af_heart", "af_bella", "af_sarah"],
-    ("english", "male"): ["am_michael", "am_adam", "am_fenrir"],
-    ("spanish", "female"): ["ef_dora"],
-    ("spanish", "male"): ["em_alex"],
-    ("french", "female"): ["ff_siwis"],
-    # French v1.0 only ships with female voice 'ff_siwis'. In 'hybrid' mode, French male dialogue
-    # falls back to Qwen3-TTS ICL cloning; in pure 'kokoro' mode, 'ff_siwis_male' (pitch-shifted) is used.
-    ("french", "male"): ["ff_siwis_male"],
-    ("italian", "female"): ["if_sara"],
-    ("italian", "male"): ["im_nicola"],
-}
-
-KOKORO_SPEEDS = {
-    "english": float(os.getenv("KOKORO_SPEED_ENGLISH", "0.94")),
-    "spanish": float(os.getenv("KOKORO_SPEED_SPANISH", "0.93")),
-    "french": float(os.getenv("KOKORO_SPEED_FRENCH", "0.92")),
-    "italian": float(os.getenv("KOKORO_SPEED_ITALIAN", "0.93")),
-}
-
-# Qwen3-TTS Cloning Quality Settings (used when Qwen3-TTS is active or serves as fallback)
+# Qwen3-TTS Cloning Quality Settings
 QWEN3_USE_ICL = os.getenv("QWEN3_USE_ICL", "true").strip().lower() in ("1", "true", "yes")
 QWEN3_LOCALIZE_INSTRUCT = os.getenv("QWEN3_LOCALIZE_INSTRUCT", "true").strip().lower() in ("1", "true", "yes")
 REF_TRANSCRIPTS_PATH = OUTPUT_DIR / "voice_quality" / "audit" / "ref_transcripts.json"

@@ -49,13 +49,6 @@ B) conTRACT"""
         self.assertEqual(options[0][0], "A")
         self.assertEqual(options[1][0], "B")
 
-    def test_chalkboard_dimensions(self):
-        TARGET_WIDTH = 576
-        TARGET_HEIGHT = 1024
-        self.assertEqual(TARGET_WIDTH, 576)
-        self.assertEqual(TARGET_HEIGHT, 1024)
-        self.assertAlmostEqual(TARGET_HEIGHT / TARGET_WIDTH, 16 / 9, places=2)
-
     def test_fit_option_text_short_option(self):
         """Standard short option fits on a single line with maximum font size."""
         img = Image.new("RGBA", (100, 100))

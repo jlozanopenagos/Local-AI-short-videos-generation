@@ -10,8 +10,6 @@ from PIL import Image
 # pyrefly: ignore[missing-import]
 from config import THUMBNAIL_MODELS_DIR
 # pyrefly: ignore [missing-import]
-from video_creation._F_thumbnail_image_generation.core.thumbnail_prompt_builder import ThumbnailPromptBuilder
-# pyrefly: ignore [missing-import]
 from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import (
     clean_thumbnail_title,
     detect_chalkboard_bounds,
@@ -19,22 +17,6 @@ from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import
     render_thumbnail_chalkboard,
     sanitize_thumbnail_title,
 )
-
-
-class TestThumbnailPromptBuilder(unittest.TestCase):
-    def test_build_prompt_contains_uppercase_chalkboard_text(self):
-        """Verify build_prompt places uppercase target text in quotes."""
-        text = "break a leg"
-        prompt = ThumbnailPromptBuilder.build_prompt(text, "English")
-        self.assertIn('"BREAK A LEG"', prompt)
-        self.assertIn("classroom chalkboard", prompt.lower())
-        self.assertIn("reference image", prompt.lower())
-
-    def test_build_prompt_with_special_characters(self):
-        """Verify build_prompt handles accented and punctuation-heavy text cleanly."""
-        text = "c'est pas la mer à boire!"
-        prompt = ThumbnailPromptBuilder.build_prompt(text, "French")
-        self.assertIn("\"C'EST PAS LA MER À BOIRE!\"", prompt)
 
 
 class TestThumbnailChalkboardRenderer(unittest.TestCase):

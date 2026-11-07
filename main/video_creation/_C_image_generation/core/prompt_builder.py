@@ -267,7 +267,7 @@ MANDATORY MULTI-CHARACTER GENDER SPECIFICATION (ZERO-AMBIGUITY RULE):
 - Whenever MORE THAN ONE character appears in the image (in ROLEPLAY, EXPRESSION, GAME, or any video type):
   * The sex/gender of EACH character MUST be explicitly and unambiguously specified!
   * STRICTLY BAN collective, ambiguous, or generic gender-neutral words: NEVER say "the two teens", "two youthful teenage characters", "two colleagues", "two students", "two friends", "the characters", or "they".
-  * ALWAYS explicitly describe each individual character: e.g. "one youthful 14-year-old teen boy with masculine features wearing [wardrobe] and one youthful 14-year-old teen girl with feminine features wearing [wardrobe]" (or "two youthful teen boys", or "two youthful teen girls").
+  * ALWAYS explicitly describe each individual character: e.g. "one youthful 15-year-old teen boy with masculine features wearing [wardrobe] and one youthful 15-year-old teen girl with feminine features wearing [wardrobe]" (or "two youthful teen boys", or "two youthful teen girls").
   * For ROLEPLAY videos: You MUST strictly adhere to the exact assigned genders for PERSON_ONE and PERSON_TWO. NEVER swap their genders, and NEVER make them identical unless explicitly instructed!
 
 FINAL OBJECTIVE
@@ -395,7 +395,7 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
     - Whenever MORE THAN ONE character appears in any scene (in ROLEPLAY, EXPRESSION, GAME, or any video type):
       * The sex/gender of EACH character MUST be explicitly and unambiguously specified!
       * STRICTLY BAN collective, ambiguous, or generic gender-neutral words: NEVER say "the two teens", "two youthful teenage characters", "two colleagues", "two students", "two friends", "the characters", or "they".
-      * ALWAYS explicitly describe each individual character: e.g. "one youthful 14-year-old teen boy with masculine features wearing [wardrobe] and one youthful 14-year-old teen girl with feminine features wearing [wardrobe]" (or "two youthful teen boys", or "two youthful teen girls").
+      * ALWAYS explicitly describe each individual character: e.g. "one youthful 15-year-old teen boy with masculine features wearing [wardrobe] and one youthful 15-year-old teen girl with feminine features wearing [wardrobe]" (or "two youthful teen boys", or "two youthful teen girls").
       * For ROLEPLAY videos: You MUST strictly adhere to the exact assigned genders for PERSON_ONE and PERSON_TWO. NEVER swap their genders, and NEVER make them identical unless explicitly instructed!
 
 OUTPUT FORMAT:
@@ -1066,8 +1066,8 @@ def _build_storyboard_context(
             "in this General Prompt!\n"
             "MANDATORY CONTINUITY REPETITION RULE: Diffusion models generate EACH scene image independently with zero memory of other scenes! "
             "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat each character's exact hair color, "
-            "exact hairstyle, and exact wardrobe (e.g. 'one 14-year-old adolescent teen girl with dark hair in a sleek bun wearing an emerald velvet blazer over white shirt', "
-            "'one 15-year-old adolescent teen boy with textured brown quiff hair wearing a denim utility vest'). "
+            "exact hairstyle, and exact wardrobe (e.g. 'one 15-year-old adolescent teen girl with dark hair in a sleek bun wearing an emerald velvet blazer over white shirt', "
+            "'one 16-year-old adolescent teen boy with textured brown quiff hair wearing a denim utility vest'). "
             "NEVER omit the hair color, hairstyle, or wardrobe from any scene prompt!\n\n"
         )
 

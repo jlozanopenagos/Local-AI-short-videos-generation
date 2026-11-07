@@ -28,41 +28,7 @@ from config.settings import resolve_opening_closure_paths
 
 
 class TestCLIFunFacts(unittest.TestCase):
-    """Test suite for Fun Facts filtering, CLI args, and interactive prompt modes."""
-
-    def test_cli_argument_parsing_fun_facts_flags(self):
-        """Verify argparse correctly parses --fun-facts and --fun-facts-only."""
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "--fun-facts",
-            "--fun-facts-only",
-            dest="fun_facts_only",
-            action="store_true"
-        )
-        parser.add_argument(
-            "--video-type",
-            type=str,
-            default=None,
-            choices=["expression", "game", "roleplay", "fun_facts", "all"]
-        )
-        parser.add_argument(
-            "--language",
-            type=str,
-            default=None,
-            choices=["all", "english", "french", "spanish", "italian"]
-        )
-
-        args1 = parser.parse_args(["--fun-facts"])
-        self.assertTrue(args1.fun_facts_only)
-        self.assertIsNone(args1.video_type)
-
-        args2 = parser.parse_args(["--fun-facts-only", "--language", "spanish"])
-        self.assertTrue(args2.fun_facts_only)
-        self.assertEqual(args2.language, "spanish")
-
-        args3 = parser.parse_args(["--video-type", "fun_facts"])
-        self.assertFalse(args3.fun_facts_only)
-        self.assertEqual(args3.video_type, "fun_facts")
+    """Test suite for Fun Facts filtering and interactive prompt modes."""
 
     def test_prompt_production_mode_offers_fun_facts_choice(self):
         """Verify prompt_production_mode accepts choice 4 when allow_fun_facts_mode is True."""
@@ -98,25 +64,6 @@ class TestCLIFunFacts(unittest.TestCase):
         with patch("builtins.input", side_effect=["2", "2", "1-3"]):
             result = prompt_fun_facts_mode()
             self.assertEqual(result, ["EF01", "EF02", "EF03"])
-
-    def test_fun_facts_filtering_logic(self):
-        """Verify prompt filtering correctly isolates Fun Facts rows from mixed prompt rows."""
-        mixed_prompts = [
-            {"ID": "EE01", "VIDEO_TYPE": "EXPRESSION", "TARGET_LANGUAGE": "English"},
-            {"ID": "EG01", "VIDEO_TYPE": "GAME", "TARGET_LANGUAGE": "English"},
-            {"ID": "ER01", "VIDEO_TYPE": "ROLEPLAY", "TARGET_LANGUAGE": "English"},
-            {"ID": "EF01", "VIDEO_TYPE": "FUN_FACTS", "TARGET_LANGUAGE": "English"},
-            {"ID": "FF01", "VIDEO_TYPE": "FUN_FACTS", "TARGET_LANGUAGE": "French"},
-            {"ID": "SF01", "VIDEO_TYPE": "FUN_FACTS", "TARGET_LANGUAGE": "Spanish"},
-        ]
-
-        filtered = [
-            p for p in mixed_prompts
-            if p.get("VIDEO_TYPE", "").upper() in ("FUN_FACTS", "FUNFACTS")
-            or (len(p.get("ID", "")) >= 2 and p["ID"][1].upper() == "F")
-        ]
-        self.assertEqual(len(filtered), 3)
-        self.assertEqual([p["ID"] for p in filtered], ["EF01", "FF01", "SF01"])
 
 
 class TestCLICSVMode(unittest.TestCase):
@@ -245,33 +192,6 @@ class TestCLICSVMode(unittest.TestCase):
             self.assertEqual(mode, "csv_list")
             self.assertEqual(result, ["EE10", "EE11"])
 
-    def test_cli_flags_parsing_voice_and_image(self):
-        """Verify both voice and image argument parsers support all new flags."""
-        def make_parser():
-            parser = argparse.ArgumentParser()
-            parser.add_argument("--script-id", type=str, default=None)
-            parser.add_argument("--force", action="store_true")
-            parser.add_argument("--seed", type=int, default=None)
-            parser.add_argument("--auto", action="store_true")
-            parser.add_argument("--fun-facts", "--fun-facts-only", dest="fun_facts_only", action="store_true")
-            parser.add_argument("--video-type", type=str, default=None)
-            parser.add_argument("--language", type=str, default=None)
-            parser.add_argument("--from-csv", "--csv-list", dest="csv_list", nargs="?", const="", default=None)
-            return parser
-
-        p = make_parser()
-
-        args1 = p.parse_args(["--from-csv"])
-        self.assertEqual(args1.csv_list, "")
-
-        args2 = p.parse_args(["--from-csv", "my_list.csv", "--auto", "--force"])
-        self.assertEqual(args2.csv_list, "my_list.csv")
-        self.assertTrue(args2.auto)
-        self.assertTrue(args2.force)
-
-        args3 = p.parse_args(["--csv-list", "input/csv/voice_to_change/batch.csv"])
-        self.assertEqual(args3.csv_list, "input/csv/voice_to_change/batch.csv")
-
     def test_find_ready_scripts_csvs(self):
         """Verify find_ready_scripts_csvs finds files and prioritizes standard ready_scripts."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -319,24 +239,6 @@ class TestCLICSVMode(unittest.TestCase):
             )
             self.assertEqual(mode, "ready_scripts")
             self.assertEqual(result, ["EE01", "EE02", "EE03"])
-
-    def test_cli_flags_parsing_ready_scripts(self):
-        """Verify argument parser parses --from-ready-scripts and --ready-scripts flags."""
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "--from-ready-scripts",
-            "--ready-scripts",
-            dest="ready_scripts_csv",
-            nargs="?",
-            const="",
-            default=None,
-        )
-
-        args1 = parser.parse_args(["--from-ready-scripts"])
-        self.assertEqual(args1.ready_scripts_csv, "")
-
-        args2 = parser.parse_args(["--ready-scripts", "D:/AI/output/connectivity/ready_scripts/2026-09-23_ready_scripts.csv"])
-        self.assertEqual(args2.ready_scripts_csv, "D:/AI/output/connectivity/ready_scripts/2026-09-23_ready_scripts.csv")
 
     def test_prompt_mass_ready_scripts_mode_all_files(self):
         """Verify prompt_mass_ready_scripts_mode aggregates IDs across multiple ready scripts CSVs."""
@@ -396,59 +298,6 @@ class TestCLICSVMode(unittest.TestCase):
             )
             self.assertEqual(mode, "mass_ready_scripts")
             self.assertEqual(result, ["EE01", "EE02", "FE01"])
-
-    def test_prompt_production_mode_part_a_script_generation_choice_7(self):
-        """Verify prompt_production_mode in Part A offers Option 7 when allow_mass_ready_scripts_mode is True."""
-        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
-             patch("core.cli_prompt._timed_choice", return_value="7"), \
-             patch("core.cli_prompt.prompt_mass_ready_scripts_mode", return_value=["EE01", "EE02"]):
-            result, mode = prompt_production_mode(
-                stage_title="Part A: Video Scripts",
-                asset_name="scripts",
-                allow_fun_facts_mode=True,
-                allow_script_to_change_mode=True,
-                allow_ready_scripts_mode=True,
-                allow_mass_ready_scripts_mode=True,
-                return_mode=True,
-            )
-            self.assertEqual(mode, "mass_ready_scripts")
-            self.assertEqual(result, ["EE01", "EE02"])
-
-    def test_prompt_production_mode_part_b_voice_generation_choice_7(self):
-        """Verify prompt_production_mode in Part B offers Option 7 when allow_mass_ready_scripts_mode is True."""
-        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
-             patch("core.cli_prompt._timed_choice", return_value="7"), \
-             patch("core.cli_prompt.prompt_mass_ready_scripts_mode", return_value=["EE01", "EE03"]):
-            result, mode = prompt_production_mode(
-                stage_title="Part B: Voice Generation",
-                asset_name="voiceovers / audio files",
-                allow_fun_facts_mode=True,
-                allow_csv_list_mode=True,
-                csv_folder_name="voice_to_change",
-                allow_ready_scripts_mode=True,
-                allow_mass_ready_scripts_mode=True,
-                return_mode=True,
-            )
-            self.assertEqual(mode, "mass_ready_scripts")
-            self.assertEqual(result, ["EE01", "EE03"])
-
-    def test_cli_flags_parsing_mass_ready_scripts(self):
-        """Verify argument parser parses --from-mass-ready-scripts and --mass-ready-scripts flags."""
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "--from-mass-ready-scripts",
-            "--mass-ready-scripts",
-            dest="mass_ready_scripts_csv",
-            nargs="?",
-            const="",
-            default=None,
-        )
-
-        args1 = parser.parse_args(["--from-mass-ready-scripts"])
-        self.assertEqual(args1.mass_ready_scripts_csv, "")
-
-        args2 = parser.parse_args(["--mass-ready-scripts", "file1.csv,file2.csv"])
-        self.assertEqual(args2.mass_ready_scripts_csv, "file1.csv,file2.csv")
 
     def test_prompt_fun_facts_cards_variant_filtering(self):
         """Verify prompt_fun_facts_cards_variant only triggers for English/Spanish Fun Facts."""

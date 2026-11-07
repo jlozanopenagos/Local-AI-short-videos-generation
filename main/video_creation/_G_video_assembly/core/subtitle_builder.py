@@ -4,14 +4,15 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-try:
-    from video_creation._B_voice_generation.core.pronunciation_bank import HETERONYM_REGISTRY
-except (ImportError, ModuleNotFoundError):
-    try:
-        # pyrefly: ignore [missing-import]
-        from core.pronunciation_bank import HETERONYM_REGISTRY
-    except (ImportError, ModuleNotFoundError):
-        HETERONYM_REGISTRY = {}
+KNOWN_HETERONYMS = {
+    "record", "present", "project", "permit", "object",
+    "contract", "conduct", "desert", "increase", "decrease",
+    "import", "export", "protest", "contest", "refuse",
+    "rebel", "address", "combat", "conflict", "defect",
+    "digest", "escort", "impact", "insult", "produce",
+    "progress", "refund", "reject", "subject", "suspect",
+    "transfer", "transport", "update", "upgrade", "upset",
+}
 
 
 def is_stress_heteronym_word(token: str) -> bool:
@@ -20,7 +21,7 @@ def is_stress_heteronym_word(token: str) -> bool:
     if len(clean) < 4:
         return False
     # Check registered heteronyms
-    if clean.lower() in HETERONYM_REGISTRY:
+    if clean.lower() in KNOWN_HETERONYMS:
         if any(c.isupper() for c in clean) and any(c.islower() for c in clean):
             return True
     # General multi-uppercase syllable pattern (e.g. PROject, proJECT)
