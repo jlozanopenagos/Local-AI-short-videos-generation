@@ -29,7 +29,7 @@ try:
     from config.settings import COMFY_API_URL, COMFY_DIR
 except ImportError:
     COMFY_API_URL = os.getenv("COMFY_API_URL", "http://127.0.0.1:8188")
-    COMFY_DIR = Path(os.getenv("COMFY_DIR", "C:/AI/ComfyUI_windows_portable"))
+    COMFY_DIR = Path(os.getenv("COMFY_DIR", str(BASE_DIR.parents[1] / "ComfyUI_windows_portable"))).resolve()
 
 
 class ComfyManager:

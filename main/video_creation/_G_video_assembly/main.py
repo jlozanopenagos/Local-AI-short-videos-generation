@@ -184,9 +184,17 @@ def process_script(
         closure_path = res_close
 
     if opening_path:
-        script_data.setdefault("assets", {})["opening_card"] = str(opening_path)
+        try:
+            rel_open = str(Path(opening_path).resolve().relative_to(Path(base_dir).resolve())).replace("\\", "/")
+        except ValueError:
+            rel_open = str(opening_path)
+        script_data.setdefault("assets", {})["opening_card"] = rel_open
     if closure_path:
-        script_data.setdefault("assets", {})["closure_card"] = str(closure_path)
+        try:
+            rel_close = str(Path(closure_path).resolve().relative_to(Path(base_dir).resolve())).replace("\\", "/")
+        except ValueError:
+            rel_close = str(closure_path)
+        script_data.setdefault("assets", {})["closure_card"] = rel_close
     if dialect:
         script_data.setdefault("assets", {})["opening_closure_dialect"] = dialect
 

@@ -22,9 +22,14 @@ from connectivity.core.endpoints import (
 )
 from connectivity.core.client import post_sheet_rows
 
+try:
+    from config import OUTPUT_DIR
+except (ImportError, ModuleNotFoundError):
+    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (Path(__file__).resolve().parents[2] / "output")
+
 # Default source directories for scripts
-DEFAULT_SCRIPTS_TO_SEE_DIR = Path(r"D:\AI\output\scripts_to_see")
-DEFAULT_SCRIPTS_TO_POST_DIR = Path(r"D:\AI\output\connectivity\scripts_to_post")
+DEFAULT_SCRIPTS_TO_SEE_DIR = OUTPUT_DIR / "scripts_to_see"
+DEFAULT_SCRIPTS_TO_POST_DIR = OUTPUT_DIR / "connectivity" / "scripts_to_post"
 
 
 def get_source_csv_path(
@@ -63,11 +68,11 @@ def get_source_csv_path(
 
     if include_script_changed:
         candidates = [
-            Path(r"D:\AI\output\connectivity\synced_sheets\_4_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
-            Path(r"D:\AI\output\connectivity\_4_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            OUTPUT_DIR / "connectivity" / "synced_sheets" / "_4_columns" / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            OUTPUT_DIR / "connectivity" / "_4_columns" / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
             DEFAULT_SCRIPTS_TO_POST_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
             DEFAULT_SCRIPTS_TO_SEE_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
-            Path(r"D:\AI\output\connectivity") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            OUTPUT_DIR / "connectivity" / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
         ]
         for c in candidates:
             if c.exists():
@@ -77,9 +82,9 @@ def get_source_csv_path(
         candidates = [
             DEFAULT_SCRIPTS_TO_POST_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
             DEFAULT_SCRIPTS_TO_SEE_DIR / lang / vtype / f"{lang}_{vtype}_scripts.csv",
-            Path(r"D:\AI\output\connectivity\synced_sheets\_3_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
-            Path(r"D:\AI\output\connectivity\_3_columns") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
-            Path(r"D:\AI\output\connectivity") / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            OUTPUT_DIR / "connectivity" / "synced_sheets" / "_3_columns" / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            OUTPUT_DIR / "connectivity" / "_3_columns" / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
+            OUTPUT_DIR / "connectivity" / lang / vtype / f"{lang}_{vtype}_connectivity.csv",
         ]
         for c in candidates:
             if c.exists():

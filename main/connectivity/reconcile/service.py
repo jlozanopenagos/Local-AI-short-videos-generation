@@ -20,9 +20,14 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-DEFAULT_SCRIPTS_TO_SEE_DIR = Path(r"D:\AI\output\scripts_to_see")
-DEFAULT_CONNECTIVITY_DIR = Path(r"D:\AI\output\connectivity\synced_sheets\_3_columns")
-DEFAULT_SCRIPTS_TO_POST_DIR = Path(r"D:\AI\output\connectivity\scripts_to_post")
+try:
+    from config import OUTPUT_DIR
+except (ImportError, ModuleNotFoundError):
+    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (Path(__file__).resolve().parents[2] / "output")
+
+DEFAULT_SCRIPTS_TO_SEE_DIR = OUTPUT_DIR / "scripts_to_see"
+DEFAULT_CONNECTIVITY_DIR = OUTPUT_DIR / "connectivity" / "synced_sheets" / "_3_columns"
+DEFAULT_SCRIPTS_TO_POST_DIR = OUTPUT_DIR / "connectivity" / "scripts_to_post"
 
 LANGUAGES = ["french", "spanish", "english", "italian"]
 VIDEO_TYPES = ["expression", "fun_facts", "game", "roleplay"]
@@ -239,8 +244,8 @@ def reconcile_single_sheet(
     else:
         if DEFAULT_CONNECTIVITY_DIR.exists():
             c_dir = DEFAULT_CONNECTIVITY_DIR
-        elif Path(r"D:\AI\output\connectivity\_3_columns").exists():
-            c_dir = Path(r"D:\AI\output\connectivity\_3_columns")
+        elif (OUTPUT_DIR / "connectivity" / "_3_columns").exists():
+            c_dir = OUTPUT_DIR / "connectivity" / "_3_columns"
         else:
             c_dir = DEFAULT_CONNECTIVITY_DIR
     o_dir = Path(output_dir) if output_dir else DEFAULT_SCRIPTS_TO_POST_DIR

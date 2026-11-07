@@ -16,10 +16,12 @@ if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
 STATE_DIR = BASE_DIR / "state"
 
-# Output directories (configurable via OUTPUT_DIR in .env, defaults to D:/AI/output if present, otherwise BASE_DIR / output)
+# Output directories (configurable via OUTPUT_DIR in .env, defaults to sibling output/, D:/AI/output, or BASE_DIR/output)
 _env_output = os.getenv("OUTPUT_DIR")
 if _env_output:
     OUTPUT_DIR = Path(_env_output).resolve()
+elif (BASE_DIR.parents[1] / "output").exists():
+    OUTPUT_DIR = (BASE_DIR.parents[1] / "output").resolve()
 elif Path("D:/AI/output").exists():
     OUTPUT_DIR = Path("D:/AI/output").resolve()
 else:
@@ -53,9 +55,19 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://localhost:11434/v1")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "llama3")
 
-# ComfyUI Configuration
+# ComfyUI Configuration (auto-discovers sibling ComfyUI_windows_portable relative to project root)
 COMFY_API_URL = os.getenv("COMFY_API_URL", "http://127.0.0.1:8188")
-COMFY_DIR = Path(os.getenv("COMFY_DIR", "C:/AI/ComfyUI_windows_portable"))
+_env_comfy = os.getenv("COMFY_DIR")
+if _env_comfy and Path(_env_comfy).exists():
+    COMFY_DIR = Path(_env_comfy).resolve()
+elif (BASE_DIR.parents[1] / "ComfyUI_windows_portable").exists():
+    COMFY_DIR = (BASE_DIR.parents[1] / "ComfyUI_windows_portable").resolve()
+elif (BASE_DIR.parent / "ComfyUI_windows_portable").exists():
+    COMFY_DIR = (BASE_DIR.parent / "ComfyUI_windows_portable").resolve()
+elif Path("D:/AI_video_generation/ComfyUI_windows_portable").exists():
+    COMFY_DIR = Path("D:/AI_video_generation/ComfyUI_windows_portable").resolve()
+else:
+    COMFY_DIR = Path(_env_comfy or str(BASE_DIR.parents[1] / "ComfyUI_windows_portable")).resolve()
 COMFY_OUTPUT_DIR = Path(os.getenv("COMFY_OUTPUT_DIR", str(COMFY_DIR / "ComfyUI" / "output")))
 COMFY_INPUT_DIR = Path(os.getenv("COMFY_INPUT_DIR", str(COMFY_DIR / "ComfyUI" / "input")))
 

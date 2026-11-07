@@ -25,10 +25,10 @@ sys.path.insert(0, str(MAIN_DIR))
 sys.path.insert(0, str(MAIN_DIR / "core"))
 
 import config  # noqa: E402
-from config import OPEN_SWARA_DIR, REF_TRANSCRIPTS_PATH  # noqa: E402
+from config import COMFY_DIR, OPEN_SWARA_DIR, REF_TRANSCRIPTS_PATH  # noqa: E402
 from video_creation._B_voice_generation.core.acoustic_evaluator import evaluate_voice_take  # noqa: E402
 
-VOICEDESIGN_MODEL_DIR = Path(r"C:\AI\ComfyUI_windows_portable\ComfyUI\models\TTS\Qwen\Qwen3-TTS-12Hz-1.7B-VoiceDesign")
+VOICEDESIGN_MODEL_DIR = COMFY_DIR / "ComfyUI" / "models" / "TTS" / "Qwen" / "Qwen3-TTS-12Hz-1.7B-VoiceDesign"
 
 VOICEDESIGN_REFERENCE_SPECS: List[Dict] = [
     # =========================================================================

@@ -569,7 +569,11 @@ def find_ready_scripts_csvs(search_dir: Optional[Path] = None) -> List[Path]:
             from connectivity.ready_scripts.scanner import resolve_ready_scripts_output_dir
             target_dir = resolve_ready_scripts_output_dir()
         except Exception:
-            target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
+            try:
+                from config import OUTPUT_DIR
+                target_dir = Path(OUTPUT_DIR) / "connectivity" / "ready_scripts"
+            except Exception:
+                target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
     else:
         target_dir = search_dir
 
@@ -620,7 +624,11 @@ def prompt_ready_scripts_mode(
             from connectivity.ready_scripts.scanner import resolve_ready_scripts_output_dir
             target_dir = resolve_ready_scripts_output_dir()
         except Exception:
-            target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
+            try:
+                from config import OUTPUT_DIR
+                target_dir = Path(OUTPUT_DIR) / "connectivity" / "ready_scripts"
+            except Exception:
+                target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
     else:
         target_dir = search_dir
 
@@ -744,7 +752,11 @@ def prompt_mass_ready_scripts_mode(
             from connectivity.ready_scripts.scanner import resolve_ready_scripts_output_dir
             target_dir = resolve_ready_scripts_output_dir()
         except Exception:
-            target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
+            try:
+                from config import OUTPUT_DIR
+                target_dir = Path(OUTPUT_DIR) / "connectivity" / "ready_scripts"
+            except Exception:
+                target_dir = Path(r"D:\AI\output\connectivity\ready_scripts")
     else:
         target_dir = search_dir
 

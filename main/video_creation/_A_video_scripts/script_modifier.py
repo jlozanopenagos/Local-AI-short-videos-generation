@@ -74,7 +74,8 @@ try:
         resolve_ready_scripts_output_dir,
     )
 except (ImportError, ModuleNotFoundError):
-    DEFAULT_READY_SCRIPTS_DIR = Path(r"D:\AI\output\connectivity\ready_scripts")
+    from config import OUTPUT_DIR
+    DEFAULT_READY_SCRIPTS_DIR = Path(OUTPUT_DIR) / "connectivity" / "ready_scripts"
 
     def resolve_ready_scripts_output_dir(output_dir: Optional[Path | str] = None) -> Path:
         if output_dir:

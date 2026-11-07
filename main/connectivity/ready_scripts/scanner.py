@@ -34,7 +34,12 @@ from connectivity.core.endpoints import (
     get_endpoint,
 )
 
-DEFAULT_READY_SCRIPTS_DIR = Path(r"D:\AI\output\connectivity\ready_scripts")
+try:
+    from config import OUTPUT_DIR
+except (ImportError, ModuleNotFoundError):
+    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (Path(__file__).resolve().parents[2] / "output")
+
+DEFAULT_READY_SCRIPTS_DIR = OUTPUT_DIR / "connectivity" / "ready_scripts"
 
 
 def resolve_ready_scripts_output_dir(output_dir: Optional[Path | str] = None) -> Path:

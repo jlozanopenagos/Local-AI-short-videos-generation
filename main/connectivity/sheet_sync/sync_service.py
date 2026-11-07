@@ -62,15 +62,7 @@ def resolve_connectivity_output_dir(
         else:
             base = base / "synced_sheets" / col_subdir
     else:
-        d_drive_target = Path("D:/AI/output/connectivity/synced_sheets")
-        try:
-            if Path("D:/AI/output").exists() or Path("D:/").exists():
-                d_drive_target.mkdir(parents=True, exist_ok=True)
-                base = d_drive_target / col_subdir
-            else:
-                base = OUTPUT_DIR / "connectivity" / "synced_sheets" / col_subdir
-        except Exception:
-            base = OUTPUT_DIR / "connectivity" / "synced_sheets" / col_subdir
+        base = OUTPUT_DIR / "connectivity" / "synced_sheets" / col_subdir
 
     if language and video_type:
         dest = base / language.strip().lower() / video_type.strip().lower()
