@@ -29,6 +29,9 @@ from webui.jobs.models import (
 )
 from webui.jobs.adapters.base import BaseStageAdapter
 from webui.jobs.adapters.thumbnails import ThumbnailsAdapter
+from webui.jobs.adapters.voice import VoiceAdapter
+from webui.jobs.adapters.images import ImagesAdapter
+from webui.jobs.adapters.assembly import AssemblyAdapter
 
 logger = logging.getLogger("webui.jobs")
 
@@ -52,7 +55,10 @@ class JobManager:
 
         # Registered stage adapters
         self._adapters: Dict[JobStage, BaseStageAdapter] = {
+            JobStage.VOICE: VoiceAdapter(),
+            JobStage.IMAGES: ImagesAdapter(),
             JobStage.THUMBNAILS: ThumbnailsAdapter(),
+            JobStage.ASSEMBLY: AssemblyAdapter(),
         }
 
         # Start background worker daemon
