@@ -42,6 +42,7 @@ from core.cli_prompt import (
 from core.status_tracker import get_status_tracker
 # pyrefly: ignore [missing-import]
 from core.expression_db import is_expression_done
+# pyrefly: ignore[missing-import]
 from core.llama_manager import ensure_llama_running, ensure_llama_stopped
 from _C_image_generation.core.comfy_client import ImageComfyClient
 from _C_image_generation.core.prompt_builder import VisualPromptBuilder, resolve_anchor_environment, sanitize_and_style_prompt

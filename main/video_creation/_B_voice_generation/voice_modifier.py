@@ -218,6 +218,7 @@ def main():
     print("\n" + "=" * 64)
     print("Pre-flight Connection Checks:")
     try:
+        # pyrefly: ignore[missing-import]
         from core.llama_manager import ensure_llama_stopped
         ensure_llama_stopped()
     except Exception:
