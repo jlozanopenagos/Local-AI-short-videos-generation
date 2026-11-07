@@ -4,7 +4,7 @@ video_creation/_D_music_generation/main.py
 
 Standing Music Bank Generator for LingoVerse Shorts Automation.
 Produces and manages a rich library of distinct, loopable 30s background jams
-in D:\\AI\\output\\bank_music/<language>/<video_type>/ tailored to the emotional triggers
+in <OUTPUT_DIR>/bank_music/<language>/<video_type>/ tailored to the emotional triggers
 of each video format and target language.
 """
 

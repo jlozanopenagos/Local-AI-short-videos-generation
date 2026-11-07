@@ -2,7 +2,7 @@
 fetcher.py — Fetch corrected scripts (Column D: SCRIPT_CHANGED) from Google Sheets.
 
 Exports columns: 'ID', 'NEW_SCRIPT'
-Destination: C:\\AI\\shorts_automation\\main\\input\\csv\\script_to_change\\<language>_<video_type>_script_to_change.csv
+Destination: main/input/csv/script_to_change/<language>_<video_type>_script_to_change.csv
 """
 
 from __future__ import annotations

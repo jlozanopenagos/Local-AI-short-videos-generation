@@ -5,11 +5,22 @@ from __future__ import annotations
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Final
 
 # pyrefly: ignore [missing-import]
 import httpx
+# pyrefly: ignore[missing-import]
 from openai import OpenAI
+
+# Ensure config/.env is loaded before reading LLM environment variables
+try:
+    _main_dir = Path(__file__).resolve().parents[3]
+    if str(_main_dir) not in sys.path:
+        sys.path.insert(0, str(_main_dir))
+    import config.settings  # noqa: F401
+except Exception:
+    pass
 
 API_BASE_URL: Final[str] = os.getenv("LLM_API_BASE_URL", "http://127.0.0.1:8080/v1")
 API_KEY: Final[str] = os.getenv("LLM_API_KEY", "llama")

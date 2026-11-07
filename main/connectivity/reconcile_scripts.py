@@ -2,11 +2,11 @@
 """
 reconcile_scripts.py — Interactive CLI for Auditing & Reorganizing Scripts.
 
-Checks local script files in D:\\AI\\output\\scripts_to_see against Google Sheets
-reference data in D:\\AI\\output\\connectivity\\synced_sheets\\_3_columns.
+Checks local script files in <OUTPUT_DIR>/scripts_to_see against Google Sheets
+reference data in <OUTPUT_DIR>/connectivity/synced_sheets/_3_columns.
 Reorganizes matching entries to strictly follow Google Sheets order, preserves
 Google Sheets canonical expression names, appends new local entries to the end,
-and outputs clean CSVs to D:\\AI\\output\\connectivity\\scripts_to_post for mass posting.
+and outputs clean CSVs to <OUTPUT_DIR>/connectivity/scripts_to_post for mass posting.
 """
 
 from __future__ import annotations

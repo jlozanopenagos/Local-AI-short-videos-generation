@@ -277,7 +277,7 @@ To maintain privacy for production content and proprietary prompt libraries, pro
   - `database/expressions.sample.csv`: Master schema for expression progress tracking.
   - `state/script_state.sample.json`: Canonical reference schema for stage-by-stage JSON state machines.
   - `.env.example`: Safe environment configuration template.
-- **Queue Documentation**: See [input/csv/README.md](file:///c:/AI/shorts_automation/input/csv/README.md) for detailed column requirements and validation standards.
+- **Queue Documentation**: See [input/csv/README.md](input/csv/README.md) for detailed column requirements and validation standards.
 
 ---
 
@@ -376,18 +376,18 @@ main/connectivity/
 
 ### 5 Core Capabilities & Principal Runner Scripts:
 1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`)**:
-   Fetches records from Google Sheets and writes standardized CSV files to `D:\AI\output\connectivity\synced_sheets\_3_columns\` or `_4_columns\`.
+   Fetches records from Google Sheets and writes standardized CSV files to `<OUTPUT_DIR>/connectivity/synced_sheets/_3_columns/` or `_4_columns/`.
 2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`)**:
    Scans Column D (`SCRIPT_CHANGED`) for user or external editor revisions. Outputs filtered modifications to `main/input/csv/script_to_change/<lang>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`. Supports full sheets, ranges (e.g. `01-50`), single IDs, or reading IDs from `input/csv/script_to_change/ids_to_fetch.csv`.
 3. **Reconcile & Reorganize Scripts (`connectivity/reconcile_scripts.py`)**:
-   Audits local scripts against Google Sheets order, preserving sheet row sequences and canonical expression names while appending new local entries at the end. Exports clean mass-update CSVs to `D:\AI\output\connectivity\scripts_to_post\`.
+   Audits local scripts against Google Sheets order, preserving sheet row sequences and canonical expression names while appending new local entries at the end. Exports clean mass-update CSVs to `<OUTPUT_DIR>/connectivity/scripts_to_post/`.
 4. **Safe Script Publishing (`connectivity/post_scripts.py`)**:
    Publishes scripts from `scripts_to_post` (or `scripts_to_see` / `_4_columns`) back to Google Sheets.
    - **Column D Safety Guarantee**: In standard 3-column mode, modifies **ONLY Columns A, B, and C** (`ID`, `EXPRESSION`, `SCRIPT`). Column D (`SCRIPT_CHANGED`) is **strictly preserved and never overwritten** unless 4-column mode is explicitly selected.
    - Interactive scopes: All sheets, specific sheet (language + type), number range (e.g. `10-20`), or specific ID list.
    - Supports both in-place updates of existing IDs and automatic appending of new records.
 5. **Scan Ready Scripts by Date (`connectivity/scan_ready_scripts.py`)**:
-   Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked. Skips completed videos (`video_ready == True`). Exports grouped `ID, expression` records into daily CSV files in `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (or `undated_ready_scripts.csv` if date is blank).
+   Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked. Skips completed videos (`video_ready == True`). Exports grouped `ID, expression` records into daily CSV files in `<OUTPUT_DIR>/connectivity/ready_scripts/<YYYY-MM-DD>_ready_scripts.csv` (or `undated_ready_scripts.csv` if date is blank).
 
 ---
 
@@ -452,10 +452,10 @@ LLM_MODEL_NAME=Gemma-4-E2B
 # ComfyUI Configuration
 # ==============================================================================
 COMFY_API_URL=http://127.0.0.1:8188
-# COMFY_DIR=C:/AI/ComfyUI_windows_portable
-# COMFY_OUTPUT_DIR=C:/AI/ComfyUI_windows_portable/ComfyUI/output
-# COMFY_INPUT_DIR=C:/AI/ComfyUI_windows_portable/ComfyUI/input
-# OPEN_SWARA_DIR=C:/AI/ComfyUI_windows_portable/open-swara/voices
+# COMFY_DIR=../../ComfyUI_windows_portable
+# COMFY_OUTPUT_DIR=../../ComfyUI_windows_portable/ComfyUI/output
+# COMFY_INPUT_DIR=../../ComfyUI_windows_portable/ComfyUI/input
+# OPEN_SWARA_DIR=../../ComfyUI_windows_portable/open-swara/voices
 
 # ==============================================================================
 # Media Storage Directory

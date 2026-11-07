@@ -82,7 +82,9 @@ except (ImportError, ModuleNotFoundError):
             return Path(output_dir)
         env_output = os.getenv("OUTPUT_DIR", "").strip()
         if env_output:
-            return Path(env_output) / "connectivity" / "ready_scripts"
+            p = Path(env_output)
+            base_out = p if p.is_absolute() else (BASE_DIR / p).resolve()
+            return base_out / "connectivity" / "ready_scripts"
         return DEFAULT_READY_SCRIPTS_DIR
 
 try:

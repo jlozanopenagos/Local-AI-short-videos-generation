@@ -4,7 +4,7 @@ scan_ready_scripts.py — Interactive CLI for Scanning Ready Scripts (Columns E 
 
 Scans Google Sheets for rows where script_ready is True (and video_ready is False),
 extracts ID and expression, and groups them into date-named CSV tracking files:
-D:\\AI\\output\\connectivity\\ready_scripts\\<YYYY-MM-DD>_ready_scripts.csv
+<OUTPUT_DIR>/connectivity/ready_scripts/<YYYY-MM-DD>_ready_scripts.csv
 
 Usage:
   # Interactive mode:
@@ -304,7 +304,7 @@ def main() -> None:
         "-o", "--output-dir",
         type=str,
         default=None,
-        help="Custom destination directory (default: D:\\AI\\output\\connectivity\\ready_scripts)",
+        help="Custom destination directory (default: <OUTPUT_DIR>/connectivity/ready_scripts)",
     )
     work_group = parser.add_mutually_exclusive_group()
     work_group.add_argument(

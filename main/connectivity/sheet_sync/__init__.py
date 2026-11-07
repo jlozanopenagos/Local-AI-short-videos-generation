@@ -1,5 +1,5 @@
 """
-sheet_sync — Synchronization of Google Sheets to D:\\AI\\output\\connectivity.
+sheet_sync — Synchronization of Google Sheets to <OUTPUT_DIR>/connectivity.
 """
 
 from connectivity.sheet_sync.sync_service import (

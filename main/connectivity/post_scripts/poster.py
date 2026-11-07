@@ -1,5 +1,5 @@
 """
-poster.py — Service for posting scripts from D:\\AI\\output\\scripts_to_see to Google Sheets.
+poster.py — Service for posting scripts from OUTPUT_DIR/scripts_to_see to Google Sheets.
 
 Safety Guarantee:
 - Only modifies Columns A (ID), B (expression), and C (script).
@@ -25,7 +25,7 @@ from connectivity.core.client import post_sheet_rows
 try:
     from config import OUTPUT_DIR
 except (ImportError, ModuleNotFoundError):
-    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (Path(__file__).resolve().parents[2] / "output")
+    OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
 # Default source directories for scripts
 DEFAULT_SCRIPTS_TO_SEE_DIR = OUTPUT_DIR / "scripts_to_see"
@@ -43,15 +43,15 @@ def get_source_csv_path(
     Priority:
     - If base_dir is explicitly given, look inside base_dir.
     - If include_script_changed is True:
-      1. Check D:\\AI\\output\\connectivity\\_4_columns\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
-      2. Check D:\\AI\\output\\connectivity\\scripts_to_post\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
-      3. Check D:\\AI\\output\\scripts_to_see\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
-      4. Check D:\\AI\\output\\connectivity\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
+      1. Check <OUTPUT_DIR>/connectivity/_4_columns/<lang>/<vtype>/<lang>_<vtype>_connectivity.csv
+      2. Check <OUTPUT_DIR>/connectivity/scripts_to_post/<lang>/<vtype>/<lang>_<vtype>_scripts.csv
+      3. Check <OUTPUT_DIR>/scripts_to_see/<lang>/<vtype>/<lang>_<vtype>_scripts.csv
+      4. Check <OUTPUT_DIR>/connectivity/<lang>/<vtype>/<lang>_<vtype>_connectivity.csv
     - If include_script_changed is False:
-      1. Check D:\\AI\\output\\connectivity\\scripts_to_post\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
-      2. Check D:\\AI\\output\\scripts_to_see\\<lang>\\<vtype>\\<lang>_<vtype>_scripts.csv
-      3. Check D:\\AI\\output\\connectivity\\_3_columns\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
-      4. Check D:\\AI\\output\\connectivity\\<lang>\\<vtype>\\<lang>_<vtype>_connectivity.csv
+      1. Check <OUTPUT_DIR>/connectivity/scripts_to_post/<lang>/<vtype>/<lang>_<vtype>_scripts.csv
+      2. Check <OUTPUT_DIR>/scripts_to_see/<lang>/<vtype>/<lang>_<vtype>_scripts.csv
+      3. Check <OUTPUT_DIR>/connectivity/_3_columns/<lang>/<vtype>/<lang>_<vtype>_connectivity.csv
+      4. Check <OUTPUT_DIR>/connectivity/<lang>/<vtype>/<lang>_<vtype>_connectivity.csv
     """
     lang = language.strip().lower()
     vtype = video_type.strip().lower()

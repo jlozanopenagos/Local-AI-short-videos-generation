@@ -119,7 +119,7 @@ def main() -> int:
         "--output-dir", "-o",
         type=str,
         default=None,
-        help="Custom destination directory (default: D:\\AI\\output\\connectivity or OUTPUT_DIR/connectivity)"
+        help="Custom destination directory (default: OUTPUT_DIR/connectivity)"
     )
     parser.add_argument(
         "--include-script-changed", "--four-columns", "-4",

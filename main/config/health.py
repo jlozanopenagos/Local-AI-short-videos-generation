@@ -199,7 +199,14 @@ def require_services(
 
     if failed:
         errors = "\n".join([f" - {name} ({url}): {msg}" for name, url, msg in failed])
-        comfy_tip = "\n💡 To start ComfyUI headless in the background (zero terminal windows), run:\n   py tools/comfy.py start\n" if any(name == "ComfyUI" for name, _, _ in failed) else ""
+        comfy_tip = ""
+        if any(name == "ComfyUI" for name, _, _ in failed):
+            comfy_script = root_dir / "tools" / "comfy.py"
+            try:
+                rel_cmd = comfy_script.relative_to(Path.cwd().resolve()).as_posix()
+            except ValueError:
+                rel_cmd = "tools/comfy.py"
+            comfy_tip = f"\n💡 To start ComfyUI headless in the background (zero terminal windows), run:\n   py {rel_cmd} start\n"
         raise ConnectionError(
             f"\nPre-flight service verification failed:\n{errors}\n"
             f"{comfy_tip}"

@@ -30,7 +30,24 @@ import config
 
 class TestVoiceManager(unittest.TestCase):
     def setUp(self):
-        self.vm = VoiceManager(config.OPEN_SWARA_DIR, config.COMFY_INPUT_DIR)
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        tmp_root = Path(self._tmp_dir.name)
+        comfy_input = tmp_root / "comfy_input"
+        comfy_input.mkdir(parents=True, exist_ok=True)
+
+        open_swara = config.OPEN_SWARA_DIR
+        if not open_swara.exists():
+            open_swara = tmp_root / "open_swara"
+            for (_lang, _gend), rel_paths in getattr(config, "NARRATOR_VOICES", {}).items():
+                for rel in rel_paths:
+                    p = open_swara / rel
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_bytes(b"RIFF\x24\x00\x00\x00WAVEfmt ")
+
+        self.vm = VoiceManager(open_swara, comfy_input)
+
+    def tearDown(self):
+        self._tmp_dir.cleanup()
 
     def test_normalize_language_compound_labels(self):
         cases = [

@@ -24,7 +24,7 @@ main/connectivity/
 │   ├── google_apps_script.sample.js     # Canonical template sample for Code.gs deployment
 │   └── README.md                        # Step-by-step Apps Script Web App deployment guide
 ├── sheet_sync/                          # Feature 1 Implementation: Sheet to CSV Sync
-│   ├── sync_service.py                  # Fetches records into D:\AI\output\connectivity\synced_sheets\_3_columns or _4_columns
+│   ├── sync_service.py                  # Fetches records into <OUTPUT_DIR>/connectivity\synced_sheets\_3_columns or _4_columns
 │   └── __init__.py                      # Package exports
 ├── corrected_scripts/                   # Feature 2 Implementation: Corrected Scripts Fetching
 │   ├── fetcher.py                       # Fetches Column D into main/input/csv/script_to_change/
@@ -50,8 +50,8 @@ main/connectivity/
   - **3 columns**: `ID`, `expression`, `script` (Standard)
   - **4 columns**: `ID`, `expression`, `script`, `SCRIPT_CHANGED`
 - **Destination**:
-  - 3 columns: `D:\AI\output\connectivity\synced_sheets\_3_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
-  - 4 columns: `D:\AI\output\connectivity\synced_sheets\_4_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
+  - 3 columns: `<OUTPUT_DIR>/connectivity\synced_sheets\_3_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
+  - 4 columns: `<OUTPUT_DIR>/connectivity\synced_sheets\_4_columns\<language>\<video_type>\<language>_<type>_connectivity.csv`
 - **Usage**:
   ```powershell
   # Interactive mode (asks whether to include 4th column):
@@ -70,7 +70,7 @@ main/connectivity/
 ### 2. Fetch Corrected Scripts (`fetch_corrected_scripts.py`)
 - **Action**: Extracts Column D (`SCRIPT_CHANGED`) and exports rows that have corrections.
 - **Destination**:
-  `C:\AI\shorts_automation\main\input\csv\script_to_change\<language>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`.
+  `main/input/csv/script_to_change/<language>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`.
 - **Interactive Options**:
   - `[1] Single Sheet`: pick language & video type, then filter by:
     - `[1] All Entries`
@@ -105,14 +105,14 @@ main/connectivity/
   ```
 
 ### 3. Reconcile & Reorganize Scripts (`reconcile_scripts.py`)
-- **Action**: Audits and reconciles local scripts (`D:\AI\output\scripts_to_see`) against Google Sheets connectivity data (`D:\AI\output\connectivity\synced_sheets\_3_columns`).
+- **Action**: Audits and reconciles local scripts (`<OUTPUT_DIR>/scripts_to_see`) against Google Sheets connectivity data (`<OUTPUT_DIR>/connectivity\synced_sheets\_3_columns`).
 - **Ordering & Preservation Rules**:
   - Strictly preserves Google Sheets row order.
   - Keeps Google Sheets canonical expression names when local has scenario notes or variants.
   - Appends new local entries (not found in Google Sheets, such as `FF06`–`FF15`) to the end of the file.
   - Preserves Google Sheets entries not in local in place.
 - **Output Destination**:
-  - Saves clean, mass-update-ready CSVs to `D:\AI\output\connectivity\scripts_to_post\<language>\<type>\<lang>_<type>_scripts.csv`.
+  - Saves clean, mass-update-ready CSVs to `<OUTPUT_DIR>/connectivity\scripts_to_post\<language>\<type>\<lang>_<type>_scripts.csv`.
   - Seamlessly recognized by `post_scripts.py` as the top-priority source folder.
 - **Interactive Options**:
   - `[1] Check & audit differences across all 16 sheets (Dry Run)`
@@ -128,7 +128,7 @@ main/connectivity/
   ```
 
 ### 4. Post Scripts to Google Sheets (`post_scripts.py`)
-- **Action**: Reads script files from `D:\AI\output\connectivity\scripts_to_post` (or fallback `scripts_to_see` / `_4_columns`) and updates Google Sheets.
+- **Action**: Reads script files from `<OUTPUT_DIR>/connectivity\scripts_to_post` (or fallback `scripts_to_see` / `_4_columns`) and updates Google Sheets.
 - **Safety Guarantee**: In standard mode (choice 1), affects **ONLY** Columns A (`ID`), B (`expression`), and C (`script`). Column D (`SCRIPT_CHANGED`) is strictly preserved untouched unless option 2 (4 columns) is explicitly chosen.
 - **Interactive Options**:
   - `[1] Update a specific sheet (all entries)`
@@ -150,11 +150,11 @@ main/connectivity/
 - **Exclusion Rule**: If `video_ready` is checked (`TRUE`), the ID is strictly **SKIPPED** (video is already done).
 - **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to canonical `YYYY-MM-DD`). Supports both 4-digit (`2026-09-23`) and 2-digit (`23/09/26`) year notations across `/`, `-`, and `.` separators.
 - **Primary Export**:
-  `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
+  `<OUTPUT_DIR>/connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
 - **Interactive Work-With Export (`ready_scripts_to_work_with.csv`)**:
   Before finishing (in both All Sheets and Single Sheet modes), prompts the user in the terminal whether to also generate a CSV with `ID` and `SCRIPT_CHANGE` (Column D):
-  - File: `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts_to_work_with.csv` (Schema: `ID,SCRIPT_CHANGE`).
-  - **Error Handling (`error_report.csv`)**: If any script is marked `script_ready` but has an empty `SCRIPT_CHANGE` cell, it is logged to `D:\AI\output\connectivity\ready_scripts\error_report.csv` with schema `ID,problem`. Valid scripts continue to be exported normally.
+  - File: `<OUTPUT_DIR>/connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts_to_work_with.csv` (Schema: `ID,SCRIPT_CHANGE`).
+  - **Error Handling (`error_report.csv`)**: If any script is marked `script_ready` but has an empty `SCRIPT_CHANGE` cell, it is logged to `<OUTPUT_DIR>/connectivity\ready_scripts\error_report.csv` with schema `ID,problem`. Valid scripts continue to be exported normally.
   - **Auto-Pruning Errors**: When the user subsequently fixes `SCRIPT_CHANGE` in Google Sheets and re-scans, resolved IDs are automatically removed from `error_report.csv` (and the file is deleted once all errors are cleared).
 - **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, records are saved to `undated_ready_scripts.csv` (and `undated_ready_scripts_to_work_with.csv` if requested). When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from the undated files.
 - **Pipeline Integration**:
@@ -202,7 +202,7 @@ For detailed setup instructions, see [`apps_script/README.md`](apps_script/READM
 ## Python API Reference
 
 ```python
-# 1. Sync sheet data to D:\AI\output\connectivity\
+# 1. Sync sheet data to <OUTPUT_DIR>/connectivity\
 from connectivity import sync_sheet, sync_all_sheets
 sync_sheet(language="french", video_type="expression")
 sync_all_sheets()
@@ -214,7 +214,7 @@ fetch_all_sheets_corrected_scripts()
 
 # 3. Reconcile and reorganize scripts to follow Google Sheets order
 from connectivity import reconcile_sheet_data, reconcile_single_sheet, reconcile_all_sheets
-summary = reconcile_all_sheets()  # saves to D:\AI\output\connectivity\scripts_to_post
+summary = reconcile_all_sheets()  # saves to <OUTPUT_DIR>/connectivity\scripts_to_post
 
 # 4. Post scripts to Google Sheets (Columns A, B, C or A:D)
 from connectivity import post_single_sheet, post_all_sheets
@@ -224,6 +224,6 @@ post_all_sheets()
 # 5. Scan ready scripts and export by date
 from connectivity import scan_sheet_ready_scripts, scan_all_sheets_ready_scripts, save_ready_scripts_by_date
 summary = scan_all_sheets_ready_scripts()
-save_ready_scripts_by_date(summary["date_groups"])  # saves to D:\AI\output\connectivity\ready_scripts
+save_ready_scripts_by_date(summary["date_groups"])  # saves to <OUTPUT_DIR>/connectivity\ready_scripts
 ```
 

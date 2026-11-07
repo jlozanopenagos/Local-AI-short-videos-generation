@@ -165,7 +165,11 @@ class ScriptHealthAuditor:
 
         if status.get("voice_generation") == "done":
             audio_path_str = state_data.get("assets", {}).get("audio_path")
-            audio_path = Path(audio_path_str) if audio_path_str else out_dir / f"script_{sid}_master.wav"
+            audio_path = (
+                Path(audio_path_str)
+                if audio_path_str and Path(audio_path_str).exists()
+                else out_dir / f"script_{sid}_master.wav"
+            )
             if not audio_path.exists() or audio_path.stat().st_size < 1000:
                 errors.append(f"Voice is marked 'done', but master audio file is missing or 0 bytes: {audio_path.name}")
 

@@ -164,7 +164,11 @@ def create_little_short(
     # 1. Locate final video
     assets = script_data.get("assets", {})
     final_video_str = assets.get("final_video")
-    final_video_path = Path(final_video_str) if final_video_str else (script_output_dir / f"script_{script_id}_final.mp4")
+    final_video_path = (
+        Path(final_video_str)
+        if final_video_str and Path(final_video_str).exists()
+        else (script_output_dir / f"script_{script_id}_final.mp4")
+    )
 
     if not final_video_path.exists():
         print(f"[{script_id}] Error: Final video does not exist at {final_video_path}.")

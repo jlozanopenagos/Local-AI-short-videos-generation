@@ -3,7 +3,7 @@ connectivity package — Modular Google Sheets integration for shorts_automation
 
 Modules:
 - core: Endpoint registries, URL building, and raw HTTP client.
-- sheet_sync: Syncs Google Sheets (columns A, B, C) to D:\\AI\\output\\connectivity.
+- sheet_sync: Syncs Google Sheets (columns A, B, C) to <OUTPUT_DIR>/connectivity.
 - corrected_scripts: Pulls corrected scripts (Column D) into main/input/csv/script_to_change.
 """
 

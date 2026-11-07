@@ -373,7 +373,7 @@ def main():
         nargs="?",
         const="",
         default=None,
-        help="Target scripts from <date>_ready_scripts.csv (default checks D:\\AI\\output\\connectivity\\ready_scripts/)"
+        help="Target scripts from <date>_ready_scripts.csv (default checks <OUTPUT_DIR>/connectivity/ready_scripts/)"
     )
     parser.add_argument(
         "--dialect",

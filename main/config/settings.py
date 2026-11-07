@@ -5,25 +5,39 @@ from typing import Optional, Tuple, List
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
-# Load environment variables from .env file at project root
-load_dotenv()
-
 # Base directories
-# In config/settings.py, parent.parent is the project root directory
+# In config/settings.py, parent.parent is the main application root directory
 BASE_DIR = Path(__file__).parent.parent.resolve()
 CORE_DIR = BASE_DIR / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
 STATE_DIR = BASE_DIR / "state"
 
-# Output directories (configurable via OUTPUT_DIR in .env, defaults to sibling output/, D:/AI/output, or BASE_DIR/output)
-_env_output = os.getenv("OUTPUT_DIR")
-if _env_output:
-    OUTPUT_DIR = Path(_env_output).resolve()
+# Load environment variables from .env (checks main/.env, repo root .env, and current working directory)
+for _env_candidate in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
+    if _env_candidate.exists():
+        load_dotenv(_env_candidate)
+load_dotenv()
+
+
+def _resolve_local_path(raw_path: Optional[str], base_dir: Path = BASE_DIR) -> Optional[Path]:
+    """Resolves an environment variable path (relative to base_dir if not absolute)."""
+    if not raw_path or not raw_path.strip():
+        return None
+    p = Path(raw_path.strip())
+    if not p.is_absolute():
+        p = base_dir / p
+    return p.resolve()
+
+
+# Output directories (configurable via OUTPUT_DIR in .env, defaults to sibling output/ or BASE_DIR/output)
+_resolved_output = _resolve_local_path(os.getenv("OUTPUT_DIR"), BASE_DIR)
+if _resolved_output:
+    OUTPUT_DIR = _resolved_output
 elif (BASE_DIR.parents[1] / "output").exists():
     OUTPUT_DIR = (BASE_DIR.parents[1] / "output").resolve()
-elif Path("D:/AI/output").exists():
-    OUTPUT_DIR = Path("D:/AI/output").resolve()
+elif (BASE_DIR.parent / "output").exists():
+    OUTPUT_DIR = (BASE_DIR.parent / "output").resolve()
 else:
     OUTPUT_DIR = (BASE_DIR / "output").resolve()
 
@@ -55,21 +69,22 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://localhost:11434/v1")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "llama3")
 
-# ComfyUI Configuration (auto-discovers sibling ComfyUI_windows_portable relative to project root)
+# ComfyUI Configuration (auto-discovers sibling ComfyUI_windows_portable relative to project root or via .env)
 COMFY_API_URL = os.getenv("COMFY_API_URL", "http://127.0.0.1:8188")
-_env_comfy = os.getenv("COMFY_DIR")
-if _env_comfy and Path(_env_comfy).exists():
-    COMFY_DIR = Path(_env_comfy).resolve()
+_resolved_comfy = _resolve_local_path(os.getenv("COMFY_DIR"), BASE_DIR)
+if _resolved_comfy and _resolved_comfy.exists():
+    COMFY_DIR = _resolved_comfy
 elif (BASE_DIR.parents[1] / "ComfyUI_windows_portable").exists():
     COMFY_DIR = (BASE_DIR.parents[1] / "ComfyUI_windows_portable").resolve()
 elif (BASE_DIR.parent / "ComfyUI_windows_portable").exists():
     COMFY_DIR = (BASE_DIR.parent / "ComfyUI_windows_portable").resolve()
-elif Path("D:/AI_video_generation/ComfyUI_windows_portable").exists():
-    COMFY_DIR = Path("D:/AI_video_generation/ComfyUI_windows_portable").resolve()
+elif (BASE_DIR / "ComfyUI_windows_portable").exists():
+    COMFY_DIR = (BASE_DIR / "ComfyUI_windows_portable").resolve()
 else:
-    COMFY_DIR = Path(_env_comfy or str(BASE_DIR.parents[1] / "ComfyUI_windows_portable")).resolve()
-COMFY_OUTPUT_DIR = Path(os.getenv("COMFY_OUTPUT_DIR", str(COMFY_DIR / "ComfyUI" / "output")))
-COMFY_INPUT_DIR = Path(os.getenv("COMFY_INPUT_DIR", str(COMFY_DIR / "ComfyUI" / "input")))
+    COMFY_DIR = (_resolved_comfy or (BASE_DIR.parents[1] / "ComfyUI_windows_portable")).resolve()
+
+COMFY_OUTPUT_DIR = _resolve_local_path(os.getenv("COMFY_OUTPUT_DIR"), BASE_DIR) or (COMFY_DIR / "ComfyUI" / "output")
+COMFY_INPUT_DIR = _resolve_local_path(os.getenv("COMFY_INPUT_DIR"), BASE_DIR) or (COMFY_DIR / "ComfyUI" / "input")
 
 # Workflow directories
 WORKFLOWS_DIR = BASE_DIR / "video_creation" / "workflows"
@@ -82,7 +97,7 @@ IMAGE_STALL_TIMEOUT = int(os.getenv("IMAGE_STALL_TIMEOUT", "600"))
 IMAGE_WORKFLOW_PATH = WORKFLOWS_DIR / "AcademiaSD_Z-Image_v05.json"
 
 # Voice config
-OPEN_SWARA_DIR = Path(os.getenv("OPEN_SWARA_DIR", str(COMFY_DIR / "open-swara" / "voices")))
+OPEN_SWARA_DIR = _resolve_local_path(os.getenv("OPEN_SWARA_DIR"), BASE_DIR) or (COMFY_DIR / "open-swara" / "voices")
 VOICE_WORKFLOW_PATH = WORKFLOWS_DIR / "Qwen3-TTS Voice.json"
 
 NARRATOR_VOICES = {

@@ -12,8 +12,13 @@ from .fun_facts_rules import FUN_FACTS_RULES
 def load_call_to_actions(language: str = None) -> list[str]:
     # Support input/csv/<language>/game_call_to_action_phrases/CALL_TO_ACTIONS.csv
     root_dir = Path(__file__).resolve().parents[3]
-    input_dir = root_dir / "input"
-    input_csv_dir = input_dir / "csv"
+    try:
+        from config import INPUT_DIR, INPUT_CSV_DIR
+        input_dir = Path(INPUT_DIR)
+        input_csv_dir = Path(INPUT_CSV_DIR)
+    except Exception:
+        input_dir = root_dir / "input"
+        input_csv_dir = input_dir / "csv"
     
     cta_files = []
     if language:

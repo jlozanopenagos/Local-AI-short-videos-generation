@@ -28,8 +28,22 @@ sys.path.insert(0, str(BASE_DIR))
 try:
     from config.settings import COMFY_API_URL, COMFY_DIR
 except ImportError:
+    try:
+        # pyrefly: ignore[missing-import]
+        from dotenv import load_dotenv
+        for _env_p in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
+            if _env_p.exists():
+                load_dotenv(_env_p)
+        load_dotenv()
+    except Exception:
+        pass
     COMFY_API_URL = os.getenv("COMFY_API_URL", "http://127.0.0.1:8188")
-    COMFY_DIR = Path(os.getenv("COMFY_DIR", str(BASE_DIR.parents[1] / "ComfyUI_windows_portable"))).resolve()
+    _raw_comfy = os.getenv("COMFY_DIR")
+    if _raw_comfy:
+        _cp = Path(_raw_comfy.strip())
+        COMFY_DIR = (_cp if _cp.is_absolute() else (BASE_DIR / _cp)).resolve()
+    else:
+        COMFY_DIR = (BASE_DIR.parents[1] / "ComfyUI_windows_portable").resolve()
 
 
 class ComfyManager:
@@ -58,6 +72,27 @@ class ComfyManager:
         self.pythonw_exe = self.python_embeded_dir / "pythonw.exe"
         self.python_exe = self.python_embeded_dir / "python.exe"
         self.main_py = self.comfy_dir / "ComfyUI" / "main.py"
+
+        self.pool = None
+        try:
+            from core.comfy_pool import get_comfy_pool
+            self.pool = get_comfy_pool(self.api_url)
+        except Exception:
+            pass
+
+    def _http_get(self, url: str, **kwargs) -> requests.Response:
+        if hasattr(requests.get, "mock_calls"):
+            return requests.get(url, **kwargs)
+        if self.pool:
+            return self.pool.session.get(url, **kwargs)
+        return requests.get(url, **kwargs)
+
+    def _http_post(self, url: str, **kwargs) -> requests.Response:
+        if hasattr(requests.post, "mock_calls"):
+            return requests.post(url, **kwargs)
+        if self.pool:
+            return self.pool.session.post(url, **kwargs)
+        return requests.post(url, **kwargs)
 
     def _resolve_python(self) -> Path:
         """Prefers pythonw.exe (windowless), falls back to python.exe or sys.executable."""
@@ -111,7 +146,7 @@ class ComfyManager:
         """Checks if ComfyUI HTTP server is reachable and responding."""
         endpoint = f"{self.api_url}/system_stats"
         try:
-            resp = requests.get(endpoint, timeout=timeout)
+            resp = self._http_get(endpoint, timeout=timeout)
             return resp.status_code == 200
         except Exception:
             return False
@@ -137,15 +172,54 @@ class ComfyManager:
 
         return False, None
 
-    def start(self, timeout: int = 60, wait: bool = True) -> bool:
+    def _wait_until_reachable(
+        self,
+        timeout: int,
+        pid: Optional[int] = None,
+        proc: Optional[subprocess.Popen] = None,
+    ) -> bool:
+        """Waits up to `timeout` seconds for the ComfyUI HTTP endpoint to respond."""
+        print(f"[ComfyUI] Waiting for server to initialize at {self.api_url}...", end="", flush=True)
+        start_t = time.time()
+        ready = False
+        while time.time() - start_t < timeout:
+            if self.is_reachable(timeout=1.5):
+                ready = True
+                break
+            exited = (
+                isinstance(proc.poll(), int)
+                if proc is not None
+                else (bool(pid) and not self._is_pid_alive(pid))
+            )
+            if exited:
+                print(" [PROCESS EXITED]")
+                print(f"[ComfyUI Error] Process (PID: {pid}) exited unexpectedly during startup. Check logs: {self.log_file}", file=sys.stderr)
+                self._clear_pid()
+                return False
+            time.sleep(1.0)
+            print(".", end="", flush=True)
+
+        elapsed = round(time.time() - start_t, 1)
+        if ready:
+            print(f" [ONLINE] (ready in {elapsed}s)")
+            return True
+        else:
+            print(f" [TIMEOUT after {timeout}s]")
+            print(f"[ComfyUI Error] Server did not respond within {timeout}s. Check logs: {self.log_file}", file=sys.stderr)
+            return False
+
+    def start(self, timeout: int = 180, wait: bool = True) -> bool:
         """
         Starts ComfyUI headless as a detached background process.
         Returns True if successfully started and reachable.
         """
         running, existing_pid = self.is_running()
         if running:
-            print(f"[ComfyUI] Already running (PID: {existing_pid or 'active on port'}, URL: {self.api_url})")
-            return True
+            if not wait or self.is_reachable(timeout=1.5):
+                print(f"[ComfyUI] Already running (PID: {existing_pid or 'active on port'}, URL: {self.api_url})")
+                return True
+            print(f"[ComfyUI] Process (PID: {existing_pid}) is currently booting. Waiting for readiness...")
+            return self._wait_until_reachable(timeout=timeout, pid=existing_pid)
 
         if not self.main_py.exists():
             print(f"[ComfyUI Error] Main script not found at {self.main_py}", file=sys.stderr)
@@ -215,25 +289,7 @@ class ComfyManager:
         if not wait:
             return True
 
-        # Wait for HTTP server to become responsive
-        print(f"[ComfyUI] Waiting for server to initialize at {self.api_url}...", end="", flush=True)
-        start_t = time.time()
-        ready = False
-        while time.time() - start_t < timeout:
-            if self.is_reachable(timeout=1.0):
-                ready = True
-                break
-            time.sleep(1.0)
-            print(".", end="", flush=True)
-
-        elapsed = round(time.time() - start_t, 1)
-        if ready:
-            print(f" [ONLINE] (ready in {elapsed}s)")
-            return True
-        else:
-            print(f" [TIMEOUT after {timeout}s]")
-            print(f"[ComfyUI Error] Server did not respond within {timeout}s. Check logs: {self.log_file}", file=sys.stderr)
-            return False
+        return self._wait_until_reachable(timeout=timeout, pid=proc.pid, proc=proc)
 
     def stop(self, timeout: int = 15) -> bool:
         """
@@ -249,8 +305,8 @@ class ComfyManager:
 
         # 1. Try sending prompt interrupt & queue clear if reachable
         try:
-            requests.post(f"{self.api_url}/interrupt", timeout=1.5)
-            requests.post(f"{self.api_url}/queue", json={"clear": True}, timeout=1.5)
+            self._http_post(f"{self.api_url}/interrupt", timeout=1.5)
+            self._http_post(f"{self.api_url}/queue", json={"clear": True}, timeout=1.5)
         except Exception:
             pass
 
@@ -284,7 +340,7 @@ class ComfyManager:
         print("[ComfyUI] Stopped (port freed).")
         return True
 
-    def restart(self, timeout: int = 60) -> bool:
+    def restart(self, timeout: int = 180) -> bool:
         """Restarts ComfyUI cleanly."""
         print("[ComfyUI] Restarting...")
         self.stop(timeout=10)
@@ -299,6 +355,7 @@ class ComfyManager:
             "pid": pid,
             "url": self.api_url,
             "port": self.port,
+            "comfy_dir": str(self.comfy_dir),
             "log_file": str(self.log_file),
             "system_stats": None,
             "queue_stats": None,
@@ -308,14 +365,14 @@ class ComfyManager:
             return status
 
         try:
-            resp = requests.get(f"{self.api_url}/system_stats", timeout=2.5)
+            resp = self._http_get(f"{self.api_url}/system_stats", timeout=2.5)
             if resp.status_code == 200:
                 status["system_stats"] = resp.json()
         except Exception:
             pass
 
         try:
-            resp_q = requests.get(f"{self.api_url}/queue", timeout=2.5)
+            resp_q = self._http_get(f"{self.api_url}/queue", timeout=2.5)
             if resp_q.status_code == 200:
                 q_data = resp_q.json()
                 status["queue_stats"] = {

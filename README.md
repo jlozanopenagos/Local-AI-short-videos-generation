@@ -261,7 +261,7 @@ py main/connectivity/scan_ready_scripts.py --all
 - **Ready Scripts Scanner (`scan_ready_scripts.py`)**:
   - Filters rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is unchecked.
   - Automatically skips completed videos (`video_ready == True`).
-  - Groups records by `script_date` into daily files: `D:\AI\output\connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv`.
+  - Groups records by `script_date` into daily files: `<OUTPUT_DIR>/connectivity/ready_scripts/<YYYY-MM-DD>_ready_scripts.csv`.
   - Robust 2-digit (`23/09/26`) and 4-digit date normalization across slash, dash, and dot formats.
   - Automatic fallback to `undated_ready_scripts.csv` and auto-pruning once dates are filled in Google Sheets.
 - **Reconciliation Engine (`reconcile_scripts.py`)**:

@@ -2,7 +2,7 @@
 """
 post_scripts.py — Interactive CLI for Posting Scripts to Google Sheets.
 
-Pushes script data from D:\\AI\\output\\scripts_to_see back to Google Sheets.
+Pushes script data from <OUTPUT_DIR>/scripts_to_see back to Google Sheets.
 Safety Guarantee:
 - Only updates Columns A (ID), B (expression), and C (script).
 - Column D (SCRIPT_CHANGED) and subsequent columns are NEVER touched.
@@ -70,8 +70,8 @@ def print_banner() -> None:
     print("=" * 64)
     print("       LINGOVERSE — POST SCRIPTS TO GOOGLE SHEETS")
     print("=" * 64)
-    print(" Source Priority : D:\\AI\\output\\connectivity\\scripts_to_post")
-    print("                   (Fallback: D:\\AI\\output\\scripts_to_see)")
+    print(" Source Priority : <OUTPUT_DIR>/connectivity/scripts_to_post")
+    print("                   (Fallback: <OUTPUT_DIR>/scripts_to_see)")
     print(" Mode Options    : 3 columns (A:C) or 4 columns (A:D with SCRIPT_CHANGED)")
     print(" Safety Guarantee: Column D is preserved untouched unless 4-column mode is chosen")
     print("-" * 64)
@@ -209,9 +209,9 @@ def handle_single_sheet_flow(mode: str, include_script_changed: bool = False) ->
     if not csv_path.exists():
         print(f"\n[ERROR] Source CSV not found at: {csv_path}")
         if include_script_changed:
-            print(r"Please check that connectivity data with 4 columns exists in D:\AI\output\connectivity\_4_columns.")
+            print("Please check that connectivity data with 4 columns exists in <OUTPUT_DIR>/connectivity/_4_columns.")
         else:
-            print(r"Please check that scripts have been generated in D:\AI\output\connectivity\scripts_to_post or D:\AI\output\scripts_to_see.")
+            print("Please check that scripts have been generated in <OUTPUT_DIR>/connectivity/scripts_to_post or <OUTPUT_DIR>/scripts_to_see.")
         return
 
     try:
@@ -263,9 +263,9 @@ def handle_single_sheet_flow(mode: str, include_script_changed: bool = False) ->
 def handle_all_sheets_flow(include_script_changed: bool = False) -> None:
     cols_desc = "4 columns (A:D, including SCRIPT_CHANGED)" if include_script_changed else "3 columns (A:C, ID, expression, script)"
     source_desc = (
-        r"D:\AI\output\connectivity\_4_columns (fallback: scripts_to_post)"
+        "<OUTPUT_DIR>/connectivity/_4_columns (fallback: scripts_to_post)"
         if include_script_changed
-        else r"D:\AI\output\connectivity\scripts_to_post (fallback: scripts_to_see)"
+        else "<OUTPUT_DIR>/connectivity/scripts_to_post (fallback: scripts_to_see)"
     )
 
     print("\n" + "=" * 64)

@@ -32,6 +32,14 @@ sys.path.insert(0, str(BASE_DIR))
 try:
     from config.settings import COMFY_API_URL
 except ImportError:
+    try:
+        from dotenv import load_dotenv
+        for _env_p in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
+            if _env_p.exists():
+                load_dotenv(_env_p)
+        load_dotenv()
+    except Exception:
+        pass
     COMFY_API_URL = os.getenv("COMFY_API_URL", "http://127.0.0.1:8188")
 
 logger = logging.getLogger(__name__)

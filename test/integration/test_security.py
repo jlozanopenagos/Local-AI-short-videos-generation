@@ -173,6 +173,41 @@ class TestSecurityAndPrivacy(unittest.TestCase):
         except Exception as exc:
             self.skipTest(f"Git command failed: {exc}")
 
+    def test_tracked_files_do_not_contain_personal_local_paths(self):
+        """Ensure no personal local drive paths (e.g. C:/AI, D:/AI, D:/AI_video_generation, C:/Users/) are hardcoded in tracked files."""
+        try:
+            res = subprocess.run(
+                ["git", "ls-files"],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
+            local_path_regex = re.compile(
+                r"(?:[CDcd]:[/\\]+(?:AI|AI_video_generation|Users)[/\\])",
+                re.IGNORECASE,
+            )
+
+            for rel_path in tracked_files:
+                if rel_path.replace("\\", "/").endswith("test_security.py"):
+                    continue
+                full_path = REPO_ROOT / rel_path
+                if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
+                    continue
+
+                try:
+                    content = full_path.read_text(encoding="utf-8", errors="ignore")
+                    matches = local_path_regex.findall(content)
+                    self.assertEqual(
+                        len(matches), 0,
+                        f"Hardcoded personal local path found in tracked file {rel_path}: {matches}"
+                    )
+                except Exception:
+                    continue
+        except Exception as exc:
+            self.skipTest(f"Git command failed: {exc}")
+
 
 if __name__ == "__main__":
     unittest.main()

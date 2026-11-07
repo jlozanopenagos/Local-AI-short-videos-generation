@@ -1,13 +1,16 @@
 """
 tools/comfy.py — CLI Command Interface for Headless ComfyUI Supervisor.
 
-Usage:
+Usage (from inside main/):
     py tools/comfy.py start        # Boots ComfyUI headless in background (zero terminal windows)
     py tools/comfy.py stop         # Stops ComfyUI process cleanly
     py tools/comfy.py restart      # Stops and starts fresh
     py tools/comfy.py status       # Shows PID, port, VRAM, and queue statistics
     py tools/comfy.py logs         # Displays recent runtime logs
     py tools/comfy.py logs -f      # Follows live logs in real time (Ctrl+C to exit)
+
+Usage (from shorts_automation/ root):
+    py main/tools/comfy.py start
 """
 
 from __future__ import annotations
@@ -38,7 +41,7 @@ def main() -> int:
 
     # Start
     start_p = subparsers.add_parser("start", help="Start ComfyUI headless in the background")
-    start_p.add_argument("--timeout", type=int, default=60, help="Seconds to wait for server initialization (default: 60)")
+    start_p.add_argument("--timeout", type=int, default=180, help="Seconds to wait for server initialization (default: 180)")
     start_p.add_argument("--no-wait", action="store_true", help="Launch without waiting for health probe")
 
     # Stop
@@ -47,7 +50,7 @@ def main() -> int:
 
     # Restart
     restart_p = subparsers.add_parser("restart", help="Restart ComfyUI")
-    restart_p.add_argument("--timeout", type=int, default=60, help="Seconds to wait for initialization (default: 60)")
+    restart_p.add_argument("--timeout", type=int, default=180, help="Seconds to wait for initialization (default: 180)")
 
     # Status
     subparsers.add_parser("status", help="Check status, PID, VRAM, and queue metrics")
@@ -86,6 +89,8 @@ def main() -> int:
         print(f"• Endpoint:      {st['url']}")
         print(f"• Port:          {st['port']}")
         print(f"• Process PID:   {st['pid'] or 'None (Not running)'}")
+        if st.get("comfy_dir"):
+            print(f"• ComfyUI Path:  {st['comfy_dir']}")
         print(f"• Log Location:  {st['log_file']}")
 
         if st["system_stats"]:

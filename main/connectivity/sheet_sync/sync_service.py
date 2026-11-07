@@ -1,8 +1,8 @@
 """
-sync_service.py — Synchronization service for exporting Google Sheets data to D:\\AI\\output\\connectivity.
+sync_service.py — Synchronization service for exporting Google Sheets data to <OUTPUT_DIR>/connectivity.
 
 Exports 3 columns: 'ID', 'expression', 'script'
-Destination: D:\\AI\\output\\connectivity\\<language>\\<video_type>\\<language>_<video_type>_connectivity.csv
+Destination: <OUTPUT_DIR>/connectivity/<language>/<video_type>/<language>_<video_type>_connectivity.csv
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple
 try:
     from config import OUTPUT_DIR, BASE_DIR
 except (ImportError, ModuleNotFoundError):
-    BASE_DIR = Path(__file__).resolve().parents[3]
-    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (BASE_DIR / "output")
+    BASE_DIR = Path(__file__).resolve().parents[2]
+    OUTPUT_DIR = BASE_DIR / "output"
 
 try:
     from connectivity.core import (
@@ -47,8 +47,8 @@ def resolve_connectivity_output_dir(
     """
     Resolves destination directory for connectivity data, organized by column mode, language and video type.
     Preferred location:
-      - 3 columns: D:\\AI\\output\\connectivity\\_3_columns\\<language>\\<video_type>
-      - 4 columns: D:\\AI\\output\\connectivity\\_4_columns\\<language>\\<video_type>
+      - 3 columns: <OUTPUT_DIR>/connectivity/_3_columns/<language>/<video_type>
+      - 4 columns: <OUTPUT_DIR>/connectivity/_4_columns/<language>/<video_type>
     Fallback: OUTPUT_DIR / connectivity / (_3_columns or _4_columns) / <language> / <video_type>
     """
     col_subdir = "_4_columns" if include_script_changed else "_3_columns"
@@ -131,7 +131,7 @@ def sync_sheet(
     tab: Optional[str] = None,
     include_script_changed: bool = False,
 ) -> Dict[str, Any]:
-    """Syncs a single sheet to D:\\AI\\output\\connectivity."""
+    """Syncs a single sheet to <OUTPUT_DIR>/connectivity."""
     resolved_lang, resolved_type, endpoint_url = get_endpoint(
         language=language,
         video_type=video_type,

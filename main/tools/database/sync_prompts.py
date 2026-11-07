@@ -15,13 +15,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from config import BASE_DIR, INPUT_CSV_DIR
 from core.expression_db import get_expression_db
 
-BASE_DIR = PROJECT_ROOT
 LANGUAGES = [("english", "E"), ("french", "F"), ("spanish", "S"), ("italian", "I")]
 
 def check_and_sync_language(lang: str, code: str) -> dict:
-    d = BASE_DIR / "input" / "csv" / lang / "expressions_list"
+    d = INPUT_CSV_DIR / lang / "expressions_list"
     expr_p = d / f"{lang.upper()}_READY_PROMPTS_EXPRESSION.csv"
     game_p = d / f"{lang.upper()}_READY_PROMPTS_GAME.csv"
     role_p = d / f"{lang.upper()}_READY_PROMPTS_ROLEPLAY.csv"

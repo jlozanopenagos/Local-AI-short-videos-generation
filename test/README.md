@@ -41,7 +41,7 @@ py test/run_tests.py
 ```
 Or using ComfyUI's embedded Python runtime:
 ```bash
-& C:/AI/ComfyUI_windows_portable/python_embeded/python.exe test/run_tests.py
+& ../ComfyUI_windows_portable/python_embeded/python.exe test/run_tests.py
 ```
 
 ### 2. Run Specific Test Layers

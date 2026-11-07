@@ -11,7 +11,7 @@ Rules:
    - script_date (Column F)
 5. Groups records by normalized script_date (YYYY-MM-DD).
    - If script_date is blank, groups into 'undated'.
-6. Writes clean CSV files to D:\\AI\\output\\connectivity\\ready_scripts\\:
+6. Writes clean CSV files to <OUTPUT_DIR>/connectivity/ready_scripts/:
    - <YYYY-MM-DD>_ready_scripts.csv
    - undated_ready_scripts.csv (if any scripts lack dates)
    - Schema: ID, expression
@@ -35,9 +35,10 @@ from connectivity.core.endpoints import (
 )
 
 try:
-    from config import OUTPUT_DIR
+    from config import BASE_DIR, OUTPUT_DIR
 except (ImportError, ModuleNotFoundError):
-    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (Path(__file__).resolve().parents[2] / "output")
+    BASE_DIR = Path(__file__).resolve().parents[2]
+    OUTPUT_DIR = BASE_DIR / "output"
 
 DEFAULT_READY_SCRIPTS_DIR = OUTPUT_DIR / "connectivity" / "ready_scripts"
 
@@ -48,15 +49,16 @@ def resolve_ready_scripts_output_dir(output_dir: Optional[Path | str] = None) ->
     Priority:
     1. Explicit output_dir argument
     2. OUTPUT_DIR env var -> <OUTPUT_DIR>/connectivity/ready_scripts
-    3. Fallback: D:\\AI\\output\\connectivity\\ready_scripts
+    3. Fallback: DEFAULT_READY_SCRIPTS_DIR
     """
     if output_dir:
         return Path(output_dir)
 
     env_output = os.getenv("OUTPUT_DIR", "").strip()
     if env_output:
-        resolved = Path(env_output) / "connectivity" / "ready_scripts"
-        return resolved
+        p = Path(env_output)
+        base_out = p if p.is_absolute() else (BASE_DIR / p).resolve()
+        return base_out / "connectivity" / "ready_scripts"
 
     return DEFAULT_READY_SCRIPTS_DIR
 

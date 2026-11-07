@@ -2,15 +2,15 @@
 service.py — Reconcile service for auditing and reorganizing local scripts against Google Sheets data.
 
 Compares:
-- Local scripts: D:\\AI\\output\\scripts_to_see\\<lang>\\<type>\\<lang>_<type>_scripts.csv
-- Google Sheets snapshot: D:\\AI\\output\\connectivity\\_3_columns\\<lang>\\<type>\\<lang>_<type>_connectivity.csv
+- Local scripts: <OUTPUT_DIR>/scripts_to_see/<lang>/<type>/<lang>_<type>_scripts.csv
+- Google Sheets snapshot: <OUTPUT_DIR>/connectivity/_3_columns/<lang>/<type>/<lang>_<type>_connectivity.csv
 
 Reorganization rules:
 1. Preserves the exact ordering of Google Sheets.
 2. For matching IDs, uses Google Sheets canonical expression name, and updates the script from local.
 3. For local entries not in Google Sheets (e.g. FF06-FF15), appends them to the end of the file.
 4. For Google Sheets entries not in local, preserves them in place.
-5. Saves clean result to D:\\AI\\output\\connectivity\\scripts_to_post\\<lang>\\<type>\\<lang>_<type>_scripts.csv
+5. Saves clean result to <OUTPUT_DIR>/connectivity/scripts_to_post/<lang>/<type>/<lang>_<type>_scripts.csv
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple
 try:
     from config import OUTPUT_DIR
 except (ImportError, ModuleNotFoundError):
-    OUTPUT_DIR = Path("D:/AI/output") if Path("D:/AI/output").exists() else (Path(__file__).resolve().parents[2] / "output")
+    OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
 DEFAULT_SCRIPTS_TO_SEE_DIR = OUTPUT_DIR / "scripts_to_see"
 DEFAULT_CONNECTIVITY_DIR = OUTPUT_DIR / "connectivity" / "synced_sheets" / "_3_columns"

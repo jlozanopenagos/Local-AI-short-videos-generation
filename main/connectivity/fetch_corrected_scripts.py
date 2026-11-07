@@ -3,7 +3,7 @@
 fetch_corrected_scripts.py — Interactive CLI for Fetching Corrected Scripts (Column D).
 
 Connects to Google Sheets and exports corrected scripts (Column D SCRIPT_CHANGED)
-directly into C:\\AI\\shorts_automation\\main\\input\\csv\\script_to_change\\<language>_<video_type>_script_to_change.csv
+directly into main/input/csv/script_to_change/<language>_<video_type>_script_to_change.csv
 with schema: 'ID, NEW_SCRIPT'.
 """
 
