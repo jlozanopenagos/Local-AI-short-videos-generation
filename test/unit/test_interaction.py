@@ -39,3 +39,4 @@ class TestInteractionLayer(unittest.TestCase):
         mock_p = PresetInteractionProvider()
         set_interaction(mock_p)
         self.assertIs(get_interaction(), mock_p)
+

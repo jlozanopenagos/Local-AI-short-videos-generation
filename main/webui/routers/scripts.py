@@ -100,3 +100,4 @@ def get_script(script_id: str) -> Dict[str, Any]:
 
     state_data = sm.get_script_state(canonical_id)
     return state_data
+

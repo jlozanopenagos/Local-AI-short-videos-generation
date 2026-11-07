@@ -16,3 +16,4 @@ WEBUI_OPEN_BROWSER = os.getenv("WEBUI_OPEN_BROWSER", "false").lower() in ("1", "
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
+

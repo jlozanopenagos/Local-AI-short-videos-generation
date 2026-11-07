@@ -115,3 +115,4 @@ def get_service_logs(service: str, lines: int = Query(default=100, ge=1, le=1000
             return {"service": service, "lines": tail, "path": str(log_file)}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error reading log file: {exc}")
+

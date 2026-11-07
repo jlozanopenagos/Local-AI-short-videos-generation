@@ -13,7 +13,9 @@ import sys
 from pathlib import Path
 from typing import Generator
 
+# pyrefly: ignore[missing-import]
 from fastapi import APIRouter, HTTPException, Request, Response
+# pyrefly: ignore[missing-import]
 from fastapi.responses import FileResponse, StreamingResponse
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

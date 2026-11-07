@@ -150,3 +150,4 @@ def set_interaction(provider: InteractionProvider) -> None:
     """Sets active interaction provider."""
     global _GLOBAL_INTERACTION
     _GLOBAL_INTERACTION = provider
+

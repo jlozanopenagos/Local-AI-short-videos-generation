@@ -16,7 +16,7 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from webui.settings import STATIC_DIR, WEBUI_DEV_MODE
-from webui.routers import system, scripts, media
+from webui.routers import system, scripts, media, jobs
 
 
 def create_app() -> FastAPI:
@@ -54,9 +54,12 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(scripts.router)
     app.include_router(media.router)
+    app.include_router(jobs.router)
+    app.include_router(jobs.ws_router)
 
     # Mount static assets directory for Single Page Application
     if STATIC_DIR.exists():
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
     return app
+

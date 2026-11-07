@@ -11,6 +11,7 @@ MAIN_DIR = Path(__file__).resolve().parent.parent.parent / "main"
 if str(MAIN_DIR) not in sys.path:
     sys.path.insert(0, str(MAIN_DIR))
 
+# pyrefly: ignore[missing-import]
 from fastapi.testclient import TestClient
 
 # pyrefly: ignore[missing-import]

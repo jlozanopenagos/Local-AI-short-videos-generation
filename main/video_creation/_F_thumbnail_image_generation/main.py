@@ -40,6 +40,48 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
+def generate_thumbnail_for_script(
+    script_data: dict,
+    state_mgr: StateManager | None = None,
+    base_dir: Path | None = None,
+    input_images_dir: Path | None = None,
+) -> bool:
+    """Renders a chalkboard thumbnail for a single script and updates state."""
+    b_dir = base_dir or BASE_DIR
+    sm = state_mgr or StateManager(base_dir=b_dir)
+    in_dir = input_images_dir or THUMBNAIL_MODELS_DIR
+    if not in_dir.exists():
+        in_dir = Path(__file__).parent / "input_images"
+
+    script_id = script_data.get("id")
+    if not script_id:
+        return False
+
+    lang_key = resolve_script_language(script_data)
+    video_type = resolve_script_video_type(script_data)
+
+    output_dir = get_script_output_dir(script_id, lang_key, b_dir, video_type=video_type)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = output_dir / "thumbnail.png"
+
+    title_text = extract_thumbnail_title(script_data)
+    reference_image_path = in_dir / lang_key / f"{lang_key}_thumbnail_model.png"
+    if not reference_image_path.exists():
+        reference_image_path = in_dir / "english" / "english_thumbnail_model.png"
+
+    render_thumbnail_chalkboard(
+        reference_image_path=reference_image_path,
+        title_text=title_text,
+        dest_path=dest_path,
+        target_size=(IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT),
+    )
+
+    script_data.setdefault("assets", {})["thumbnail_path"] = str(dest_path)
+    script_data.setdefault("status", {})["thumbnail_generation"] = "done"
+    sm.save_script_state(script_id, script_data)
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate chalkboard thumbnails with the script expression title."
@@ -282,50 +324,26 @@ def main() -> None:
         for i, state in enumerate(pending, start=1):
             script_id = state.get("id")
             try:
-                lang_key = resolve_script_language(state)
-                video_type = resolve_script_video_type(state)
-
-                output_dir = get_script_output_dir(
-                    script_id, lang_key, base_dir, video_type=video_type
-                )
-                output_dir.mkdir(parents=True, exist_ok=True)
-                dest_path = output_dir / "thumbnail.png"
-
                 title_text = extract_thumbnail_title(state)
+                lang_key = resolve_script_language(state)
                 print(
                     f"[{i}/{len(pending)}] Rendering chalkboard thumbnail for {script_id} "
                     f"({lang_key.upper()}): \"{title_text}\""
                 )
-
-                # Dynamically select the correct reference image based on language
-                reference_image_path = (
-                    input_images_dir / lang_key / f"{lang_key}_thumbnail_model.png"
-                )
-                if not reference_image_path.exists():
-                    logger.warning(
-                        f"Reference image not found: {reference_image_path}. Falling back to English."
-                    )
-                    reference_image_path = (
-                        input_images_dir / "english" / "english_thumbnail_model.png"
-                    )
-
-                render_thumbnail_chalkboard(
-                    reference_image_path=reference_image_path,
-                    title_text=title_text,
-                    dest_path=dest_path,
-                    target_size=(IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT),
-                )
-
-                state.setdefault("assets", {})["thumbnail_path"] = str(dest_path)
-                state.setdefault("status", {})["thumbnail_generation"] = "done"
-                state_mgr.save_script_state(script_id, state)
-                logger.info(f"Thumbnail generation complete for {script_id} -> {dest_path}")
-                success_count += 1
+                if generate_thumbnail_for_script(
+                    script_data=state,
+                    state_mgr=state_mgr,
+                    base_dir=base_dir,
+                    input_images_dir=input_images_dir,
+                ):
+                    logger.info(f"Thumbnail generation complete for {script_id}")
+                    success_count += 1
             except Exception as e:
                 logger.error(
                     f"Failed to generate thumbnail for {script_id}: {e}", exc_info=True
                 )
                 state.setdefault("status", {})["thumbnail_generation"] = "error"
+                state_mgr.save_script_state(script_id, state)
                 state_mgr.save_script_state(script_id, state)
 
         print(
