@@ -179,6 +179,17 @@ def require_services(
 
     if comfy:
         ok, msg = check_comfy_connection(timeout=timeout)
+        if not ok:
+            try:
+                from core.comfy_manager import get_comfy_manager
+                cm = get_comfy_manager()
+                if verbose:
+                    print(f"  [AutoStart] ComfyUI offline. Starting headless service...")
+                if cm.start(timeout=60, wait=True):
+                    ok, msg = check_comfy_connection(timeout=timeout)
+            except Exception:
+                pass
+
         if ok:
             if verbose:
                 print(f"  [OK] ComfyUI reachable at {COMFY_API_URL}")
@@ -189,6 +200,17 @@ def require_services(
 
     if llm:
         ok, msg = check_llm_connection(timeout=timeout)
+        if not ok:
+            try:
+                from core.llama_manager import get_llama_manager
+                lm = get_llama_manager()
+                if verbose:
+                    print(f"  [AutoStart] LLM offline. Starting {LLM_MODEL_NAME} headless...")
+                if lm.start(timeout=60, wait=True):
+                    ok, msg = check_llm_connection(timeout=timeout)
+            except Exception:
+                pass
+
         if ok:
             if verbose:
                 print(f"  [OK] LLM server responsive at {LLM_API_BASE_URL} ({LLM_MODEL_NAME})")
@@ -207,9 +229,19 @@ def require_services(
             except ValueError:
                 rel_cmd = "tools/comfy.py"
             comfy_tip = f"\n💡 To start ComfyUI headless in the background (zero terminal windows), run:\n   py {rel_cmd} start\n"
+
+        llm_tip = ""
+        if any(name == "LLM" for name, _, _ in failed):
+            llama_script = root_dir / "tools" / "llama.py"
+            try:
+                rel_cmd = llama_script.relative_to(Path.cwd().resolve()).as_posix()
+            except ValueError:
+                rel_cmd = "tools/llama.py"
+            llm_tip = f"\n💡 To start llama.cpp headless in the background, run:\n   py {rel_cmd} start\n"
+
         raise ConnectionError(
             f"\nPre-flight service verification failed:\n{errors}\n"
-            f"{comfy_tip}"
+            f"{comfy_tip}{llm_tip}"
             "Please ensure required background servers are running before executing this workflow."
         )
 

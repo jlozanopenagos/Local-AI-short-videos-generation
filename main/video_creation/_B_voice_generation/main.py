@@ -760,6 +760,12 @@ def main() -> int:
         return 1
 
     try:
+        from core.llama_manager import ensure_llama_stopped
+        ensure_llama_stopped()
+    except Exception:
+        pass
+
+    try:
         require_services(comfy=True)
         comfy_client = ComfyClient(COMFY_API_URL, workflow_template_path, COMFY_OUTPUT_DIR)
         print("AI services connection (ComfyUI) verified.")

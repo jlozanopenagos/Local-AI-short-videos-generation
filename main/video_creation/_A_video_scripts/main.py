@@ -798,6 +798,7 @@ def handle_prompt(
             # Sanitize script title (zero emojis, zero formulaic clichés)
             if "title" in script_field and isinstance(script_field["title"], str):
                 try:
+                    # pyrefly: ignore[missing-import]
                     from core.metadata_builder import sanitize_title, strip_emojis
                 except ImportError:
                     from video_creation._A_video_scripts.core.metadata_builder import sanitize_title, strip_emojis
@@ -1477,6 +1478,12 @@ def main() -> int:
                 break
         else:
             break
+
+    try:
+        from core.llama_manager import ensure_llama_stopped
+        ensure_llama_stopped()
+    except Exception:
+        pass
 
     return 0
 

@@ -1453,6 +1453,12 @@ def interactive_main():
         print(f"❌ Failed scripts: {', '.join(failed_ids)}")
     print("=" * 68)
 
+    try:
+        from core.llama_manager import ensure_llama_stopped
+        ensure_llama_stopped()
+    except Exception:
+        pass
+
     return 0 if success_count == total else 1
 
 

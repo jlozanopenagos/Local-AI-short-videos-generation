@@ -42,6 +42,7 @@ from core.cli_prompt import (
 from core.status_tracker import get_status_tracker
 # pyrefly: ignore [missing-import]
 from core.expression_db import is_expression_done
+from core.llama_manager import ensure_llama_running, ensure_llama_stopped
 from _C_image_generation.core.comfy_client import ImageComfyClient
 from _C_image_generation.core.prompt_builder import VisualPromptBuilder, resolve_anchor_environment, sanitize_and_style_prompt
 from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
@@ -238,6 +239,7 @@ def process_script(
             if k.strip().lower() in valid_active_sections
         }
 
+        ensure_llama_running()
         storyboard_prompts = prompt_builder.build_storyboard_prompts(
             script_text=script_text,
             label=label,
@@ -256,6 +258,10 @@ def process_script(
             script_data["assets"] = {}
         script_data["assets"]["image_prompts"] = storyboard_prompts
         state_manager.save_script_state(script_id, script_data)
+
+    # Release LLM VRAM before batch generation in ComfyUI
+    print("\n[GPU Handoff] Stopping llama-server to release ~2.0 GB VRAM for ComfyUI...")
+    ensure_llama_stopped()
 
     success = True
     for section_name, section_text in sections.items():
@@ -624,6 +630,7 @@ def main() -> int:
         else:
             break
 
+    ensure_llama_stopped()
     return 0
 
 if __name__ == "__main__":

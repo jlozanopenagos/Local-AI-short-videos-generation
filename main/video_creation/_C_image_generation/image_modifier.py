@@ -43,6 +43,8 @@ from config import (
 from core.cli_prompt import timed_input
 # pyrefly: ignore [missing-import]
 from core.state_manager import StateManager, resolve_lang_and_type
+# pyrefly: ignore[missing-import]
+from core.llama_manager import ensure_llama_running, ensure_llama_stopped
 from _C_image_generation.core.comfy_client import ImageComfyClient
 from _C_image_generation.core.prompt_builder import VisualPromptBuilder, resolve_anchor_environment, sanitize_and_style_prompt
 from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
@@ -355,6 +357,7 @@ def modify_group_interactive(
             guidance = input("Enter your custom visual guidance for the story world: ").strip()
         except (KeyboardInterrupt, EOFError):
             guidance = ""
+        ensure_llama_running()
         print("\n[LLM] Generating refined general prompt with guidance...")
         general_prompt_text = prompt_builder.build_general_prompt(
             script_text=script_text,
@@ -380,6 +383,7 @@ def modify_group_interactive(
             general_prompt_text = None
 
     if not general_prompt_text:
+        ensure_llama_running()
         print("\n[LLM] Generating fresh general prompt grounded in story world...")
         general_prompt_text = prompt_builder.build_general_prompt(
             script_text=script_text,
@@ -457,6 +461,7 @@ def modify_group_interactive(
                 script_data["content_metadata"]["speakers_gender"] = speakers_gender
                 state_manager.save_script_state(script_id, script_data)
                 print(f"\n[Gender Toggled] Principal character is now: {current_princ_gender.upper()} ({'young teen boy' if current_princ_gender == 'male' else 'young teen girl'})")
+            ensure_llama_running()
             print("[LLM] Regenerating general prompt with updated gender...")
             try:
                 new_gen = prompt_builder.build_general_prompt(
@@ -478,6 +483,7 @@ def modify_group_interactive(
             except Exception as exc:
                 print(f"[ERROR] Failed to regenerate general prompt: {exc}")
         elif act in ["r", "regen", "regenerate"]:
+            ensure_llama_running()
             print("\n[LLM] Generating fresh creative variation of general prompt...")
             try:
                 new_gen = prompt_builder.build_general_prompt(
@@ -503,6 +509,7 @@ def modify_group_interactive(
                 more_notes = input("\nEnter guidance notes for the story world: ").strip()
             except (KeyboardInterrupt, EOFError):
                 more_notes = ""
+            ensure_llama_running()
             print("\n[LLM] Refining general prompt with guidance...")
             try:
                 new_gen = prompt_builder.build_general_prompt(
@@ -566,6 +573,7 @@ def modify_group_interactive(
 
     generated_scene_prompts: Dict[str, str] = {}
     try:
+        ensure_llama_running()
         storyboard_map = prompt_builder.build_storyboard_prompts(
             script_text=script_text,
             label=label,
@@ -586,6 +594,36 @@ def modify_group_interactive(
             print(f"\n[Scene Prompt - {s_key.upper()}]:\n\"{clean_p}\"")
     except Exception as exc:
         print(f"[WARNING] Storyboard batch generation failed: {exc}. Will fallback per scene.")
+
+    # Ensure all scenes have prompts generated in Phase 1 before shutting down LLM
+    for sec in valid_sections:
+        if video_type == "GAME" and sec.lower() in ("pressure", "challenge"):
+            continue
+        if sec.lower() not in generated_scene_prompts and sec not in generated_scene_prompts:
+            sec_text = sections.get(sec, f"Illustration for {sec} ({topic_str})")
+            print(f"[LLM] Building visual prompt for '{sec}' before GPU handoff...")
+            try:
+                ensure_llama_running()
+                fallback_p = prompt_builder.build_visual_prompt(
+                    script_text=script_text,
+                    label=label,
+                    scene_name=sec,
+                    scene_text=sec_text,
+                    script_id=script_id,
+                    speakers_gender=speakers_gender,
+                    video_type=video_type,
+                    character_personalities=character_personalities,
+                    topic=topic_str,
+                    scenario=scenario_str,
+                    lexical_field=lexical_field_str,
+                    anchor_environment=confirmed_general_prompt,
+                    existing_scene_prompts=generated_scene_prompts,
+                    general_prompt=confirmed_general_prompt,
+                    temperature=0.8,
+                )
+                generated_scene_prompts[sec.lower()] = sanitize_and_style_prompt(fallback_p)
+            except Exception as e:
+                print(f"[WARNING] Could not build visual prompt for '{sec}': {e}")
 
     # Cleanup any stale/obsolete scene images not in valid_sections
     for old_img in images_dir.glob(f"script_{script_id}_*.png"):
@@ -610,6 +648,10 @@ def modify_group_interactive(
     state_manager.save_script_state(script_id, script_data)
 
     # 5. EXECUTION PHASE (Phase 2): Batch Image Synthesis in ComfyUI
+    # Release LLM VRAM before GPU diffusion begins so ComfyUI gets 100% of free memory
+    print("\n[GPU Handoff] Stopping llama-server to release ~2.0 GB VRAM for ComfyUI...")
+    ensure_llama_stopped()
+
     total_scenes = len(valid_sections)
     print("\n" + "=" * 64)
     print(f"🚀 EXECUTION PHASE: Batch Image Synthesis ({total_scenes} Scenes)")
@@ -1180,6 +1222,7 @@ def modify_scene_interactive(
                 augmented_scene_text = f"{scene_text}\n[VISUAL DIRECTOR SPECIAL GUIDANCE: {guidance}]"
             else:
                 augmented_scene_text = scene_text
+            ensure_llama_running()
             print("\n[LLM] Generating refined visual prompt with custom guidance...")
             custom_prompt_text = prompt_builder.build_visual_prompt(
                 script_text=script_text,
@@ -1208,6 +1251,7 @@ def modify_scene_interactive(
                 custom_prompt_text = None
 
         if not custom_prompt_text:
+            ensure_llama_running()
             print("\n[LLM] Generating fresh visual prompt grounded in story...")
             custom_prompt_text = prompt_builder.build_visual_prompt(
                 script_text=script_text,
@@ -1313,6 +1357,7 @@ def modify_scene_interactive(
                 except Exception as exc:
                     print(f"[ERROR] Failed to regenerate prompt with LLM: {exc}")
             elif act in ["r", "regen", "regenerate", "redo"]:
+                ensure_llama_running()
                 print("\n[LLM] Generating fresh alternative visual prompt with new creative composition...")
                 prev_snippet = confirmed_prompt.split(".")[0].strip()[:90]
                 if video_type == "ROLEPLAY":
@@ -1386,6 +1431,7 @@ def modify_scene_interactive(
                             f"[VISUAL DIRECTOR GUIDANCE: Create a fresh alternative creative angle with {wardrobe_mandate}, "
                             f"distinct from previous attempt: '{prev_snippet}']"
                         )
+                    ensure_llama_running()
                     print("\n[LLM] Refining visual prompt with guidance...")
                     new_prompt = prompt_builder.build_visual_prompt(
                         script_text=script_text,
@@ -1436,6 +1482,8 @@ def modify_scene_interactive(
             continue
 
         confirmed_prompt = sanitize_and_style_prompt(confirmed_prompt)
+        print("\n[GPU Handoff] Stopping llama-server to release ~2.0 GB VRAM for ComfyUI...")
+        ensure_llama_stopped()
         print(f"\n[ComfyUI] Generating image for '{chosen_section}'...")
         t0 = time.time()
         try:
