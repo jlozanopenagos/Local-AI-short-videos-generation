@@ -469,11 +469,12 @@ def main() -> int:
         request_timeout=llm_timeout,
     )
 
-    # Pre-flight connection checks: verify ComfyUI and LLM server before processing
+    # Pre-flight connection checks: verify ComfyUI before processing (LLM activates on-demand)
     print("\n" + "=" * 60)
     print("Pre-flight Connection Checks:")
     try:
-        require_services(comfy=True, llm=True)
+        require_services(comfy=True, llm=False)
+        print("  [Info] LLM (Gemma-4-E2B) will activate on-demand when prompt generation is needed.")
     except ConnectionError as exc:
         print(f"\n{exc}\n")
         return 1

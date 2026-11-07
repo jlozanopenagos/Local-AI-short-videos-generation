@@ -217,6 +217,12 @@ def main():
     # 1. Pre-flight Connection Checks (MUST run before any prompt)
     print("\n" + "=" * 64)
     print("Pre-flight Connection Checks:")
+    try:
+        from core.llama_manager import ensure_llama_stopped
+        ensure_llama_stopped()
+    except Exception:
+        pass
+
     comfy_client = None
     try:
         require_services(comfy=True)

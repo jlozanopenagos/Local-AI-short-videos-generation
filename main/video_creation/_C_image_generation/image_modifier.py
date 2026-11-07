@@ -1554,10 +1554,11 @@ def main() -> int:
     base_dir = BASE_DIR
     state_manager = StateManager(base_dir)
 
-    # Pre-flight connection checks
-    print("\nChecking server connections (ComfyUI & LLM)...")
+    # Pre-flight connection checks (ComfyUI is required; LLM is managed on-demand)
+    print("\nChecking server connections (ComfyUI)...")
     try:
-        require_services(comfy=True, llm=True)
+        require_services(comfy=True, llm=False)
+        print("  [Info] LLM (Gemma-4-E2B) will activate on-demand when prompt generation is needed.")
     except ConnectionError as exc:
         print(f"\n{exc}\n")
         return 1
