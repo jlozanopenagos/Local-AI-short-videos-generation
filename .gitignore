@@ -126,7 +126,11 @@ venv/
 env/
 ENV/
 
-# --- IDE & OS Metadata ---
+# --- Node.js & Frontend Artifacts ---
+node_modules/
+**/node_modules/
+.npm
+*.tsbuildinfo
 .idea/
 .vscode/
 *.swp

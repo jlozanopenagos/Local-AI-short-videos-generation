@@ -60,6 +60,13 @@ class TestWebUIApi(unittest.TestCase):
         resp = self.client.get("/api/media/nonexistent_test_asset_12345.png")
         self.assertEqual(resp.status_code, 404)
 
+    def test_root_serves_spa_html(self):
+        """Verify GET / serves the compiled React Single Page Application."""
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("text/html", resp.headers.get("content-type", ""))
+        self.assertIn('<div id="root">', resp.text)
+
     @patch("webui.routers.scripts._get_state_manager")
     def test_list_scripts_endpoint(self, mock_get_sm):
         """Verify /api/scripts returns normalized summary array."""
