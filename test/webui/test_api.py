@@ -127,3 +127,56 @@ class TestWebUIApi(unittest.TestCase):
         self.assertIn("languages", data)
         self.assertIn("types", data)
         self.assertIn("stage_counts", data)
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_get_and_update_script_detail(self, mock_get_sm):
+        """Verify GET returns chalkboard/script info and PUT saves updates to state store."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "SG02",
+            "content_metadata": {
+                "language": "spanish",
+                "video_type": "game",
+                "topic": "Tomar el pelo",
+                "chalkboard_exercise": "Original question?",
+                "script": {"title": "Tomar el pelo", "hook": "Original Hook"},
+            },
+            "prompt_params": {"EXPRESSION": "Tomar el pelo"},
+            "status": {},
+            "assets": {},
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        # 1. GET script
+        resp = self.client.get("/api/scripts/SG02")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["id"], "SG02")
+        self.assertEqual(data["chalkboard_exercise"], "Original question?")
+        self.assertEqual(data["chalkboard_title"], "Tomar el pelo")
+        self.assertIn("hook", data["script_dict"])
+
+        # 2. PUT script with updated chalkboard and dialogue
+        update_payload = {
+            "chalkboard_title": "Tomar el pelo (Updated)",
+            "chalkboard_exercise": "¿Qué significa me estás tomando el pelo?\nA) Broma\nB) Verdad",
+            "script_dict": {
+                "title": "Tomar el pelo (Updated)",
+                "hook": "New updated hook",
+                "challenge": "¿Qué significa?",
+            },
+        }
+        put_resp = self.client.put("/api/scripts/SG02", json=update_payload)
+        self.assertEqual(put_resp.status_code, 200)
+        self.assertTrue(mock_sm.save_script_state.called)
+        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_id, "SG02")
+        self.assertEqual(
+            saved_data["content_metadata"]["chalkboard_exercise"],
+            "¿Qué significa me estás tomando el pelo?\nA) Broma\nB) Verdad",
+        )
+        self.assertEqual(saved_data["content_metadata"]["target_expression"], "Tomar el pelo (Updated)")
+        self.assertEqual(saved_data["content_metadata"]["script"]["hook"], "New updated hook")

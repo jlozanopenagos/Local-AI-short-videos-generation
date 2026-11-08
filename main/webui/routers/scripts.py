@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Union
 
 # pyrefly: ignore[missing-import]
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -428,6 +429,14 @@ def list_scripts(
     return filtered
 
 
+class ScriptUpdateRequest(BaseModel):
+    script_text: Optional[str] = None
+    script_dict: Optional[Dict[str, Any]] = None
+    chalkboard_exercise: Optional[str] = None
+    chalkboard_title: Optional[str] = None
+    target_expression: Optional[str] = None
+
+
 @router.get("/{script_id}")
 def get_script(script_id: str) -> Dict[str, Any]:
     """Returns complete script state with universal scene extraction and publishing metadata."""
@@ -443,6 +452,25 @@ def get_script(script_id: str) -> Dict[str, Any]:
     p_params = state_data.get("prompt_params") or {}
     raw_meta = state_data.get("metadata") or {}
     assets = state_data.get("assets") or {}
+
+    # Extract parsed script dict
+    script_obj = meta.get("script")
+    if not script_obj and state_data.get("script_text"):
+        raw_text = state_data.get("script_text", "").strip()
+        if raw_text.startswith("{") and raw_text.endswith("}"):
+            try:
+                script_obj = json.loads(raw_text)
+            except Exception:
+                script_obj = None
+
+    chalkboard_exercise = meta.get("chalkboard_exercise") or ""
+    target_expression = meta.get("target_expression") or p_params.get("EXPRESSION") or ""
+    chalkboard_title = (
+        (script_obj.get("title") if isinstance(script_obj, dict) else None)
+        or target_expression
+        or raw_meta.get("TITLE")
+        or ""
+    )
 
     img_list = summary.get("assets", {}).get("images", [])
     scenes = _extract_scenes_from_state(state_data, img_list)
@@ -461,6 +489,10 @@ def get_script(script_id: str) -> Dict[str, Any]:
     return {
         **state_data,
         **summary,
+        "script_dict": script_obj if isinstance(script_obj, dict) else {},
+        "chalkboard_exercise": chalkboard_exercise,
+        "chalkboard_title": chalkboard_title,
+        "target_expression": target_expression,
         "story_scenario": p_params.get("ROLEPLAY_SCENARIO") or meta.get("story_scenario") or "",
         "base_setting": meta.get("base_setting") or meta.get("setting") or "",
         "lexical_field": p_params.get("LEXICAL_FIELD") or meta.get("lexical_field") or "",
@@ -472,3 +504,65 @@ def get_script(script_id: str) -> Dict[str, Any]:
         "scenes": scenes,
         "youtube_metadata": youtube_metadata,
     }
+
+
+@router.put("/{script_id}")
+def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any]:
+    """Updates script content and chalkboard definitions, persisting changes to JSON state on disk."""
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    if "content_metadata" not in state_data or not isinstance(state_data["content_metadata"], dict):
+        state_data["content_metadata"] = {}
+    if "prompt_params" not in state_data or not isinstance(state_data["prompt_params"], dict):
+        state_data["prompt_params"] = {}
+
+    # 1. Update script content
+    if payload.script_dict:
+        state_data["content_metadata"]["script"] = payload.script_dict
+        state_data["script_text"] = json.dumps(payload.script_dict, indent=2, ensure_ascii=False)
+        if payload.script_dict.get("title"):
+            state_data["content_metadata"]["topic"] = payload.script_dict["title"]
+    elif payload.script_text is not None:
+        state_data["script_text"] = payload.script_text
+        trimmed = payload.script_text.strip()
+        if trimmed.startswith("{") and trimmed.endswith("}"):
+            try:
+                parsed = json.loads(trimmed)
+                if isinstance(parsed, dict):
+                    state_data["content_metadata"]["script"] = parsed
+                    if parsed.get("title"):
+                        state_data["content_metadata"]["topic"] = parsed["title"]
+            except Exception:
+                pass
+
+    # 2. Update chalkboard exercise (for Game quiz and chalkboard scenes)
+    if payload.chalkboard_exercise is not None:
+        state_data["content_metadata"]["chalkboard_exercise"] = payload.chalkboard_exercise
+        # If the script dict has a challenge field, keep in sync
+        script_dict = state_data.get("content_metadata", {}).get("script")
+        if isinstance(script_dict, dict) and "challenge" in script_dict:
+            script_dict["challenge"] = payload.chalkboard_exercise
+
+    # 3. Update chalkboard title / target expression
+    if payload.chalkboard_title is not None:
+        state_data["content_metadata"]["target_expression"] = payload.chalkboard_title
+        state_data["prompt_params"]["EXPRESSION"] = payload.chalkboard_title
+        script_dict = state_data.get("content_metadata", {}).get("script")
+        if isinstance(script_dict, dict) and "title" in script_dict:
+            script_dict["title"] = payload.chalkboard_title
+
+    if payload.target_expression is not None:
+        state_data["content_metadata"]["target_expression"] = payload.target_expression
+        state_data["prompt_params"]["EXPRESSION"] = payload.target_expression
+
+    # Save to disk
+    sm.save_script_state(canonical_id, state_data)
+
+    # Invalidate in-memory cache so catalog updates immediately
+    _get_indexed_scripts(force_refresh=True)
+
+    return get_script(canonical_id)

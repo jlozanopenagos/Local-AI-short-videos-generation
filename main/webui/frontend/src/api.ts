@@ -68,6 +68,27 @@ export async function fetchScriptDetail(scriptId: string): Promise<ScriptDetail>
   return res.json()
 }
 
+export interface ScriptUpdatePayload {
+  script_text?: string
+  script_dict?: Record<string, any>
+  chalkboard_exercise?: string
+  chalkboard_title?: string
+  target_expression?: string
+}
+
+export async function updateScript(scriptId: string, payload: ScriptUpdatePayload): Promise<ScriptDetail> {
+  const res = await fetch(`/api/scripts/${scriptId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to update script ${scriptId}`)
+  }
+  return res.json()
+}
+
 export async function fetchJobs(): Promise<Job[]> {
   const res = await fetch('/api/jobs')
   if (!res.ok) throw new Error(`Jobs HTTP ${res.status}`)

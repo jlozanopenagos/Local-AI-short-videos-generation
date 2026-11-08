@@ -6,10 +6,16 @@ import {
   Film,
   Sparkles,
   Copy,
-  Check
+  Check,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Code,
+  Edit3
 } from 'lucide-react'
 import type { ScriptDetail, JobStage } from '../types'
-import { fetchScriptDetail, getMediaUrl, createJob } from '../api'
+import { fetchScriptDetail, getMediaUrl, createJob, updateScript } from '../api'
 
 interface ScriptDetailModalProps {
   scriptId: string
@@ -28,11 +34,43 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [triggeringStage, setTriggeringStage] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
+  // Script & Chalkboard editor local state
+  const [chalkboardTitle, setChalkboardTitle] = useState('')
+  const [chalkboardExercise, setChalkboardExercise] = useState('')
+  const [scriptFields, setScriptFields] = useState<Record<string, string>>({})
+  const [jsonMode, setJsonMode] = useState(false)
+  const [rawJsonText, setRawJsonText] = useState('')
+  const [savingScript, setSavingScript] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  const populateEditorState = (data: ScriptDetail) => {
+    const titleVal = data.chalkboard_title || data.target_expression || data.title || ''
+    setChalkboardTitle(titleVal)
+    setChalkboardExercise(data.chalkboard_exercise || '')
+
+    let sDict: Record<string, any> = {}
+    if (data.script_dict && Object.keys(data.script_dict).length > 0) {
+      sDict = { ...data.script_dict }
+    } else if (data.script_text) {
+      try {
+        const parsed = JSON.parse(data.script_text)
+        if (typeof parsed === 'object' && parsed !== null) {
+          sDict = parsed
+        }
+      } catch {
+        sDict = { script_text: data.script_text }
+      }
+    }
+    setScriptFields(sDict)
+    setRawJsonText(JSON.stringify(sDict, null, 2))
+  }
+
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const data = await fetchScriptDetail(scriptId)
       setDetail(data)
+      populateEditorState(data)
     } catch (err) {
       alert(`Failed to load script ${scriptId}: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
@@ -61,6 +99,70 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     navigator.clipboard.writeText(text)
     setCopiedKey(key)
     setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  const handleFieldChange = (key: string, value: string) => {
+    const updated = { ...scriptFields, [key]: value }
+    setScriptFields(updated)
+    setRawJsonText(JSON.stringify(updated, null, 2))
+  }
+
+  const handleSaveScriptAndChalkboard = async () => {
+    setSavingScript(true)
+    setSaveStatus(null)
+    try {
+      let finalScriptDict: Record<string, any> = scriptFields
+      let finalScriptText: string = rawJsonText
+
+      if (jsonMode) {
+        try {
+          finalScriptDict = JSON.parse(rawJsonText)
+          finalScriptText = rawJsonText
+        } catch {
+          setSaveStatus({
+            type: 'error',
+            message: 'Invalid JSON syntax. Please verify and correct your JSON before saving.',
+          })
+          setSavingScript(false)
+          return
+        }
+      } else {
+        finalScriptText = JSON.stringify(finalScriptDict, null, 2)
+      }
+
+      const updated = await updateScript(scriptId, {
+        chalkboard_title: chalkboardTitle,
+        target_expression: chalkboardTitle,
+        chalkboard_exercise: chalkboardExercise,
+        script_dict: finalScriptDict,
+        script_text: finalScriptText,
+      })
+
+      setDetail(updated)
+      populateEditorState(updated)
+      setSaveStatus({
+        type: 'success',
+        message: '✓ Saved! Script and Chalkboard state updated on disk.',
+      })
+
+      setTimeout(() => {
+        setSaveStatus(null)
+      }, 4000)
+    } catch (err) {
+      setSaveStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setSavingScript(false)
+    }
+  }
+
+  const handleResetEditor = () => {
+    if (detail) {
+      populateEditorState(detail)
+      setSaveStatus(null)
+    }
   }
 
   return (
@@ -149,7 +251,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 className={`nav-btn ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => setActiveTab('overview')}
               >
-                Story & Character
+                Script & Chalkboard
               </button>
               <button
                 className={`nav-btn ${activeTab === 'youtube' ? 'active' : ''}`}
@@ -223,38 +325,213 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
               </div>
             )}
 
-            {/* Tab: Overview */}
+            {/* Tab: Script & Chalkboard (Editable) */}
             {activeTab === 'overview' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '14px' }}>
-                <div>
-                  <strong style={{ color: 'var(--text-muted)' }}>Story Scenario:</strong>
-                  <p style={{ marginTop: '4px', background: 'var(--bg-input)', padding: '10px', borderRadius: '6px' }}>
-                    {detail.story_scenario || 'Not configured yet.'}
-                  </p>
-                </div>
-
-                <div>
-                  <strong style={{ color: 'var(--text-muted)' }}>Base Setting:</strong>
-                  <p style={{ marginTop: '4px', background: 'var(--bg-input)', padding: '10px', borderRadius: '6px' }}>
-                    {detail.base_setting || 'Not configured yet.'}
-                  </p>
-                </div>
-
-                <div>
-                  <strong style={{ color: 'var(--text-muted)' }}>Character & Voices:</strong>
-                  <div style={{ marginTop: '4px', background: 'var(--bg-input)', padding: '12px', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div><strong>Gender:</strong> {detail.character?.gender || 'Default'}</div>
-                    {detail.speakers_voice && (
-                      <div style={{ marginTop: '6px' }}>
-                        <strong style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Assigned Audio Models:</strong>
-                        {Object.entries(detail.speakers_voice).map(([spk, voice]) => (
-                          <div key={spk} style={{ fontSize: '12px', marginTop: '2px' }}>
-                            • <strong>{spk}</strong>: {voice}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Save Feedback Banner */}
+                {saveStatus && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      background: saveStatus.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      border: `1px solid ${saveStatus.type === 'success' ? 'var(--success)' : 'var(--danger, #ef4444)'}`,
+                      color: saveStatus.type === 'success' ? 'var(--success)' : '#f87171',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {saveStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                    <span>{saveStatus.message}</span>
                   </div>
+                )}
+
+                {/* Action Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    Edit the script dialogues and chalkboard content below. Changes persist directly into the script's JSON state file.
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={handleResetEditor}
+                      disabled={savingScript}
+                      title="Discard unsaved changes and reload from state"
+                    >
+                      <RefreshCw size={13} />
+                      <span>Reset</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      onClick={handleSaveScriptAndChalkboard}
+                      disabled={savingScript}
+                    >
+                      <Save size={13} />
+                      <span>{savingScript ? 'Saving to JSON...' : 'Save Changes to State'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section 1: Chalkboard Content */}
+                <div
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Chalkboard Content (Image Definition)
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Used for thumbnail & Scene 2 chalkboard
+                    </span>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Chalkboard Title / Target Expression
+                    </label>
+                    <input
+                      type="text"
+                      className="search-input"
+                      style={{ width: '100%', fontSize: '14px' }}
+                      value={chalkboardTitle}
+                      onChange={(e) => setChalkboardTitle(e.target.value)}
+                      placeholder="e.g. Tomar el pelo / avoir de la chance"
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      Appears on the video thumbnail and props inside classroom scenes.
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Chalkboard Quiz Exercise / Prompt (Scene 2 Image)
+                    </label>
+                    <textarea
+                      rows={4}
+                      className="search-input"
+                      style={{ width: '100%', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5', resize: 'vertical' }}
+                      value={chalkboardExercise}
+                      onChange={(e) => setChalkboardExercise(e.target.value)}
+                      placeholder="e.g. ¿Qué significa exactamente la frase me estás tomando el pelo?&#10;A: Te estás burlando de mí.&#10;B: Me estás peinando.&#10;C: Me estás diciendo la verdad."
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      Defines the text drawn on the image chalkboard for quiz/game scenes.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Script Content */}
+                <div
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Script & Dialogues
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={() => setJsonMode(!jsonMode)}
+                      style={{ fontSize: '11px', padding: '4px 8px' }}
+                    >
+                      {jsonMode ? <Edit3 size={12} /> : <Code size={12} />}
+                      <span>{jsonMode ? 'Switch to Form Fields' : 'Switch to Raw JSON'}</span>
+                    </button>
+                  </div>
+
+                  {jsonMode ? (
+                    <div>
+                      <textarea
+                        rows={12}
+                        className="search-input"
+                        style={{
+                          width: '100%',
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                          lineHeight: '1.5',
+                          background: 'var(--bg-main)',
+                          resize: 'vertical',
+                        }}
+                        value={rawJsonText}
+                        onChange={(e) => setRawJsonText(e.target.value)}
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Edit the full JSON document directly. Syntax will be verified before saving.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {Object.keys(scriptFields).length === 0 ? (
+                        <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontStyle: 'italic', padding: '10px 0' }}>
+                          No script fields found. Switch to Raw JSON view to add lines.
+                        </div>
+                      ) : (
+                        Object.entries(scriptFields).map(([key, val]) => {
+                          const isShort = key.toLowerCase() === 'title' || key.toLowerCase() === 'answer'
+                          const stringVal = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val ?? '')
+                          return (
+                            <div key={key}>
+                              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '3px', textTransform: 'capitalize' }}>
+                                {key.replace(/_/g, ' ')}
+                              </label>
+                              {isShort ? (
+                                <input
+                                  type="text"
+                                  className="search-input"
+                                  style={{ width: '100%', fontSize: '13px' }}
+                                  value={stringVal}
+                                  onChange={(e) => handleFieldChange(key, e.target.value)}
+                                />
+                              ) : (
+                                <textarea
+                                  rows={2}
+                                  className="search-input"
+                                  style={{ width: '100%', fontSize: '13px', resize: 'vertical' }}
+                                  value={stringVal}
+                                  onChange={(e) => handleFieldChange(key, e.target.value)}
+                                />
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Save Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSaveScriptAndChalkboard}
+                    disabled={savingScript}
+                    style={{ padding: '8px 18px', fontWeight: 600 }}
+                  >
+                    <Save size={15} />
+                    <span>{savingScript ? 'Saving to JSON...' : 'Save Changes to State'}</span>
+                  </button>
                 </div>
               </div>
             )}

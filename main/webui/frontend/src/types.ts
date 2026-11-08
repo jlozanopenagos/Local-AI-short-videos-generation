@@ -123,6 +123,11 @@ export interface ScriptDetail extends ScriptSummary {
   speakers_gender?: Record<string, string>
   scenes?: SceneDetail[]
   youtube_metadata?: YouTubeMetadata
+  script_text?: string
+  script_dict?: Record<string, any>
+  chalkboard_exercise?: string
+  chalkboard_title?: string
+  target_expression?: string
 }
 
 export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly'
