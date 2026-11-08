@@ -55,10 +55,13 @@ export const ScriptList: React.FC<ScriptListProps> = ({
         videoType: selectedType,
         stageFilter: stageFilter,
       })
-      setScripts(resp.items || [])
-      setTotalCount(resp.total || 0)
-      setTotalPages(resp.total_pages || 1)
-      if (resp.facets) setFacets(resp.facets)
+      const rawList = Array.isArray(resp) ? resp : (resp?.items || [])
+      const total = Array.isArray(resp) ? resp.length : (resp?.total ?? rawList.length)
+      const pages = Array.isArray(resp) ? Math.max(1, Math.ceil(total / pageSize)) : (resp?.total_pages ?? 1)
+      setScripts(rawList)
+      setTotalCount(total)
+      setTotalPages(pages)
+      if (!Array.isArray(resp) && resp?.facets) setFacets(resp.facets)
     } catch (err) {
       console.error('Failed to load script catalog:', err)
     } finally {

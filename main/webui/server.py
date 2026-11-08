@@ -60,6 +60,12 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(jobs.ws_router)
 
+    # Pre-warm script cache on startup in background
+    @app.on_event("startup")
+    def startup_cache_warmup():
+        import threading
+        threading.Thread(target=scripts._get_indexed_scripts, daemon=True).start()
+
     # Mount static assets directory for Single Page Application
     if STATIC_DIR.exists():
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

@@ -351,7 +351,7 @@ def list_scripts(
     filtered = all_scripts
 
     # Search filter
-    if search:
+    if search and isinstance(search, str) and search.strip():
         s_term = search.lower().strip()
         filtered = [
             s for s in filtered
@@ -363,18 +363,18 @@ def list_scripts(
         ]
 
     # Language filter
-    if language and language.lower() != "all":
+    if language and isinstance(language, str) and language.lower() != "all":
         l_term = language.lower().strip()
         filtered = [s for s in filtered if l_term == s["language"].lower()]
 
     # Video type filter
-    if video_type and video_type.lower() != "all":
+    if video_type and isinstance(video_type, str) and video_type.lower() != "all":
         t_term = video_type.lower().strip()
         filtered = [s for s in filtered if t_term == s["type"].lower()]
 
     # Stage status filter
-    if stage_filter and stage_filter.lower() != "all":
-        sf = stage_filter.lower()
+    if stage_filter and isinstance(stage_filter, str) and stage_filter.lower() != "all":
+        sf = stage_filter.lower().strip()
         if sf == "ready_for_assembly":
             filtered = [s for s in filtered if s["is_ready_for_assembly"]]
         elif sf == "complete":
