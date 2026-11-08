@@ -164,6 +164,50 @@ class TestWatchdog(unittest.TestCase):
         self.assertEqual(pid, "test-prompt-id-123")
         mock_post.assert_called_once()
 
+    @patch.object(ImageComfyClient, "_load_and_convert_workflow", return_value={})
+    def test_generate_images_batch_empty_tasks(self, mock_load):
+        """Verify generate_images_batch returns empty dict when no tasks provided."""
+        client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
+        res = client.generate_images_batch([])
+        self.assertEqual(res, {})
+
+    @patch.object(ImageComfyClient, "_load_and_convert_workflow", return_value={})
+    @patch("video_creation._C_image_generation.core.comfy_client.time.sleep")
+    def test_generate_images_batch_fifo_pipeline(self, mock_sleep, mock_load):
+        """Verify generate_images_batch enqueues all tasks upfront and collects images in order."""
+        client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
+        client.ensure_clean_slate = MagicMock()
+        client._prepare_workflow = MagicMock(return_value={})
+        client._queue_prompt = MagicMock(side_effect=["prompt-1", "prompt-2", "prompt-3"])
+        client._download_image = MagicMock()
+
+        hist1 = {"outputs": {"9": {"images": [{"filename": "img1.png", "subfolder": "", "type": "output"}]}}}
+        hist2 = {"outputs": {"9": {"images": [{"filename": "img2.png", "subfolder": "", "type": "output"}]}}}
+        hist3 = {"outputs": {"9": {"images": [{"filename": "img3.png", "subfolder": "", "type": "output"}]}}}
+        client._poll_for_completion = MagicMock(side_effect=[hist1, hist2, hist3])
+
+        progress_calls = []
+        def _cb(sec, done_cnt, total_cnt, dur):
+            progress_calls.append((sec, done_cnt, total_cnt))
+
+        tasks = [
+            {"section_name": "hook", "prompt_text": "Prompt 1", "filename_prefix": "Z/1", "dest_path": Path("out1.png")},
+            {"section_name": "scene_1", "prompt_text": "Prompt 2", "filename_prefix": "Z/2", "dest_path": Path("out2.png")},
+            {"section_name": "climax", "prompt_text": "Prompt 3", "filename_prefix": "Z/3", "dest_path": Path("out3.png")},
+        ]
+
+        res = client.generate_images_batch(tasks, progress_callback=_cb)
+
+        # All 3 queued upfront
+        self.assertEqual(client._queue_prompt.call_count, 3)
+        self.assertEqual(client._download_image.call_count, 3)
+        self.assertEqual(len(res), 3)
+        self.assertEqual(res["hook"], Path("out1.png"))
+        self.assertEqual(res["scene_1"], Path("out2.png"))
+        self.assertEqual(res["climax"], Path("out3.png"))
+        self.assertEqual(len(progress_calls), 3)
+        self.assertEqual(progress_calls[-1], ("climax", 3, 3))
+
 
 if __name__ == "__main__":
     unittest.main()

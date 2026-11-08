@@ -265,6 +265,8 @@ def process_script(
     ensure_llama_stopped()
 
     success = True
+    comfy_tasks = []
+
     for section_name, section_text in sections.items():
         sec_lower = section_name.strip().lower()
         if sec_lower in METADATA_IGNORE_KEYS:
@@ -276,8 +278,6 @@ def process_script(
         if not section_text.strip():
             continue
             
-        print(f"\n--- Generating Image for Scene: {section_name.upper()} ---")
-        
         scene_filename = f"script_{script_id}_{section_name}.png"
         dest_path = script_output_dir / scene_filename
 
@@ -361,26 +361,36 @@ def process_script(
         print(f"\n[Visual Prompt - {section_name.upper()}]:\n\"{visual_prompt}\"\n")
 
         filename_prefix = f"Z-Image/script_{script_id}_{section_name}"
-        try:
-            scene_t0 = time.time()
-            result_path = comfy_client.generate_image(
-                prompt_text=visual_prompt,
-                filename_prefix=filename_prefix,
-                dest_path=dest_path,
-                seed=seed,
-                steps=IMAGE_DEFAULT_STEPS,
-                width=IMAGE_DEFAULT_WIDTH,
-                height=IMAGE_DEFAULT_HEIGHT,
-                stall_timeout=IMAGE_STALL_TIMEOUT,
-            )
-            scene_dur = time.time() - scene_t0
-            print(f"[OK] Scene {section_name.upper()} rendered in {scene_dur:.1f}s -> {dest_path.name}")
+        comfy_tasks.append({
+            "section_name": section_name,
+            "prompt_text": visual_prompt,
+            "filename_prefix": filename_prefix,
+            "dest_path": dest_path,
+            "seed": seed,
+            "steps": IMAGE_DEFAULT_STEPS,
+            "width": IMAGE_DEFAULT_WIDTH,
+            "height": IMAGE_DEFAULT_HEIGHT,
+        })
+
+    # Batch execute all ComfyUI image tasks in a continuous FIFO queue
+    if comfy_tasks and success:
+        print(f"\n[ComfyUI Batch Pipeline] Enqueueing {len(comfy_tasks)} scene(s) for '{script_id}' into continuous FIFO queue...")
+        for t in comfy_tasks:
+            print(f"  • Enqueued scene: {t['section_name'].upper()}")
+
+        def _on_batch_progress(sec_name: str, completed_cnt: int, total_cnt: int, dur: float) -> None:
+            print(f"[OK] Scene {sec_name.upper()} rendered in {dur:.1f}s [{completed_cnt}/{total_cnt} completed] -> script_{script_id}_{sec_name}.png")
             state_manager.save_script_state(script_id, script_data)
-            time.sleep(0.3)  # Cooldown between scene images ("go ahead, don't stop")
+
+        try:
+            comfy_client.generate_images_batch(
+                tasks=comfy_tasks,
+                stall_timeout=IMAGE_STALL_TIMEOUT,
+                progress_callback=_on_batch_progress,
+            )
         except Exception as exc:
-            logger.error("[%s] Unexpected generation error on %s: %s", script_id, section_name, exc)
+            logger.error("[%s] Unexpected batch generation error: %s", script_id, exc)
             success = False
-            break
 
     if success:
         script_data["assets"]["image_dir"] = str(script_output_dir)

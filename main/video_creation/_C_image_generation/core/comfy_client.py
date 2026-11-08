@@ -440,3 +440,121 @@ class ImageComfyClient:
                         self.ensure_clean_slate()
 
             raise last_error or RuntimeError("Failed to generate image after retries.")
+
+    def generate_images_batch(
+        self,
+        tasks: list[dict[str, Any]],
+        max_retries: int = 3,
+        stall_timeout: int = 600,
+        progress_callback: Any | None = None,
+    ) -> dict[str, Path]:
+        """
+        Execute multiple image generation tasks using ComfyUI's native FIFO execution queue.
+        Submits all tasks upfront to eliminate idle pauses and reuse the warm GPU context.
+        Downloads results as each completes in the pipeline.
+
+        Parameters
+        ----------
+        tasks:
+            List of dicts, each containing:
+              - 'section_name': str
+              - 'prompt_text': str
+              - 'filename_prefix': str
+              - 'dest_path': Path
+              - 'seed': int | None (optional)
+              - 'steps': int (default 6)
+              - 'width': int (default 576)
+              - 'height': int (default 1024)
+              - 'negative_prompt': str | None (optional)
+        max_retries:
+            Maximum attempts per task in case of stalls.
+        stall_timeout:
+            Per-image completion timeout.
+        progress_callback:
+            Optional callable(section_name, completed_count, total_count, duration)
+
+        Returns
+        -------
+        dict mapping section_name -> dest_path of successfully generated images.
+        """
+        if not tasks:
+            return {}
+
+        results: dict[str, Path] = {}
+        remaining_tasks = list(tasks)
+
+        vram_guard = self.pool.vram_guard("IMAGE_GENERATION") if self.pool else contextlib.nullcontext()
+        with vram_guard:
+            self.ensure_clean_slate()
+
+            while remaining_tasks:
+                # 1. Enqueue all remaining tasks into ComfyUI's FIFO queue
+                queued = []
+                for task in remaining_tasks:
+                    cur_seed = task.get("seed") if task.get("seed") is not None else random.randint(1, 10**15)
+                    wf = self._prepare_workflow(
+                        prompt_text=task["prompt_text"],
+                        filename_prefix=task["filename_prefix"],
+                        seed=cur_seed,
+                        steps=task.get("steps", 6),
+                        width=task.get("width", 576),
+                        height=task.get("height", 1024),
+                        negative_prompt=task.get("negative_prompt"),
+                    )
+                    prompt_id = self._queue_prompt(wf)
+                    queued.append({
+                        "prompt_id": prompt_id,
+                        "task": task,
+                    })
+                    logger.info("Batch queued '%s' -> prompt_id=%s", task.get("section_name"), prompt_id)
+
+                failed_idx = None
+                for i, item in enumerate(queued):
+                    pid = item["prompt_id"]
+                    task = item["task"]
+                    sec = task.get("section_name", f"scene_{i+1}")
+                    dest = Path(task["dest_path"])
+                    t0 = time.time()
+
+                    try:
+                        history = self._poll_for_completion(pid, timeout_seconds=stall_timeout)
+                        filename, subfolder, file_type = self._find_image_output(history)
+                        self._download_image(filename, subfolder, file_type, dest)
+                        dur = time.time() - t0
+                        results[sec] = dest
+                        if progress_callback:
+                            try:
+                                progress_callback(sec, len(results), len(tasks), dur)
+                            except Exception:
+                                pass
+                    except TimeoutError as te:
+                        _safe_print(
+                            f"[Watchdog] Batch image generation stalled on '{sec}' (> {stall_timeout}s). "
+                            "Auto-interrupting and clearing queue..."
+                        )
+                        self.interrupt()
+                        time.sleep(2.0)
+                        self.clear_queue()
+                        self.ensure_clean_slate()
+                        failed_idx = i
+                        break
+
+                if failed_idx is None:
+                    # All queued items finished successfully
+                    break
+                else:
+                    # Retry failed task and any remaining tasks that were cleared from queue
+                    stalled_task = queued[failed_idx]["task"]
+                    retries_left = stalled_task.get("_retries", max_retries - 1)
+                    if retries_left <= 0:
+                        raise TimeoutError(f"Task '{stalled_task.get('section_name')}' exceeded max retries.")
+                    stalled_task["_retries"] = retries_left - 1
+
+                    # Remaining tasks start from the stalled task
+                    remaining_tasks = [item["task"] for item in queued[failed_idx:]]
+                    _safe_print(
+                        f"[Watchdog] Retrying {len(remaining_tasks)} remaining scenes in batch... "
+                        f"\"Go ahead, don't stop!\""
+                    )
+
+        return results
