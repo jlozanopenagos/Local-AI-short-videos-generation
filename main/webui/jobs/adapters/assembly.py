@@ -81,3 +81,4 @@ class AssemblyAdapter(BaseStageAdapter):
             "failed_ids": failed_ids,
             "total": total,
         }
+

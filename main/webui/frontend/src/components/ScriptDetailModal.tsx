@@ -202,7 +202,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
             {activeTab === 'assets' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* Voice audio preview */}
-                {detail.assets.audio ? (
+                {detail.assets?.audio ? (
                   <div>
                     <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Voice Audio</h4>
                     <audio controls style={{ width: '100%' }} src={getMediaUrl(detail.assets.audio)} />
@@ -212,7 +212,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 )}
 
                 {/* Final video preview */}
-                {detail.assets.video && (
+                {detail.assets?.video && (
                   <div>
                     <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Final Short Video</h4>
                     <video controls style={{ maxWidth: '300px', borderRadius: '8px', border: '1px solid var(--border)' }} src={getMediaUrl(detail.assets.video)} />
@@ -220,7 +220,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 )}
 
                 {/* Thumbnail */}
-                {detail.assets.thumbnail && (
+                {detail.assets?.thumbnail && (
                   <div>
                     <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Chalkboard Thumbnail</h4>
                     <img
@@ -234,9 +234,9 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 {/* Scene Images */}
                 <div>
                   <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>
-                    Scene Images ({detail.assets.images.length})
+                    Scene Images ({(detail.assets?.images || []).length})
                   </h4>
-                  {detail.assets.images.length === 0 ? (
+                  {(!detail.assets?.images || detail.assets.images.length === 0) ? (
                     <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No scene images generated yet.</div>
                   ) : (
                     <div className="gallery-grid">

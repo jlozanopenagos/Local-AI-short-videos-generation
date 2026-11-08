@@ -23,12 +23,12 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
     }
   }
 
-  const comfy = system?.comfyui
+  const comfy = system?.comfyui || (system as any)?.comfy
   const llm = system?.llm
 
   const vramUsed = comfy?.vram_usage_gb || 0
   const vramTotal = comfy?.vram_total_gb || 6.0
-  const vramPct = Math.min(100, Math.round((vramUsed / vramTotal) * 100))
+  const vramPct = Math.min(100, Math.round((vramUsed / (vramTotal || 1)) * 100))
 
   return (
     <div className="service-grid">
@@ -41,14 +41,14 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
           </div>
           <div className={`status-pill`}>
             <div className={`status-dot ${comfy?.status === 'online' ? 'online' : 'offline'}`} />
-            <span>{comfy?.status.toUpperCase() || 'OFFLINE'}</span>
+            <span>{comfy?.status ? comfy.status.toUpperCase() : 'OFFLINE'}</span>
           </div>
         </div>
 
         <div className="service-meta">
           <div className="meta-row">
             <span>Port / PID:</span>
-            <span>{comfy?.port} / {comfy?.pid ?? '—'}</span>
+            <span>{comfy?.port || 8188} / {comfy?.pid ?? '—'}</span>
           </div>
           <div className="meta-row">
             <span>Active GPU:</span>
@@ -115,14 +115,14 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
           </div>
           <div className="status-pill">
             <div className={`status-dot ${llm?.status === 'online' ? 'online' : 'offline'}`} />
-            <span>{llm?.status.toUpperCase() || 'OFFLINE'}</span>
+            <span>{llm?.status ? llm.status.toUpperCase() : 'OFFLINE'}</span>
           </div>
         </div>
 
         <div className="service-meta">
           <div className="meta-row">
             <span>Port / PID:</span>
-            <span>{llm?.port} / {llm?.pid ?? '—'}</span>
+            <span>{llm?.port || 8080} / {llm?.pid ?? '—'}</span>
           </div>
           <div className="meta-row">
             <span>Model:</span>

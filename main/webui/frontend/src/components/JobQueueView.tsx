@@ -229,3 +229,4 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
     </div>
   )
 }
+

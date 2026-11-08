@@ -7,8 +7,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# pyrefly: ignore[missing-import]
 from fastapi import FastAPI
+# pyrefly: ignore[missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore[missing-import]
 from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parent.parent

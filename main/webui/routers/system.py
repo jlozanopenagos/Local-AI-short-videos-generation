@@ -27,16 +27,102 @@ def get_system_status() -> Dict[str, Any]:
     cm = get_comfy_manager()
     lm = get_llama_manager()
 
-    comfy_status = cm.get_status()
-    llm_status = lm.get_status()
+    raw_comfy = cm.get_status()
+    raw_llm = lm.get_status()
+
+    # Parse ComfyUI VRAM and hardware metrics
+    devices = raw_comfy.get("system_stats", {}).get("devices", []) if isinstance(raw_comfy, dict) else []
+    active_gpu = devices[0].get("name", "NVIDIA GPU") if devices else "NVIDIA GPU"
+    vram_total_gb = round(devices[0].get("vram_total", 0) / (1024**3), 2) if devices else 6.0
+    vram_free_gb = round(devices[0].get("vram_free", 0) / (1024**3), 2) if devices else 0.0
+    vram_usage_gb = round(max(0.0, vram_total_gb - vram_free_gb), 2)
+    queue_stats = raw_comfy.get("queue_stats", {}) if isinstance(raw_comfy, dict) else {}
+
+    is_comfy_online = bool(
+        raw_comfy.get("online")
+        or str(raw_comfy.get("status", "")).lower() in ("online", "ready", "running")
+    ) if isinstance(raw_comfy, dict) else False
+
+    is_llm_online = bool(
+        raw_llm.get("active")
+        or str(raw_llm.get("status", "")).lower() in ("online", "ready", "running")
+    ) if isinstance(raw_llm, dict) else False
+
+    comfy_normalized = {
+        "status": "online" if is_comfy_online else "offline",
+        "online": is_comfy_online,
+        "pid": raw_comfy.get("pid"),
+        "port": raw_comfy.get("port", 8188),
+        "active_gpu": active_gpu,
+        "vram_usage_gb": vram_usage_gb,
+        "vram_total_gb": vram_total_gb,
+        "vram_free_gb": vram_free_gb,
+        "queue_running": queue_stats.get("running", 0),
+        "queue_pending": queue_stats.get("pending", 0),
+    }
+
+    llm_normalized = {
+        "status": "online" if is_llm_online else "offline",
+        "online": is_llm_online,
+        "pid": raw_llm.get("pid"),
+        "port": raw_llm.get("port", 8080),
+        "model": raw_llm.get("model_name", "Gemma-4-E2B"),
+    }
 
     return {
-        "comfy": comfy_status,
-        "llm": llm_status,
+        "status": "online" if (is_comfy_online or is_llm_online) else "idle",
+        "comfyui": comfy_normalized,
+        "comfy": comfy_normalized,
+        "llm": llm_normalized,
         "output_dir_exists": OUTPUT_DIR.exists(),
-        "platform": sys.platform,
-        "python_version": sys.version.split()[0],
+        "platform": {
+            "os": sys.platform,
+            "python": sys.version.split()[0],
+        },
     }
+
+
+@router.post("/service/{service}/{action}")
+def control_service(service: str, action: str) -> Dict[str, Any]:
+    """Unified service controller for comfyui and llm (start | stop | restart)."""
+    service = service.lower()
+    action = action.lower()
+    if service in ("comfyui", "comfy"):
+        cm = get_comfy_manager()
+        if action == "start":
+            ok = cm.start()
+            if not ok:
+                raise HTTPException(status_code=500, detail="Failed to start ComfyUI.")
+            return {"status": "success", "message": "ComfyUI started"}
+        elif action == "stop":
+            cm.stop()
+            return {"status": "success", "message": "ComfyUI stopped"}
+        elif action == "restart":
+            ok = cm.restart()
+            if not ok:
+                raise HTTPException(status_code=500, detail="Failed to restart ComfyUI.")
+            return {"status": "success", "message": "ComfyUI restarted"}
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+    elif service == "llm":
+        lm = get_llama_manager()
+        if action == "start":
+            ok = lm.start()
+            if not ok:
+                raise HTTPException(status_code=500, detail="Failed to start LLM.")
+            return {"status": "success", "message": "LLM started"}
+        elif action == "stop":
+            lm.stop()
+            return {"status": "success", "message": "LLM stopped"}
+        elif action == "restart":
+            ok = lm.restart()
+            if not ok:
+                raise HTTPException(status_code=500, detail="Failed to restart LLM.")
+            return {"status": "success", "message": "LLM restarted"}
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
 
 
 @router.post("/comfy/start")

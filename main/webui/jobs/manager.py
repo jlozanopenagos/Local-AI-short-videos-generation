@@ -14,6 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
 
+# pyrefly: ignore[missing-import]
 from fastapi import WebSocket
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

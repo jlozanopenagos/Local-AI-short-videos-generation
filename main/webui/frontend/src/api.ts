@@ -70,3 +70,4 @@ export function getMediaUrl(pathOrFilename?: string | null): string {
   }
   return `/api/media?file=${encodeURIComponent(pathOrFilename)}`
 }
+

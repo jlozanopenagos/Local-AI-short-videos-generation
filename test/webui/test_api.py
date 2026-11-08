@@ -46,8 +46,8 @@ class TestWebUIApi(unittest.TestCase):
         data = resp.json()
         self.assertIn("comfy", data)
         self.assertIn("llm", data)
-        self.assertEqual(data["comfy"]["status"], "ONLINE")
-        self.assertEqual(data["llm"]["status"], "OFFLINE")
+        self.assertEqual(data["comfy"]["status"].lower(), "online")
+        self.assertEqual(data["llm"]["status"].lower(), "offline")
 
     def test_media_path_traversal_forbidden(self):
         """Verify /api/media rejects directory traversal attacks."""

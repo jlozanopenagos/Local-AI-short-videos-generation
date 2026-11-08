@@ -31,8 +31,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   }
 
-  const comfyOnline = system?.comfyui.status === 'online'
-  const llmOnline = system?.llm.status === 'online'
+  const comfyOnline = (system?.comfyui?.status === 'online') || ((system as any)?.comfy?.status === 'online')
+  const llmOnline = system?.llm?.status === 'online'
 
   return (
     <header className="header">
@@ -98,3 +98,4 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   )
 }
+
