@@ -58,17 +58,19 @@ class AssemblyAdapter(BaseStageAdapter):
 
             try:
                 emit_log(f"[{script_id}] Assembling short video (subtitles, audio, visuals, closure)...")
+                t0 = time.time()
                 ok = process_script(
                     script_data=script_data,
                     state_manager=sm,
                     base_dir=BASE_DIR,
                     auto=True,
                 )
+                dur = time.time() - t0
                 if ok:
-                    emit_log(f"[{script_id}] Video assembly successful.")
+                    emit_log(f"[{script_id}] ✓ Video assembly completed in {dur:.1f}s.")
                     success_count += 1
                 else:
-                    emit_log(f"[{script_id}] FAILED to assemble video.")
+                    emit_log(f"[{script_id}] ✗ FAILED video assembly after {dur:.1f}s.")
                     failed_ids.append(script_id)
             except Exception as exc:
                 emit_log(f"[{script_id}] EXCEPTION in video assembly: {exc}")

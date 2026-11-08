@@ -87,8 +87,9 @@ class ImagesAdapter(BaseStageAdapter):
                 continue
 
             try:
-                emit_log(f"[{script_id}] Generating scene illustrations with ComfyUI...")
+                emit_log(f"[{script_id}] Starting scene illustrations generation...")
                 script_force = force or (status.get("image_generation") == "pending")
+                t0 = time.time()
                 ok = process_script(
                     script_data=script_data,
                     state_manager=sm,
@@ -98,11 +99,12 @@ class ImagesAdapter(BaseStageAdapter):
                     seed=seed,
                     base_dir=BASE_DIR,
                 )
+                dur = time.time() - t0
                 if ok:
-                    emit_log(f"[{script_id}] Scene images generated successfully.")
+                    emit_log(f"[{script_id}] ✓ Scene images completed in {dur:.1f}s.")
                     success_count += 1
                 else:
-                    emit_log(f"[{script_id}] FAILED to generate scene images.")
+                    emit_log(f"[{script_id}] ✗ FAILED image generation after {dur:.1f}s.")
                     failed_ids.append(script_id)
             except Exception as exc:
                 emit_log(f"[{script_id}] EXCEPTION in image generation: {exc}")

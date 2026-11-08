@@ -191,7 +191,7 @@ def process_script(
         video_type=video_type,
     )
     general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
-    if not general_prompt or force:
+    if not general_prompt:
         try:
             general_prompt = prompt_builder.build_general_prompt(
                 script_text=script_text,
@@ -362,6 +362,7 @@ def process_script(
 
         filename_prefix = f"Z-Image/script_{script_id}_{section_name}"
         try:
+            scene_t0 = time.time()
             result_path = comfy_client.generate_image(
                 prompt_text=visual_prompt,
                 filename_prefix=filename_prefix,
@@ -372,7 +373,8 @@ def process_script(
                 height=IMAGE_DEFAULT_HEIGHT,
                 stall_timeout=IMAGE_STALL_TIMEOUT,
             )
-            print(f"[OK] Image saved: {result_path}")
+            scene_dur = time.time() - scene_t0
+            print(f"[OK] Scene {section_name.upper()} rendered in {scene_dur:.1f}s -> {dest_path.name}")
             state_manager.save_script_state(script_id, script_data)
             time.sleep(0.3)  # Cooldown between scene images ("go ahead, don't stop")
         except Exception as exc:

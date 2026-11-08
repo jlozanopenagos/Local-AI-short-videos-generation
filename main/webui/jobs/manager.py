@@ -37,6 +37,64 @@ from webui.jobs.adapters.assembly import AssemblyAdapter
 logger = logging.getLogger("webui.jobs")
 
 
+class _JobLogCapture:
+    """Captures sys.stdout/sys.stderr within a worker job run and emits clean lines to emit_log."""
+
+    def __init__(self, emit_fn: Callable[[str], None], original_stream):
+        self.emit_fn = emit_fn
+        self.original_stream = original_stream
+        self._buf = ""
+
+    def write(self, s: str) -> int:
+        if self.original_stream:
+            try:
+                self.original_stream.write(s)
+                self.original_stream.flush()
+            except Exception:
+                pass
+
+        if not s:
+            return 0
+
+        self._buf += s
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            clean = line.replace("\r", " ").strip()
+            # Ignore empty lines or long decorative divider lines (e.g. === or ---)
+            if clean and not (clean.startswith("=") and clean.endswith("=") and len(clean) > 10):
+                self.emit_fn(clean)
+        return len(s)
+
+    def flush(self) -> None:
+        if self._buf.strip():
+            clean = self._buf.replace("\r", " ").strip()
+            if clean and not (clean.startswith("=") and clean.endswith("=") and len(clean) > 10):
+                self.emit_fn(clean)
+            self._buf = ""
+        if self.original_stream:
+            try:
+                self.original_stream.flush()
+            except Exception:
+                pass
+
+
+class _JobLoggingHandler(logging.Handler):
+    """Intercepts logging calls from underlying modules during a job run."""
+
+    def __init__(self, emit_fn: Callable[[str], None]):
+        super().__init__()
+        self.emit_fn = emit_fn
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            clean = msg.replace("\r", " ").strip()
+            if clean:
+                self.emit_fn(clean)
+        except Exception:
+            pass
+
+
 class JobManager:
     """
     Manages in-memory job queues and sequential worker execution.
@@ -261,13 +319,31 @@ class JobManager:
 
         try:
             emit_log(f"Executing stage '{stage.value}'...")
-            result = adapter.run(
-                script_ids=job.script_ids,
-                options={},
-                emit_log=emit_log,
-                emit_progress=emit_progress,
-                check_cancelled=lambda: self.is_cancelled(job_id),
-            )
+
+            orig_stdout = sys.stdout
+            orig_stderr = sys.stderr
+            capture_stdout = _JobLogCapture(emit_log, orig_stdout)
+            capture_stderr = _JobLogCapture(emit_log, orig_stderr)
+            log_handler = _JobLoggingHandler(emit_log)
+            root_logger = logging.getLogger()
+            root_logger.addHandler(log_handler)
+
+            sys.stdout = capture_stdout
+            sys.stderr = capture_stderr
+            try:
+                result = adapter.run(
+                    script_ids=job.script_ids,
+                    options={},
+                    emit_log=emit_log,
+                    emit_progress=emit_progress,
+                    check_cancelled=lambda: self.is_cancelled(job_id),
+                )
+            finally:
+                capture_stdout.flush()
+                capture_stderr.flush()
+                sys.stdout = orig_stdout
+                sys.stderr = orig_stderr
+                root_logger.removeHandler(log_handler)
 
             with self._lock:
                 if self.is_cancelled(job_id):

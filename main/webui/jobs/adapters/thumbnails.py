@@ -58,12 +58,14 @@ class ThumbnailsAdapter(BaseStageAdapter):
 
             try:
                 emit_log(f"[{script_id}] Rendering chalkboard title thumbnail...")
+                t0 = time.time()
                 ok = generate_thumbnail_for_script(state_data, state_mgr=sm, base_dir=BASE_DIR)
+                dur = time.time() - t0
                 if ok:
-                    emit_log(f"[{script_id}] Thumbnail successfully rendered.")
+                    emit_log(f"[{script_id}] ✓ Thumbnail successfully rendered in {dur:.1f}s.")
                     success_count += 1
                 else:
-                    emit_log(f"[{script_id}] FAILED to generate thumbnail.")
+                    emit_log(f"[{script_id}] ✗ FAILED to generate thumbnail after {dur:.1f}s.")
                     failed_ids.append(script_id)
             except Exception as exc:
                 emit_log(f"[{script_id}] EXCEPTION: {exc}")

@@ -91,6 +91,29 @@ class TestWebUIJobs(unittest.TestCase):
         cancel_res = self.client.post(f"/api/jobs/{job_id}/cancel")
         self.assertIn(cancel_res.status_code, [200, 400])
 
+    def test_job_captures_stdout_and_logging(self):
+        """Verify prints and logging in adapters are captured in job logs."""
+        class VerboseAdapter(BaseStageAdapter):
+            def run(self, script_ids, options, emit_log, emit_progress, check_cancelled):
+                print("Captured print statement from worker module")
+                import logging
+                logging.getLogger("test").info("Captured logging info from worker module")
+                return {"success_count": 1, "failed_ids": []}
+
+        self.jm.register_adapter(JobStage.SCRIPTS, VerboseAdapter())
+        res = self.client.post("/api/jobs", json={"stage": "scripts", "script_ids": ["PRINT_TEST"]})
+        job_id = res.json()["job_id"]
+        # Give worker a moment to execute
+        for _ in range(20):
+            time.sleep(0.1)
+            job = self.jm.get_job(job_id)
+            if job and job.status == JobStatus.COMPLETED:
+                break
+        self.assertIsNotNone(job)
+        all_logs = " ".join(job.logs)
+        self.assertIn("Captured print statement", all_logs)
+        self.assertIn("Captured logging info", all_logs)
+
 
 if __name__ == "__main__":
     unittest.main()
