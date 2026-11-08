@@ -33,7 +33,6 @@ export interface ScriptStages {
   scripts: StageState
   voice: StageState
   images: StageState
-  music: StageState
   thumbnails: StageState
   assembly: StageState
 }

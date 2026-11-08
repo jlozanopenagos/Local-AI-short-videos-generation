@@ -326,6 +326,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                     <div className="stage-badges">
                       {renderBadge('B', stages.voice)}
                       {renderBadge('C', stages.images)}
+                      {renderBadge('F', stages.thumbnails)}
                       {renderBadge('G', stages.assembly)}
                     </div>
                   </div>
@@ -356,7 +357,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                 <th>Topic / Title</th>
                 <th>Language / Format</th>
                 <th>Character</th>
-                <th>Pipeline (A-B-C-D-F-G)</th>
+                <th>Pipeline (A-B-C-F-G)</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -401,7 +402,6 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                         {renderBadge('A', stages.scripts || 'missing')}
                         {renderBadge('B', stages.voice || 'missing')}
                         {renderBadge('C', stages.images || 'missing')}
-                        {renderBadge('D', stages.music || 'missing')}
                         {renderBadge('F', stages.thumbnails || 'missing')}
                         {renderBadge('G', stages.assembly || 'missing')}
                       </div>

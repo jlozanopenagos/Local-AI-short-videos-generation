@@ -43,6 +43,26 @@ def _normalize_stage(status_val: Any) -> str:
     return "missing"
 
 
+def _normalize_language(raw_lang: Any) -> str:
+    """Normalizes multilingual labels (e.g. Español, Français, ENGLISH) to canonical keys."""
+    if not raw_lang:
+        return "english"
+    clean = str(raw_lang).split("|")[0].strip().lower()
+    if clean in ("español", "espanol", "spanish", "sp", "es"):
+        return "spanish"
+    elif clean in ("français", "francais", "french", "fr"):
+        return "french"
+    elif clean in ("english", "ingles", "inglés", "en"):
+        return "english"
+    elif clean in ("italian", "italiano", "it"):
+        return "italian"
+    elif clean in ("german", "deutsch", "de"):
+        return "german"
+    elif clean in ("portuguese", "português", "portugues", "pt"):
+        return "portuguese"
+    return clean
+
+
 def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) -> List[Dict[str, Any]]:
     """Universal scene extractor supporting Roleplay, Expression, Game, and JSON formats."""
     scenes: List[Dict[str, Any]] = []
@@ -168,11 +188,7 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     assets = s.get("assets") or {}
 
     raw_lang = meta.get("language") or raw_meta.get("LABEL") or p_params.get("TARGET_LANGUAGE") or "english"
-    if "|" in raw_lang:
-        clean_lang = raw_lang.split("|")[0].strip()
-    else:
-        clean_lang = raw_lang.strip()
-    clean_lang = clean_lang.lower()
+    clean_lang = _normalize_language(raw_lang)
 
     v_type = (
         meta.get("video_type")
@@ -203,7 +219,6 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "scripts": "done" if s.get("script_text") or meta.get("script") else "missing",
         "voice": _normalize_stage(status.get("voice_generation", "done" if has_audio else "missing")),
         "images": _normalize_stage(status.get("image_generation", "done" if has_images else "missing")),
-        "music": _normalize_stage(status.get("music_selection", "missing")),
         "thumbnails": _normalize_stage(status.get("thumbnail_generation", "done" if has_thumb else "missing")),
         "assembly": _normalize_stage(status.get("video_assembly", "done" if has_video else "missing")),
     }
@@ -293,7 +308,7 @@ def _calculate_facets(scripts: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
     for s in scripts:
-        lang = s.get("language") or "Other"
+        lang = _normalize_language(s.get("language") or "other").capitalize()
         languages[lang] = languages.get(lang, 0) + 1
 
         vtype = (s.get("type") or "other").lower()
@@ -364,8 +379,8 @@ def list_scripts(
 
     # Language filter
     if language and isinstance(language, str) and language.lower() != "all":
-        l_term = language.lower().strip()
-        filtered = [s for s in filtered if l_term == s["language"].lower()]
+        l_term = _normalize_language(language)
+        filtered = [s for s in filtered if l_term == _normalize_language(s["language"])]
 
     # Video type filter
     if video_type and isinstance(video_type, str) and video_type.lower() != "all":
