@@ -130,6 +130,16 @@ export interface ScriptDetail extends ScriptSummary {
   target_expression?: string
 }
 
+export interface ScriptUpdatePayload {
+  script_text?: string
+  script_dict?: Record<string, any>
+  chalkboard_exercise?: string
+  chalkboard_title?: string
+  target_expression?: string
+  general_prompt?: string
+  image_prompts?: Record<string, string>
+}
+
 export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 

@@ -74,6 +74,8 @@ export interface ScriptUpdatePayload {
   chalkboard_exercise?: string
   chalkboard_title?: string
   target_expression?: string
+  general_prompt?: string
+  image_prompts?: Record<string, string>
 }
 
 export async function updateScript(scriptId: string, payload: ScriptUpdatePayload): Promise<ScriptDetail> {

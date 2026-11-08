@@ -180,3 +180,56 @@ class TestWebUIApi(unittest.TestCase):
         )
         self.assertEqual(saved_data["content_metadata"]["target_expression"], "Tomar el pelo (Updated)")
         self.assertEqual(saved_data["content_metadata"]["script"]["hook"], "New updated hook")
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_update_general_prompt_sets_image_generation_pending(self, mock_get_sm):
+        """Verify updating general_prompt sets image_generation to pending and resets image_prompts."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "SR04",
+            "content_metadata": {
+                "language": "spanish",
+                "video_type": "roleplay",
+                "topic": "Pan comido",
+                "anchor_environment": "Old living room environment",
+            },
+            "prompt_params": {"ROLEPLAY_SCENARIO": "Living room scenario"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "done",
+            },
+            "assets": {
+                "general_prompt": "Old living room general prompt",
+                "image_prompts": {
+                    "hook": "Old hook prompt",
+                    "dialogue_part_1": "Old dialogue prompt",
+                },
+            },
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        # Update general prompt with a new version
+        new_prompt = "A vibrant modern workshop with tools and bright overhead LED lighting"
+        put_resp = self.client.put("/api/scripts/SR04", json={"general_prompt": new_prompt})
+        self.assertEqual(put_resp.status_code, 200)
+
+        self.assertTrue(mock_sm.save_script_state.called)
+        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_id, "SR04")
+
+        # Check that image_generation changed to pending
+        self.assertEqual(saved_data["status"]["image_generation"], "pending")
+        # Check that general_prompt was updated
+        self.assertEqual(saved_data["assets"]["general_prompt"], new_prompt)
+        self.assertEqual(saved_data["content_metadata"]["anchor_environment"], new_prompt)
+        # Check that old specific scene prompts were cleared so LLM regenerates them
+        self.assertEqual(saved_data["assets"]["image_prompts"], {})
+
+        # Check response stages
+        resp_data = put_resp.json()
+        self.assertEqual(resp_data["stages"]["images"], "pending")
+        self.assertFalse(resp_data["has_images"])

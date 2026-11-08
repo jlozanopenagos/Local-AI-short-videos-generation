@@ -88,12 +88,13 @@ class ImagesAdapter(BaseStageAdapter):
 
             try:
                 emit_log(f"[{script_id}] Generating scene illustrations with ComfyUI...")
+                script_force = force or (status.get("image_generation") == "pending")
                 ok = process_script(
                     script_data=script_data,
                     state_manager=sm,
                     comfy_client=comfy_client,
                     prompt_builder=prompt_builder,
-                    force=force,
+                    force=script_force,
                     seed=seed,
                     base_dir=BASE_DIR,
                 )

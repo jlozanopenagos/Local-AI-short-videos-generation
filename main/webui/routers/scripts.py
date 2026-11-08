@@ -435,6 +435,8 @@ class ScriptUpdateRequest(BaseModel):
     chalkboard_exercise: Optional[str] = None
     chalkboard_title: Optional[str] = None
     target_expression: Optional[str] = None
+    general_prompt: Optional[str] = None
+    image_prompts: Optional[Dict[str, str]] = None
 
 
 @router.get("/{script_id}")
@@ -558,6 +560,45 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     if payload.target_expression is not None:
         state_data["content_metadata"]["target_expression"] = payload.target_expression
         state_data["prompt_params"]["EXPRESSION"] = payload.target_expression
+
+    if "assets" not in state_data or not isinstance(state_data["assets"], dict):
+        state_data["assets"] = {}
+    if "status" not in state_data or not isinstance(state_data["status"], dict):
+        state_data["status"] = {}
+
+    # 4. Update general prompt
+    # If a new version of general prompt is saved:
+    # - property 'image_generation' changes to 'pending'
+    # - LLM must re-do all specific scene prompts, so existing image_prompts are invalidated
+    # - existing scene images are cleaned up so ComfyUI will re-generate them
+    general_prompt_changed = False
+    if payload.general_prompt is not None:
+        curr_gp = str(state_data["assets"].get("general_prompt") or "").strip()
+        new_gp = payload.general_prompt.strip()
+        if new_gp != curr_gp:
+            general_prompt_changed = True
+            state_data["assets"]["general_prompt"] = new_gp
+            state_data["content_metadata"]["anchor_environment"] = new_gp
+            state_data["status"]["image_generation"] = "pending"
+            state_data["assets"]["image_prompts"] = {}
+
+            # Clean up obsolete scene images from disk
+            image_dir_str = state_data["assets"].get("image_dir")
+            if image_dir_str:
+                p = Path(image_dir_str)
+                if p.exists() and p.is_dir():
+                    for old_img in p.glob(f"script_{canonical_id}_*.png"):
+                        try:
+                            old_img.unlink()
+                        except Exception:
+                            pass
+
+    # 5. Update specific scene prompts (only if general prompt did not just invalidate them)
+    if payload.image_prompts is not None and not general_prompt_changed:
+        if "image_prompts" not in state_data["assets"] or not isinstance(state_data["assets"]["image_prompts"], dict):
+            state_data["assets"]["image_prompts"] = {}
+        for sec_k, sec_prompt in payload.image_prompts.items():
+            state_data["assets"]["image_prompts"][sec_k] = sec_prompt
 
     # Save to disk
     sm.save_script_state(canonical_id, state_data)

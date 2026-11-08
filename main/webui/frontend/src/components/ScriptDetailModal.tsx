@@ -34,6 +34,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [triggeringStage, setTriggeringStage] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
+  // Storyboard local state
+  const [editGeneralPrompt, setEditGeneralPrompt] = useState('')
+  const [savingGeneralPrompt, setSavingGeneralPrompt] = useState(false)
+  const [generalPromptStatus, setGeneralPromptStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [editScenePrompts, setEditScenePrompts] = useState<Record<string, string>>({})
+  const [savingSceneType, setSavingSceneType] = useState<string | null>(null)
+
   // Script & Chalkboard editor local state
   const [chalkboardTitle, setChalkboardTitle] = useState('')
   const [chalkboardExercise, setChalkboardExercise] = useState('')
@@ -44,10 +51,22 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const populateEditorState = (data: ScriptDetail) => {
+    // 1. General & Scene prompts
+    setEditGeneralPrompt(data.general_prompt || '')
+    const scenePromptMap: Record<string, string> = {}
+    if (data.scenes) {
+      data.scenes.forEach((sc) => {
+        scenePromptMap[sc.scene_type] = sc.prompt || ''
+      })
+    }
+    setEditScenePrompts(scenePromptMap)
+
+    // 2. Chalkboard
     const titleVal = data.chalkboard_title || data.target_expression || data.title || ''
     setChalkboardTitle(titleVal)
     setChalkboardExercise(data.chalkboard_exercise || '')
 
+    // 3. Script structure
     let sDict: Record<string, any> = {}
     if (data.script_dict && Object.keys(data.script_dict).length > 0) {
       sDict = { ...data.script_dict }
@@ -101,6 +120,61 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     setTimeout(() => setCopiedKey(null), 2000)
   }
 
+  // --- Storyboard Actions ---
+  const handleSaveGeneralPrompt = async () => {
+    setSavingGeneralPrompt(true)
+    setGeneralPromptStatus(null)
+    try {
+      const isNewVersion = editGeneralPrompt.trim() !== (detail?.general_prompt || '').trim()
+      const updated = await updateScript(scriptId, {
+        general_prompt: editGeneralPrompt,
+      })
+      setDetail(updated)
+      populateEditorState(updated)
+
+      if (isNewVersion) {
+        setGeneralPromptStatus({
+          type: 'success',
+          message: '✓ Saved! General prompt updated and Image Generation marked as PENDING. Click "Images (C)" in the header to re-generate scene prompts & images.',
+        })
+      } else {
+        setGeneralPromptStatus({
+          type: 'success',
+          message: '✓ General prompt saved (no changes detected).',
+        })
+      }
+
+      setTimeout(() => {
+        setGeneralPromptStatus(null)
+      }, 7000)
+    } catch (err) {
+      setGeneralPromptStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setSavingGeneralPrompt(false)
+    }
+  }
+
+  const handleSaveScenePrompt = async (sceneType: string) => {
+    setSavingSceneType(sceneType)
+    try {
+      const updated = await updateScript(scriptId, {
+        image_prompts: {
+          [sceneType]: editScenePrompts[sceneType] || '',
+        },
+      })
+      setDetail(updated)
+      populateEditorState(updated)
+    } catch (err) {
+      alert(`Failed to save prompt for ${sceneType}: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setSavingSceneType(null)
+    }
+  }
+
+  // --- Script & Chalkboard Actions ---
   const handleFieldChange = (key: string, value: string) => {
     const updated = { ...scriptFields, [key]: value }
     setScriptFields(updated)
@@ -162,6 +236,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     if (detail) {
       populateEditorState(detail)
       setSaveStatus(null)
+      setGeneralPromptStatus(null)
     }
   }
 
@@ -267,26 +342,162 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
               </button>
             </div>
 
-            {/* Tab: Storyboard */}
+            {/* Tab: Storyboard (Editable General Prompt + Scene Prompts) */}
             {activeTab === 'storyboard' && (
               <div>
-                {detail.general_prompt && (
-                  <div style={{ marginBottom: '16px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', marginBottom: '4px' }}>
-                      GENERAL SCENE ANCHOR PROMPT
+                {/* General Scene Anchor Prompt Card */}
+                <div
+                  style={{
+                    marginBottom: '20px',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sparkles size={16} color="var(--accent)" />
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        General Scene Anchor Prompt
+                      </span>
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                      {detail.general_prompt}
+                    <span
+                      className="brand-badge"
+                      style={{
+                        background: detail.stages.images === 'done' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                        color: detail.stages.images === 'done' ? 'var(--success)' : '#f59e0b',
+                        border: `1px solid ${detail.stages.images === 'done' ? 'var(--success)' : '#f59e0b'}`,
+                        fontSize: '11px',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {detail.stages.images === 'done' ? 'Images Ready (Done)' : 'Image Generation Pending'}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      lineHeight: '1.4',
+                      background: 'rgba(56, 189, 248, 0.08)',
+                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    💡 <strong>Visual Story World Rule:</strong> If you edit and save a new version of the general prompt, 
+                    the script's <code>image_generation</code> status automatically switches to <strong>pending</strong>. 
+                    When you click <strong>Images (C)</strong>, the LLM will automatically re-generate all specific scene prompts aligned with the new story world before creating images.
+                  </div>
+
+                  {generalPromptStatus && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        background: generalPromptStatus.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        border: `1px solid ${generalPromptStatus.type === 'success' ? 'var(--success)' : 'var(--danger, #ef4444)'}`,
+                        color: generalPromptStatus.type === 'success' ? 'var(--success)' : '#f87171',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {generalPromptStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      <span>{generalPromptStatus.message}</span>
+                    </div>
+                  )}
+
+                  <textarea
+                    rows={5}
+                    className="search-input"
+                    style={{
+                      width: '100%',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                    }}
+                    value={editGeneralPrompt}
+                    onChange={(e) => setEditGeneralPrompt(e.target.value)}
+                    placeholder="Enter the general anchor prompt that sets the visual world, lighting, character consistency, and atmosphere..."
+                  />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {editGeneralPrompt.length} characters
+                      {editGeneralPrompt.trim() !== (detail.general_prompt || '').trim() && (
+                        <span style={{ color: '#f59e0b', marginLeft: '8px' }}>● Unsaved changes (new version)</span>
+                      )}
+                    </span>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        onClick={() => {
+                          setEditGeneralPrompt(detail.general_prompt || '')
+                          setGeneralPromptStatus(null)
+                        }}
+                        disabled={savingGeneralPrompt}
+                        title="Revert to last saved general prompt"
+                      >
+                        <RefreshCw size={13} />
+                        <span>Reset</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${
+                          editGeneralPrompt.trim() !== (detail.general_prompt || '').trim()
+                            ? 'btn-primary'
+                            : 'btn-outline'
+                        }`}
+                        onClick={handleSaveGeneralPrompt}
+                        disabled={savingGeneralPrompt}
+                      >
+                        <Save size={13} />
+                        <span>
+                          {savingGeneralPrompt
+                            ? 'Saving...'
+                            : editGeneralPrompt.trim() !== (detail.general_prompt || '').trim()
+                            ? 'Save New Version (Sets Images Pending)'
+                            : 'Save General Prompt'}
+                        </span>
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
 
+                {/* Section header for scenes */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Scene Storyboard & Specific Prompts ({(detail.scenes || []).length})
+                  </h3>
+                  {detail.stages.images === 'pending' && (
+                    <span style={{ fontSize: '12px', color: '#f59e0b' }}>
+                      Pending generation: Run <strong>Images (C)</strong> above to render
+                    </span>
+                  )}
+                </div>
+
+                {/* Scene Cards */}
                 {(detail.scenes || []).map((sc, idx) => {
                   const imgUrl = sc.image_file ? getMediaUrl(sc.image_file) : null
+                  const currentPrompt = editScenePrompts[sc.scene_type] ?? sc.prompt ?? ''
+                  const isSavingThisScene = savingSceneType === sc.scene_type
+                  const promptModified = currentPrompt !== (sc.prompt || '')
+
                   return (
                     <div key={idx} className="storyboard-card">
                       <div className="storyboard-thumb">
-                        {imgUrl ? (
+                        {imgUrl && detail.stages.images === 'done' ? (
                           <a href={imgUrl} target="_blank" rel="noreferrer" title="Click to view full image">
                             <img src={imgUrl} alt={sc.scene_type} loading="lazy" />
                           </a>
@@ -298,26 +509,56 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                         )}
                       </div>
 
-                      <div className="storyboard-body">
+                      <div className="storyboard-body" style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="brand-badge">{sc.label || sc.scene_type}</span>
                           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Scene {idx + 1}</span>
                         </div>
 
-                        <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', marginTop: '2px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', marginTop: '4px' }}>
                           "{sc.voice_line}"
                         </div>
 
-                        {sc.prompt && (
-                          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', marginTop: '6px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '2px' }}>
-                              ComfyUI Prompt:
-                            </div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', maxHeight: '80px', overflowY: 'auto' }}>
-                              {sc.prompt}
-                            </div>
+                        <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                              ComfyUI Scene Prompt:
+                            </span>
+                            {promptModified && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                style={{ fontSize: '11px', padding: '2px 8px' }}
+                                onClick={() => handleSaveScenePrompt(sc.scene_type)}
+                                disabled={isSavingThisScene}
+                              >
+                                <Save size={11} />
+                                <span>{isSavingThisScene ? 'Saving...' : 'Save Prompt'}</span>
+                              </button>
+                            )}
                           </div>
-                        )}
+                          <textarea
+                            rows={3}
+                            className="search-input"
+                            style={{
+                              width: '100%',
+                              fontSize: '12px',
+                              fontStyle: 'italic',
+                              lineHeight: '1.4',
+                              resize: 'vertical',
+                            }}
+                            value={currentPrompt}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setEditScenePrompts((prev) => ({ ...prev, [sc.scene_type]: val }))
+                            }}
+                            placeholder={
+                              detail.stages.images === 'pending'
+                                ? "Pending: The LLM will automatically generate this prompt when you run Images (C)..."
+                                : "Enter scene-specific illustration prompt..."
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   )
