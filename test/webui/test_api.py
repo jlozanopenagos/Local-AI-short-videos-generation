@@ -88,3 +88,42 @@ class TestWebUIApi(unittest.TestCase):
         self.assertEqual(scripts[0]["id"], "EE01")
         self.assertEqual(scripts[0]["language"], "english")
         self.assertEqual(scripts[0]["status"]["script_generation"], "done")
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_list_scripts_pagination(self, mock_get_sm):
+        """Verify /api/scripts with ?page= returns paginated catalog envelope."""
+        mock_sm = MagicMock()
+        mock_sm.get_all_scripts.return_value = [
+            {"id": f"TEST{i:02d}", "content_metadata": {"language": "french"}, "status": {}}
+            for i in range(1, 15)
+        ]
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.get("/api/scripts?page=1&page_size=5")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("items", data)
+        self.assertEqual(data["total"], 14)
+        self.assertEqual(data["page"], 1)
+        self.assertEqual(data["page_size"], 5)
+        self.assertEqual(data["total_pages"], 3)
+        self.assertEqual(len(data["items"]), 5)
+        self.assertIn("facets", data)
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_get_facets_endpoint(self, mock_get_sm):
+        """Verify /api/scripts/facets returns language, type, and status aggregates."""
+        mock_sm = MagicMock()
+        mock_sm.get_all_scripts.return_value = [
+            {"id": "ES01", "content_metadata": {"language": "spanish", "video_type": "expression"}, "status": {}},
+            {"id": "FR01", "content_metadata": {"language": "french", "video_type": "roleplay"}, "status": {}},
+        ]
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.get("/api/scripts/facets")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["total"], 2)
+        self.assertIn("languages", data)
+        self.assertIn("types", data)
+        self.assertIn("stage_counts", data)

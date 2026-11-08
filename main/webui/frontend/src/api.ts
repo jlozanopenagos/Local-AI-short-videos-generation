@@ -1,4 +1,4 @@
-import type { SystemStatus, ScriptSummary, ScriptDetail, Job, JobStage } from './types'
+import type { SystemStatus, ScriptSummary, ScriptDetail, Job, JobStage, ScriptCatalogResponse, ScriptFacets } from './types'
 
 export async function fetchSystemStatus(): Promise<SystemStatus> {
   const res = await fetch('/api/system/status')
@@ -17,6 +17,42 @@ export async function controlService(
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || `Action ${action} failed`)
   }
+  return res.json()
+}
+
+export interface CatalogQueryOptions {
+  page?: number
+  pageSize?: number
+  search?: string
+  language?: string
+  videoType?: string
+  stageFilter?: string
+}
+
+export async function fetchScriptCatalog(options: CatalogQueryOptions = {}): Promise<ScriptCatalogResponse> {
+  const params = new URLSearchParams()
+  params.set('page', String(options.page || 1))
+  params.set('page_size', String(options.pageSize || 24))
+
+  if (options.search) params.set('search', options.search)
+  if (options.language && options.language !== 'all') params.set('language', options.language)
+  if (options.videoType && options.videoType !== 'all') params.set('video_type', options.videoType)
+  if (options.stageFilter && options.stageFilter !== 'all') params.set('stage_filter', options.stageFilter)
+
+  const res = await fetch(`/api/scripts?${params.toString()}`)
+  if (!res.ok) throw new Error(`Catalog HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function fetchFacets(): Promise<ScriptFacets> {
+  const res = await fetch('/api/scripts/facets')
+  if (!res.ok) throw new Error(`Facets HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function refreshScriptCache(): Promise<{ total_indexed: number }> {
+  const res = await fetch('/api/scripts/refresh', { method: 'POST' })
+  if (!res.ok) throw new Error(`Refresh HTTP ${res.status}`)
   return res.json()
 }
 
@@ -70,4 +106,3 @@ export function getMediaUrl(pathOrFilename?: string | null): string {
   }
   return `/api/media?file=${encodeURIComponent(pathOrFilename)}`
 }
-

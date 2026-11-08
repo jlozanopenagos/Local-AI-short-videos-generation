@@ -43,33 +43,87 @@ export interface ScriptAssets {
   images: string[]
   thumbnail: string | null
   video: string | null
+  poster?: string | null
 }
 
 export interface ScriptSummary {
+  id: string
   script_id: string
   topic: string
+  title?: string
   language: string
   type: string
+  video_type: string
+  lexical_field?: string
+  scenario?: string
   character: {
     gender: string
     description: string
   }
   stages: ScriptStages
   assets: ScriptAssets
+  has_voice: boolean
+  has_images: boolean
+  has_video: boolean
+  has_thumbnail: boolean
+  is_ready_for_assembly: boolean
+}
+
+export interface FacetItem {
+  name: string
+  count: number
+}
+
+export interface ScriptFacets {
+  total: number
+  languages: FacetItem[]
+  types: FacetItem[]
+  stage_counts: {
+    all: number
+    missing_voice: number
+    missing_images: number
+    ready_for_assembly: number
+    complete: number
+  }
+}
+
+export interface ScriptCatalogResponse {
+  items: ScriptSummary[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+  facets: ScriptFacets
 }
 
 export interface SceneDetail {
   scene_type: string
+  label?: string
   voice_line: string
   image_file: string | null
   prompt?: string
 }
 
+export interface YouTubeMetadata {
+  title: string
+  description: string
+  short_description?: string
+  tags: string
+  hashtags: string
+  filename: string
+  label?: string
+}
+
 export interface ScriptDetail extends ScriptSummary {
   story_scenario?: string
-  lexical_field?: string
   base_setting?: string
+  lexical_field?: string
+  general_prompt?: string
+  learning_objective?: string
+  speakers_voice?: Record<string, string>
+  speakers_gender?: Record<string, string>
   scenes?: SceneDetail[]
+  youtube_metadata?: YouTubeMetadata
 }
 
 export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly'
@@ -94,4 +148,3 @@ export interface Job {
   started_at?: number | null
   finished_at?: number | null
 }
-

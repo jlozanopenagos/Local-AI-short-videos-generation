@@ -4,15 +4,13 @@ import { SystemCard } from './components/SystemCard'
 import { ScriptList } from './components/ScriptList'
 import { ScriptDetailModal } from './components/ScriptDetailModal'
 import { JobQueueView } from './components/JobQueueView'
-import type { SystemStatus, ScriptSummary, Job } from './types'
-import { fetchSystemStatus, fetchScripts, fetchJobs } from './api'
+import type { SystemStatus, Job } from './types'
+import { fetchSystemStatus, fetchJobs } from './api'
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'scripts' | 'jobs'>('dashboard')
   const [system, setSystem] = useState<SystemStatus | null>(null)
-  const [scripts, setScripts] = useState<ScriptSummary[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
-  const [loadingScripts, setLoadingScripts] = useState(false)
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
 
@@ -22,18 +20,6 @@ export function App() {
       setSystem(data)
     } catch {
       // Backend temporarily offline / starting
-    }
-  }, [])
-
-  const loadScripts = useCallback(async () => {
-    setLoadingScripts(true)
-    try {
-      const data = await fetchScripts()
-      setScripts(data)
-    } catch {
-      // Backend error
-    } finally {
-      setLoadingScripts(false)
     }
   }, [])
 
@@ -49,9 +35,8 @@ export function App() {
   // Initial load
   useEffect(() => {
     loadSystem()
-    loadScripts()
     loadJobs()
-  }, [loadSystem, loadScripts, loadJobs])
+  }, [loadSystem, loadJobs])
 
   // Periodic status poll (every 4s)
   useEffect(() => {
@@ -84,10 +69,8 @@ export function App() {
         {activeTab === 'dashboard' && (
           <div>
             <ScriptList
-              scripts={scripts}
-              loading={loadingScripts}
               onSelectScript={(id) => setSelectedScriptId(id)}
-              onRefresh={loadScripts}
+              onJobStarted={handleJobStarted}
             />
           </div>
         )}
@@ -95,10 +78,8 @@ export function App() {
         {activeTab === 'scripts' && (
           <div>
             <ScriptList
-              scripts={scripts}
-              loading={loadingScripts}
               onSelectScript={(id) => setSelectedScriptId(id)}
-              onRefresh={loadScripts}
+              onJobStarted={handleJobStarted}
             />
           </div>
         )}
@@ -120,7 +101,6 @@ export function App() {
             scriptId={selectedScriptId}
             onClose={() => {
               setSelectedScriptId(null)
-              loadScripts()
             }}
             onJobStarted={handleJobStarted}
           />
