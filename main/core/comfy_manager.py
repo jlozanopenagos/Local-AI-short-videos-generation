@@ -231,11 +231,15 @@ class ComfyManager:
             "-s",
             str(self.main_py),
             "--windows-standalone-build",
-            "--lowvram",
             "--force-fp16",
             "--port",
             str(self.port),
         ]
+        # Allow environment override for VRAM management (e.g. 'medvram', 'gpu-only')
+        # Default is standard dynamic VRAM offloading without --lowvram CPU bottleneck
+        vram_mode = os.getenv("COMFY_VRAM_MODE", "").strip().lower()
+        if vram_mode:
+            cmd.append(f"--{vram_mode.lstrip('-')}")
 
         # Rotate log if larger than 25MB
         if self.log_file.exists() and self.log_file.stat().st_size > 25 * 1024 * 1024:
@@ -266,15 +270,26 @@ class ComfyManager:
         env["PATH"] = ";".join([p for p in paths_to_add if Path(p).exists()] + [current_path])
 
         try:
-            proc = subprocess.Popen(
-                cmd,
-                cwd=str(self.comfy_dir),
-                stdout=log_handle,
-                stderr=subprocess.STDOUT,
-                env=env,
-                creationflags=creationflags,
-                close_fds=False if os.name == "nt" else True,
-            )
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(self.comfy_dir),
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                    creationflags=creationflags | 0x01000000 if os.name == "nt" else creationflags,
+                    close_fds=False if os.name == "nt" else True,
+                )
+            except OSError:
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(self.comfy_dir),
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                    creationflags=creationflags,
+                    close_fds=False if os.name == "nt" else True,
+                )
             self._write_pid(proc.pid)
             print(f"[ComfyUI] Spawning headless process (PID: {proc.pid}). Logs: {self.log_file}")
         except Exception as e:

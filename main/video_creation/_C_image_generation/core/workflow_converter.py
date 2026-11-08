@@ -26,6 +26,7 @@ Usage
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -162,6 +163,12 @@ def convert_workflow(workflow: dict[str, Any]) -> dict[str, Any]:
             if widget_idx < len(widgets_vals):
                 inputs[w_name] = widgets_vals[widget_idx]
             widget_idx += 1
+
+        # Prevent CLIPLoader from mistakenly running on CPU unless explicitly forced via env
+        if class_type == "CLIPLoader" and inputs.get("device") == "cpu":
+            if os.getenv("COMFY_FORCE_CPU_CLIP", "").lower() != "true":
+                logger.info("Overriding CLIPLoader device='cpu' -> 'default' for GPU acceleration.")
+                inputs["device"] = "default"
 
         api_prompt[node_id] = {
             "class_type": class_type,
