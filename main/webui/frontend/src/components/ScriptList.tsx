@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   RefreshCw,
-  LayoutGrid,
-  List,
   CheckSquare,
   Square,
   Image as ImageIcon,
@@ -14,7 +12,7 @@ import {
   X
 } from 'lucide-react'
 import type { ScriptSummary, ScriptFacets, StageState, JobStage } from '../types'
-import { fetchScriptCatalog, getMediaUrl, createJob, refreshScriptCache } from '../api'
+import { fetchScriptCatalog, createJob, refreshScriptCache } from '../api'
 
 interface ScriptListProps {
   onSelectScript: (scriptId: string) => void
@@ -25,7 +23,6 @@ export const ScriptList: React.FC<ScriptListProps> = ({
   onSelectScript,
   onJobStarted,
 }) => {
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [loading, setLoading] = useState(false)
   const [scripts, setScripts] = useState<ScriptSummary[]>([])
   const [facets, setFacets] = useState<ScriptFacets | null>(null)
@@ -152,28 +149,10 @@ export const ScriptList: React.FC<ScriptListProps> = ({
 
   return (
     <div className="card" style={{ position: 'relative' }}>
-      {/* Title & View Switcher */}
+      {/* Title & Actions */}
       <div className="card-title">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span>Script Library ({totalCount.toLocaleString()} Total)</span>
-          <div className="btn-group">
-            <button
-              className={`btn btn-sm ${viewMode === 'grid' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setViewMode('grid')}
-              title="Card Grid View"
-            >
-              <LayoutGrid size={14} />
-              <span>Cards</span>
-            </button>
-            <button
-              className={`btn btn-sm ${viewMode === 'table' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setViewMode('table')}
-              title="Table View"
-            >
-              <List size={14} />
-              <span>Table</span>
-            </button>
-          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -259,7 +238,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
         </button>
       </div>
 
-      {/* Main Content: Grid vs Table */}
+      {/* Main Content: Dense Table */}
       {loading && scripts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
           <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px auto' }} />
@@ -268,76 +247,6 @@ export const ScriptList: React.FC<ScriptListProps> = ({
       ) : scripts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
           No scripts matching current filters. Try adjusting search or filters.
-        </div>
-      ) : viewMode === 'grid' ? (
-        /* Visual Card Grid View */
-        <div className="cards-grid">
-          {scripts.map((s) => {
-            const isSelected = selectedIds.has(s.script_id)
-            const stages = s.stages || ({} as any)
-            const posterUrl = s.assets?.poster ? getMediaUrl(s.assets.poster) : null
-
-            return (
-              <div
-                key={s.script_id}
-                className={`script-card ${isSelected ? 'selected' : ''}`}
-                onClick={() => onSelectScript(s.script_id)}
-              >
-                {/* Poster Box */}
-                <div className="card-poster">
-                  <div
-                    className={`card-select-btn ${isSelected ? 'active' : ''}`}
-                    onClick={(e) => toggleSelect(s.script_id, e)}
-                    title={isSelected ? 'Deselect script' : 'Select script'}
-                  >
-                    {isSelected ? <CheckSquare size={14} /> : null}
-                  </div>
-
-                  {posterUrl ? (
-                    <img src={posterUrl} alt={s.script_id} loading="lazy" />
-                  ) : (
-                    <div className="card-poster-placeholder">
-                      <ImageIcon size={28} />
-                      <span>No Visual Yet</span>
-                    </div>
-                  )}
-
-                  <div className="card-badges-overlay">
-                    <span className="brand-badge">{s.type.toUpperCase()}</span>
-                    <span
-                      style={{
-                        background: 'rgba(0,0,0,0.7)',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      {s.language}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Info */}
-                <div className="card-info">
-                  <div className="card-id-row">
-                    <strong style={{ color: 'var(--accent)', fontSize: '14px' }}>{s.script_id}</strong>
-                    <div className="stage-badges">
-                      {renderBadge('B', stages.voice)}
-                      {renderBadge('C', stages.images)}
-                      {renderBadge('F', stages.thumbnails)}
-                      {renderBadge('G', stages.assembly)}
-                    </div>
-                  </div>
-
-                  <div className="card-title-text" title={s.topic}>
-                    {s.title || s.topic}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
         </div>
       ) : (
         /* Dense Table View */
