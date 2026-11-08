@@ -233,3 +233,41 @@ class TestWebUIApi(unittest.TestCase):
         resp_data = put_resp.json()
         self.assertEqual(resp_data["stages"]["images"], "pending")
         self.assertFalse(resp_data["has_images"])
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_toggle_script_stage(self, mock_get_sm):
+        """Verify POST /api/scripts/{id}/toggle-stage toggles pending and done states."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "SG02",
+            "content_metadata": {"language": "spanish", "video_type": "game", "topic": "Tomar el pelo"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "pending",
+            },
+            "assets": {},
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        # 1. Toggle voice from 'done' -> should become 'pending'
+        resp = self.client.post("/api/scripts/SG02/toggle-stage", json={"stage": "voice"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["new_status"], "pending")
+        self.assertEqual(data["status_key"], "voice_generation")
+        self.assertTrue(mock_sm.save_script_state.called)
+
+        # 2. Toggle image from 'pending' -> should become 'done'
+        resp2 = self.client.post("/api/scripts/SG02/toggle-stage", json={"stage": "img"})
+        self.assertEqual(resp2.status_code, 200)
+        data2 = resp2.json()
+        self.assertEqual(data2["new_status"], "done")
+        self.assertEqual(data2["status_key"], "image_generation")
+
+        # 3. Invalid stage name returns 400
+        bad_resp = self.client.post("/api/scripts/SG02/toggle-stage", json={"stage": "invalid_stage_xyz"})
+        self.assertEqual(bad_resp.status_code, 400)

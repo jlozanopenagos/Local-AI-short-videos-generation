@@ -608,3 +608,83 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     _get_indexed_scripts(force_refresh=True)
 
     return get_script(canonical_id)
+
+
+class StageToggleRequest(BaseModel):
+    stage: str
+    new_status: Optional[str] = None
+
+
+@router.post("/{script_id}/toggle-stage")
+def toggle_script_stage(script_id: str, payload: StageToggleRequest) -> Dict[str, Any]:
+    """Toggles or sets the status ('pending' or 'done') for an individual asset generation stage."""
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    if "status" not in state_data or not isinstance(state_data["status"], dict):
+        state_data["status"] = {}
+    if "assets" not in state_data or not isinstance(state_data["assets"], dict):
+        state_data["assets"] = {}
+
+    stage_map = {
+        "scripts": "script_generation",
+        "script": "script_generation",
+        "script_generation": "script_generation",
+        "voice": "voice_generation",
+        "voice_generation": "voice_generation",
+        "images": "image_generation",
+        "img": "image_generation",
+        "image_generation": "image_generation",
+        "thumbnails": "thumbnail_generation",
+        "thumb": "thumbnail_generation",
+        "thumbnail_generation": "thumbnail_generation",
+        "assembly": "video_assembly",
+        "assmbl": "video_assembly",
+        "video_assembly": "video_assembly",
+    }
+
+    stage_clean = payload.stage.strip().lower()
+    status_key = stage_map.get(stage_clean)
+    if not status_key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown stage '{payload.stage}'. Must be one of: {list(stage_map.keys())}"
+        )
+
+    current_val = state_data["status"].get(status_key, "missing")
+    if payload.new_status:
+        target_val = payload.new_status.strip().lower()
+    else:
+        target_val = "pending" if current_val == "done" else "done"
+
+    state_data["status"][status_key] = target_val
+
+    # If toggling image_generation to pending to redo images, clear existing scene illustrations
+    if status_key == "image_generation" and target_val == "pending":
+        image_dir_str = state_data["assets"].get("image_dir")
+        if image_dir_str:
+            p = Path(image_dir_str)
+            if p.exists() and p.is_dir():
+                for old_img in p.glob(f"script_{canonical_id}_*.png"):
+                    try:
+                        old_img.unlink()
+                    except Exception:
+                        pass
+
+    # Save to disk
+    sm.save_script_state(canonical_id, state_data)
+
+    # Invalidate cache so queries reflect the change immediately
+    _get_indexed_scripts(force_refresh=True)
+
+    summary = _build_script_summary(state_data)
+    return {
+        "script_id": canonical_id,
+        "stage": payload.stage,
+        "status_key": status_key,
+        "new_status": target_val,
+        "summary": summary,
+    }

@@ -1,12 +1,12 @@
 import React from 'react'
-import { Play, Square, Cpu, HardDrive, Terminal, Video } from 'lucide-react'
+import { Play, Square, Cpu, Terminal, Video } from 'lucide-react'
 import type { SystemStatus } from '../types'
 import { controlService } from '../api'
 
 interface NavbarProps {
   system: SystemStatus | null
-  activeTab: 'dashboard' | 'scripts' | 'jobs'
-  setActiveTab: (tab: 'dashboard' | 'scripts' | 'jobs') => void
+  activeTab: 'dashboard' | 'jobs'
+  setActiveTab: (tab: 'dashboard' | 'jobs') => void
   onRefreshSystem: () => void
 }
 
@@ -49,13 +49,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Cpu size={16} />
           <span>Dashboard</span>
-        </button>
-        <button
-          className={`nav-btn ${activeTab === 'scripts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('scripts')}
-        >
-          <HardDrive size={16} />
-          <span>Script Library</span>
         </button>
         <button
           className={`nav-btn ${activeTab === 'jobs' ? 'active' : ''}`}

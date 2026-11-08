@@ -91,6 +91,23 @@ export async function updateScript(scriptId: string, payload: ScriptUpdatePayloa
   return res.json()
 }
 
+export async function toggleScriptStage(
+  scriptId: string,
+  stage: string,
+  newStatus?: string
+): Promise<{ script_id: string; stage: string; status_key: string; new_status: string; summary: ScriptSummary }> {
+  const res = await fetch(`/api/scripts/${scriptId}/toggle-stage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage, new_status: newStatus }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to toggle stage ${stage} for script ${scriptId}`)
+  }
+  return res.json()
+}
+
 export async function fetchJobs(): Promise<Job[]> {
   const res = await fetch('/api/jobs')
   if (!res.ok) throw new Error(`Jobs HTTP ${res.status}`)

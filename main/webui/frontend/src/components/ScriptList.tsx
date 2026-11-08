@@ -12,7 +12,7 @@ import {
   X
 } from 'lucide-react'
 import type { ScriptSummary, ScriptFacets, StageState, JobStage } from '../types'
-import { fetchScriptCatalog, createJob, refreshScriptCache } from '../api'
+import { fetchScriptCatalog, createJob, refreshScriptCache, toggleScriptStage } from '../api'
 
 interface ScriptListProps {
   onSelectScript: (scriptId: string) => void
@@ -133,13 +133,61 @@ export const ScriptList: React.FC<ScriptListProps> = ({
     }
   }
 
-  const renderBadge = (label: string, state?: StageState) => {
+  const handleToggleStage = async (
+    scriptId: string,
+    stageKey: 'scripts' | 'images' | 'voice' | 'thumbnails' | 'assembly',
+    currentState: StageState | undefined,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation()
+
+    const targetState: StageState = currentState === 'done' ? 'pending' : 'done'
+
+    // Optimistically update local scripts state immediately
+    setScripts((prev) =>
+      prev.map((s) => {
+        if (s.script_id === scriptId) {
+          const nextStages = { ...s.stages, [stageKey]: targetState }
+          return {
+            ...s,
+            stages: nextStages,
+            has_images: nextStages.images === 'done',
+            has_voice: nextStages.voice === 'done',
+            has_thumbnail: nextStages.thumbnails === 'done',
+            has_video: nextStages.assembly === 'done',
+            is_ready_for_assembly:
+              nextStages.voice === 'done' && nextStages.images === 'done' && nextStages.assembly !== 'done',
+          }
+        }
+        return s
+      })
+    )
+
+    try {
+      await toggleScriptStage(scriptId, stageKey, targetState)
+    } catch (err) {
+      alert(`Could not toggle stage ${stageKey} for ${scriptId}: ${err instanceof Error ? err.message : String(err)}`)
+      loadData()
+    }
+  }
+
+  const renderClickableBadge = (
+    scriptId: string,
+    stageKey: 'scripts' | 'images' | 'voice' | 'thumbnails' | 'assembly',
+    label: string,
+    state?: StageState
+  ) => {
     let cls = 'stage-missing'
     if (state === 'done') cls = 'stage-done'
     else if (state === 'pending') cls = 'stage-pending'
 
     return (
-      <span key={label} className={`stage-badge ${cls}`} title={`${label}: ${state || 'missing'}`}>
+      <span
+        key={label}
+        className={`stage-badge ${cls}`}
+        onClick={(e) => handleToggleStage(scriptId, stageKey, state, e)}
+        title={`${label}: ${state || 'missing'} — Click to set ${state === 'done' ? 'PENDING (redo)' : 'DONE'}`}
+      >
         {label}
       </span>
     )
@@ -152,7 +200,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
       {/* Title & Actions */}
       <div className="card-title">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span>Script Library ({totalCount.toLocaleString()} Total)</span>
+          <span>Scripts Catalog ({totalCount.toLocaleString()} Total)</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -266,7 +314,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                 <th>Topic / Title</th>
                 <th>Language / Format</th>
                 <th>Character</th>
-                <th>Pipeline (A-B-C-F-G)</th>
+                <th>Pipeline (SCRIPT • IMG • VOICE • THUMB • ASSMBL)</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -308,11 +356,11 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                     </td>
                     <td>
                       <div className="stage-badges">
-                        {renderBadge('A', stages.scripts || 'missing')}
-                        {renderBadge('B', stages.voice || 'missing')}
-                        {renderBadge('C', stages.images || 'missing')}
-                        {renderBadge('F', stages.thumbnails || 'missing')}
-                        {renderBadge('G', stages.assembly || 'missing')}
+                        {renderClickableBadge(s.script_id, 'scripts', 'SCRIPT', stages.scripts)}
+                        {renderClickableBadge(s.script_id, 'images', 'IMG', stages.images)}
+                        {renderClickableBadge(s.script_id, 'voice', 'VOICE', stages.voice)}
+                        {renderClickableBadge(s.script_id, 'thumbnails', 'THUMB', stages.thumbnails)}
+                        {renderClickableBadge(s.script_id, 'assembly', 'ASSMBL', stages.assembly)}
                       </div>
                     </td>
                     <td>

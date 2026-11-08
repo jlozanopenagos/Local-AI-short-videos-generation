@@ -8,7 +8,7 @@ import type { SystemStatus, Job } from './types'
 import { fetchSystemStatus, fetchJobs } from './api'
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'scripts' | 'jobs'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs'>('dashboard')
   const [system, setSystem] = useState<SystemStatus | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
@@ -67,15 +67,6 @@ export function App() {
         <SystemCard system={system} onRefresh={loadSystem} />
 
         {activeTab === 'dashboard' && (
-          <div>
-            <ScriptList
-              onSelectScript={(id) => setSelectedScriptId(id)}
-              onJobStarted={handleJobStarted}
-            />
-          </div>
-        )}
-
-        {activeTab === 'scripts' && (
           <div>
             <ScriptList
               onSelectScript={(id) => setSelectedScriptId(id)}

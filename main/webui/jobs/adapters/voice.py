@@ -74,12 +74,13 @@ class VoiceAdapter(BaseStageAdapter):
 
             try:
                 emit_log(f"[{script_id}] Synthesizing multi-character audio track...")
+                script_force = force or (status.get("voice_generation") == "pending")
                 ok = process_script(
                     script_data=script_data,
                     state_manager=sm,
                     comfy_client=comfy_client,
                     voice_manager=voice_manager,
-                    force=force,
+                    force=script_force,
                     base_dir=BASE_DIR,
                 )
                 if ok:
