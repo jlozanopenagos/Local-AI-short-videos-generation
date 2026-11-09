@@ -26,21 +26,38 @@ STRICT BAN ON RAW BLANKS (___) IN SPOKEN CHALLENGE:
 👉 The visual chalkboard ("chalkboard_exercise") MUST have the test sentence with "___" so the viewer sees the blank on screen.
 👉 But the spoken "challenge" is audio! TTS cannot pronounce underscores or awkward silences!
 
+STRICT RULES FOR THE "CHALLENGE" PROPERTY AND SPOKEN OPTIONS:
+1. NO STRESS / CAPITALIZATION GIVEAWAYS:
+   ❌ NEVER use uppercase syllable notation in the challenge or options (e.g. NO "REcord vs reCORD", NO "CONtract vs conTRACT")!
+   👉 The sentence and options MUST be written in natural lowercase (e.g. "record", "contract", "present") so the answer is not given away in text or subtitles.
+2. OPTION TAGS MUST START WITH A LETTER:
+   👉 Options must strictly begin with an uppercase letter followed by a colon: "A: ", "B: ", "C: ".
+3. ZERO CONNECTORS BETWEEN OPTIONS:
+   ❌ BANNED: "or", "and", "ou", "o", "oppure", "y", "e", commas between options.
+   👉 Clean juxtaposition only: "A: [Option A].  B: [Option B]." NEVER "A: [Option A], or B: [Option B]?"
+4. SPECIFY PART OF SPEECH FOR SINGLE WORDS:
+   👉 If options are single words (e.g., distinguishing noun vs verb stress/meaning), specify the grammatical category (e.g., "a" for a noun, "to" for a verb: "A: a record.  B: to record.").
+5. PUNCTUATION OF OPTIONS:
+   👉 Every option MUST terminate with a period (.).
+   ❌ The last option will NEVER finish with a question mark (?).
+
 SPOKEN CHALLENGE DELIVERY (OPTION A - SPOKEN TEST SENTENCE & ACOUSTIC EAR):
-When the test sentence has a blank, the Narrator in the audio MUST speak the sentence out loud naturally, pronouncing the challenge word or rhythm, and then explicitly asking the viewer which option was used or fits:
-1. For Word Stress / Phonetics / Minimal Pairs (e.g. CONtract vs conTRACT, anno vs ano, fatto vs fato):
-   - The Narrator speaks the sentence using one of the pronunciation patterns:
-   - English: "Both parties signed the employment CONtract yesterday. Which rhythm did you hear? A: CONtract, or B: conTRACT?"
-   - Italian: "Ho vissuto a Roma per un anno intero. Quale parola ho pronunciato? A: anno, oppure B: ano?"
-   - Italian: "Hai fatto tutti gli esercizi di grammatica per domani? Hai sentito A: fatto, o B: fato?"
+When the test sentence has a blank, the Narrator in the audio MUST speak the sentence out loud naturally, pronouncing the challenge word or rhythm, and then explicitly voicing the choices:
+1. For Word Stress / Phonetics / Minimal Pairs (e.g. record, contract, present):
+   - English: "She broke the world record in swimming. Which word did you hear? A: a record.  B: to record."
+   - Italian: "Ho vissuto a Roma per un anno intero. Quale parola ho pronunciato? A: un anno.  B: un ano."
+   - Italian: "Hai fatto tutti gli esercizi di grammatica per domani? Hai sentito A: fatto.  B: fato."
 2. For False Friends / Vocabulary Traps (e.g. blessé vs béni, embarazada vs avergonzada):
-   - The Narrator speaks the test sentence naturally and clearly asks which option fits or was spoken:
-   - French: "Le joueur blessé a dû quitter le terrain. Quel mot as-tu entendu ? A: blessé, ou B: béni ?"
-   - Spanish: "María está embarazada de cinco meses y tendrá un niño. ¿Qué palabra encaja? A: embarazada, o B: avergonzada?"
-   - Spanish: "Tu nuevo libro fue un gran éxito de ventas. ¿Qué palabra escuchaste? A: éxito, o B: salida?"
+   - French: "Le joueur blessé a dû quitter le terrain. Quel mot as-tu entendu ? A: blessé.  B: béni."
+   - Spanish: "María está embarazada de cinco meses y tendrá un niño. ¿Qué palabra encaja? A: embarazada.  B: avergonzada."
+   - Spanish: "Tu nuevo libro fue un gran éxito de ventas. ¿Qué palabra escuchaste? A: éxito.  B: salida."
 
 MANDATORY SPOKEN OPTIONS IN CHALLENGE:
-❌ NEVER omit options from the spoken "challenge"! You must always speak the choices clearly (e.g. "A: [Option A], or B: [Option B]"). Never end abruptly with "Voici tes choix :" without speaking them!
+❌ NEVER omit options from the spoken "challenge"! You must always speak the choices clearly: "A: [Option A].  B: [Option B]." Never end abruptly with "Voici tes choix :" without speaking them!
+
+STRICT SEPARATION OF CHALLENGE AND PRESSURE:
+❌ NEVER include countdown lines or urgency prompts (e.g. "Which one is it? A or B? Your answer is coming!", "Tic-tac !", "Il tempo scorre!") inside the "challenge" property!
+👉 All countdowns, time limits, and urgency lines belong strictly in the "pressure" property.
 
 STRICT BAN ON PROMPT NOTES & LEAKAGE:
 ❌ NEVER copy vocabulary definitions, translations, or notes from the prompt into the script! E.g. "(attendre = patienter vs assister = aider)" or "(noun: CONtract vs verb: conTRACT)" MUST NEVER appear in the script.

@@ -755,3 +755,76 @@ def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = 
 
     return get_script(canonical_id)
 
+
+class ValidateIdsRequest(BaseModel):
+    script_ids: List[str]
+
+
+@router.post("/validate-ids")
+def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
+    """
+    Validates a list of script IDs against the local state repository.
+    Returns existence, normalized language, video type, and stage status for each ID.
+    """
+    sm = _get_state_manager()
+    results = []
+    valid_count = 0
+    invalid_count = 0
+
+    seen = set()
+    cleaned_ids = []
+    for raw in payload.script_ids:
+        cid = raw.strip().upper().replace("SCRIPT_", "").replace(".JSON", "")
+        if cid and cid not in seen:
+            seen.add(cid)
+            cleaned_ids.append(cid)
+
+    for sid in cleaned_ids:
+        if sm.script_exists(sid):
+            state = sm.get_script_state(sid)
+            prompt_params = state.get("prompt_params") or {}
+            content_meta = state.get("content_metadata") or {}
+            status = state.get("status") or {}
+
+            lang = (
+                prompt_params.get("TARGET_LANGUAGE")
+                or content_meta.get("language")
+                or "Unknown"
+            )
+            vtype = (
+                prompt_params.get("VIDEO_TYPE")
+                or content_meta.get("video_type")
+                or "Unknown"
+            )
+
+            results.append({
+                "id": sid,
+                "exists": True,
+                "language": _normalize_language(lang),
+                "type": str(vtype).lower(),
+                "stages": {
+                    "voice": _normalize_stage(status.get("voice_generation")),
+                    "images": _normalize_stage(status.get("image_generation")),
+                    "thumbnails": _normalize_stage(status.get("thumbnail_generation")),
+                    "assembly": _normalize_stage(status.get("video_assembly")),
+                },
+            })
+            valid_count += 1
+        else:
+            results.append({
+                "id": sid,
+                "exists": False,
+                "language": None,
+                "type": None,
+                "stages": {},
+            })
+            invalid_count += 1
+
+    return {
+        "items": results,
+        "valid_count": valid_count,
+        "invalid_count": invalid_count,
+        "total": len(results),
+    }
+
+

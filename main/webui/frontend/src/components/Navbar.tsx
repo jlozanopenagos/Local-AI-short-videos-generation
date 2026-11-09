@@ -1,12 +1,12 @@
 import React from 'react'
-import { Play, Square, Cpu, Terminal, Video } from 'lucide-react'
+import { Play, Square, Cpu, Terminal, Video, FileSpreadsheet, Layers } from 'lucide-react'
 import type { SystemStatus } from '../types'
 import { controlService } from '../api'
 
 interface NavbarProps {
   system: SystemStatus | null
-  activeTab: 'dashboard' | 'jobs'
-  setActiveTab: (tab: 'dashboard' | 'jobs') => void
+  activeTab: 'dashboard' | 'jobs' | 'sheets' | 'mass-creation'
+  setActiveTab: (tab: 'dashboard' | 'jobs' | 'sheets' | 'mass-creation') => void
   onRefreshSystem: () => void
 }
 
@@ -56,6 +56,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Terminal size={16} />
           <span>Queue & Console</span>
+        </button>
+        <button
+          className={`nav-btn ${activeTab === 'sheets' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sheets')}
+        >
+          <FileSpreadsheet size={16} />
+          <span>Handle Googlesheets changes</span>
+        </button>
+        <button
+          className={`nav-btn ${activeTab === 'mass-creation' ? 'active' : ''}`}
+          onClick={() => setActiveTab('mass-creation')}
+        >
+          <Layers size={16} />
+          <span>Mass assets creation</span>
         </button>
       </nav>
 

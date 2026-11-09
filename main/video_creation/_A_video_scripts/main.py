@@ -902,12 +902,14 @@ def handle_prompt(
                 and re.search(r"(?:^|[\s\n])B\s*[:\)\.\-]", ch_val, re.IGNORECASE)
             )
             if not has_spoken_opts and opt_a and opt_b:
-                target_l = str(params.get("TARGET_LANGUAGE", "")).lower()
-                sep = {"english": "or", "french": "ou", "italian": "oppure", "spanish": "o"}.get(target_l, "or")
-                ch_val = ch_val.rstrip(":., ") + f". A: {opt_a}, {sep} B: {opt_b}?"
+                opt_a_clean = opt_a.rstrip(".?! ") + "."
+                opt_b_clean = opt_b.rstrip(".?! ") + "."
+                ch_val = ch_val.rstrip(":., ") + f". A: {opt_a_clean}  B: {opt_b_clean}"
 
             script_field["challenge"] = ch_val
             parsed_json["script"] = script_field
+            parsed_json["chalkboard_exercise"] = ch_val
+            metadata["chalkboard_exercise"] = ch_val
             script_text = json.dumps(script_field, indent=2, ensure_ascii=False)
 
     # Save to JSON State

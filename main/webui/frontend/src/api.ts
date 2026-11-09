@@ -1,4 +1,4 @@
-import type { SystemStatus, ScriptSummary, ScriptDetail, Job, JobStage, ScriptCatalogResponse, ScriptFacets } from './types'
+import type { SystemStatus, ScriptSummary, ScriptDetail, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse } from './types'
 
 export async function fetchSystemStatus(): Promise<SystemStatus> {
   const res = await fetch('/api/system/status')
@@ -185,3 +185,49 @@ export function getMediaUrl(pathOrFilename?: string | null): string {
   }
   return `/api/media?file=${encodeURIComponent(pathOrFilename)}`
 }
+
+export async function fetchSheetsSyncStatus(): Promise<SheetsSyncStatus> {
+  const res = await fetch('/api/sheets/status')
+  if (!res.ok) throw new Error(`Sheets status HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function startSheetsSync(options: { clean_cache?: boolean; apply_changes?: boolean } = {}): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/sheets/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clean_cache: options.clean_cache ?? true,
+      apply_changes: options.apply_changes ?? true,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to start Google Sheets sync')
+  }
+  return res.json()
+}
+
+export async function resetSheetsSyncStatus(): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/sheets/reset', { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to reset Sheets sync status')
+  }
+  return res.json()
+}
+
+export async function validateScriptIds(scriptIds: string[]): Promise<ValidateIdsResponse> {
+  const res = await fetch('/api/scripts/validate-ids', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script_ids: scriptIds }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to validate script IDs')
+  }
+  return res.json()
+}
+
+

@@ -83,8 +83,8 @@ def extract_spoken_text_from_state(state: Dict[str, Any]) -> str:
     return ""
 
 
-def normalize_text_for_comparison(text: str) -> str:
-    """Normalizes whitespace, quotes, narrator prefixes, and line breaks for content comparison."""
+def normalize_text_for_comparison(text: str, video_type: str = "") -> str:
+    """Normalizes whitespace, quotes, narrator prefixes, line breaks, and GAME option syntax for comparison."""
     if not text:
         return ""
     # Strip speaker prefixes like 'Narrator:' that are stripped during JSON state storage
@@ -96,6 +96,17 @@ def normalize_text_for_comparison(text: str) -> str:
     t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
     # Strip quotes so expressions wrapped in quotes match unquoted state keys
     t = t.replace("'", "").replace('"', "").replace("«", "").replace("»", "")
+
+    if video_type.upper() == "GAME":
+        # Strip option connectors: or, ou, oppure, o, and, y, e
+        t = re.sub(r"\b(?:or|ou|oppure|and|y|e)\s+([B-D]\s*:)", r"\1", t, flags=re.IGNORECASE)
+        # Lowercase uppercase stress words (e.g. record, present, project)
+        t = re.sub(r"\b[a-zA-Z]*[A-Z]{2,}[a-zA-Z-]*\b", lambda m: m.group(0).lower() if m.group(0) not in ("A", "B", "C", "D") else m.group(0), t)
+        # Strip articles 'a', 'to' when attached right after A: or B: for single words
+        t = re.sub(r"([A-D]\s*:\s*)(?:a\s+|an\s+|to\s+|un\s+|une\s+|uno\s+|una\s+)", r"\1", t, flags=re.IGNORECASE)
+        # Strip punctuation at end of options/challenge (? vs .)
+        t = re.sub(r"[?!.,;:]+", " ", t)
+
     return " ".join(re.findall(r"\S+", t)).strip()
 
 
@@ -185,10 +196,21 @@ def audit_script_changes(
                 continue
 
             state = state_mgr.get_script_state(sid)
+            vtype = (
+                state.get("prompt_params", {}).get("VIDEO_TYPE")
+                or state.get("content_metadata", {}).get("video_type", "")
+            )
+            if not vtype:
+                try:
+                    from core.state_manager import resolve_lang_and_type
+                    _, vtype = resolve_lang_and_type(sid)
+                except Exception:
+                    vtype = ""
+
             curr_spoken = extract_spoken_text_from_state(state)
 
-            norm_new = normalize_text_for_comparison(new_script)
-            norm_curr = normalize_text_for_comparison(curr_spoken)
+            norm_new = normalize_text_for_comparison(new_script, video_type=vtype)
+            norm_curr = normalize_text_for_comparison(curr_spoken, video_type=vtype)
 
             record_info = {
                 "id": sid,
@@ -205,6 +227,19 @@ def audit_script_changes(
                 words_curr = re.findall(r"\w+", norm_curr.lower())
                 if sorted(words_new) == sorted(words_curr):
                     identical_records.append(record_info)
+                elif vtype.upper() == "GAME":
+                    # For GAME, check if the remaining differences are only minor particles/connectors
+                    diff_words_new = set(words_new) - set(words_curr)
+                    diff_words_curr = set(words_curr) - set(words_new)
+                    ignorable_game_diffs = {
+                        "a", "an", "to", "or", "ou", "o", "oppure", "and", "y", "e",
+                        "which", "one", "is", "it", "tu", "ton", "il", "la", "le"
+                    }
+                    if diff_words_new.issubset(ignorable_game_diffs) and diff_words_curr.issubset(ignorable_game_diffs):
+                        identical_records.append(record_info)
+                    else:
+                        record_info["diff_preview"] = compute_preview_diff(curr_spoken, new_script)
+                        changed_records.append(record_info)
                 else:
                     record_info["diff_preview"] = compute_preview_diff(curr_spoken, new_script)
                     changed_records.append(record_info)

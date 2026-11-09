@@ -396,6 +396,19 @@ class LlamaManager:
         time.sleep(1.0)
         return self.start(timeout=timeout, wait=True)
 
+    def ensure_llama_stopped(self, timeout: int = 15) -> bool:
+        """Alias for stop() ensuring server is stopped to release VRAM."""
+        running, _ = self.is_running()
+        if not running and not self.is_reachable():
+            return True
+        return self.stop(timeout=timeout)
+
+    def ensure_llama_running(self, timeout: int = 60) -> bool:
+        """Alias for start() ensuring server is online and reachable."""
+        if self.is_reachable():
+            return True
+        return self.start(timeout=timeout, wait=True)
+
     def get_status(self) -> Dict[str, Any]:
         """Returns structured health and status dictionary."""
         active, pid = self.is_running()

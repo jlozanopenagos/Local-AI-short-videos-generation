@@ -162,3 +162,61 @@ export interface Job {
   started_at?: number | null
   finished_at?: number | null
 }
+
+export interface SheetsSyncRecord {
+  id: string
+  file: string
+  words_current: number
+  words_new: number
+  delta_words: string
+  diff_preview: string
+  status: 'updated' | 'failed' | 'pending'
+}
+
+export interface SheetsSyncResult {
+  purged_csvs: string[]
+  fetched_files: { filename: string; count: number }[]
+  total_fetched: number
+  changed_count: number
+  identical_count: number
+  updated_count: number
+  failed_count: number
+  updated_records: SheetsSyncRecord[]
+  missing_ids?: string[]
+}
+
+export interface SheetsSyncStatus {
+  status: 'idle' | 'running' | 'completed' | 'failed'
+  progress: number
+  current_step: string
+  step_number: number
+  total_steps: number
+  logs: string[]
+  result: SheetsSyncResult | null
+  error: string | null
+  started_at: number | null
+  finished_at: number | null
+  existing_csv_count?: number
+}
+
+export interface ValidatedScriptId {
+  id: string
+  exists: boolean
+  language?: string | null
+  type?: string | null
+  stages?: {
+    voice?: string
+    images?: string
+    thumbnails?: string
+    assembly?: string
+  }
+}
+
+export interface ValidateIdsResponse {
+  items: ValidatedScriptId[]
+  valid_count: number
+  invalid_count: number
+  total: number
+}
+
+

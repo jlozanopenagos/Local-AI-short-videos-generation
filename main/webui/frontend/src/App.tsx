@@ -4,11 +4,13 @@ import { SystemCard } from './components/SystemCard'
 import { ScriptList } from './components/ScriptList'
 import { ScriptDetailModal } from './components/ScriptDetailModal'
 import { JobQueueView } from './components/JobQueueView'
+import { GoogleSheetsSyncView } from './components/GoogleSheetsSyncView'
+import { MassAssetsCreationView } from './components/MassAssetsCreationView'
 import type { SystemStatus, Job } from './types'
 import { fetchSystemStatus, fetchJobs } from './api'
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'sheets' | 'mass-creation'>('dashboard')
   const [system, setSystem] = useState<SystemStatus | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
@@ -82,6 +84,24 @@ export function App() {
               selectedJobId={selectedJobId}
               onSelectJob={(id) => setSelectedJobId(id)}
               onRefresh={loadJobs}
+            />
+          </div>
+        )}
+
+        {activeTab === 'sheets' && (
+          <div>
+            <GoogleSheetsSyncView
+              onSelectScript={(id) => setSelectedScriptId(id)}
+            />
+          </div>
+        )}
+
+        {activeTab === 'mass-creation' && (
+          <div>
+            <MassAssetsCreationView
+              system={system}
+              onJobStarted={handleJobStarted}
+              onSelectScript={(id) => setSelectedScriptId(id)}
             />
           </div>
         )}

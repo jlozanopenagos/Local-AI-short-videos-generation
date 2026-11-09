@@ -19,7 +19,7 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from webui.settings import STATIC_DIR, WEBUI_DEV_MODE
-from webui.routers import system, scripts, media, jobs
+from webui.routers import system, scripts, media, jobs, sheets
 
 
 def create_app() -> FastAPI:
@@ -59,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(media.router)
     app.include_router(jobs.router)
     app.include_router(jobs.ws_router)
+    app.include_router(sheets.router)
 
     # Pre-warm script cache on startup in background
     @app.on_event("startup")
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     def serve_spa():
         index_file = STATIC_DIR / "index.html"
         if index_file.exists():
+            # pyrefly: ignore[missing-import]
             from fastapi.responses import FileResponse
             return FileResponse(
                 str(index_file),
@@ -80,6 +82,7 @@ def create_app() -> FastAPI:
                     "Expires": "0",
                 },
             )
+        # pyrefly: ignore[missing-import]
         from fastapi.responses import HTMLResponse
         return HTMLResponse("<h1>WebUI static bundle not found. Please build frontend first.</h1>")
 

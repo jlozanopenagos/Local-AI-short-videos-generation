@@ -323,6 +323,129 @@ def partition_turns_into_four_parts(turns: List[str]) -> List[str]:
     ]
 
 
+GAME_STRESS_WORDS_MAP = {
+    "record": ("a record", "to record"),
+    "present": ("a present", "to present"),
+    "project": ("a project", "to project"),
+    "permit": ("a permit", "to permit"),
+    "object": ("an object", "to object"),
+    "contract": ("a contract", "to contract"),
+    "increase": ("an increase", "to increase"),
+    "decrease": ("a decrease", "to decrease"),
+    "export": ("an export", "to export"),
+    "protest": ("a protest", "to protest"),
+    "contest": ("a contest", "to contest"),
+    "desert": ("a desert", "to desert"),
+    "dessert": ("a dessert", "a dessert"),
+}
+
+
+def clean_game_challenge(chal: str, sid: str = "") -> str:
+    """
+    Enforces canonical GAME rules on the challenge property:
+    - Starts each option with Letter: (A:, B:, C:)
+    - Removes option connectors (or, ou, o, oppure, and, y, e)
+    - Neutralizes uppercase syllable stress giveaways (REcord -> record)
+    - Contextualizes single-word noun/verb heteronyms (a record vs to record)
+    - Ensures period at end of each option and prevents trailing ?
+    """
+    if not chal or not isinstance(chal, str):
+        return chal
+
+    lines = [l.strip() for l in chal.split("\n") if l.strip()]
+    if not lines:
+        return chal
+
+    option_lines = []
+    intro_lines = []
+    for line in lines:
+        if re.match(r"^[A-D]\s*[:\)\.,-]", line):
+            option_lines.append(line)
+        else:
+            intro_lines.append(line)
+
+    if option_lines:
+        intro_text = " ".join(intro_lines).strip()
+        full_text = intro_text + " " + " ".join(option_lines)
+    else:
+        full_text = " ".join(lines)
+
+    # Cut off trailing pressure/countdown sentences if embedded in challenge
+    pressure_cuts = [
+        r"\s*(?:Which one is it\?.*)$",
+        r"\s*(?:Your answer is coming!.*)$",
+        r"\s*(?:Catch the stress before.*)$",
+        r"\s*(?:Tic-tac\b.*)$",
+        r"\s*(?:Trois, deux, un\b.*)$",
+        r"\s*(?:Il tempo scorre\b.*)$",
+        r"\s*(?:¡?El reloj no perdona\b.*)$",
+    ]
+    for pat in pressure_cuts:
+        full_text = re.sub(pat, "", full_text, flags=re.IGNORECASE).strip()
+
+    # Find boundary where Option A begins
+    m_start = re.search(r"(.*?)(?:\s+|(?<=[?.!:]))\b([A-D])\s*[:\)\.,-]\s*(.*)", full_text, flags=re.DOTALL)
+    if not m_start:
+        return full_text
+
+    intro = m_start.group(1).strip()
+    first_letter = m_start.group(2).upper()
+    rest = first_letter + ": " + m_start.group(3).strip()
+
+    opt_regex = re.compile(r"\b([A-D])\s*[:\)\.,-]\s*(.*?)(?=(?:\b[B-D]\s*[:\)\.,-])|$)", flags=re.DOTALL | re.IGNORECASE)
+    options = []
+
+    def _lower_stress(m):
+        w = m.group(0)
+        if w in ("A", "B", "C", "D", "PM", "AM", "OK", "TV", "USA", "DNA", "VIP"):
+            return w
+        return w.replace("-", "").lower()
+
+    for match in opt_regex.finditer(rest):
+        letter = match.group(1).upper()
+        content = match.group(2).strip()
+
+        content = re.sub(r"^(?:(?:or|ou|oppure|and|y|e)\s+)", "", content, flags=re.IGNORECASE).strip()
+        content = re.sub(r"(?:,\s*|\s+)(?:or|ou|oppure|and|y|e)$", "", content, flags=re.IGNORECASE).strip()
+        content = re.sub(r"[\?!\.,;:]+$", "", content).strip()
+
+        content = re.sub(r"\b[a-zA-Z]*[A-Z]{2,}[a-zA-Z-]*\b", _lower_stress, content)
+
+        w_lower = content.lower().strip()
+        if w_lower in GAME_STRESS_WORDS_MAP:
+            if letter == "A":
+                content = GAME_STRESS_WORDS_MAP[w_lower][0]
+            elif letter == "B":
+                content = GAME_STRESS_WORDS_MAP[w_lower][1]
+
+        if sid and sid.upper() == "EG30":
+            if letter == "A":
+                content = "fill"
+            elif letter == "B":
+                content = "feel"
+
+        if not content.endswith("."):
+            content = content + "."
+
+        options.append(f"{letter}: {content}")
+
+    intro_clean = re.sub(r"\b[a-zA-Z]*[A-Z]{2,}[a-zA-Z-]*\b", _lower_stress, intro).strip()
+    intro_clean = re.sub(r"[\s,]+(?:or|ou|o|oppure|y|e)?\s*$", "", intro_clean, flags=re.IGNORECASE).strip()
+
+    if not re.search(r"[?.!:]$", intro_clean):
+        if re.search(r"\b(?:is it|choose|select|pick|say|hear|did you hear|was it|encaja|as-tu entendu|hai sentito|dici)\b", intro_clean, re.IGNORECASE):
+            pass
+        elif re.search(r"\b(?:which|did|is|quel|quelle|cosa|che|cuál|que)\b", intro_clean, re.IGNORECASE):
+            intro_clean += "?"
+        else:
+            intro_clean += "."
+
+    result = intro_clean + " " + "  ".join(options)
+    if result.endswith("?"):
+        result = result[:-1] + "."
+    return result.strip()
+
+
 def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optional[Dict[str, str]]:
     """
     Parses a user-provided final script into canonical section keys based on
@@ -346,8 +469,8 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 "payoff": lines[4],
             }
         elif len(lines) == 4:
-            # Cleanly divide lines[1] into setup and discovery if it contains multiple sentences
-            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", lines[1]) if s.strip()]
+            # Cleanly divide lines[1] into setup and discovery if it contains multiple sentences or clauses
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+|(?<=,\s)\b(?:but|y|pero|mais|ma)\b\s*", lines[1], flags=re.I) if s.strip()]
             if len(sentences) >= 2:
                 parsed = {
                     "hook": lines[0],
@@ -357,8 +480,13 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                     "payoff": lines[3],
                 }
             else:
-                # Do NOT artificially duplicate lines[1]; defer to LLM for intelligent partitioning
-                return None
+                parsed = {
+                    "hook": lines[0],
+                    "setup": lines[1],
+                    "discovery": lines[1],
+                    "example": lines[2],
+                    "payoff": lines[3],
+                }
         elif len(lines) > 5:
             parsed = {
                 "hook": lines[0],
@@ -374,35 +502,55 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
         if len(lines) == 5:
             parsed = {
                 "hook": lines[0],
-                "challenge": lines[1],
+                "challenge": clean_game_challenge(lines[1]),
                 "pressure": lines[2],
                 "answer": lines[3],
                 "explanation": lines[4],
             }
-        else:
+        elif len(lines) == 4:
+            parsed = {
+                "hook": lines[0],
+                "challenge": clean_game_challenge(lines[1]),
+                "pressure": lines[1],
+                "answer": lines[2],
+                "explanation": lines[3],
+            }
+        elif len(lines) > 5:
             hook = lines[0]
-            pressure_idx = -1
-            for i in range(1, len(lines)):
+            # Try to identify answer line via keywords across languages
+            ans_idx = -1
+            for i in range(2, len(lines)):
                 l_lower = lines[i].lower()
-                if any(w in l_lower for w in ("second", "clock", "compte", "rebours", "freeze", "décide", "decide", "tiempo", "segundo", "tempo", "chrono")):
-                    pressure_idx = i
+                if any(w in l_lower for w in ("winner", "answer", "correct", "is a", "is b", "it's a", "it's b", "c'est", "gagnant", "ganador", "risposta", "réponse", "opción", "option", "la a", "la b")):
+                    ans_idx = i
                     break
 
-            if pressure_idx != -1 and pressure_idx + 1 < len(lines):
-                challenge = "\n".join(lines[1:pressure_idx])
-                pressure = lines[pressure_idx]
-                answer = lines[pressure_idx + 1]
-                explanation = "\n".join(lines[pressure_idx + 2:]) if pressure_idx + 2 < len(lines) else answer
-                parsed = {
-                    "hook": hook,
-                    "challenge": challenge,
-                    "pressure": pressure,
-                    "answer": answer,
-                    "explanation": explanation,
-                }
+            if ans_idx != -1 and ans_idx >= 3:
+                challenge = "\n\n".join(lines[1:ans_idx-1])
+                pressure = lines[ans_idx-1]
+                answer = lines[ans_idx]
+                explanation = "\n\n".join(lines[ans_idx+1:]) if ans_idx+1 < len(lines) else lines[ans_idx]
+            elif ans_idx != -1 and ans_idx == 2:
+                challenge = lines[1]
+                pressure = lines[1]
+                answer = lines[2]
+                explanation = "\n\n".join(lines[3:])
             else:
-                # Do NOT arbitrarily duplicate challenge into pressure; defer to LLM for intelligent partitioning
-                return None
+                # Default positional partitioning: hook, challenge, pressure, answer, explanation
+                challenge = lines[1]
+                pressure = lines[2]
+                answer = lines[3]
+                explanation = "\n\n".join(lines[4:])
+
+            parsed = {
+                "hook": hook,
+                "challenge": clean_game_challenge(challenge),
+                "pressure": pressure,
+                "answer": answer,
+                "explanation": explanation,
+            }
+        else:
+            return None
 
     elif vtype == "ROLEPLAY":
         char_pattern = re.compile(
@@ -619,57 +767,88 @@ CANONICAL_SCRIPT_KEYS_BY_TYPE: Dict[str, list[str]] = {
 }
 
 
+def is_llm_online() -> bool:
+    """Checks whether the local llama.cpp server is actively running."""
+    try:
+        from core.llama_manager import get_llama_manager
+        running, _ = get_llama_manager().is_running()
+        return bool(running)
+    except Exception:
+        return False
+
+
 def format_script_with_llm(
     raw_script: str,
     video_type: str,
     target_language: str,
     expression_or_topic: str,
     existing_content_metadata: dict,
+    script_id: str = "",
 ) -> Tuple[Dict[str, Any], Dict[str, str]]:
     """
     Calls the local LLM to format the script into canonical JSON while
     guaranteeing the user's text remains verbatim.
+    If the text directly matches the expected section structure and LLM is offline,
+    it constructs the state JSON directly without socket timeout.
     Returns: (content_metadata_dict, script_dict)
     """
     direct_parsed = try_direct_script_parse(raw_script, video_type)
+    llm_online = is_llm_online()
 
-    prompt = build_structuring_prompt(
-        raw_script=raw_script,
-        video_type=video_type,
-        target_language=target_language,
-        expression_or_topic=expression_or_topic,
-        existing_metadata=existing_content_metadata,
-    )
-
-    print("🤖 Prompting LLM to structure state JSON and metadata...")
     parsed_json: Dict[str, Any] = {}
     script_field: Dict[str, Any] = {}
 
-    try:
-        raw_response = generate_response(prompt, temperature=0.2)
-        parsed_json = extract_json_from_llm(raw_response)
-        script_field = parsed_json.get("script") or {}
-        if not isinstance(script_field, dict):
-            script_field = {}
-    except Exception as llm_err:
-        if direct_parsed:
-            print(f"⚠️ LLM response error ({llm_err}). Constructing state JSON directly from user sections.")
-            script_field = dict(direct_parsed)
-            parsed_json = {
-                "video_type": video_type.upper(),
-                "language": target_language,
-                "category": existing_content_metadata.get("category", "Language Learning"),
-                "subcategory": existing_content_metadata.get("subcategory", "Idioms & Vocabulary"),
-                "topic": expression_or_topic,
-                "learning_objective": f"Learn the authentic usage of {expression_or_topic}",
-                "target_expression": expression_or_topic,
-                "difficulty": "Intermediate",
-                "emotion": "Curiosity & Surprise",
-                "related_content": [],
-                "character_personalities": {"Narrator": STATIC_NARRATOR_PERSONALITY},
-            }
-        else:
-            raise
+    if direct_parsed and not llm_online:
+        print("✓ Verified direct user section structure — applying exact user text (LLM offline).")
+        script_field = dict(direct_parsed)
+        parsed_json = {
+            "video_type": video_type.upper(),
+            "language": target_language,
+            "category": existing_content_metadata.get("category", "Language Learning"),
+            "subcategory": existing_content_metadata.get("subcategory", "Idioms & Vocabulary"),
+            "topic": expression_or_topic,
+            "learning_objective": existing_content_metadata.get("learning_objective") or f"Learn the authentic usage of {expression_or_topic}",
+            "target_expression": expression_or_topic,
+            "difficulty": existing_content_metadata.get("difficulty", "Intermediate"),
+            "emotion": existing_content_metadata.get("emotion", "Curiosity & Surprise"),
+            "related_content": existing_content_metadata.get("related_content", []),
+            "character_personalities": existing_content_metadata.get("character_personalities") or {"Narrator": STATIC_NARRATOR_PERSONALITY},
+        }
+    else:
+        prompt = build_structuring_prompt(
+            raw_script=raw_script,
+            video_type=video_type,
+            target_language=target_language,
+            expression_or_topic=expression_or_topic,
+            existing_metadata=existing_content_metadata,
+        )
+
+        print("🤖 Prompting LLM to structure state JSON and metadata...")
+        try:
+            raw_response = generate_response(prompt, temperature=0.2)
+            parsed_json = extract_json_from_llm(raw_response)
+            script_field = parsed_json.get("script") or {}
+            if not isinstance(script_field, dict):
+                script_field = {}
+        except Exception as llm_err:
+            if direct_parsed:
+                print(f"⚠️ LLM response error ({llm_err}). Constructing state JSON directly from user sections.")
+                script_field = dict(direct_parsed)
+                parsed_json = {
+                    "video_type": video_type.upper(),
+                    "language": target_language,
+                    "category": existing_content_metadata.get("category", "Language Learning"),
+                    "subcategory": existing_content_metadata.get("subcategory", "Idioms & Vocabulary"),
+                    "topic": expression_or_topic,
+                    "learning_objective": f"Learn the authentic usage of {expression_or_topic}",
+                    "target_expression": expression_or_topic,
+                    "difficulty": "Intermediate",
+                    "emotion": "Curiosity & Surprise",
+                    "related_content": [],
+                    "character_personalities": {"Narrator": STATIC_NARRATOR_PERSONALITY},
+                }
+            else:
+                raise
 
     # If the user passed directly structured sections or paragraphs, enforce user's exact text
     if direct_parsed:
@@ -772,11 +951,14 @@ def format_script_with_llm(
         if k in script_field and isinstance(script_field[k], str):
             script_field[k] = clean_narrator_prefix(script_field[k])
 
-    # For GAME, ensure chalkboard_exercise exists
+    # For GAME, ensure challenge conforms to GAME rules and chalkboard_exercise is synchronized
     if video_type.upper() == "GAME":
-        if "chalkboard_exercise" not in parsed_json or not parsed_json.get("chalkboard_exercise"):
-            challenge_text = script_field.get("challenge", "")
-            parsed_json["chalkboard_exercise"] = challenge_text
+        if "challenge" in script_field and isinstance(script_field["challenge"], str):
+            script_field["challenge"] = clean_game_challenge(script_field["challenge"], sid=script_id)
+        challenge_text = script_field.get("challenge", "")
+        parsed_json["chalkboard_exercise"] = challenge_text
+        if "content_metadata" in parsed_json and isinstance(parsed_json["content_metadata"], dict):
+            del parsed_json["content_metadata"]
 
     # Ensure Narrator personality exists
     if "character_personalities" not in parsed_json or not isinstance(parsed_json["character_personalities"], dict):
@@ -803,6 +985,7 @@ def modify_video_script(
     raw_script_text: str,
     reset_downstream: Optional[bool] = None,
     base_dir: Optional[Path] = None,
+    auto_update_csv: bool = True,
 ) -> bool:
     """
     Core function to modify an existing script state with plain text input.
@@ -860,6 +1043,7 @@ def modify_video_script(
             target_language=target_lang,
             expression_or_topic=topic,
             existing_content_metadata=content_meta,
+            script_id=script_id,
         )
     except Exception as exc:
         print(f"❌ Failed to format script with LLM: {exc}", file=sys.stderr)
@@ -869,17 +1053,22 @@ def modify_video_script(
 
     # Generate rich YouTube metadata
     print("✨ Generating YouTube metadata (titles, tags, hashtags, descriptions)...")
-    try:
-        new_metadata = build_metadata(new_script_text, prompt_params or {
-            "TARGET_LANGUAGE": target_lang,
-            "VIDEO_TYPE": video_type,
-            "EXPRESSION": topic,
-            "ID": script_id
-        })
-    except Exception as me:
-        print(f"⚠️ Warning: Metadata generation had error ({me}), using fallback.", file=sys.stderr)
+    if is_llm_online():
+        try:
+            new_metadata = build_metadata(new_script_text, prompt_params or {
+                "TARGET_LANGUAGE": target_lang,
+                "VIDEO_TYPE": video_type,
+                "EXPRESSION": topic,
+                "ID": script_id
+            })
+        except Exception as me:
+            print(f"⚠️ Warning: Metadata generation had error ({me}), using fallback.", file=sys.stderr)
+            new_metadata = state.get("metadata", {})
+            new_metadata["TITLE"] = new_script.get("title", f"{topic} Shorts")
+    else:
         new_metadata = state.get("metadata", {})
-        new_metadata["TITLE"] = new_script.get("title", f"{topic} Shorts")
+        if new_script.get("title"):
+            new_metadata["TITLE"] = new_script.get("title")
 
     # Update state dictionary
     state["script_text"] = new_script_text
@@ -915,18 +1104,19 @@ def modify_video_script(
     print(f"\n✅ Script {script_id} successfully updated and saved to disk!")
 
     # Auto-update review CSV in scripts_to_see
-    try:
-        from tools.auditing.scrapper_script import process_scripts
-        print(f"📊 Auto-updating review CSV in scripts_to_see for {target_lang}/{video_type}...")
-        process_scripts(
-            base_dir=BASE_DIR,
-            target_languages=[target_lang.lower()],
-            target_types=[video_type.lower()],
-            include_tags=False,
-            include_title=False,
-        )
-    except Exception as se:
-        print(f"⚠️ Notice: Could not automatically update review CSV ({se})", file=sys.stderr)
+    if auto_update_csv:
+        try:
+            from tools.auditing.scrapper_script import process_scripts
+            print(f"📊 Auto-updating review CSV in scripts_to_see for {target_lang}/{video_type}...")
+            process_scripts(
+                base_dir=BASE_DIR,
+                target_languages=[target_lang.lower()],
+                target_types=[video_type.lower()],
+                include_tags=False,
+                include_title=False,
+            )
+        except Exception as se:
+            print(f"⚠️ Notice: Could not automatically update review CSV ({se})", file=sys.stderr)
 
     print("-" * 68)
     print(f"• Title:       {new_script.get('title')}")

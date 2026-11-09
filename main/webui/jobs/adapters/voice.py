@@ -20,7 +20,7 @@ from config import (
     OPEN_SWARA_DIR,
     VOICE_WORKFLOW_PATH,
 )
-from core.llama_manager import get_llama_manager
+from core.llama_manager import ensure_llama_stopped, get_llama_manager
 from core.state_manager import StateManager
 from video_creation._B_voice_generation.core.comfy_client import ComfyClient
 from video_creation._B_voice_generation.core.voice_manager import VoiceManager
@@ -48,7 +48,7 @@ class VoiceAdapter(BaseStageAdapter):
 
         # Free VRAM before voice generation so Qwen3-TTS has maximum GPU memory
         emit_log("Ensuring LLM server is stopped to release VRAM for audio synthesis...")
-        get_llama_manager().ensure_llama_stopped()
+        ensure_llama_stopped()
 
         emit_log(f"Initializing voice clients for {total} script(s)...")
         voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
