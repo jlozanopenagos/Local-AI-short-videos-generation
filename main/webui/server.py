@@ -66,6 +66,23 @@ def create_app() -> FastAPI:
         import threading
         threading.Thread(target=scripts._get_indexed_scripts, daemon=True).start()
 
+    # Serve SPA index.html with strict no-cache headers so browsers always load the latest bundle
+    @app.get("/", include_in_schema=False)
+    def serve_spa():
+        index_file = STATIC_DIR / "index.html"
+        if index_file.exists():
+            from fastapi.responses import FileResponse
+            return FileResponse(
+                str(index_file),
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            )
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse("<h1>WebUI static bundle not found. Please build frontend first.</h1>")
+
     # Mount static assets directory for Single Page Application
     if STATIC_DIR.exists():
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
