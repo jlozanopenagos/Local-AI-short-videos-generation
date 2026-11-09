@@ -182,16 +182,18 @@ def process_script(
         or ""
     )
 
-    anchor_environment = resolve_anchor_environment(
-        script_text=script_text,
-        topic=topic,
-        scenario=scenario,
-        lexical_field=lexical_field,
-        label=label,
-        video_type=video_type,
-    )
     general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
-    if not general_prompt:
+    if general_prompt:
+        anchor_environment = general_prompt
+    else:
+        anchor_environment = resolve_anchor_environment(
+            script_text=script_text,
+            topic=topic,
+            scenario=scenario,
+            lexical_field=lexical_field,
+            label=label,
+            video_type=video_type,
+        )
         try:
             general_prompt = prompt_builder.build_general_prompt(
                 script_text=script_text,
@@ -215,6 +217,11 @@ def process_script(
         except Exception as exc:
             logger.warning("[%s] Failed to build general prompt: %s; falling back to anchor_environment", script_id, exc)
             general_prompt = anchor_environment
+        anchor_environment = general_prompt
+
+    if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+        script_data["content_metadata"] = {}
+    script_data["content_metadata"]["anchor_environment"] = general_prompt
 
     print(f"\n[Locked Story World & General Prompt]:\n>> {general_prompt} <<\n")
 

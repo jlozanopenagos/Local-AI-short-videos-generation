@@ -304,8 +304,12 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * STRICTLY BAN SURREAL / ABSTRACT FANTASY EFFECTS: Do NOT invent glowing energy beams from chests, floating sound wave graphics, glowing magic auras, or abstract fantasy elements unless the script is explicitly fantasy/sci-fi! Keep every action authentic, tangible, and believable in the established story world.
      * STRICTLY BAN BOILERPLATE CLICHES: Do NOT default to generic hand gestures, "explaining a concept" without showing what they are discussing, or automatic high-fives in every scene. The action must be uniquely tied to that scene's dialogue!
 
-2. ABSOLUTE CHARACTER APPEARANCE CONTINUITY (MANDATORY IN EVERY SCENE):
+2. ABSOLUTE STORY WORLD, ENVIRONMENT & CHARACTER CONTINUITY (MANDATORY IN EVERY SCENE):
    - Diffusion models generate EACH scene image independently from scratch with zero memory of previous scenes!
+   - ABSOLUTE PHYSICAL ENVIRONMENT CONTINUITY (CRITICAL PRECEDENCE):
+     * The master setting, physical location, architecture, background props, and atmosphere established in the OVERARCHING GENERAL PROMPT / MASTER STORY WORLD anchor MUST be strictly maintained across EVERY single scene prompt!
+     * NEVER change or relocate the scene to a different environment (e.g. if the story world is a vintage park skate plaza, ALL scenes MUST remain in that skate plaza/park; NEVER switch the scene to a kitchen, school, or other room, even if food or another subject is mentioned in the dialogue).
+     * Micro-zone diversity within that established setting is strongly encouraged (e.g. moving naturally from the concrete skate bowl to the park bench, to the rails), but the overarching location is 100% locked.
    - To guarantee 100% character visual consistency (no shifting hair colors, no shifting clothes, no shifting ages):
      * EVERY SINGLE SCENE PROMPT MUST EXPLICITLY REPEAT THE EXACT SAME VISUAL TRAITS FOR EACH CHARACTER:
        - Exact demographic: e.g. "15-year-old high-school student girl", "15-year-old high-school student boy" (tall slender high school proportions, defined facial features).
@@ -879,17 +883,9 @@ def _build_user_context(
         f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive high-school student protagonist (approx. 15-16 years old, tall slender build, stylish situation-appropriate attire, NO mature adults), vibrant but balanced colors, rich cinematic atmosphere\n\n"
         f"FULL SCRIPT TEXT FOR CONTEXT (THE STORY):\n{script_text}\n\n"
         f"---\n\n"
-        f"THEMATIC STORY WORLD & SCENARIO CONTINUITY (MANDATORY):\n"
-        f"The overarching real-world thematic setting is:\n"
-        f">> {anchor_environment} <<\n"
-        f"- MICRO-ZONE ROTATION: Each scene MUST occur in a different micro-zone (desk -> discussion lounge -> workbench -> action stage -> victory area)!\n"
-        f"- PROP ROTATION: NEVER repeat the same focal prop across scenes!\n"
-        f"- POSE DIVERSITY: Strictly ban repeating generic poses (no duplicate 'pointing' or 'gesturing at models')!\n"
-        f"- ANTI-CAFETERIA RULE: Do NOT place characters in a generic cafe, cafeteria, or coffee shop unless the setting explicitly specifies one.\n"
-        f"- MANDATORY THEMATIC WARDROBE: The character MUST wear clothing/costume that directly belongs to this setting ({anchor_environment}, e.g. theatrical stage costume/vest in theater, chef coat in kitchen, drafting vest in studio). NEVER use generic modern street clothes (no plain t-shirts/hoodies)!\n\n"
+        f"{(f'MASTER STORY WORLD, PHYSICAL SETTING & CHARACTER ANCHOR (FROM GENERAL PROMPT):\n>> {general_prompt} <<\n\nCRITICAL CONTINUITY DIRECTIVE (ABSOLUTE PRECEDENCE):\nAll scenes MUST take place in this exact physical story world and setting! Inherit the exact characters (ages, genders, hair colors, hairstyles, specific thematic wardrobes), and atmosphere established in this General Prompt!\n\n' if general_prompt else f'THEMATIC STORY WORLD & SCENARIO CONTINUITY (MANDATORY):\nThe overarching real-world thematic setting is:\n>> {anchor_environment} <<\n- MICRO-ZONE ROTATION: Each scene MUST occur in a different micro-zone (desk -> discussion lounge -> workbench -> action stage -> victory area)!\n- PROP ROTATION: NEVER repeat the same focal prop across scenes!\n- POSE DIVERSITY: Strictly ban repeating generic poses (no duplicate \'pointing\' or \'gesturing at models\')!\n- ANTI-CAFETERIA RULE: Do NOT place characters in a generic cafe, cafeteria, or coffee shop unless the setting explicitly specifies one.\n- MANDATORY THEMATIC WARDROBE: The character MUST wear clothing/costume that directly belongs to this setting ({anchor_environment}).\n\n')}"
         f"{anti_rep_context}"
         f"{ctx['idiom_rule']}"
-        f"{(f'OVERARCHING GENERAL PROMPT (MASTER STORY WORLD & CHARACTER ANCHOR):\n>> {general_prompt} <<\n\nCRITICAL CONTINUITY DIRECTIVE:\nInherit the exact physical environment, characters (exact ages, genders, positions, hairstyles, facial design), specific thematic wardrobes, and atmosphere established in this General Prompt!\n\n' if general_prompt else '')}"
         f"---\n\n"
         f"YOUR SPECIFIC TASK FOR THIS SCENE:\n"
         f"Illustrate this specific moment: SCENE [{scene_name.upper()}]:\n"
@@ -1058,16 +1054,16 @@ def _build_storyboard_context(
     general_prompt_block = ""
     if general_prompt:
         general_prompt_block = (
-            "OVERARCHING GENERAL PROMPT (MASTER STORY WORLD & CHARACTER ANCHOR):\n"
+            "MASTER STORY WORLD, PHYSICAL SETTING & CHARACTER ANCHOR (FROM GENERAL PROMPT):\n"
             f">> {general_prompt} <<\n\n"
-            "CRITICAL STORY WORLD & CHARACTER CONTINUITY DIRECTIVE:\n"
-            "All scenes below MUST strictly inherit the exact physical environment, characters (exact ages, genders, "
-            "positions, hairstyles, facial design), specific thematic costumes/wardrobes, and atmosphere established "
-            "in this General Prompt!\n"
-            "MANDATORY CONTINUITY REPETITION RULE: Diffusion models generate EACH scene image independently with zero memory of other scenes! "
-            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat each character's exact hair color, "
-            "exact hairstyle, and exact wardrobe (e.g. 'one 15-year-old adolescent teen girl with dark hair in a sleek bun wearing an emerald velvet blazer over white shirt', "
-            "'one 16-year-old adolescent teen boy with textured brown quiff hair wearing a denim utility vest'). "
+            "CRITICAL STORY WORLD, SETTING & CHARACTER CONTINUITY DIRECTIVE (ABSOLUTE PRECEDENCE):\n"
+            "1. MANDATORY PHYSICAL SETTING: All scenes below MUST strictly take place inside the exact physical setting "
+            "established in this General Prompt! Micro-zones, props, architecture, and lighting must belong to this specific story world. "
+            "NEVER relocate scenes to a different or unrelated location (e.g. if General Prompt establishes a sunny vintage park skate plaza, "
+            "every scene MUST take place in that skate plaza or adjacent park area; NEVER switch the environment to a kitchen, restaurant, or classroom).\n"
+            "2. MANDATORY CHARACTER CONTINUITY: Diffusion models generate EACH scene image independently with zero memory of other scenes! "
+            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat each character's exact demographic (15-16yo high-school student), "
+            "exact hair color, exact hairstyle, and exact wardrobe established in the General Prompt. "
             "NEVER omit the hair color, hairstyle, or wardrobe from any scene prompt!\n\n"
         )
 
@@ -1158,9 +1154,7 @@ def _build_storyboard_context(
         f"LABEL: {label}\n\n"
         f"{ctx['palette_context']}\n\n"
         f"{ctx['idiom_rule']}"
-        f"OVERARCHING THEMATIC BASE SETTING:\n"
-        f">> {anchor_environment} <<\n\n"
-        f"{general_prompt_block}"
+        f"{(general_prompt_block if general_prompt else f'OVERARCHING THEMATIC BASE SETTING:\n>> {anchor_environment} <<\n\n')}"
         f"FULL SCRIPT TEXT (THE COMPLETE STORY):\n{script_text}\n\n"
         f"---\n\n"
         f"SCENES TO STORYBOARD:\n"
@@ -1412,7 +1406,9 @@ class VisualPromptBuilder:
             If the LLM request fails after retries.
         """
         language, subject, situation = _parse_label(label)
-        if not general_prompt and anchor_environment and len(anchor_environment) > 80:
+        if general_prompt:
+            anchor_environment = general_prompt
+        elif not general_prompt and anchor_environment and len(anchor_environment) > 80:
             general_prompt = anchor_environment
 
         user_context = _build_user_context(
@@ -1529,7 +1525,9 @@ class VisualPromptBuilder:
         5. Creative visual metaphors and graphic wordplay across scenes.
         """
         language, subject, situation = _parse_label(label)
-        if not general_prompt:
+        if general_prompt:
+            anchor_environment = general_prompt
+        else:
             logger.info("[%s] General prompt anchor not provided; establishing master visual anchor first...", script_id)
             try:
                 general_prompt = self.build_general_prompt(
@@ -1545,6 +1543,7 @@ class VisualPromptBuilder:
                     anchor_environment=anchor_environment,
                     temperature=temperature,
                 )
+                anchor_environment = general_prompt
             except Exception as exc:
                 logger.warning("[%s] Failed to build general prompt for storyboard: %s", script_id, exc)
                 general_prompt = anchor_environment
