@@ -11,6 +11,7 @@ MAIN_DIR = Path(__file__).resolve().parent.parent.parent / "main"
 if str(MAIN_DIR) not in sys.path:
     sys.path.insert(0, str(MAIN_DIR))
 
+# pyrefly: ignore[missing-import]
 from core.gemini_auditor import audit_general_prompt, _clean_gemini_output
 
 
@@ -85,3 +86,4 @@ class TestGeminiAuditor(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

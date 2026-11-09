@@ -159,6 +159,25 @@ export async function cancelJob(jobId: string): Promise<void> {
   }
 }
 
+export async function fetchGeminiStatus(): Promise<{ configured: boolean; model: string }> {
+  const res = await fetch('/api/system/gemini-status')
+  if (!res.ok) throw new Error(`Gemini status HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function saveGeminiKey(apiKey: string): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/system/gemini-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to save Gemini API key')
+  }
+  return res.json()
+}
+
 export function getMediaUrl(pathOrFilename?: string | null): string {
   if (!pathOrFilename) return ''
   if (pathOrFilename.startsWith('http://') || pathOrFilename.startsWith('https://')) {

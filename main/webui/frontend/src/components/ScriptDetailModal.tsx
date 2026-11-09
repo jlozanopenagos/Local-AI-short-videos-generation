@@ -15,7 +15,15 @@ import {
   Edit3
 } from 'lucide-react'
 import type { ScriptDetail, JobStage } from '../types'
-import { fetchScriptDetail, getMediaUrl, createJob, updateScript, geminiAuditPrompt } from '../api'
+import {
+  fetchScriptDetail,
+  getMediaUrl,
+  createJob,
+  updateScript,
+  geminiAuditPrompt,
+  fetchGeminiStatus,
+  saveGeminiKey
+} from '../api'
 
 interface ScriptDetailModalProps {
   scriptId: string
@@ -38,6 +46,9 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [editGeneralPrompt, setEditGeneralPrompt] = useState('')
   const [savingGeneralPrompt, setSavingGeneralPrompt] = useState(false)
   const [auditingGemini, setAuditingGemini] = useState(false)
+  const [showGeminiKeyModal, setShowGeminiKeyModal] = useState(false)
+  const [geminiKeyInput, setGeminiKeyInput] = useState('')
+  const [savingGeminiKey, setSavingGeminiKey] = useState(false)
   const [generalPromptStatus, setGeneralPromptStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [editScenePrompts, setEditScenePrompts] = useState<Record<string, string>>({})
   const [savingSceneType, setSavingSceneType] = useState<string | null>(null)
@@ -123,10 +134,25 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
 
   // --- Storyboard Actions ---
   const handleGeminiAudit = async () => {
+    setGeneralPromptStatus(null)
+    try {
+      const status = await fetchGeminiStatus()
+      if (!status.configured) {
+        setShowGeminiKeyModal(true)
+        return
+      }
+    } catch {
+      // Continue to try audit directly
+    }
+
+    await executeAudit()
+  }
+
+  const executeAudit = async (apiKeyOverride?: string) => {
     setAuditingGemini(true)
     setGeneralPromptStatus(null)
     try {
-      const updated = await geminiAuditPrompt(scriptId, editGeneralPrompt)
+      const updated = await geminiAuditPrompt(scriptId, editGeneralPrompt, apiKeyOverride)
       setDetail(updated)
       populateEditorState(updated)
       setGeneralPromptStatus({
@@ -137,12 +163,31 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
         setGeneralPromptStatus(null)
       }, 8000)
     } catch (err) {
-      setGeneralPromptStatus({
-        type: 'error',
-        message: err instanceof Error ? err.message : String(err),
-      })
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('GEMINI_API_KEY is not configured')) {
+        setShowGeminiKeyModal(true)
+      } else {
+        setGeneralPromptStatus({
+          type: 'error',
+          message: msg,
+        })
+      }
     } finally {
       setAuditingGemini(false)
+    }
+  }
+
+  const handleSaveGeminiKeyAndAudit = async () => {
+    if (!geminiKeyInput.trim()) return
+    setSavingGeminiKey(true)
+    try {
+      await saveGeminiKey(geminiKeyInput.trim())
+      setShowGeminiKeyModal(false)
+      await executeAudit(geminiKeyInput.trim())
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSavingGeminiKey(false)
     }
   }
 
@@ -935,6 +980,82 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Gemini API Key Configuration Dialog */}
+        {showGeminiKeyModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.75)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2000,
+            }}
+            onClick={() => setShowGeminiKeyModal(false)}
+          >
+            <div
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '10px',
+                padding: '24px',
+                maxWidth: '480px',
+                width: '90%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Sparkles size={18} style={{ color: '#8b5cf6' }} />
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Enter Gemini API Key</h3>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+                Your key will be securely saved locally in your private <code>main/.env</code> file (which is strictly gitignored) so it is never pushed to GitHub.
+              </p>
+              <input
+                type="password"
+                className="form-control"
+                placeholder="Paste your Gemini API key (AIzaSy...)"
+                value={geminiKeyInput}
+                onChange={(e) => setGeminiKeyInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginBottom: '16px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  color: 'var(--text-main)',
+                  fontSize: '13px',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  onClick={() => setShowGeminiKeyModal(false)}
+                  disabled={savingGeminiKey}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  style={{ background: '#8b5cf6', borderColor: '#8b5cf6' }}
+                  onClick={handleSaveGeminiKeyAndAudit}
+                  disabled={!geminiKeyInput.trim() || savingGeminiKey}
+                >
+                  {savingGeminiKey ? 'Saving...' : 'Save Key & Audit Prompt'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

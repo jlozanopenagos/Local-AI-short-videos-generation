@@ -10,6 +10,7 @@ from typing import Any, Dict
 
 # pyrefly: ignore[missing-import]
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -202,4 +203,54 @@ def get_service_logs(service: str, lines: int = Query(default=100, ge=1, le=1000
             return {"service": service, "lines": tail, "path": str(log_file)}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error reading log file: {exc}")
+
+
+class GeminiKeyRequest(BaseModel):
+    api_key: str
+
+
+@router.get("/gemini-status")
+def get_gemini_status() -> Dict[str, Any]:
+    """Returns whether Gemini API key is configured locally (without leaking the secret)."""
+    import os
+    from config import settings
+    key = (os.getenv("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")).strip()
+    return {
+        "configured": bool(key),
+        "model": getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash"),
+    }
+
+
+@router.post("/gemini-key")
+def save_gemini_key(payload: GeminiKeyRequest) -> Dict[str, Any]:
+    """Saves the user's Gemini API key locally to main/.env (which is strictly gitignored)."""
+    key = payload.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="API key cannot be empty.")
+
+    import os
+    from config import settings
+    os.environ["GEMINI_API_KEY"] = key
+    settings.GEMINI_API_KEY = key
+
+    env_path = BASE_DIR / ".env"
+    try:
+        lines = []
+        key_found = False
+        if env_path.exists():
+            content = env_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                if line.strip().startswith("GEMINI_API_KEY="):
+                    lines.append(f"GEMINI_API_KEY={key}")
+                    key_found = True
+                else:
+                    lines.append(line)
+        if not key_found:
+            lines.append(f"\n# Google Gemini API Key\nGEMINI_API_KEY={key}")
+
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return {"status": "success", "message": "Gemini API key saved securely to local main/.env."}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write to .env: {exc}")
+
 
