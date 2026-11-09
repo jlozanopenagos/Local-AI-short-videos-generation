@@ -91,6 +91,26 @@ export async function updateScript(scriptId: string, payload: ScriptUpdatePayloa
   return res.json()
 }
 
+export async function geminiAuditPrompt(
+  scriptId: string,
+  currentPrompt?: string,
+  apiKey?: string
+): Promise<ScriptDetail> {
+  const res = await fetch(`/api/scripts/${scriptId}/gemini-audit-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      current_prompt: currentPrompt,
+      api_key: apiKey,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Gemini audit failed for script ${scriptId}`)
+  }
+  return res.json()
+}
+
 export async function toggleScriptStage(
   scriptId: string,
   stage: string,

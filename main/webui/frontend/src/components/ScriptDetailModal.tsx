@@ -15,7 +15,7 @@ import {
   Edit3
 } from 'lucide-react'
 import type { ScriptDetail, JobStage } from '../types'
-import { fetchScriptDetail, getMediaUrl, createJob, updateScript } from '../api'
+import { fetchScriptDetail, getMediaUrl, createJob, updateScript, geminiAuditPrompt } from '../api'
 
 interface ScriptDetailModalProps {
   scriptId: string
@@ -37,6 +37,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   // Storyboard local state
   const [editGeneralPrompt, setEditGeneralPrompt] = useState('')
   const [savingGeneralPrompt, setSavingGeneralPrompt] = useState(false)
+  const [auditingGemini, setAuditingGemini] = useState(false)
   const [generalPromptStatus, setGeneralPromptStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [editScenePrompts, setEditScenePrompts] = useState<Record<string, string>>({})
   const [savingSceneType, setSavingSceneType] = useState<string | null>(null)
@@ -121,6 +122,30 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   }
 
   // --- Storyboard Actions ---
+  const handleGeminiAudit = async () => {
+    setAuditingGemini(true)
+    setGeneralPromptStatus(null)
+    try {
+      const updated = await geminiAuditPrompt(scriptId, editGeneralPrompt)
+      setDetail(updated)
+      populateEditorState(updated)
+      setGeneralPromptStatus({
+        type: 'success',
+        message: '✨ Audited by Gemini! New General Prompt saved and Image Generation set to PENDING. Click "Images (C)" in the header to render.',
+      })
+      setTimeout(() => {
+        setGeneralPromptStatus(null)
+      }, 8000)
+    } catch (err) {
+      setGeneralPromptStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setAuditingGemini(false)
+    }
+  }
+
   const handleSaveGeneralPrompt = async () => {
     setSavingGeneralPrompt(true)
     setGeneralPromptStatus(null)
@@ -442,11 +467,22 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       <button
                         type="button"
                         className="btn btn-sm btn-outline"
+                        onClick={handleGeminiAudit}
+                        disabled={auditingGemini || savingGeneralPrompt}
+                        title="Audit and diversify general prompt with Gemini AI to eliminate repetition"
+                        style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }}
+                      >
+                        <Sparkles size={13} className={auditingGemini ? 'spin' : ''} />
+                        <span>{auditingGemini ? 'Auditing with Gemini...' : '✨ Gemini Auditor'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
                         onClick={() => {
                           setEditGeneralPrompt(detail.general_prompt || '')
                           setGeneralPromptStatus(null)
                         }}
-                        disabled={savingGeneralPrompt}
+                        disabled={savingGeneralPrompt || auditingGemini}
                         title="Revert to last saved general prompt"
                       >
                         <RefreshCw size={13} />
@@ -460,7 +496,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                             : 'btn-outline'
                         }`}
                         onClick={handleSaveGeneralPrompt}
-                        disabled={savingGeneralPrompt}
+                        disabled={savingGeneralPrompt || auditingGemini}
                       >
                         <Save size={13} />
                         <span>

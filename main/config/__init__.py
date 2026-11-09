@@ -27,6 +27,8 @@ from .settings import (
     LLM_API_KEY,
     LLM_API_BASE_URL,
     LLM_MODEL_NAME,
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
     COMFY_API_URL,
     COMFY_DIR,
     COMFY_OUTPUT_DIR,

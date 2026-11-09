@@ -688,3 +688,70 @@ def toggle_script_stage(script_id: str, payload: StageToggleRequest) -> Dict[str
         "new_status": target_val,
         "summary": summary,
     }
+
+
+class GeminiAuditRequest(BaseModel):
+    current_prompt: Optional[str] = None
+    api_key: Optional[str] = None
+
+
+@router.post("/{script_id}/gemini-audit-prompt")
+def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = None) -> Dict[str, Any]:
+    """Audits and creatively reimagines the script's General Prompt using Google Gemini.
+    Saves the new prompt, sets image_generation to 'pending', and clears old scene prompts & images.
+    """
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    if "assets" not in state_data or not isinstance(state_data["assets"], dict):
+        state_data["assets"] = {}
+    if "content_metadata" not in state_data or not isinstance(state_data["content_metadata"], dict):
+        state_data["content_metadata"] = {}
+    if "status" not in state_data or not isinstance(state_data["status"], dict):
+        state_data["status"] = {}
+
+    current_prompt = (
+        (payload.current_prompt if payload and payload.current_prompt else "")
+        or state_data["assets"].get("general_prompt", "")
+    ).strip()
+    provided_key = (payload.api_key if payload and payload.api_key else "").strip()
+
+    try:
+        from core.gemini_auditor import audit_general_prompt
+        audited_prompt = audit_general_prompt(
+            script_data=state_data,
+            current_prompt=current_prompt,
+            api_key=provided_key or None,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini Auditor error: {exc}")
+
+    # Update general prompt and anchor_environment
+    state_data["assets"]["general_prompt"] = audited_prompt
+    state_data["content_metadata"]["anchor_environment"] = audited_prompt
+
+    # Mark image generation as pending and clear stale prompts & images
+    state_data["status"]["image_generation"] = "pending"
+    state_data["assets"]["image_prompts"] = {}
+
+    image_dir_str = state_data["assets"].get("image_dir")
+    if image_dir_str:
+        p = Path(image_dir_str)
+        if p.exists() and p.is_dir():
+            for old_img in p.glob(f"script_{canonical_id}_*.png"):
+                try:
+                    old_img.unlink()
+                except Exception:
+                    pass
+
+    # Save to state store
+    sm.save_script_state(canonical_id, state_data)
+    _get_indexed_scripts(force_refresh=True)
+
+    return get_script(canonical_id)
+

@@ -68,6 +68,8 @@ THUMBNAIL_MODELS_DIR = INPUT_IMAGES_DIR / "thumbnail_models"
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://localhost:11434/v1")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "llama3")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ComfyUI Configuration (auto-discovers sibling ComfyUI_windows_portable relative to project root or via .env)
 COMFY_API_URL = os.getenv("COMFY_API_URL", "http://127.0.0.1:8188")

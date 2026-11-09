@@ -271,3 +271,52 @@ class TestWebUIApi(unittest.TestCase):
         # 3. Invalid stage name returns 400
         bad_resp = self.client.post("/api/scripts/SG02/toggle-stage", json={"stage": "invalid_stage_xyz"})
         self.assertEqual(bad_resp.status_code, 400)
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("core.gemini_auditor.audit_general_prompt")
+    def test_gemini_audit_endpoint(self, mock_audit, mock_get_sm):
+        """Verify POST /api/scripts/{id}/gemini-audit-prompt audits prompt, saves new version, and marks images pending."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "SR02",
+            "content_metadata": {"language": "spanish", "video_type": "roleplay", "topic": "Tomar el pelo"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "done",
+            },
+            "assets": {
+                "general_prompt": "Old biased prompt",
+                "image_prompts": {"hook": "Old hook"},
+            },
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        mock_audit.return_value = "Audited fresh skate plaza prompt"
+
+        resp = self.client.post(
+            "/api/scripts/SR02/gemini-audit-prompt",
+            json={"current_prompt": "Old biased prompt", "api_key": "TEST_KEY"},
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        # Verify auditor was called
+        mock_audit.assert_called_once()
+        self.assertEqual(mock_audit.call_args[1]["api_key"], "TEST_KEY")
+
+        # Verify state was saved with new prompt and image_generation = pending
+        self.assertTrue(mock_sm.save_script_state.called)
+        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_id, "SR02")
+        self.assertEqual(saved_data["assets"]["general_prompt"], "Audited fresh skate plaza prompt")
+        self.assertEqual(saved_data["content_metadata"]["anchor_environment"], "Audited fresh skate plaza prompt")
+        self.assertEqual(saved_data["status"]["image_generation"], "pending")
+        self.assertEqual(saved_data["assets"]["image_prompts"], {})
+
+        # Verify response stages
+        resp_data = resp.json()
+        self.assertEqual(resp_data["stages"]["images"], "pending")
+
