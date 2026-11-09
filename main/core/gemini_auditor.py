@@ -15,13 +15,20 @@ import json
 import logging
 import os
 import re
+import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 import requests
+
+MAIN_DIR = Path(__file__).resolve().parent.parent
+if str(MAIN_DIR) not in sys.path:
+    sys.path.insert(0, str(MAIN_DIR))
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
+FALLBACK_MODEL = "gemini-3.5-flash"
 FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash"]
 
 
@@ -198,10 +205,10 @@ def audit_general_prompt(
                 )
                 return cleaned_prompt
 
-            elif response.status_code == 404 and cur_model != FALLBACK_MODEL:
+            elif response.status_code == 404 and cur_model != models_to_try[-1]:
                 logger.warning(
-                    "[%s] Gemini model '%s' returned 404 Not Found. Falling back to '%s'...",
-                    script_id, cur_model, FALLBACK_MODEL
+                    "[%s] Gemini model '%s' returned 404 Not Found. Trying next fallback model...",
+                    script_id, cur_model
                 )
                 continue
             else:
