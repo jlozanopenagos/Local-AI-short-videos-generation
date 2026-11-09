@@ -21,7 +21,8 @@ import requests
 logger = logging.getLogger(__name__)
 
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-FALLBACK_MODEL = "gemini-1.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
+FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash"]
 
 
 def _clean_gemini_output(raw_text: str) -> str:
@@ -85,9 +86,9 @@ def audit_general_prompt(
             "GEMINI_API_KEY is not configured. Please add GEMINI_API_KEY to your .env file."
         )
 
-    resolved_model = (model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")).strip()
+    resolved_model = (model or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)).strip()
     if not resolved_model:
-        resolved_model = "gemini-2.5-flash"
+        resolved_model = DEFAULT_MODEL
 
     # Extract script metadata concisely
     script_id = script_data.get("id") or script_data.get("script_id") or "SCRIPT"
@@ -157,8 +158,9 @@ def audit_general_prompt(
     }
 
     models_to_try = [resolved_model]
-    if resolved_model != FALLBACK_MODEL:
-        models_to_try.append(FALLBACK_MODEL)
+    for fb_model in FALLBACK_MODELS:
+        if fb_model not in models_to_try:
+            models_to_try.append(fb_model)
 
     last_error = None
     for cur_model in models_to_try:
