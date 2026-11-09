@@ -17,11 +17,12 @@ shorts_automation/
 ├── main/                               # Production pipeline and core applications
 │   ├── config/                         # Central configuration, paths, and health checks
 │   ├── connectivity/                   # Google Sheets integration suite (fetch, sync, safe publish)
-│   ├── core/                           # Shared infrastructure, DB models, state machine
+│   ├── core/                           # Shared infrastructure, DB models, state machine, llama manager
 │   ├── database/                       # Centralized expression stores (SQLite + CSV)
 │   ├── input/                          # Proprietary prompt CSV queues & brand image assets
 │   ├── state/                          # Runtime script state artifacts (JSON)
-│   ├── tools/                          # CLI utilities (auditing, modifiers, sync, builders)
+│   ├── tools/                          # CLI utilities (webui, llama, comfy, check_script_changes, modifiers)
+│   ├── webui/                          # Modern WebUI studio (FastAPI server + React 19 SPA frontend)
 │   ├── video_creation/                 # 6 generation stages (_A through _G)
 │   ├── main.py                         # Primary execution orchestrator
 │   ├── requirements.txt                # Production runtime dependencies
@@ -58,6 +59,15 @@ pip install -r main/requirements.txt
 ```
 
 ### 3. Running the Pipeline
+
+#### Option A: Modern WebUI Dashboard (Recommended)
+Launch the unified browser-based management studio:
+```powershell
+py main/tools/webui.py
+```
+Automatically launches FastAPI, serves the React 19 SPA on `http://127.0.0.1:8000`, and opens your default browser with access to Dashboard, Job Queue, Google Sheets Sync, and Mass Assets Creation.
+
+#### Option B: Terminal Orchestrator & CLI Stages
 ```powershell
 # Run the master orchestrator
 py main/main.py
@@ -72,7 +82,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 275 automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 287+ automated tests across 5 layers (unit, integration, contracts, security, connectivity)
 py test/run_tests.py
 
 # Run specific layers
@@ -106,6 +116,12 @@ py main/tools/comfy.py start
 py main/tools/comfy.py status
 py main/tools/comfy.py logs -f
 py main/tools/comfy.py stop
+
+# Headless LLM Supervisor (llama.cpp server management & VRAM arbitration)
+py main/tools/llama.py start
+py main/tools/llama.py status
+py main/tools/llama.py logs -f
+py main/tools/llama.py stop
 ```
 
 ### 6. Google Sheets Connectivity Suite
@@ -135,14 +151,42 @@ py main/connectivity/scan_ready_scripts.py --all
 ## Documentation Links
 
 - **[main/README.md](main/README.md)**: Full operational manual, narrative engineering principles, 4 content formats, hardware optimization guide, and modifier ecosystem.
+- **[main/webui/README.md](main/webui/README.md)**: WebUI backend manual, API endpoints, job runner, SSE streaming, and launcher.
+- **[main/webui/frontend/README.md](main/webui/frontend/README.md)**: WebUI frontend architecture, React 19 SPA, 4 primary views, and build workflow.
 - **[main/connectivity/README.md](main/connectivity/README.md)**: Google Sheets connectivity manual, Option A routing, Apps Script deployment, and safe publishing rules.
 - **[main/AGENTS.md](main/AGENTS.md)**: System architecture, agent guidelines, prompt rules, and developer directives.
 - **[main/input/csv/README.md](main/input/csv/README.md)**: Prompt queue schemas and `script_to_change` verbatim ingestion guide.
+- **[main/state/README.md](main/state/README.md)**: State directory architecture, GAME format rules, and downstream stage invalidation.
 - **[test/README.md](test/README.md)**: QA engineering principles, test suite structure, and CI test runner guide.
 
 ---
 
 ## Recent Changes
+
+### Latest Release: Modern WebUI Studio, Mass Assets Creation, Canonical GAME Format & VRAM Arbiter
+- **Modern WebUI Management Studio (`main/webui/`)**:
+  - Full-stack browser application powered by **FastAPI** backend and **React 19 + TypeScript + Vite + Tailwind CSS** frontend.
+  - Pre-compiled production bundle served directly from `main/webui/static/` with zero Node.js runtime needed in production.
+  - Launched with a single command: `py main/tools/webui.py`.
+  - 4 Purpose-Built Views:
+    - **Dashboard**: Live system health cards (LLM server, ComfyUI instance, GPU VRAM metrics) and global pipeline progress statistics.
+    - **Job Queue**: Task manager with real-time ANSI terminal log streaming via Server-Sent Events (SSE: `GET /api/jobs/{id}/events`) and abort controls.
+    - **Google Sheets Sync**: Interactive 4-step graphical workflow (Fetch revisions -> Audit diffs -> Apply changes -> Scan ready scripts).
+    - **Mass Assets Creation Studio**: Batch production studio for Voiceovers (`Stage _B`), Scene Images (`Stage _C`), or Chalkboard Thumbnails (`Stage _F`). Supports arbitrary ID lists, instant validation (`POST /api/scripts/validate-ids`), and forced re-generation (`All Assets` vs `Missing Only`).
+- **Canonical GAME Format Standardization & Zero-Contamination Audit**:
+  - Audited and standardized all **388 GAME state files** (`EG*`, `FG*`, `SG*`, `IG*`) across the repository to 100% compliance:
+    - **Neutral Lowercase Speech**: Spoken challenge sentences strictly use natural lowercase speech. Purged all uppercase stress giveaways (e.g. `REcord`, `PREsent`, `CONtract`) that spoiled the quiz for listeners.
+    - **Explicit Option Tags**: Options strictly start with uppercase letter tags: `A: `, `B: `, etc.
+    - **Zero Connectors**: Purged all coordinating conjunctions (`or`, `and`, `o`, `ou`, `oppure`, `e`) and preceding commas between options.
+    - **Carrier Context for Single Words**: Single-word options explicitly state parts of speech or natural carriers (e.g. `A: a record. B: to record.`).
+    - **Period Termination**: Every option terminates with a period (`.`). The last option never ends with `?`.
+    - **Strict Challenge vs. Pressure Partitioning**: Urgency/countdown lines (`Which one is it? A or B? Your answer is coming!`) are strictly partitioned into `pressure`, completely purging countdown pollution from `challenge`.
+    - **Synchronized State Fields**: Synchronized `chalkboard_exercise` with `challenge` and rebuilt `script_text` dynamically.
+- **Dual-Process Hardware VRAM Arbiter (`core/llama_manager.py` & `tools/llama.py`)**:
+  - Implemented `LlamaManager` to coordinate GPU memory allocation between the local LLM server and ComfyUI TTS/diffusion.
+  - Automatically halts or pauses the LLM server (`ensure_llama_stopped()`) prior to Qwen3-TTS audio synthesis in Stage B and WebUI jobs, freeing ~3-4GB of VRAM and completely preventing Out-Of-Memory (OOM) crashes on 6GB GPUs (RTX 2060).
+  - Automatically restarts the LLM server (`ensure_llama_running()`) once audio processing finishes.
+  - Windowless background CLI supervisor available at `py main/tools/llama.py`.
 
 ### Latest Release: Streamlined Voice Modifier, Distinct Roleplay Casting & Resilient Parser Architecture
 - **Streamlined Voice Modifier & Recaster (`_B_voice_generation/voice_modifier.py`)**:

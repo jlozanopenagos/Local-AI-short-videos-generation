@@ -16,10 +16,10 @@ test/
 │
 ├── unit/                   # Layer 1: Fast deterministic unit tests (0 network/GPU calls)
 │                           # Audio processor, chalkboard, CLI prompts, ComfyUI supervisor & pool,
-│                           # visual prompt builder, metadata & JSON parser, music jam matcher,
-│                           # prompt rules, roleplay lens, state manager & ID generator,
+│                           # LlamaManager VRAM lifecycle, visual prompt builder, metadata & JSON parser,
+│                           # music jam matcher, prompt rules, roleplay lens, state manager & ID generator,
 │                           # stress enhancer, acoustic evaluator, subtitles, thumbnail builder,
-│                           # voice manager & modifier, and watchdog recovery
+│                           # voice manager & modifier, WebUI ID validator, Sheets router, and watchdog recovery
 │
 ├── integration/            # Layer 2: Component interaction, schemas & security tests
 │                           # Database gates, health checks, pipeline status tracker,
@@ -35,7 +35,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **273 automated tests** across 22 curated test files in 3 QA layers (`unit/`, `integration/`, `connectivity/`) with zero external dependencies:
+Executes all **287+ automated tests** across 25 curated test files in 3 QA layers (`unit/`, `integration/`, `connectivity/`) with zero external dependencies:
 ```bash
 py test/run_tests.py
 ```

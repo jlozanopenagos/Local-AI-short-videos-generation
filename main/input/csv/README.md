@@ -72,7 +72,14 @@ input/csv/
 ### 2. GAME
 - **Filename**: `<LANG>_READY_PROMPTS_GAME.csv`
 - **Columns**: `ID,EXPRESSION,CONTEXT,SUBJECT,LEXICAL_FIELD`
-- **Rule**: `EXPRESSION` must contain target-language contrast pairs or idioms (e.g. `blessé vs béni`). `CONTEXT` must provide a concrete sentence with a visual blank (`___`).
+- **Rule**: `EXPRESSION` contains target-language contrast pairs or idioms (e.g. `blessé vs béni`, `record (noun vs verb)`).
+- **Spoken Challenge & Option Constraints**:
+  - The spoken challenge sentence uses natural lowercase speech with **zero uppercase stress giveaways** (e.g. write `record`, not `REcord`).
+  - Options MUST explicitly begin with uppercase letter tags: `A: `, `B: `, etc.
+  - ZERO connectors between options: never include words like `or`, `and`, `o`, `ou`, `oppure`, `e`, or commas before options.
+  - Single-word options MUST specify parts-of-speech / carrier context (e.g. `A: a record. B: to record.`).
+  - Every option MUST terminate with a period (`.`). The last option must NEVER end with `?`.
+  - Countdown and urgency phrases belong strictly in `pressure`, never in `challenge`.
 
 ### 3. ROLEPLAY
 - **Filename**: `<LANG>_READY_PROMPTS_ROLEPLAY.csv`

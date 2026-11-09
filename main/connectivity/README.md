@@ -89,6 +89,7 @@ main/connectivity/
 - **Functionality**:
   - Compares every row in every CSV in `script_to_change/` against its local State JSON.
   - Normalizes speaker prefixes (`Narrator:`), quotation marks, and line structures to eliminate false-positive diff reports.
+  - **GAME Format Awareness**: Automatically parses GAME challenges into neutral spoken words (no uppercase stress giveaways), strict option tags (`A: `, `B: `), zero connectors (`or`, `and`, etc.), parts-of-speech context (`a record.` / `to record.`), period endings, and synchronizes `chalkboard_exercise` with `challenge`.
   - Displays word count diffs and snippet previews.
   - Applying updates (`--apply`) cleanly saves modified scripts with zero section duplication and resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'`.
 - **Usage**:
@@ -179,6 +180,19 @@ main/connectivity/
   # Scan specific sheet:
   py main/connectivity/scan_ready_scripts.py -l french -t expression
   ```
+
+---
+
+## WebUI Google Sheets Sync Studio
+
+In addition to CLI runners, the complete Google Sheets connectivity workflow is natively integrated into the modern browser WebUI (`py main/tools/webui.py` -> **Google Sheets Sync** tab):
+
+- **Interactive 4-Step Pipeline**:
+  1. **Fetch External Revisions**: Pulls Column D (`SCRIPT_CHANGED`) across sheets into local CSVs.
+  2. **Check & Audit Differences**: Displays side-by-side diff previews, word count metrics, and speaker normalization directly in the browser.
+  3. **Apply Detected Changes**: Applies script updates with zero section duplication and resets downstream stages to pending.
+  4. **Scan Ready Scripts**: Filters Columns E-H and exports dated CSV queues for batch generation.
+- **REST Endpoints**: Powered by `main/webui/routers/sheets.py` with full error logging and task execution.
 
 ---
 

@@ -159,20 +159,24 @@ CRITICAL RULES & METRICS
    - ❌ NEVER use: "You are listening to a native podcast...", "Native speaker trap!", "Stop saying X!", or "Option A takes the crown!".
    - Ground the challenge in real-life dilemmas (ordering food, office email, street conversation) or acoustic ear tests.
 
-3. SPOKEN CHALLENGE DELIVERY (NO RAW BLANKS IN AUDIO):
-   - ❌ NEVER write raw underscores "___" in the spoken [CHALLENGE] section! TTS cannot pronounce blank spaces.
-   - In spoken audio, the Narrator speaks the sentence naturally and clearly articulates the options:
-     e.g., "Both parties signed the employment CONtract yesterday. Which rhythm did you hear? A: CONtract, or B: conTRACT?"
-   - The visual blank belongs ONLY in the [CHALKBOARD_EXERCISE] section!
+3. SPOKEN CHALLENGE DELIVERY (NO RAW BLANKS, NO STRESS SPOILERS):
+   - ❌ NEVER write raw underscores "___" in the spoken [CHALLENGE] section! TTS cannot pronounce blank spaces. The visual blank belongs ONLY in the [CHALKBOARD_EXERCISE] section!
+   - ❌ NEVER write uppercase stress giveaways (e.g. "CONtract" or "REcord") in the spoken challenge sentence! Speak the challenge in standard lowercase natural speech so as not to spoil the answer.
+   - OPTIONS SYNTAX:
+     * Options MUST start with a letter and colon: `A: `, `B: `, etc.
+     * ZERO connectors between options: NO `or`, `and`, `o`, `ou`, `oppure`, `e`, or commas before options.
+     * Single-word options MUST specify parts-of-speech / carrier context (e.g., `A: a record.` vs `B: to record.`).
+     * Every option MUST end with a period (`.`). The last option must NEVER end with `?`.
+     * Example: "She broke the world record in swimming. Which word did you hear? A: a record. B: to record."
 
 4. GAME SCRIPT ARCHITECTURE:
-   - [TITLE]: Short, intriguing trivia title in the target language.
+   - [TITLE]: Short, intriguing trivia title in the target language (3-6 words, zero clichés, zero emojis).
    - [HOOK] (12-18 words): Fast dilemma or ear test setup.
-   - [CHALLENGE] (25-40 words): Narrator speaks the full sentence naturally and explicitly voices the options (A vs B, or A, B, C).
-   - [PRESSURE] (8-14 words): Snappy, context-specific countdown line urging immediate decision.
+   - [CHALLENGE] (25-40 words): Narrator speaks the full sentence naturally and explicitly voices the options (A: [Text]. B: [Text].).
+   - [PRESSURE] (8-14 words): Snappy, context-specific countdown line urging immediate decision (e.g. "Which one is it? A or B? Your answer is coming!"). Strict separation: NEVER leave countdown/pressure text inside [CHALLENGE].
    - [ANSWER] (15-22 words): Clear reveal of the correct option with the exact linguistic reason why.
-   - [EXPLANATION] (20-30 words): Crisp native usage insight, contrast rule, and punchy call-to-action ("Comment your answer!").
-   - [CHALKBOARD_EXERCISE]: Visual text for the screen:
+   - [EXPLANATION] (20-30 words): Crisp native usage insight, contrast rule, and punchy call-to-action ("Master this rule and sound native!").
+   - [CHALKBOARD_EXERCISE]: Visual text for the chalkboard (MUST match [CHALLENGE] exercise):
      Line 1: Test sentence with blank (___) or core question.
      Line 2+: Each option on its own line (A) [Text], B) [Text]).
 

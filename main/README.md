@@ -12,15 +12,16 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
 3. [The 4 Content Formats & Narrative Engineering](#the-4-content-formats--narrative-engineering)
 4. [Voice Generation: Syntactic Carrier Prosody & Kokoro-82M Hybrid Engine](#voice-generation-syntactic-carrier-prosody--kokoro-82m-hybrid-engine)
 5. [Data Architecture & State Machine Design](#data-architecture--state-machine-design)
-6. [Hardware Optimization: Low-VRAM (6GB) Engineering](#hardware-optimization-low-vram-6gb-engineering)
+6. [Hardware Optimization: Low-VRAM (6GB) Engineering & Dual-Process Arbitration](#hardware-optimization-low-vram-6gb-engineering--dual-process-arbitration)
 7. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
 8. [Interactive CLI & Modifier Ecosystem](#interactive-cli--modifier-ecosystem)
-9. [Google Sheets Connectivity & Publishing Suite](#google-sheets-connectivity--publishing-suite)
-10. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
-11. [Prerequisites & Installation](#prerequisites--installation)
-12. [Configuration & Environment Matrix](#configuration--environment-matrix)
-13. [CLI Operational Reference Manual](#cli-operational-reference-manual)
-14. [Repository Directory Index](#repository-directory-index)
+9. [Modern WebUI Management Studio](#modern-webui-management-studio)
+10. [Google Sheets Connectivity & Publishing Suite](#google-sheets-connectivity--publishing-suite)
+11. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
+12. [Prerequisites & Installation](#prerequisites--installation)
+13. [Configuration & Environment Matrix](#configuration--environment-matrix)
+14. [CLI Operational Reference Manual](#cli-operational-reference-manual)
+15. [Repository Directory Index](#repository-directory-index)
 
 ---
 
@@ -160,8 +161,21 @@ Content strategy is divided across four distinct formats, each strictly governed
   3. *What Does It Really Mean?*: True figurative meaning vs comical literal trap.
   4. *Counter Reflex / Real-Life Dilemma*: Fast barista, peer, or workplace response.
   5. *Spot the Imposter*: 2 genuine idioms vs 1 fabricated phrase.
-- **Acoustic Challenge Delivery (Zero Spoken Blanks)**:
-  Spoken challenge audio NEVER contains raw blanks (`___`) or unnatural pauses. The Narrator speaks the sentence fluently and presents options verbally (`"Did you hear A: CONtract or B: conTRACT?"`).
+- **Canonical 5-Section Narrative Architecture**:
+  - `[HOOK]` (12–18 words): Fast dilemma or ear test setup.
+  - `[CHALLENGE]` (25–40 words): Narrator speaks the sentence and options with zero stress giveaways or connectors.
+  - `[PRESSURE]` (8–14 words): Snappy countdown urging decision (*"Which one is it? A or B? Your answer is coming!"*). Strict separation: NEVER leave countdown/pressure text inside `[CHALLENGE]`.
+  - `[ANSWER]` (15–22 words): Clear reveal of the winning option with linguistic justification.
+  - `[EXPLANATION]` (20–30 words): Practical native usage rule, contrast summary, and punchy call-to-action.
+- **Acoustic Challenge Delivery & Syntax Rules**:
+  - **Neutral Lowercase Speech (Zero Stress Giveaways)**: Spoken challenge sentences use standard lowercase natural speech. NEVER write uppercase stress giveaways (e.g. `REcord` or `CONtract`) in the spoken challenge sentence, which would spoil the ear test.
+  - **Explicit Option Tags**: Options MUST start with uppercase letter tags: `A: `, `B: `, etc.
+  - **Zero Connectors**: NO coordinating conjunctions or connectors (`or`, `and`, `o`, `ou`, `oppure`, `e`) or commas before option tags.
+  - **Carrier Context for Single Words**: When options are single words (e.g. heteronym nouns vs verbs), specify their grammatical category or carrier context (e.g. `A: a record. B: to record.`).
+  - **Period Termination**: Every option MUST terminate with a period (`.`). The last option must NEVER end with `?`.
+  - **Zero Spoken Blanks**: Spoken challenge audio NEVER contains raw blanks (`___`). The visual blank belongs ONLY on the chalkboard.
+- **Chalkboard Exercise Synchronization**:
+  - The `chalkboard_exercise` property in state JSON MUST be kept 100% synchronized with the `challenge` property.
 - **Visual Chalkboard Renderer (`_C_image_generation/core/chalkboard_renderer.py`)**:
   - High-resolution typography rendered on CPU using Pillow and FreeType (Segoe Print Bold) onto `empty_chalkboard.png` with chalk-yellow questions, dividers, translucent green option cards, and yellow letter badges (A, B, C, D) in milliseconds with zero VRAM usage.
   - **Clean Option Text Isolation (`clean_option_text`)**: Programmatically strips trailing punctuation and coordinating conjunctions (`or`, `and`, `o`, `ou`, `e`) from option choices, ensuring pristine options without trailing commas or awkward words.
@@ -281,7 +295,7 @@ To maintain privacy for production content and proprietary prompt libraries, pro
 
 ---
 
-## Hardware Optimization: Low-VRAM (6GB) Engineering
+## Hardware Optimization: Low-VRAM (6GB) Engineering & Dual-Process Arbitration
 
 The pipeline is engineered to execute end-to-end on budget and consumer GPUs with a **6.00 GB VRAM ceiling** (e.g., NVIDIA GeForce RTX 2060):
 
@@ -302,8 +316,18 @@ The pipeline is engineered to execute end-to-end on budget and consumer GPUs wit
 │                               │ transitions while keeping model cache. │
 │ Input Folder Auto-Cleanup     │ Temporary reference WAVs/PNGs deleted  │
 │                               │ immediately post-inference.            │
+│ Dual-Process VRAM Arbiter     │ Pauses/stops local LLM server prior to │
+│                               │ Qwen3-TTS audio synthesis via          │
+│                               │ LlamaManager. Frees ~3-4GB VRAM.       │
 └───────────────────────────────┴────────────────────────────────────────┘
 ```
+
+### Dual-Process VRAM Arbitration (`core/llama_manager.py` & `tools/llama.py`)
+On consumer GPUs with 6GB to 8GB of VRAM, running both an LLM server (for script writing) and ComfyUI Qwen3-TTS (for voice generation) simultaneously can cause Out-Of-Memory (OOM) crashes:
+- **`LlamaManager` Dynamic Lifecycle**:
+  - `ensure_llama_stopped()`: Halts or pauses the LLM server background process and triggers memory reclamation before audio synthesis starts.
+  - `ensure_llama_running()`: Resumes or restarts the LLM server once voice generation completes.
+- **Headless Supervisor CLI (`tools/llama.py`)**: Provides complete command-line lifecycle management: `start`, `stop`, `status`, `restart`, and `logs -f`.
 
 ---
 
@@ -351,6 +375,32 @@ Located in `tools/modifiers/`:
   - *120-Second (2-Minute) Timeout*: Features an extended `GENDER_SELECTION_TIMEOUT = 120.0s`, allowing creators deliberate time to inspect character casting and prompt directives.
   - *Chalkboard Live Editor*: Edit quiz questions and options directly with instant CPU-based re-rendering of 576x1024 chalkboard graphics.
 - **`subtitles_modifier.py`**: Inspect subtitle timings, execute find/replace on `.ass` files, and re-render final MP4s in seconds without re-running Whisper.
+
+---
+
+## Modern WebUI Management Studio
+
+In addition to the interactive CLI, the pipeline features a browser-based management studio (`main/webui/`) powered by a **React 19 + TypeScript + Vite + Tailwind CSS** frontend and a **FastAPI** backend:
+
+- **Launch Command**:
+  ```powershell
+  py main/tools/webui.py
+  ```
+  Opens `http://127.0.0.1:8000` automatically in your default browser.
+
+- **The 4 Core Views**:
+  1. **Dashboard**: Service health monitoring (LLM, ComfyUI, GPU VRAM), real-time generation metrics across languages and video formats.
+  2. **Job Queue**: Task runner with live ANSI terminal log streaming via Server-Sent Events (SSE), abort controls, and background worker status.
+  3. **Google Sheets Sync**: 4-step interactive pipeline directly in the browser:
+     - *Step 1*: Fetch Column D (`SCRIPT_CHANGED`) into `script_to_change/`.
+     - *Step 2*: Check & audit differences (`check_script_changes.py` dry-run).
+     - *Step 3*: Apply detected changes cleanly to state JSONs and reset downstream stages.
+     - *Step 4*: Scan ready scripts (`script_ready == TRUE`, `video_ready == FALSE`) and export dated CSVs.
+  4. **Mass Assets Creation Studio**:
+     - Targeted batch generation for Voiceovers (`Stage _B`), Scene Images (`Stage _C`), or Chalkboard Thumbnails (`Stage _F`).
+     - Accepts arbitrary lists of IDs (e.g. `EE01, EE02, FG04, SR10`) with real-time validation against state files (`POST /api/scripts/validate-ids`).
+     - Forced re-generation mode (`All Assets` vs `Missing Only`) to recreate assets even when marked `"done"` in state JSONs.
+     - Dynamic gender casting overrides, candidate counts, and seed locking.
 
 ---
 
@@ -547,6 +597,16 @@ python tools/comfy.py start
 python tools/comfy.py status
 python tools/comfy.py logs -f
 python tools/comfy.py stop
+
+# Headless LLM Server Process Supervisor & CLI
+python tools/llama.py start
+python tools/llama.py status
+python tools/llama.py logs -f
+python tools/llama.py stop
+
+# Modern WebUI Management Studio (FastAPI + React 19 SPA)
+python tools/webui.py
+python tools/webui.py --port 8080 --no-browser
 ```
 
 ### Google Sheets Connectivity Suite
@@ -624,7 +684,18 @@ shorts_automation/
 │   │   ├── auditing/                   # Status scrapers, CSV validation, and language check tools
 │   │   ├── database/                   # DB sync, ID assignment, and CLI query tools
 │   │   ├── modifiers/                  # Interactive single & mass asset modifiers (script, voice, image, subtitles)
-│   │   └── prompt_builders/            # System editor prompt compilation tools
+│   │   ├── prompt_builders/            # System editor prompt compilation tools
+│   │   ├── webui.py                    # WebUI launcher tool
+│   │   ├── llama.py                    # Headless LLM supervisor tool
+│   │   ├── comfy.py                    # Headless ComfyUI supervisor tool
+│   │   └── check_script_changes.py     # Script change auditor & synchronizer
+│   ├── webui/                          # Modern WebUI Management Studio (FastAPI + React 19)
+│   │   ├── frontend/                   # React 19, TypeScript, Vite & Tailwind source code
+│   │   ├── jobs/                       # Background task runner & stage adapters (voice, image, thumbnail)
+│   │   ├── routers/                    # API route controllers (health, jobs, scripts, sheets)
+│   │   ├── static/                     # Pre-compiled production React SPA assets
+│   │   ├── server.py                   # FastAPI server factory
+│   │   └── README.md                   # WebUI architecture & API documentation
 │   ├── video_creation/                 # Core generation stages (_A through _G)
 │   │   ├── workflows/                  # Exported ComfyUI JSON API workflow definitions
 │   │   ├── _A_video_scripts/           # Scriptwriting, prompt rules, and metadata synthesis
