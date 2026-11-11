@@ -1,5 +1,5 @@
 """
-test/unit/test_gemini_auditor.py — Unit tests for Gemini prompt auditor.
+test/unit/test_gemini_auditor.py — Unit tests for Gemini prompt auditor with Result Checker.
 """
 
 import sys
@@ -12,7 +12,14 @@ if str(MAIN_DIR) not in sys.path:
     sys.path.insert(0, str(MAIN_DIR))
 
 # pyrefly: ignore[missing-import]
-from core.gemini_auditor import audit_general_prompt, _clean_gemini_output
+from core.gemini_auditor import (
+    audit_general_prompt,
+    _clean_gemini_output,
+    _strip_redundant_tails,
+    validate_gemini_core_prompt,
+    POSITIVE_STYLE_PILLAR,
+    NEGATIVE_PROMPT_SHIELD,
+)
 
 
 class TestGeminiAuditor(unittest.TestCase):
@@ -30,6 +37,48 @@ class TestGeminiAuditor(unittest.TestCase):
         raw_quoted = '"A bustling night market with lanterns and two students"'
         self.assertEqual(_clean_gemini_output(raw_quoted), "A bustling night market with lanterns and two students")
 
+    def test_strip_redundant_tails(self):
+        """Verify duplicate style tags or negative shields are cleanly stripped."""
+        text = "Medium wide eye-level shot. Inside a workshop. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style (thematic setting visible, NO 3D)"
+        stripped = _strip_redundant_tails(text)
+        self.assertEqual(stripped, "Medium wide eye-level shot. Inside a workshop")
+
+    def test_validate_gemini_core_prompt(self):
+        """Verify the Result Checker catches truncation, short responses, and missing pillars."""
+        # 1. Truncation flag
+        ok, reason = validate_gemini_core_prompt("Some text...", finish_reason="MAX_TOKENS")
+        self.assertFalse(ok)
+        self.assertIn("truncated", reason)
+
+        # 2. Too short
+        ok, reason = validate_gemini_core_prompt("Medium wide shot. Two students talk.")
+        self.assertFalse(ok)
+        self.assertIn("too short", reason)
+
+        # 3. Cut off mid-sentence
+        incomplete_text = (
+            "Medium wide eye-level shot. Inside a chic retro Italian designer sneaker boutique and luxury leather footwear workshop, "
+            "a 15-year-old female high-school student narrator with a sleek vibrant turquoise bob haircut stands on the left in a tailored "
+            "mustard-yellow tweed waistcoat over an ivory collared silk blouse, high-waisted navy pleated trousers, and polished dark brown leather penny loafers. "
+            "On the right her peer stands by the counter while golden afternoon sunbeams stream across the polished floor casting"
+        )
+        ok, reason = validate_gemini_core_prompt(incomplete_text)
+        self.assertFalse(ok)
+        self.assertIn("mid-sentence", reason)
+
+        # 4. Valid rich core prompt
+        valid_core = (
+            "Medium wide eye-level shot. Inside a chic retro Italian designer sneaker boutique and luxury leather footwear workshop, "
+            "a 15-year-old female high-school student narrator with a sleek vibrant turquoise bob haircut stands on the left in a tailored "
+            "mustard-yellow tweed waistcoat over an ivory collared silk blouse, high-waisted navy pleated trousers, and polished dark brown leather penny loafers. "
+            "On the right, her 15-year-old male friend with messy copper curls stands at the sleek glass counter dressed in an olive-green knit cardigan over an off-white henley shirt. "
+            "Between them, the counter displays three towering designer shoe boxes and a vintage brass lever cash register. "
+            "In the background, illuminated warm-wood shelving shows sneakers under amber afternoon sunlight, casting rich slate-blue directional cast shadows across the herringbone floor."
+        )
+        ok, reason = validate_gemini_core_prompt(valid_core)
+        self.assertTrue(ok)
+        self.assertEqual(reason, "Valid")
+
     def test_audit_general_prompt_requires_api_key(self):
         """Verify ValueError is raised if GEMINI_API_KEY is not configured."""
         script_data = {"id": "SR01", "script_text": "Hello"}
@@ -40,17 +89,26 @@ class TestGeminiAuditor(unittest.TestCase):
                 self.assertIn("GEMINI_API_KEY is not configured", str(ctx.exception))
 
     @patch("core.gemini_auditor.requests.post")
-    def test_audit_general_prompt_successful_generation(self, mock_post):
-        """Verify successful Gemini prompt generation and payload construction."""
+    def test_audit_general_prompt_successful_generation_and_stitching(self, mock_post):
+        """Verify successful Gemini prompt generation, 800 token budget, and seamless 9-part stitching."""
+        valid_core = (
+            "Medium wide eye-level shot. Inside a sunny vintage city park skate plaza by a concrete bowl, "
+            "a 16-year-old high-school student boy in a forest-green corduroy jacket laughs with expressive cartoon eyes. "
+            "On the right, his 15-year-old female peer in a coral-pink pinafore vest smiles while holding a skateboard. "
+            "Between them, a vintage bicycle leans against a lamppost free of floating icons. "
+            "In the background, pastel facades glow under warm amber sunlight casting teal directional cast shadows."
+        )
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "candidates": [
                 {
+                    "finishReason": "STOP",
                     "content": {
                         "parts": [
                             {
-                                "text": "```\nMedium wide shot. Inside a sunny vintage city park skate plaza by a concrete bowl, two students laugh... (thematic setting visible, NO 3D)\n```"
+                                "text": f"```\n{valid_core}\n```"
                             }
                         ]
                     }
@@ -76,14 +134,17 @@ class TestGeminiAuditor(unittest.TestCase):
         call_kwargs = mock_post.call_args[1]
         self.assertEqual(call_kwargs["params"], {"key": "TEST_FAKE_KEY"})
         payload = call_kwargs["json"]
-        self.assertEqual(payload["generationConfig"]["maxOutputTokens"], 350)
+
+        # Token budget is 800
+        self.assertEqual(payload["generationConfig"]["maxOutputTokens"], 800)
         self.assertIn("Tomar el pelo", payload["contents"][0]["parts"][0]["text"])
 
-        # Check cleaned result
-        self.assertTrue(result.startswith("Medium wide shot. Inside a sunny vintage city park"))
+        # Check result has core + Part 8 + Part 9
+        self.assertTrue(result.startswith("Medium wide eye-level shot. Inside a sunny vintage city park"))
+        self.assertIn(POSITIVE_STYLE_PILLAR, result)
+        self.assertIn(NEGATIVE_PROMPT_SHIELD, result)
         self.assertFalse(result.startswith("```"))
 
 
 if __name__ == "__main__":
     unittest.main()
-

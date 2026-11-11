@@ -126,3 +126,4 @@ Use this format when recording future benchmarks (e.g. Stage B Voice Synthesis, 
 * **Phase 2 Metrics**: [Steady-state latency per asset, warmup time]
 * **Key Observations / Bottlenecks**: [Notes on memory, throughput, or regressions]
 ```
+

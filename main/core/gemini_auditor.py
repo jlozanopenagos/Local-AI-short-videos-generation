@@ -1,23 +1,28 @@
 """
 gemini_auditor.py — External creative auditor for Master Story World & General Prompts.
 
-Uses Google Gemini (gemini-2.5-flash / gemini-1.5-flash) to review the script context
-and eliminate local LLM bias, providing a fresh, vivid, authentic thematic setting
-and character wardrobe while strictly adhering to 2D cartoon narrative style.
+Uses Google Gemini to review the script context and eliminate local LLM bias,
+generating an authentic, vivid, non-repetitive physical setting and character ensemble.
 
-Engineered for strict token conservation:
-- Compact input context (~250-350 tokens)
-- Hard output token cap (maxOutputTokens: 350)
-- Lightweight direct REST API via requests (zero heavy SDK dependencies)
+Architecture (Option 1: Modular 7-Part Generator + Python Static Tail + Result Checker):
+- Gemini generates strictly Parts 1 to 7 (Camera framing, Setting, Character 1, Character 2,
+  Midground Props, Background Architecture, Lighting & Shadows).
+- Parts 8 (Style Pillars) and 9 (Negative Shield) are constant and appended automatically in Python,
+  saving ~90-110 output tokens per call and preventing truncation.
+- Result Checker validates completeness, word count, entity pillars, and sentence endings,
+  automatically retrying up to 3 times if cut off or truncated.
 """
+
+from __future__ import annotations
 
 import json
 import logging
 import os
 import re
 import sys
+import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import requests
 
 MAIN_DIR = Path(__file__).resolve().parent.parent
@@ -27,9 +32,26 @@ if str(MAIN_DIR) not in sys.path:
 logger = logging.getLogger(__name__)
 
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODEL = "gemini-3.5-flash-lite"
-FALLBACK_MODEL = "gemini-3.5-flash"
-FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash"]
+DEFAULT_MODEL = "gemini-2.5-flash"
+FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-1.5-flash"]
+
+# ==============================================================================
+# IMMUTABLE PRODUCTION ANCHORS (PARTS 8 & 9)
+# Appended automatically in Python to eliminate token waste and guarantee adherence
+# ==============================================================================
+
+POSITIVE_STYLE_PILLAR = (
+    "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
+    "vibrant flat colors, bold outlines, expressive character design with large clear cartoon eyes, "
+    "visible white sclera and specular pupil highlights, rich detailed environmental interior background "
+    "with depth and warm atmospheric lighting."
+)
+
+NEGATIVE_PROMPT_SHIELD = (
+    "(thematic setting visible, explicit footwear on feet, NO bare feet, NO dot eyes, "
+    "NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text, "
+    "NO speech bubbles, NO floating symbols)"
+)
 
 
 def _clean_gemini_output(raw_text: str) -> str:
@@ -42,8 +64,11 @@ def _clean_gemini_output(raw_text: str) -> str:
     if m:
         text = m.group(1).strip()
 
-    # 2. Strip conversational prefixes like "Here is the new general prompt:", "New Prompt:", etc.
-    prefix_pattern = r"^(?:(?:Here is|Here's) (?:the |a )?(?:new |audited |revised )?(?:general |master )?prompt[:\s]*|(?:General Prompt|Master Story World|Prompt)[:\s]*)\s*"
+    # 2. Strip conversational prefixes
+    prefix_pattern = (
+        r"^(?:(?:Here is|Here's) (?:the |a )?(?:new |audited |revised )?(?:general |master )?prompt[:\s]*|"
+        r"(?:General Prompt|Master Story World|Prompt|Visual Prompt|Core Prompt)[:\s]*)\s*"
+    )
     text = re.sub(prefix_pattern, "", text, flags=re.IGNORECASE).strip()
 
     # 3. Strip outer enclosing double or single quotes
@@ -51,6 +76,74 @@ def _clean_gemini_output(raw_text: str) -> str:
         text = text[1:-1].strip()
 
     return text
+
+
+def _strip_redundant_tails(text: str) -> str:
+    """Removes any accidental duplicate style tags or negative shields if Gemini echoed them."""
+    cleaned = text.strip()
+    # Strip trailing parenthetical negative shields
+    cleaned = re.sub(r'\(thematic setting visible[^)]*\)', '', cleaned, flags=re.IGNORECASE).strip()
+    # Strip any trailing "Clean modern 2D cartoon narrative illustration..."
+    cleaned = re.sub(
+        r'Clean modern 2D cartoon narrative illustration.*$',
+        '',
+        cleaned,
+        flags=re.IGNORECASE | re.DOTALL
+    ).strip()
+    return cleaned.rstrip('. ')
+
+
+def validate_gemini_core_prompt(
+    text: str,
+    finish_reason: Optional[str] = None
+) -> Tuple[bool, str]:
+    """
+    Automated Result Checker:
+    Validates that Gemini returned a complete, rich, non-truncated visual prompt core (Parts 1-7).
+    """
+    if finish_reason == "MAX_TOKENS":
+        return False, "Output was truncated (hit maxOutputTokens ceiling)"
+
+    cleaned = text.strip()
+    if not cleaned:
+        return False, "Output is blank"
+
+    # Check for sentence completion first (must end with terminal punctuation)
+    tail = cleaned.rstrip(' "\'')
+    if not tail.endswith(('.', '!', '?', ';')):
+        return False, f"Prompt was cut off mid-sentence (ends with: '{cleaned[-30:]}')"
+
+    words = cleaned.split()
+    if len(words) < 55:
+        return False, f"Prompt core too short ({len(words)} words; minimum 55 required for complete 7-part scene)"
+
+    lower = cleaned.lower()
+
+    # Pillar: Camera framing (Part 1)
+    has_camera = any(w in lower for w in [
+        "shot", "angle", "view", "eye-level", "framing", "perspective", "close-up", "wide"
+    ])
+    if not has_camera:
+        return False, "Missing Camera Shot & Framing Angle (Part 1)"
+
+    # Pillar: Characters & Wardrobe (Parts 3-4)
+    has_character = any(w in lower for w in [
+        "character", "student", "boy", "girl", "narrator", "peer", "friend",
+        "intern", "colleague", "wear", "wearing", "jacket", "shirt", "cardigan",
+        "trousers", "skirt", "blouse", "shoes", "loafers", "boots"
+    ])
+    if not has_character:
+        return False, "Missing Character Ensemble & Wardrobe descriptions (Parts 3-4)"
+
+    # Pillar: Lighting & Atmosphere (Part 7)
+    has_lighting = any(w in lower for w in [
+        "light", "lighting", "sun", "sunlight", "shadow", "shadows", "amber",
+        "glow", "glowing", "beam", "warm", "cool", "lamp", "rays", "illuminated"
+    ])
+    if not has_lighting:
+        return False, "Missing Lighting & Shadow Architecture (Part 7)"
+
+    return True, "Valid"
 
 
 def audit_general_prompt(
@@ -62,6 +155,7 @@ def audit_general_prompt(
 ) -> str:
     """
     Calls Google Gemini REST API to audit and rewrite the Master Story World / General Prompt.
+    Uses Option 1: Modular 7-Part generation with Result Checker and automatic 3-attempt retry loop.
 
     Parameters
     ----------
@@ -72,13 +166,13 @@ def audit_general_prompt(
     api_key:
         Gemini API key. If omitted, checks GEMINI_API_KEY env var or config.
     model:
-        Gemini model identifier (default: gemini-2.5-flash, fallback: gemini-1.5-flash).
+        Gemini model identifier (default: gemini-2.5-flash, fallback: gemini-3.5-flash-lite).
     timeout:
         Network request timeout in seconds.
 
     Returns
     -------
-    str: The clean, diversified General Prompt.
+    str: The complete, validated 9-part General Prompt with Parts 8 & 9 seamlessly appended.
     """
     resolved_api_key = (api_key or os.getenv("GEMINI_API_KEY", "")).strip()
     if not resolved_api_key:
@@ -120,7 +214,7 @@ def audit_general_prompt(
     else:
         gender_desc = "one 15-16yo high-school student boy, one 15-16yo high-school student girl"
 
-    # Compact script text (prefer raw text or compact json)
+    # Compact script text
     raw_script = script_data.get("script_text", "")
     if isinstance(raw_script, dict):
         script_text = json.dumps(raw_script, ensure_ascii=False)
@@ -129,23 +223,29 @@ def audit_general_prompt(
 
     existing_gp = (current_prompt or script_data.get("assets", {}).get("general_prompt", "")).strip()
 
-    # Build concise, token-efficient prompt
+    # Build prompt enforcing ONLY Parts 1 to 7 and Anti-Cliché mandate
     prompt_text = (
-        "You are an expert visual director for 2D cartoon narrative animations (Z-Image-Turbo/Lumina2).\n"
-        "Audit and creatively rewrite the Master Story World & General Prompt for this Short to eliminate local AI bias and repetitive settings.\n\n"
+        "You are an elite Visual Storyboard Director and Concept Artist for high-retention 2D animation Shorts.\n"
+        "Your task is to audit and creatively write the Master Visual Story World for this Short to eliminate repetitive AI tropes.\n\n"
         f"SCRIPT ID: {script_id}\n"
         f"LANGUAGE: {language} ({video_type})\n"
         f"TOPIC/SITUATION: {topic}\n"
         f"SCRIPT DIALOGUE:\n{script_text}\n\n"
         f"CURRENT GENERAL PROMPT TO REIMAGINE:\n\"{existing_gp}\"\n\n"
-        "AUDIT DIRECTIVES (TOKEN MINIMAL):\n"
-        "1. PHYSICAL SETTING: Invent an authentic, distinctive, visually rich real-world physical setting tailored to the dialogue/topic "
-        "(e.g. vintage flea market, bustling train station platform, cozy radio booth, artisan ceramic workshop, sunny outdoor skate plaza, rooftop botanical greenhouse, vintage diner). "
-        "Strictly ban generic modern coffee shops, plain cafeterias, or blank empty rooms.\n"
-        f"2. CHARACTERS: Two 15-16yo high-school students ({gender_desc}) with distinct hairstyles, expressive facial design, and specific thematic wardrobes matching the setting.\n"
-        "3. ART STYLE: Polished modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive character design with large clear cartoon eyes, visible white sclera and specular pupil highlights, rich detailed background with depth and warm lighting.\n"
-        "4. NEGATIVE TAGS (MANDATORY AT END): (thematic setting visible, explicit footwear on feet, NO bare feet, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text, NO speech bubbles, NO floating symbols)\n"
-        "5. STRICT FORMAT: Return ONLY the final prompt text (around 80-120 words). No commentary, no explanations, no quotes, no markdown fences."
+        "==================================================\n"
+        "STRICT PRODUCTION MANDATE (PARTS 1 TO 7 ONLY):\n"
+        "==================================================\n"
+        "Generate ONLY the narrative visual scene core (Parts 1 to 7). DO NOT include art style tags or negative prompt exclusions (these are appended automatically downstream).\n\n"
+        "Follow this exact 7-part narrative structure in a single cohesive, richly detailed paragraph (~110-150 words):\n"
+        "1. CAMERA SHOT & FRAMING: Open with 'Medium wide eye-level shot.' to guarantee lens perspective.\n"
+        "2. THEMATIC SCENE CONTEXT: Ground the physical setting in an authentic, distinct real-world environment derived directly from the dialogue's concrete situation, conflict, or occupations.\n"
+        "   ⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are flea markets, pottery/ceramic workshops, rooftop greenhouses, generic modern coffee shops, or plain empty classrooms. Invent settings specifically reflecting the dialogue's reality (e.g. vintage record archive, municipal records office, antique clock repair workshop, architectural blueprint atelier, neighborhood tailor shop, sunlit bakery courtyard, maritime docks, tramway terminus).\n"
+        f"3. CHARACTER 1 (Subject): One 15-16yo high-school student ({gender_desc}) with distinctive hairstyle (e.g. textured curls, sleek angled bob, braided half-up, tapered fade), expressive cartoon facial acting (wide cartoon eyes, specular pupil highlights), and layered, setting-appropriate wardrobe with explicit footwear.\n"
+        f"4. CHARACTER 2 (Counterpart): The second 15-16yo student in an active complementary pose, with unique hair, wardrobe, and shoes.\n"
+        "5. MIDGROUND ANCHOR PROPS: Concrete physical objects on the counter, table, or between characters that prevent hallucinations and anchor the interaction.\n"
+        "6. ARCHITECTURAL BACKGROUND: Detailed cultural and architectural background textures providing authentic environmental depth.\n"
+        "7. CINEMATIC LIGHTING & SHADOWS: Warm/cool color contrast (e.g. amber sunbeams casting slate-blue directional cast shadows across the floor).\n\n"
+        "OUTPUT RULE: Return ONLY the raw prompt text for Parts 1 to 7. Zero markdown fences, zero quotes, zero commentary."
     )
 
     payload = {
@@ -160,7 +260,7 @@ def audit_general_prompt(
         ],
         "generationConfig": {
             "temperature": 0.85,
-            "maxOutputTokens": 350,
+            "maxOutputTokens": 800,
         },
     }
 
@@ -170,58 +270,90 @@ def audit_general_prompt(
             models_to_try.append(fb_model)
 
     last_error = None
+    max_validation_attempts = 3
+
     for cur_model in models_to_try:
         url = GEMINI_API_URL_TEMPLATE.format(model=cur_model)
-        try:
-            logger.info("[%s] Sending prompt audit request to Gemini (%s)...", script_id, cur_model)
-            response = requests.post(
-                url,
-                params={"key": resolved_api_key},
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=timeout,
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                candidates = data.get("candidates", [])
-                if not candidates:
-                    raise ValueError(f"Gemini returned no candidates in response: {data}")
-
-                content = candidates[0].get("content", {})
-                parts = content.get("parts", [])
-                if not parts or "text" not in parts[0]:
-                    raise ValueError(f"Gemini returned empty parts in candidate: {candidates[0]}")
-
-                raw_generated = parts[0]["text"]
-                cleaned_prompt = _clean_gemini_output(raw_generated)
-
-                if not cleaned_prompt:
-                    raise ValueError("Gemini returned blank prompt after cleaning.")
-
+        for val_attempt in range(1, max_validation_attempts + 1):
+            try:
                 logger.info(
-                    "[%s] Successfully audited prompt with Gemini (%d chars).",
-                    script_id, len(cleaned_prompt)
+                    "[%s] Sending prompt audit request to Gemini (%s, attempt %d/%d)...",
+                    script_id, cur_model, val_attempt, max_validation_attempts
                 )
-                return cleaned_prompt
-
-            elif response.status_code == 404 and cur_model != models_to_try[-1]:
-                logger.warning(
-                    "[%s] Gemini model '%s' returned 404 Not Found. Trying next fallback model...",
-                    script_id, cur_model
-                )
-                continue
-            else:
-                err_text = response.text[:300]
-                raise RuntimeError(
-                    f"Gemini API returned HTTP {response.status_code}: {err_text}"
+                response = requests.post(
+                    url,
+                    params={"key": resolved_api_key},
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
                 )
 
-        except Exception as exc:
-            last_error = exc
-            if cur_model != models_to_try[-1]:
-                logger.warning("[%s] Failed with model %s (%s). Retrying fallback...", script_id, cur_model, exc)
-                continue
+                if response.status_code == 200:
+                    data = response.json()
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        raise ValueError(f"Gemini returned no candidates in response: {data}")
+
+                    cand = candidates[0]
+                    finish_reason = cand.get("finishReason", "")
+                    content = cand.get("content", {})
+                    parts = content.get("parts", [])
+                    if not parts or "text" not in parts[0]:
+                        raise ValueError(f"Gemini returned empty parts in candidate: {cand}")
+
+                    raw_generated = parts[0]["text"]
+                    cleaned_core = _clean_gemini_output(raw_generated)
+
+                    # Automated Result Checker
+                    is_valid, reason = validate_gemini_core_prompt(cleaned_core, finish_reason)
+                    if not is_valid:
+                        logger.warning(
+                            "[%s] Gemini prompt validation failed (attempt %d/%d): %s",
+                            script_id, val_attempt, max_validation_attempts, reason
+                        )
+                        if val_attempt < max_validation_attempts:
+                            # Adjust temperature slightly to provoke a fresher completion
+                            current_temp = payload["generationConfig"].get("temperature", 0.85)
+                            payload["generationConfig"]["temperature"] = min(1.0, current_temp + 0.05)
+                            time.sleep(1.0)
+                            continue
+                        else:
+                            raise ValueError(f"Gemini output failed validation after {max_validation_attempts} attempts: {reason}")
+
+                    # Strip any accidental duplicate style or negative tags
+                    stripped_core = _strip_redundant_tails(cleaned_core)
+
+                    # Stitch complete 9-part Master Story World prompt
+                    final_prompt = f"{stripped_core}. {POSITIVE_STYLE_PILLAR} {NEGATIVE_PROMPT_SHIELD}"
+
+                    logger.info(
+                        "[%s] Successfully audited and stitched 9-part prompt with Gemini (%d chars).",
+                        script_id, len(final_prompt)
+                    )
+                    return final_prompt
+
+                elif response.status_code == 404:
+                    logger.warning(
+                        "[%s] Gemini model '%s' returned 404 Not Found. Trying next fallback model...",
+                        script_id, cur_model
+                    )
+                    break
+                else:
+                    err_text = response.text[:300]
+                    raise RuntimeError(
+                        f"Gemini API returned HTTP {response.status_code}: {err_text}"
+                    )
+
+            except Exception as exc:
+                last_error = exc
+                if val_attempt < max_validation_attempts:
+                    logger.warning(
+                        "[%s] Gemini attempt %d failed: %s. Retrying...",
+                        script_id, val_attempt, exc
+                    )
+                    time.sleep(1.0)
+                    continue
+                else:
+                    break
 
     raise last_error or RuntimeError(f"[{script_id}] Gemini audit failed.")
-
