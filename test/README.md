@@ -26,8 +26,12 @@ test/
 │                           # verbatim ingestion & check_script_changes, CSV/JSON/system prompt
 │                           # schema contracts, privacy & secret leak prevention
 │
-└── connectivity/           # Layer 3: Google Sheets integration & data contract tests
-                            # Sheets fetcher, corrections extractor, reconciliation, poster, ready scripts scanner
+├── connectivity/           # Layer 3: Google Sheets integration & data contract tests
+│                           # Sheets fetcher, corrections extractor, reconciliation, poster, ready scripts scanner
+│
+└── webui/                  # Layer 4: Web UI API & Job Management tests
+                            # Endpoint tests (scripts, facets, media, healthz), directory traversal security,
+                            # job queue submission, stdout/logging capture, and cancellation
 ```
 
 ---
@@ -35,7 +39,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **287+ automated tests** across 25 curated test files in 3 QA layers (`unit/`, `integration/`, `connectivity/`) with zero external dependencies:
+Executes all **340 automated tests** across 27 curated test files in 4 QA layers (`unit/`, `integration/`, `connectivity/`, `webui/`) with zero external dependencies in ~24 seconds:
 ```bash
 py test/run_tests.py
 ```
@@ -54,6 +58,9 @@ py test/run_tests.py --integration
 
 # Google Sheets connectivity tests only
 py test/run_tests.py --connectivity
+
+# Web UI API & Job Manager tests only
+py test/run_tests.py --webui
 ```
 
 ### 3. Run via Standard Python Unittest

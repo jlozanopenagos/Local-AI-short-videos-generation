@@ -78,11 +78,12 @@ def get_media(request: Request, path: str = "", file: str = ""):
 
     range_header = request.headers.get("range")
     if not range_header:
-        # Full file response
+        # Full file response with inline display (prevents forced browser download)
         return FileResponse(
             path=str(safe_path),
             media_type=content_type,
             filename=safe_path.name,
+            content_disposition_type="inline",
         )
 
     # Partial content (HTTP 206) for media seeking

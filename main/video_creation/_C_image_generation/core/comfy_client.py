@@ -284,16 +284,23 @@ class ImageComfyClient:
         prompt_id: str,
         timeout_seconds: int | None = None,
         heartbeat_interval: float = 5.0,
+        check_cancelled: Any | None = None,
     ) -> dict[str, Any]:
         """
         Block until ComfyUI finishes executing prompt_id and return its history.
         Logs regular heartbeat progress and raises TimeoutError if stalled.
+        Aborts promptly if check_cancelled() returns True.
         """
         limit = timeout_seconds or self.poll_timeout
         start_time = time.time()
         last_heartbeat = start_time
 
         while time.time() - start_time < limit:
+            if check_cancelled and check_cancelled():
+                self.interrupt()
+                self.clear_queue()
+                raise InterruptedError("ComfyUI generation cancelled by user.")
+
             history = self._get_history(prompt_id)
             if history:
                 return history
@@ -447,6 +454,7 @@ class ImageComfyClient:
         max_retries: int = 3,
         stall_timeout: int = 600,
         progress_callback: Any | None = None,
+        check_cancelled: Any | None = None,
     ) -> dict[str, Path]:
         """
         Execute multiple image generation tasks using ComfyUI's native FIFO execution queue.
@@ -510,6 +518,10 @@ class ImageComfyClient:
 
                 failed_idx = None
                 for i, item in enumerate(queued):
+                    if check_cancelled and check_cancelled():
+                        self.interrupt()
+                        self.clear_queue()
+                        raise InterruptedError("Batch image generation cancelled by user.")
                     pid = item["prompt_id"]
                     task = item["task"]
                     sec = task.get("section_name", f"scene_{i+1}")
@@ -517,7 +529,11 @@ class ImageComfyClient:
                     t0 = time.time()
 
                     try:
-                        history = self._poll_for_completion(pid, timeout_seconds=stall_timeout)
+                        history = self._poll_for_completion(
+                            pid,
+                            timeout_seconds=stall_timeout,
+                            check_cancelled=check_cancelled,
+                        )
                         filename, subfolder, file_type = self._find_image_output(history)
                         self._download_image(filename, subfolder, file_type, dest)
                         dur = time.time() - t0

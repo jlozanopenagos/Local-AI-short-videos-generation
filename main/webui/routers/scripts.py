@@ -22,14 +22,14 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from core.state_manager import StateManager
-from core.expression_db import is_expression_done
+from core.expression_db import is_expression_done, get_all_done_expression_ids
 
 router = APIRouter(prefix="/api/scripts", tags=["Scripts"])
 
 # In-memory index cache for instant catalog filtering across 1,200+ scripts
 _SCRIPT_CACHE: List[Dict[str, Any]] = []
 _CACHE_TIMESTAMP: float = 0.0
-CACHE_TTL_SECONDS: float = 20.0
+CACHE_TTL_SECONDS: float = 600.0
 
 
 def _get_state_manager() -> StateManager:
@@ -129,7 +129,7 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
 
             scenes.append({
                 "scene_type": key,
-                "label": key.replace("_", " ").title(),
+                "label": key.replace("_", " ").capitalize(),
                 "voice_line": voice_line,
                 "image_file": img_file,
                 "prompt": prompt,
@@ -157,7 +157,7 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
 
             scenes.append({
                 "scene_type": sc_type,
-                "label": sc_type.replace("_", " ").title(),
+                "label": sc_type.replace("_", " ").capitalize(),
                 "voice_line": line,
                 "image_file": img_file,
                 "prompt": prompt,
@@ -178,7 +178,11 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
     return scenes
 
 
-def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _build_script_summary(
+    s: Dict[str, Any],
+    done_ids_set: Optional[set] = None,
+    force_disk_images: bool = False,
+) -> Optional[Dict[str, Any]]:
     s_id = s.get("id")
     if not s_id:
         return None
@@ -232,16 +236,25 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     elif meta.get("gender"):
         gender = str(meta.get("gender"))
 
-    # Resolve image files if present
-    img_list = []
+    # Resolve image files: prefer cached list in state unless force_disk_images is requested
+    img_list: List[str] = []
+    cached_imgs = assets.get("images")
     image_dir_str = assets.get("image_dir")
-    if image_dir_str:
+    if not force_disk_images and isinstance(cached_imgs, list) and cached_imgs:
+        img_list = [str(f) for f in cached_imgs]
+    elif image_dir_str:
         p = Path(image_dir_str)
         if p.exists() and p.is_dir():
             img_list = [str(f) for f in sorted(p.glob("*.png"))]
 
     # Poster image: prefer thumbnail, fallback to first scene image
     poster = assets.get("thumbnail_path") or (img_list[0] if img_list else None)
+
+    is_done_flag = (
+        (str(s_id).strip().upper() in done_ids_set)
+        if done_ids_set is not None
+        else is_expression_done(s_id)
+    )
 
     return {
         "id": s_id,
@@ -271,8 +284,28 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "has_video": stages["assembly"] == "done",
         "has_thumbnail": stages["thumbnails"] == "done",
         "is_ready_for_assembly": stages["voice"] == "done" and stages["images"] == "done" and stages["assembly"] != "done",
-        "is_db_done": is_expression_done(s_id),
+        "is_db_done": is_done_flag,
     }
+
+
+def _update_cached_script(canonical_id: str, state_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Updates a single script entry in _SCRIPT_CACHE in-place (O(1)) without re-scanning all 1,200+ files."""
+    global _SCRIPT_CACHE
+    summary = _build_script_summary(state_data, force_disk_images=True)
+    if not summary:
+        return None
+    if _SCRIPT_CACHE:
+        cid_upper = canonical_id.strip().upper()
+        replaced = False
+        for idx, item in enumerate(_SCRIPT_CACHE):
+            if str(item.get("script_id", "")).upper() == cid_upper:
+                _SCRIPT_CACHE[idx] = summary
+                replaced = True
+                break
+        if not replaced:
+            _SCRIPT_CACHE.append(summary)
+            _SCRIPT_CACHE.sort(key=lambda x: x["script_id"])
+    return summary
 
 
 def _get_indexed_scripts(force_refresh: bool = False) -> List[Dict[str, Any]]:
@@ -284,9 +317,14 @@ def _get_indexed_scripts(force_refresh: bool = False) -> List[Dict[str, Any]]:
         return _SCRIPT_CACHE
 
     raw_scripts = sm.get_all_scripts()
+    try:
+        done_ids_set = get_all_done_expression_ids()
+    except Exception:
+        done_ids_set = None
+
     indexed = []
     for raw in raw_scripts:
-        summary = _build_script_summary(raw)
+        summary = _build_script_summary(raw, done_ids_set=done_ids_set)
         if summary:
             indexed.append(summary)
 
@@ -367,7 +405,7 @@ def list_scripts(
     all_scripts = _get_indexed_scripts()
     filtered = all_scripts
 
-    # Search filter
+    # Search filter with ID-priority ranking (exact ID -> prefix ID -> substring ID -> topic/title)
     if search and isinstance(search, str) and search.strip():
         s_term = search.lower().strip()
         filtered = [
@@ -378,6 +416,18 @@ def list_scripts(
             or s_term in s.get("lexical_field", "").lower()
             or s_term in s.get("scenario", "").lower()
         ]
+
+        def _search_rank(item: Dict[str, Any]):
+            sid_low = item["script_id"].lower()
+            if sid_low == s_term:
+                return (0, sid_low)
+            if sid_low.startswith(s_term):
+                return (1, sid_low)
+            if s_term in sid_low:
+                return (2, sid_low)
+            return (3, sid_low)
+
+        filtered.sort(key=_search_rank)
 
     # Language filter
     if language and isinstance(language, str) and language.lower() != "all":
@@ -449,7 +499,7 @@ def get_script(script_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found in state store.")
 
     state_data = sm.get_script_state(canonical_id)
-    summary = _build_script_summary(state_data) or {}
+    summary = _build_script_summary(state_data, force_disk_images=True) or {}
 
     meta = state_data.get("content_metadata") or {}
     p_params = state_data.get("prompt_params") or {}
@@ -604,8 +654,8 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     # Save to disk
     sm.save_script_state(canonical_id, state_data)
 
-    # Invalidate in-memory cache so catalog updates immediately
-    _get_indexed_scripts(force_refresh=True)
+    # Update single item in in-memory cache immediately (O(1))
+    _update_cached_script(canonical_id, state_data)
 
     return get_script(canonical_id)
 
@@ -677,10 +727,8 @@ def toggle_script_stage(script_id: str, payload: StageToggleRequest) -> Dict[str
     # Save to disk
     sm.save_script_state(canonical_id, state_data)
 
-    # Invalidate cache so queries reflect the change immediately
-    _get_indexed_scripts(force_refresh=True)
-
-    summary = _build_script_summary(state_data)
+    # Update single item in in-memory cache immediately (O(1))
+    summary = _update_cached_script(canonical_id, state_data)
     return {
         "script_id": canonical_id,
         "stage": payload.stage,
@@ -688,6 +736,39 @@ def toggle_script_stage(script_id: str, payload: StageToggleRequest) -> Dict[str
         "new_status": target_val,
         "summary": summary,
     }
+
+
+class ScriptGenerateRequest(BaseModel):
+    force: bool = True
+    options: Optional[Dict[str, Any]] = None
+
+
+@router.post("/{script_id}/generate")
+def generate_script_endpoint(script_id: str, payload: Optional[ScriptGenerateRequest] = None) -> Dict[str, Any]:
+    """Triggers Stage A script generation for a specific script directly via the WebUI job runner."""
+    from webui.jobs.manager import get_job_manager
+    from webui.jobs.models import JobCreateRequest, JobStage
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    jm = get_job_manager()
+    opts = payload.options if payload and payload.options else {}
+    if payload and payload.force:
+        opts["force"] = True
+    else:
+        opts.setdefault("force", True)
+
+    job = jm.enqueue_job(
+        JobCreateRequest(
+            stage=JobStage.SCRIPTS,
+            script_ids=[canonical_id],
+            options=opts,
+        )
+    )
+    return {"status": "enqueued", "job_id": job.job_id, "script_id": canonical_id}
 
 
 class GeminiAuditRequest(BaseModel):
@@ -751,9 +832,101 @@ def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = 
 
     # Save to state store
     sm.save_script_state(canonical_id, state_data)
-    _get_indexed_scripts(force_refresh=True)
+    _update_cached_script(canonical_id, state_data)
 
     return get_script(canonical_id)
+
+
+class RenderChalkboardRequest(BaseModel):
+    chalkboard_exercise: Optional[str] = None
+
+
+@router.post("/{script_id}/render-chalkboard")
+def render_chalkboard_endpoint(script_id: str, payload: Optional[RenderChalkboardRequest] = None) -> Dict[str, Any]:
+    """
+    Renders high-resolution chalk typography directly onto empty_chalkboard.png for GAME scripts.
+    Saves script_{script_id}_challenge.png to the script's images directory and updates script state.
+    """
+    from config.settings import (
+        GAME_IMAGES_DIR,
+        IMAGE_DEFAULT_WIDTH,
+        IMAGE_DEFAULT_HEIGHT,
+        get_script_output_dir,
+    )
+    from core.state_manager import resolve_lang_and_type
+    from video_creation._C_image_generation.core.chalkboard_renderer import render_chalkboard_image
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    lang, video_type = resolve_lang_and_type(canonical_id)
+
+    if video_type != "game":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Script '{canonical_id}' is not a GAME video (video_type={video_type}). Chalkboard rendering only applies to G-series game scripts."
+        )
+
+    content_meta = state_data.setdefault("content_metadata", {})
+    if payload and payload.chalkboard_exercise is not None:
+        content_meta["chalkboard_exercise"] = payload.chalkboard_exercise
+        script_dict = content_meta.get("script")
+        if isinstance(script_dict, dict) and "challenge" in script_dict:
+            script_dict["challenge"] = payload.chalkboard_exercise
+
+    exercise_text = (
+        content_meta.get("chalkboard_exercise")
+        or (content_meta.get("script", {}).get("challenge") if isinstance(content_meta.get("script"), dict) else None)
+        or state_data.get("metadata", {}).get("chalkboard_exercise")
+    )
+    if not exercise_text or not str(exercise_text).strip():
+        raise HTTPException(
+            status_code=400,
+            detail=f"No chalkboard exercise text found for '{canonical_id}'. Please set chalkboard exercise text first."
+        )
+
+    empty_chalkboard_path = GAME_IMAGES_DIR / "empty_chalkboard.png"
+    if not empty_chalkboard_path.exists():
+        raise HTTPException(status_code=500, detail=f"Chalkboard template not found: {empty_chalkboard_path}")
+
+    # Determine script images directory
+    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=BASE_DIR) / "images"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = out_dir / f"script_{canonical_id}_challenge.png"
+
+    try:
+        render_chalkboard_image(
+            empty_chalkboard_path=empty_chalkboard_path,
+            exercise_text=str(exercise_text).strip(),
+            dest_path=dest_path,
+            target_size=(IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to render chalkboard image: {exc}")
+
+    # Update state assets
+    assets = state_data.setdefault("assets", {})
+    assets["image_dir"] = str(out_dir)
+    images_list = assets.get("images")
+    if not isinstance(images_list, list):
+        images_list = []
+    if str(dest_path) not in images_list:
+        images_list.append(str(dest_path))
+    assets["images"] = images_list
+
+    # Save state and update catalog cache in-place
+    sm.save_script_state(canonical_id, state_data)
+    _update_cached_script(canonical_id, state_data)
+
+    return {
+        "status": "success",
+        "message": f"Chalkboard image rendered successfully for {canonical_id}",
+        "image_file": str(dest_path),
+        "script": get_script(canonical_id),
+    }
 
 
 class ValidateIdsRequest(BaseModel):

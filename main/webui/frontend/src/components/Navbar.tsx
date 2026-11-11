@@ -1,13 +1,15 @@
 import React from 'react'
-import { Play, Square, Cpu, Terminal, Video, FileSpreadsheet, Layers } from 'lucide-react'
+import { Home, Cpu, Terminal, Video, FileSpreadsheet, Layers, Sun, Moon } from 'lucide-react'
 import type { SystemStatus } from '../types'
-import { controlService } from '../api'
+import { SystemCard } from './SystemCard'
 
 interface NavbarProps {
   system: SystemStatus | null
-  activeTab: 'dashboard' | 'jobs' | 'sheets' | 'mass-creation'
-  setActiveTab: (tab: 'dashboard' | 'jobs' | 'sheets' | 'mass-creation') => void
+  activeTab: 'home' | 'dashboard' | 'jobs' | 'sheets' | 'mass-creation'
+  setActiveTab: (tab: 'home' | 'dashboard' | 'jobs' | 'sheets' | 'mass-creation') => void
   onRefreshSystem: () => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -15,94 +17,76 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   onRefreshSystem,
+  theme,
+  onToggleTheme,
 }) => {
-  const [loadingAction, setLoadingAction] = React.useState<string | null>(null)
-
-  const handleToggleService = async (service: 'comfyui' | 'llm', currentStatus: string) => {
-    const action = currentStatus === 'online' ? 'stop' : 'start'
-    setLoadingAction(`${service}-${action}`)
-    try {
-      await controlService(service, action)
-      setTimeout(onRefreshSystem, 800)
-    } catch (err) {
-      alert(`Error toggling ${service}: ${err instanceof Error ? err.message : String(err)}`)
-    } finally {
-      setLoadingAction(null)
-    }
-  }
-
-  const comfyOnline = (system?.comfyui?.status === 'online') || ((system as any)?.comfy?.status === 'online')
-  const llmOnline = system?.llm?.status === 'online'
-
   return (
     <header className="header">
-      <div className="brand">
-        <Video size={22} className="text-blue-500" />
-        <span>SHORTS STUDIO</span>
-        <span className="brand-badge">WEBUI</span>
+      <div
+        className="brand"
+        onClick={() => setActiveTab('home')}
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+        title="Go to homepage"
+      >
+        <Video size={22} className="icon-accent" />
+        <span>Shorts studio</span>
+        <span className="brand-badge">local</span>
       </div>
 
-      <nav className="nav-links">
+      <nav className="nav-links" aria-label="Primary navigation">
+        <button
+          className={`nav-btn ${activeTab === 'home' ? 'active' : ''}`}
+          onClick={() => setActiveTab('home')}
+        >
+          <Home size={16} />
+          <span>Home</span>
+        </button>
         <button
           className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('dashboard')}
         >
           <Cpu size={16} />
-          <span>Dashboard</span>
+          <span>Script catalog</span>
         </button>
         <button
           className={`nav-btn ${activeTab === 'jobs' ? 'active' : ''}`}
           onClick={() => setActiveTab('jobs')}
         >
           <Terminal size={16} />
-          <span>Queue & Console</span>
+          <span>Queue & console</span>
         </button>
         <button
           className={`nav-btn ${activeTab === 'sheets' ? 'active' : ''}`}
           onClick={() => setActiveTab('sheets')}
         >
           <FileSpreadsheet size={16} />
-          <span>Handle Googlesheets changes</span>
+          <span>Google Sheets sync</span>
         </button>
         <button
           className={`nav-btn ${activeTab === 'mass-creation' ? 'active' : ''}`}
           onClick={() => setActiveTab('mass-creation')}
         >
           <Layers size={16} />
-          <span>Mass assets creation</span>
+          <span>Mass asset creation</span>
         </button>
       </nav>
 
       <div className="header-status">
-        {/* ComfyUI Quick Control */}
-        <div className="status-pill">
-          <div className={`status-dot ${comfyOnline ? 'online' : 'offline'}`} />
-          <span>ComfyUI: {comfyOnline ? '8188' : 'OFF'}</span>
-          <button
-            className={`btn btn-sm ${comfyOnline ? 'btn-danger' : 'btn-success'}`}
-            disabled={loadingAction === 'comfyui-start' || loadingAction === 'comfyui-stop'}
-            onClick={() => handleToggleService('comfyui', system?.comfyui.status || 'offline')}
-            title={comfyOnline ? 'Stop ComfyUI' : 'Start ComfyUI'}
-          >
-            {comfyOnline ? <Square size={12} /> : <Play size={12} />}
-          </button>
-        </div>
+        {/* Dual Theme Switcher */}
+        <button
+          className="theme-toggle-btn"
+          onClick={onToggleTheme}
+          title={theme === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme'}
+          aria-label="Toggle visual theme"
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
 
-        {/* LLM Quick Control */}
-        <div className="status-pill">
-          <div className={`status-dot ${llmOnline ? 'online' : 'offline'}`} />
-          <span>LLM: {llmOnline ? '8080' : 'OFF'}</span>
-          <button
-            className={`btn btn-sm ${llmOnline ? 'btn-danger' : 'btn-success'}`}
-            disabled={loadingAction === 'llm-start' || loadingAction === 'llm-stop'}
-            onClick={() => handleToggleService('llm', system?.llm.status || 'offline')}
-            title={llmOnline ? 'Stop LLM' : 'Start LLM'}
-          >
-            {llmOnline ? <Square size={12} /> : <Play size={12} />}
-          </button>
-        </div>
+        {/* Engine Telemetry */}
+        <SystemCard system={system} onRefresh={onRefreshSystem} />
       </div>
     </header>
   )
 }
+
 

@@ -57,24 +57,43 @@ class AssemblyAdapter(BaseStageAdapter):
                 success_count += 1
                 continue
 
-            try:
-                emit_log(f"[{script_id}] Assembling short video (subtitles, audio, visuals, closure)...")
-                t0 = time.time()
-                ok = process_script(
-                    script_data=script_data,
-                    state_manager=sm,
-                    base_dir=BASE_DIR,
-                    auto=True,
-                )
-                dur = time.time() - t0
-                if ok:
-                    emit_log(f"[{script_id}] ✓ Video assembly completed in {dur:.1f}s.")
-                    success_count += 1
-                else:
-                    emit_log(f"[{script_id}] ✗ FAILED video assembly after {dur:.1f}s.")
-                    failed_ids.append(script_id)
-            except Exception as exc:
-                emit_log(f"[{script_id}] EXCEPTION in video assembly: {exc}")
+            max_attempts = int(options.get("max_attempts", 3))
+            assembly_succeeded = False
+            last_err = ""
+
+            for attempt in range(1, max_attempts + 1):
+                if check_cancelled():
+                    emit_log(f"Job cancelled by user at script {script_id}.")
+                    break
+
+                try:
+                    emit_log(f"[{script_id}] Assembling short video (subtitles, audio, visuals, closure) (attempt {attempt}/{max_attempts})...")
+                    t0 = time.time()
+                    ok = process_script(
+                        script_data=script_data,
+                        state_manager=sm,
+                        base_dir=BASE_DIR,
+                        auto=True,
+                    )
+                    dur = time.time() - t0
+                    if ok:
+                        emit_log(f"[{script_id}] ✓ Video assembly completed in {dur:.1f}s.")
+                        success_count += 1
+                        assembly_succeeded = True
+                        break
+                    else:
+                        last_err = f"Assembly returned false after {dur:.1f}s"
+                        emit_log(f"[{script_id}] Video assembly attempt {attempt}/{max_attempts} failed.")
+                        if attempt < max_attempts:
+                            time.sleep(2.0)
+                except Exception as exc:
+                    last_err = str(exc)
+                    emit_log(f"[{script_id}] Video assembly attempt {attempt}/{max_attempts} exception: {last_err}")
+                    if attempt < max_attempts:
+                        time.sleep(2.0)
+
+            if not assembly_succeeded and not check_cancelled():
+                emit_log(f"[{script_id}] ERROR: Video assembly failed after {max_attempts} attempts: {last_err}")
                 failed_ids.append(script_id)
 
         emit_progress(total, total, None)

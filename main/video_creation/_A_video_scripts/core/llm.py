@@ -78,6 +78,7 @@ def generate_response(
     chunk_timeout: float = DEFAULT_CHUNK_TIMEOUT,
     wall_timeout: float = DEFAULT_WALL_TIMEOUT,
     show_progress: bool = True,
+    on_token: object | None = None,
 ) -> str:
     """
     Send a prompt to the local llama.cpp server and return the assistant reply.
@@ -127,6 +128,11 @@ def generate_response(
                 if content:
                     collected.append(content)
                     token_count += 1
+                    if on_token and callable(on_token):
+                        try:
+                            on_token(content)
+                        except Exception:
+                            pass
 
                 if show_progress and (now - last_heartbeat >= 4.0):
                     elapsed = int(now - start_t)

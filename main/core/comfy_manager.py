@@ -125,17 +125,22 @@ class ComfyManager:
             pass
 
     def _is_pid_alive(self, pid: int) -> bool:
-        """Checks if a process ID exists on Windows."""
+        """Checks if a process ID exists on Windows without spawning subprocesses."""
+        if pid <= 0:
+            return False
         if os.name == "nt":
             try:
-                # OpenProcess query with PROCESS_QUERY_LIMITED_INFORMATION (0x1000)
-                cmd = f'tasklist /FI "PID eq {pid}" /NH'
-                res = subprocess.run(
-                    cmd, shell=True, capture_output=True, text=True, timeout=3
-                )
-                return str(pid) in res.stdout
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.OpenProcess(0x1000, False, int(pid))
+                if not handle:
+                    return False
+                exit_code = ctypes.c_ulong()
+                ok = kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                kernel32.CloseHandle(handle)
+                return bool(ok and exit_code.value == 259)  # STILL_ACTIVE = 259
             except Exception:
-                pass
+                return False
         try:
             os.kill(pid, 0)
             return True

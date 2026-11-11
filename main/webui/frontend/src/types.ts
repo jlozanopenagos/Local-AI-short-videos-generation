@@ -140,7 +140,7 @@ export interface ScriptUpdatePayload {
   image_prompts?: Record<string, string>
 }
 
-export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly'
+export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly' | 'chalkboard'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface JobProgress {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   RefreshCw,
   CheckSquare,
@@ -9,7 +9,8 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  FileText
 } from 'lucide-react'
 import type { ScriptSummary, ScriptFacets, StageState, JobStage } from '../types'
 import { fetchScriptCatalog, createJob, refreshScriptCache, toggleScriptStage } from '../api'
@@ -17,6 +18,12 @@ import { fetchScriptCatalog, createJob, refreshScriptCache, toggleScriptStage } 
 interface ScriptListProps {
   onSelectScript: (scriptId: string) => void
   onJobStarted: (jobId: string) => void
+}
+
+const formatVideoTypeLabel = (raw: string): string => {
+  const clean = (raw || '').replace(/_/g, ' ').trim().toLowerCase()
+  if (!clean) return 'Expression'
+  return clean.charAt(0).toUpperCase() + clean.slice(1)
 }
 
 export const ScriptList: React.FC<ScriptListProps> = ({
@@ -28,6 +35,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
   const [facets, setFacets] = useState<ScriptFacets | null>(null)
 
   // Filters & Pagination State
+  const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLang, setSelectedLang] = useState('all')
   const [selectedType, setSelectedType] = useState('all')
@@ -41,7 +49,41 @@ export const ScriptList: React.FC<ScriptListProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchActionLoading, setBatchActionLoading] = useState<string | null>(null)
 
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const requestSeqRef = useRef<number>(0)
+
+  // 150ms debounce for searchInput -> searchTerm
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm((prev) => {
+        if (prev !== searchInput) {
+          setPage(1)
+        }
+        return searchInput
+      })
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Global '/' shortcut to focus ID search bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const active = document.activeElement
+      const tag = active?.tagName?.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (active as HTMLElement)?.isContentEditable) {
+        return
+      }
+      e.preventDefault()
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const loadData = useCallback(async () => {
+    const reqId = ++requestSeqRef.current
     setLoading(true)
     try {
       const resp = await fetchScriptCatalog({
@@ -52,6 +94,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
         videoType: selectedType,
         stageFilter: stageFilter,
       })
+      if (reqId !== requestSeqRef.current) return
       const rawList = Array.isArray(resp) ? resp : (resp?.items || [])
       const total = Array.isArray(resp) ? resp.length : (resp?.total ?? rawList.length)
       const pages = Array.isArray(resp) ? Math.max(1, Math.ceil(total / pageSize)) : (resp?.total_pages ?? 1)
@@ -60,9 +103,13 @@ export const ScriptList: React.FC<ScriptListProps> = ({
       setTotalPages(pages)
       if (!Array.isArray(resp) && resp?.facets) setFacets(resp.facets)
     } catch (err) {
-      console.error('Failed to load script catalog:', err)
+      if (reqId === requestSeqRef.current) {
+        console.error('Failed to load script catalog:', err)
+      }
     } finally {
-      setLoading(false)
+      if (reqId === requestSeqRef.current) {
+        setLoading(false)
+      }
     }
   }, [page, pageSize, searchTerm, selectedLang, selectedType, stageFilter])
 
@@ -70,10 +117,24 @@ export const ScriptList: React.FC<ScriptListProps> = ({
     loadData()
   }, [loadData])
 
-  // Debounced search reset to page 1
   const handleSearchChange = (val: string) => {
-    setSearchTerm(val)
-    setPage(1)
+    setSearchInput(val)
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchInput.trim()) {
+      const target = searchInput.trim().toUpperCase()
+      const exactMatch = scripts.find((s) => s.script_id.toUpperCase() === target)
+      if (exactMatch) {
+        onSelectScript(exactMatch.script_id)
+      } else if (scripts.length === 1) {
+        onSelectScript(scripts[0].script_id)
+      }
+    } else if (e.key === 'Escape' && searchInput) {
+      setSearchInput('')
+      setSearchTerm('')
+      setPage(1)
+    }
   }
 
   const handleRefresh = async () => {
@@ -123,7 +184,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
     const ids = Array.from(selectedIds)
     setBatchActionLoading(stage)
     try {
-      const job = await createJob(stage, ids)
+      const job = await createJob(stage, ids, { force: true })
       clearSelection()
       onJobStarted(job.job_id)
     } catch (err) {
@@ -196,30 +257,64 @@ export const ScriptList: React.FC<ScriptListProps> = ({
   const isPageAllSelected = scripts.length > 0 && scripts.every((s) => selectedIds.has(s.script_id))
 
   return (
-    <div className="card" style={{ position: 'relative' }}>
+    <section className="card" style={{ position: 'relative' }} aria-label="Script catalog">
       {/* Title & Actions */}
       <div className="card-title">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span>Scripts Catalog ({totalCount.toLocaleString()} Total)</span>
+          <span>Script catalog ({totalCount.toLocaleString()} total)</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button className="btn btn-outline btn-sm" onClick={handleRefresh} disabled={loading} title="Re-scan state files">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span>Sync</span>
+            <span>Refresh index</span>
           </button>
         </div>
       </div>
 
       {/* Dynamic Filter Toolbar */}
       <div className="toolbar">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search 1,200+ scripts by ID, topic, title, scenario..."
-          value={searchTerm}
-          onChange={(e) => handleSearchChange(e.target.value)}
-        />
+        <div style={{ position: 'relative', flex: 1, minWidth: '220px', display: 'flex' }}>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="search-input"
+            style={{ width: '100%', paddingRight: '52px' }}
+            placeholder="Search by ID (e.g. EE01), topic, title, or scenario..."
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            aria-label="Search scripts by ID, topic, or title"
+          />
+          {searchInput ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('')
+                setSearchTerm('')
+                setPage(1)
+                searchInputRef.current?.focus()
+              }}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          ) : (
+            <span className="search-kbd-hint">/</span>
+          )}
+        </div>
 
         {/* Dynamic Languages */}
         <select
@@ -229,8 +324,9 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             setSelectedLang(e.target.value)
             setPage(1)
           }}
+          aria-label="Filter by language"
         >
-          <option value="all">All Languages ({facets?.total ?? totalCount})</option>
+          <option value="all">All languages ({facets?.total ?? totalCount})</option>
           {(facets?.languages || []).map((l) => (
             <option key={l.name} value={l.name}>
               {l.name} ({l.count})
@@ -246,11 +342,12 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             setSelectedType(e.target.value)
             setPage(1)
           }}
+          aria-label="Filter by video format"
         >
-          <option value="all">All Formats</option>
+          <option value="all">All formats</option>
           {(facets?.types || []).map((t) => (
             <option key={t.name} value={t.name}>
-              {t.name.toUpperCase()} ({t.count})
+              {formatVideoTypeLabel(t.name)} ({t.count})
             </option>
           ))}
         </select>
@@ -263,16 +360,17 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             setStageFilter(e.target.value)
             setPage(1)
           }}
+          aria-label="Filter by pipeline stage status"
         >
-          <option value="all">All Statuses</option>
+          <option value="all">All statuses</option>
           <option value="missing_voice">
-            Needs Voice ({facets?.stage_counts?.missing_voice ?? 0})
+            Missing voice ({facets?.stage_counts?.missing_voice ?? 0})
           </option>
           <option value="missing_images">
-            Needs Images ({facets?.stage_counts?.missing_images ?? 0})
+            Missing images ({facets?.stage_counts?.missing_images ?? 0})
           </option>
           <option value="ready_for_assembly">
-            Ready for Assembly ({facets?.stage_counts?.ready_for_assembly ?? 0})
+            Ready for assembly ({facets?.stage_counts?.ready_for_assembly ?? 0})
           </option>
           <option value="complete">
             Complete ({facets?.stage_counts?.complete ?? 0})
@@ -282,7 +380,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
         {/* Select All on Page Button */}
         <button className="btn btn-outline btn-sm" onClick={toggleSelectPage}>
           {isPageAllSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-          <span>{isPageAllSelected ? 'Deselect Page' : 'Select Page'}</span>
+          <span>{isPageAllSelected ? 'Deselect page' : 'Select page'}</span>
         </button>
       </div>
 
@@ -294,7 +392,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
         </div>
       ) : scripts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-          No scripts matching current filters. Try adjusting search or filters.
+          No scripts matching current filters. Try adjusting your search or filters.
         </div>
       ) : (
         /* Dense Table View */
@@ -308,13 +406,14 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                     checked={isPageAllSelected}
                     onChange={toggleSelectPage}
                     style={{ cursor: 'pointer' }}
+                    aria-label="Select all scripts on this page"
                   />
                 </th>
                 <th>ID</th>
-                <th>Topic / Title</th>
-                <th>Language / Format</th>
+                <th>Topic / title</th>
+                <th>Language / format</th>
                 <th>Character</th>
-                <th>Pipeline (SCRIPT • IMG • VOICE • THUMB • ASSMBL)</th>
+                <th>Pipeline stages</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -334,10 +433,11 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                         checked={isSelected}
                         onChange={() => toggleSelect(s.script_id)}
                         style={{ cursor: 'pointer' }}
+                        aria-label={`Select script ${s.script_id}`}
                       />
                     </td>
                     <td>
-                      <strong style={{ color: 'var(--accent)' }}>{s.script_id}</strong>
+                      <strong className="icon-sand" style={{ fontFamily: 'var(--font-mono)' }}>{s.script_id}</strong>
                     </td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{s.title || s.topic}</div>
@@ -347,8 +447,8 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                     </td>
                     <td>
                       <span style={{ textTransform: 'capitalize' }}>{s.language}</span> /{' '}
-                      <span className="brand-badge" style={{ fontSize: '10px' }}>
-                        {s.type.toUpperCase()}
+                      <span className="brand-badge badge-sand" style={{ fontSize: '10.5px' }}>
+                        {formatVideoTypeLabel(s.type)}
                       </span>
                     </td>
                     <td>
@@ -356,11 +456,11 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                     </td>
                     <td>
                       <div className="stage-badges">
-                        {renderClickableBadge(s.script_id, 'scripts', 'SCRIPT', stages.scripts)}
-                        {renderClickableBadge(s.script_id, 'images', 'IMG', stages.images)}
-                        {renderClickableBadge(s.script_id, 'voice', 'VOICE', stages.voice)}
-                        {renderClickableBadge(s.script_id, 'thumbnails', 'THUMB', stages.thumbnails)}
-                        {renderClickableBadge(s.script_id, 'assembly', 'ASSMBL', stages.assembly)}
+                        {renderClickableBadge(s.script_id, 'scripts', 'Script', stages.scripts)}
+                        {renderClickableBadge(s.script_id, 'images', 'Images', stages.images)}
+                        {renderClickableBadge(s.script_id, 'voice', 'Voice', stages.voice)}
+                        {renderClickableBadge(s.script_id, 'thumbnails', 'Thumb', stages.thumbnails)}
+                        {renderClickableBadge(s.script_id, 'assembly', 'Video', stages.assembly)}
                       </div>
                     </td>
                     <td>
@@ -449,48 +549,58 @@ export const ScriptList: React.FC<ScriptListProps> = ({
       {selectedIds.size > 0 && (
         <div className="floating-batch-bar">
           <div className="batch-counter">
-            {selectedIds.size} Script{selectedIds.size > 1 ? 's' : ''} Selected
+            {selectedIds.size} script{selectedIds.size > 1 ? 's' : ''} selected
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
+              onClick={() => handleBatchRun('scripts')}
+              title="Generate or redo scripts for selected items"
+            >
+              <FileText size={13} />
+              <span>Script</span>
+            </button>
+
+            <button
+              className="btn btn-outline btn-sm"
+              disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('voice')}
-              title="Generate Voice for selected scripts"
+              title="Generate voiceovers for selected scripts"
             >
               <Mic size={13} />
-              <span>Voice (B)</span>
+              <span>Voice</span>
             </button>
 
             <button
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('images')}
-              title="Generate Scene Images for selected scripts"
+              title="Generate scene images for selected scripts"
             >
               <ImageIcon size={13} />
-              <span>Images (C)</span>
+              <span>Images</span>
             </button>
 
             <button
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('thumbnails')}
-              title="Generate Chalkboard Thumbnails for selected scripts"
+              title="Generate thumbnails for selected scripts"
             >
               <Sparkles size={13} />
-              <span>Thumbnails (F)</span>
+              <span>Thumbnails</span>
             </button>
 
             <button
               className="btn btn-primary btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('assembly')}
-              title="Assemble Final Short Videos for selected scripts"
+              title="Assemble final short videos for selected scripts"
             >
               <Film size={13} />
-              <span>Assemble (G)</span>
+              <span>Assemble video</span>
             </button>
           </div>
 
@@ -504,6 +614,6 @@ export const ScriptList: React.FC<ScriptListProps> = ({
           </button>
         </div>
       )}
-    </div>
+    </section>
   )
 }

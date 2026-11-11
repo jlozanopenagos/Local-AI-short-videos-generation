@@ -35,6 +35,8 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
    Assets are tracked in a centralized hybrid database. Pipeline generation scripts **never write `DONE`** status—that privilege belongs solely to the human creator. Completed expressions with `STATUS = DONE` are strictly frozen to prevent accidental overwrites.
 4. **Resilient Self-Healing Workflows**:
    All LLM script parsers feature multi-tier extraction strategies (direct JSON decode, `JSONDecoder.raw_decode` stream recovery, bracket boundary scans, and regex repair fallbacks) combined with automated retries on boundary constraint violations.
+5. **Repository Scope & Isolation**:
+   `shorts_automation` is a standalone, decoupled Git repository focused exclusively on the generative video creation pipeline. Sibling companion repositories (e.g. `GoogleSheet_UI_auditor`) operate on their own independent lifecycles, interfacing with this pipeline solely via Google Sheets Apps Script Web App endpoints and standardized CSV schemas.
 
 ---
 
@@ -386,7 +388,7 @@ In addition to the interactive CLI, the pipeline features a browser-based manage
   ```powershell
   py main/tools/webui.py
   ```
-  Opens `http://127.0.0.1:8000` automatically in your default browser.
+  Opens `http://127.0.0.1:8190` automatically in your default browser.
 
 - **The 4 Core Views**:
   1. **Dashboard**: Service health monitoring (LLM, ComfyUI, GPU VRAM), real-time generation metrics across languages and video formats.

@@ -73,27 +73,46 @@ class VoiceAdapter(BaseStageAdapter):
                 success_count += 1
                 continue
 
-            try:
-                emit_log(f"[{script_id}] Synthesizing multi-character audio track...")
-                script_force = force or (status.get("voice_generation") == "pending")
-                t0 = time.time()
-                ok = process_script(
-                    script_data=script_data,
-                    state_manager=sm,
-                    comfy_client=comfy_client,
-                    voice_manager=voice_manager,
-                    force=script_force,
-                    base_dir=BASE_DIR,
-                )
-                dur = time.time() - t0
-                if ok:
-                    emit_log(f"[{script_id}] ✓ Voice synthesis completed in {dur:.1f}s.")
-                    success_count += 1
-                else:
-                    emit_log(f"[{script_id}] ✗ FAILED voice synthesis after {dur:.1f}s.")
-                    failed_ids.append(script_id)
-            except Exception as exc:
-                emit_log(f"[{script_id}] EXCEPTION in voice synthesis: {exc}")
+            script_force = force or (status.get("voice_generation") == "pending")
+            max_attempts = int(options.get("max_attempts", 3))
+            voice_succeeded = False
+            last_err = ""
+
+            for attempt in range(1, max_attempts + 1):
+                if check_cancelled():
+                    emit_log(f"Job cancelled by user at script {script_id}.")
+                    break
+
+                try:
+                    emit_log(f"[{script_id}] Synthesizing multi-character audio track (attempt {attempt}/{max_attempts})...")
+                    t0 = time.time()
+                    ok = process_script(
+                        script_data=script_data,
+                        state_manager=sm,
+                        comfy_client=comfy_client,
+                        voice_manager=voice_manager,
+                        force=script_force,
+                        base_dir=BASE_DIR,
+                    )
+                    dur = time.time() - t0
+                    if ok:
+                        emit_log(f"[{script_id}] ✓ Voice synthesis completed in {dur:.1f}s.")
+                        success_count += 1
+                        voice_succeeded = True
+                        break
+                    else:
+                        last_err = f"Process returned false after {dur:.1f}s"
+                        emit_log(f"[{script_id}] Voice attempt {attempt}/{max_attempts} failed.")
+                        if attempt < max_attempts:
+                            time.sleep(2.0)
+                except Exception as exc:
+                    last_err = str(exc)
+                    emit_log(f"[{script_id}] Voice attempt {attempt}/{max_attempts} exception: {last_err}")
+                    if attempt < max_attempts:
+                        time.sleep(2.0)
+
+            if not voice_succeeded and not check_cancelled():
+                emit_log(f"[{script_id}] ERROR: Voice synthesis failed after {max_attempts} attempts: {last_err}")
                 failed_ids.append(script_id)
 
         emit_progress(total, total, None)

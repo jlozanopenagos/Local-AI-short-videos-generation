@@ -4,6 +4,9 @@ An enterprise-grade, deterministic automated pipeline engineered for high-throug
 
 The architecture combines local multi-modal generative AI backends (**ComfyUI Diffusion & TTS**, **faster-whisper**, **Transformers MusicGen**, and **FFmpeg** compositing) with an OpenAI-compatible LLM for organic, retention-optimized pedagogical scriptwriting.
 
+> [!NOTE]
+> **Repository Boundary**: `shorts_automation` is a standalone, independent Git repository dedicated exclusively to automated generative video production. While it shares the broader ecosystem objective with sibling projects (e.g. `GoogleSheet_UI_auditor`), it is completely isolated and decoupled, exchanging data only via Google Sheets Apps Script Web App endpoints and standardized CSV schemas.
+
 ---
 
 ## Repository Architecture
@@ -33,6 +36,7 @@ shorts_automation/
     ├── connectivity/                   # Google Sheets integration & data contract tests
     ├── integration/                    # DB, status tracker, schema contracts, security & mock service health tests
     ├── unit/                           # Pure unit tests for core pipeline modules
+    ├── webui/                          # WebUI API & Job Manager test layer
     ├── conftest.py                     # Shared pytest/unittest fixtures & sys.path setup
     ├── pytest.ini                      # Pytest discovery settings and custom test markers
     ├── README.md                       # Test suite documentation & CLI execution guide
@@ -65,7 +69,7 @@ Launch the unified browser-based management studio:
 ```powershell
 py main/tools/webui.py
 ```
-Automatically launches FastAPI, serves the React 19 SPA on `http://127.0.0.1:8000`, and opens your default browser with access to Dashboard, Job Queue, Google Sheets Sync, and Mass Assets Creation.
+Automatically launches FastAPI, serves the React 19 SPA on `http://127.0.0.1:8190`, and opens your default browser with access to Dashboard, Job Queue, Google Sheets Sync, and Mass Assets Creation.
 
 #### Option B: Terminal Orchestrator & CLI Stages
 ```powershell
@@ -82,7 +86,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 287+ automated tests across 5 layers (unit, integration, contracts, security, connectivity)
+# Run all 340 automated tests across 4 layers (unit, integration & contracts, connectivity, webui)
 py test/run_tests.py
 
 # Run specific layers
@@ -91,6 +95,7 @@ py test/run_tests.py --integration
 py test/run_tests.py --contract
 py test/run_tests.py --security
 py test/run_tests.py --connectivity
+py test/run_tests.py --webui
 ```
 
 ### 5. Expression Database & CLI Tools
@@ -158,6 +163,33 @@ py main/connectivity/scan_ready_scripts.py --all
 - **[main/input/csv/README.md](main/input/csv/README.md)**: Prompt queue schemas and `script_to_change` verbatim ingestion guide.
 - **[main/state/README.md](main/state/README.md)**: State directory architecture, GAME format rules, and downstream stage invalidation.
 - **[test/README.md](test/README.md)**: QA engineering principles, test suite structure, and CI test runner guide.
+
+---
+
+## Current Production State & Asset Inventory
+
+The pipeline manages a canonical master catalog of **1,224 language learning scripts** across four target languages and four video formats, coordinated through `main/core/state_manager.py` and persistent output storage at `D:\AI\output\video_assets`.
+
+### 1. Script State Catalog Breakdown
+- **Total Master Scripts**: **1,224**
+  - **English (372)**: 100 Expression (`EE`), 100 Game (`EG`), 100 Roleplay (`ER`), 72 Fun Facts (`EF`)
+  - **French (270)**: 90 Expression (`FE`), 90 Game (`FG`), 90 Roleplay (`FR`)
+  - **Spanish (279)**: 93 Expression (`SE`), 93 Game (`SG`), 93 Roleplay (`SR`)
+  - **Italian (303)**: 105 Expression (`IE`), 105 Game (`IG`), 105 Roleplay (`IR`)
+- **Stage A (Script Generation)**: **1,223 / 1,224 DONE** (99.9% complete)
+
+### 2. Physical Assets on Disk (`D:\AI\output\video_assets`)
+- **Master Voiceovers (`*_master.wav`)**: **190 completed audio files**
+- **Scene Image Sets (`images/` folders with ≥4 PNGs)**: **249 completed scene sets**
+- **YouTube Thumbnails (`thumbnail.png`)**: **803 completed thumbnails**
+- **Final Assembled Videos (`*_final.mp4`)**: **155 completed videos**
+- **Standing BGM Jam Bank (`D:\AI\output\bank_music`)**: **160 pre-rendered music tracks** (10 curated jams per category across all 16 language/type matrices)
+
+> [!NOTE]
+> **State Machine Invalidation Behavior**: Whenever Column D script edits are synced from Google Sheets or applied via `check_script_changes.py --apply`, downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) are intentionally invalidated back to `"pending"`. This architectural safety gate ensures modified spoken wording is deterministically re-rendered into audio, subtitles, and video, explaining why 155 `.mp4` videos exist on disk while the tracking database marks scripts as pending re-render.
+
+### 3. QA Testing Metrics
+- **Automated Tests**: **340 tests passing 100%** across Unit, Integration & Schema Contracts, Connectivity, and WebUI API layers (`py test/run_tests.py` in ~24s).
 
 ---
 

@@ -8,6 +8,7 @@ interface JobQueueViewProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
   onRefresh: () => void
+  onCancelJob?: (jobId: string) => void
 }
 
 export const JobQueueView: React.FC<JobQueueViewProps> = ({
@@ -15,6 +16,7 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
   selectedJobId,
   onSelectJob,
   onRefresh,
+  onCancelJob,
 }) => {
   const [cancelling, setCancelling] = React.useState<string | null>(null)
   const [liveLogs, setLiveLogs] = React.useState<string[]>([])
@@ -43,6 +45,12 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
             setLiveLogs((prev) => [...prev, data.log])
           } else if (data.type === 'job_snapshot' && data.job) {
             setLiveLogs(data.job.logs || [])
+          } else if (
+            data.type === 'job_cancelled' ||
+            data.type === 'job_completed' ||
+            data.type === 'job_failed'
+          ) {
+            onRefresh()
           }
         } catch {
           // ignore keep-alive
@@ -66,6 +74,14 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
 
   const handleCancel = async (jobId: string) => {
     setCancelling(jobId)
+    const timeStr = new Date().toLocaleTimeString()
+    setLiveLogs((prev) => [
+      ...prev,
+      `[${timeStr}] Cancellation requested by user. Terminating active tasks...`,
+    ])
+    if (onCancelJob) {
+      onCancelJob(jobId)
+    }
     try {
       await cancelJob(jobId)
       onRefresh()
@@ -81,43 +97,43 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
       case 'completed':
         return (
           <span className="stage-badge stage-done" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <CheckCircle size={12} /> COMPLETED
+            <CheckCircle size={12} /> Completed
           </span>
         )
       case 'running':
         return (
           <span className="stage-badge stage-pending" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <RefreshCw size={12} className="animate-spin" /> RUNNING
+            <RefreshCw size={12} className="animate-spin" /> Running
           </span>
         )
       case 'queued':
         return (
           <span className="stage-badge stage-missing" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Clock size={12} /> QUEUED
+            <Clock size={12} /> Queued
           </span>
         )
       case 'cancelled':
         return (
           <span className="stage-badge stage-missing" style={{ color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Ban size={12} /> CANCELLED
+            <Ban size={12} /> Cancelled
           </span>
         )
       case 'failed':
       default:
         return (
           <span className="stage-badge" style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <AlertTriangle size={12} /> FAILED
+            <AlertTriangle size={12} /> Failed
           </span>
         )
     }
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '20px' }}>
+    <section style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '20px' }} aria-label="Job queue and worker console">
       {/* Jobs List */}
       <div className="card">
         <div className="card-title">
-          <span>Job Queue ({jobs.length})</span>
+          <span>Job queue ({jobs.length})</span>
           <button className="btn btn-outline btn-sm" onClick={onRefresh}>
             <RefreshCw size={13} />
             <span>Refresh</span>
@@ -126,7 +142,7 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
 
         {jobs.length === 0 ? (
           <div style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '30px' }}>
-            No jobs queued yet. Select a script from the library and click "Run Pipeline".
+            No jobs queued yet. Select a script from the catalog to start a job.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -148,7 +164,7 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <strong style={{ fontSize: '14px', color: 'var(--text-main)' }}>
-                      #{job.job_id} — {job.stage.toUpperCase()}
+                      #{job.job_id} — {job.stage.charAt(0).toUpperCase() + job.stage.slice(1).toLowerCase()}
                     </strong>
                     {renderStatusBadge(job.status)}
                   </div>
@@ -202,9 +218,9 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
       <div className="card">
         <div className="card-title">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Terminal size={18} />
+            <Terminal size={18} className="icon-accent" />
             <span>
-              Live Worker Console {activeJob ? `(#${activeJob.job_id} - ${activeJob.stage.toUpperCase()})` : ''}
+              Live worker console {activeJob ? `(#${activeJob.job_id} · ${activeJob.stage.toLowerCase()})` : ''}
             </span>
           </div>
         </div>
@@ -226,7 +242,7 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </section>
   )
 }
 

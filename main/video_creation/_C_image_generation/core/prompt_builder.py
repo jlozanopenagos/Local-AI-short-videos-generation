@@ -367,11 +367,12 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * For 'cost an arm and a leg': A lavish high-end boutique with humorous exaggerated luxury displays.
    - We have creative license to play with words and visual metaphors across the scenes to make every image dynamic, eye-catching, and fun!
 
-6. ZERO-TOLERANCE TEXT, SCREEN & INTERJECTION BAN (CRITICAL):
+6. ZERO-TOLERANCE TEXT, LETTER, SCREEN & INTERJECTION BAN (CRITICAL):
    - NEVER include words like 'aha', 'eureka', 'wow', 'oops', or any words inside quotation marks.
-   - Text encoders (Qwen/Lumina) interpret quoted words and interjections as typography commands and literally paint the letters onto the image!
-   - Describe purely visual facial expressions: 'eyes widening in breakthrough understanding', 'a bright smile of sudden clarity'.
-   - NEVER depict chalkboards, blackboards, whiteboards with words, posters, screens displaying UI/text, tablets with text, monitors, timers, or letters (A, B, C, D).
+   - NEVER mention the target words, foreign phrases, minimal pair terms (e.g. NEVER write 'anno and ano', 'break a leg'), spelling, or alphabet letters (e.g. NEVER write 'the letter N', 'double N', 'holding letter A') in any scene prompt!
+   - Text encoders in diffusion models interpret quoted words, foreign phrases, and letter names as literal typography commands and will paint garbled pseudo-text onto the characters' clothing, faces, props, or background!
+   - Describe purely visual physical acting, natural prop interactions from the setting, and facial expressions: e.g. 'eyes widening in breakthrough understanding', 'a bright smile of sudden clarity', 'gesturing dynamically near an authentic prop'.
+   - NEVER depict chalkboards, blackboards, whiteboards with words, posters, screens displaying UI/text, tablets with text, monitors, timers, or letters (A, B, C, D). Image must be 100% text-free and letter-free!
 
 7. MANDATORY 2D CARTOON ART STYLE (STRICT NO REALISM):
    - Every scene MUST look like a frame from a stylized 2D cartoon narrative illustration, hand-drawn 2D animation art style, with vibrant flat colors, clean lineart, and storybook charm.
@@ -1243,6 +1244,18 @@ def sanitize_and_style_prompt(prompt: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
+
+    # 3d. Absolute text, letter, and typography scrubbing to prevent diffusion models from painting text/letters onto images
+    text = re.sub(r"\b(?:holding|waving|showing|with|displaying)\s+(?:a\s+)?(?:large,?\s+)?(?:stylized\s+)?(?:prop|sign|card|banner|object)?\s*representing\s+(?:the\s+)?letters?\s+[A-Za-z0-9_\-]+\b", "gesturing with an expressive physical prop", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:the\s+)?letters?\s+[A-Z]\b", "an expressive thematic prop", text)
+    text = re.sub(r"\bdouble\s+[A-Za-z]\b", "expressive vocal inflection", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:double\s+)?ene\b", "vocal resonance", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:difference|distinction|contrast)\s+between\s+[A-Za-zÀ-ÿ0-9_\-]+\s+and\s+[A-Za-zÀ-ÿ0-9_\-]+\b", "subtle vocal nuance", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:distinguishing|differentiating)\s+between\s+[A-Za-zÀ-ÿ0-9_\-]+\s+and\s+[A-Za-zÀ-ÿ0-9_\-]+\b", "subtle vocal demonstration", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bpronunciation\s+of\s+[^,\.]{1,50}", "subtle vocal delivery", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bsound\s+of\s+[A-Za-zÀ-ÿ0-9_\-]+", "vocal resonance", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:labeled|inscribed\s+with|reading|displaying\s+the\s+text)\s+[^,\.]{1,40}", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bwith\s+the\s+words?\s+[^,\.]{1,40}", "with expressive visual details", text, flags=re.IGNORECASE)
 
     # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades
     text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 15-year-old high-school student boy", text, flags=re.IGNORECASE)

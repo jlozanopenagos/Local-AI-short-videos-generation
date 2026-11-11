@@ -10,16 +10,19 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from fastapi.testclient import TestClient
-
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-MAIN_DIR = REPO_ROOT / "main"
+MAIN_DIR = Path(__file__).resolve().parent.parent.parent / "main"
 if str(MAIN_DIR) not in sys.path:
     sys.path.insert(0, str(MAIN_DIR))
 
+# pyrefly: ignore[missing-import]
+from fastapi.testclient import TestClient
+# pyrefly: ignore[missing-import]
 from webui.jobs.manager import JobManager, get_job_manager
+# pyrefly: ignore[missing-import]
 from webui.jobs.models import JobCreateRequest, JobResponse, JobStage, JobStatus
+# pyrefly: ignore[missing-import]
 from webui.jobs.adapters.base import BaseStageAdapter
+# pyrefly: ignore[missing-import]
 from webui.server import create_app
 
 
@@ -41,6 +44,11 @@ class TestWebUIJobs(unittest.TestCase):
         # Register a quick mock adapter for scripts stage to test pipeline execution
         self.mock_adapter = MockAdapter()
         self.jm.register_adapter(JobStage.SCRIPTS, self.mock_adapter)
+
+    def tearDown(self):
+        # pyrefly: ignore[missing-import]
+        from webui.jobs.adapters.scripts import ScriptsAdapter
+        self.jm.register_adapter(JobStage.SCRIPTS, ScriptsAdapter())
 
     def test_enqueue_job_rest(self):
         """Verify POST /api/jobs enqueues a job."""

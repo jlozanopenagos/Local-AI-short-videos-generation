@@ -18,6 +18,7 @@ class JobStage(str, Enum):
     MUSIC = "music"
     ASSEMBLY = "assembly"
     THUMBNAILS = "thumbnails"
+    CHALKBOARD = "chalkboard"
 
 
 class JobStatus(str, Enum):
@@ -46,6 +47,7 @@ class JobResponse(BaseModel):
     stage: JobStage
     status: JobStatus
     script_ids: List[str]
+    options: Dict[str, Any] = Field(default_factory=dict)
     progress: JobProgress
     logs: List[str] = Field(default_factory=list)
     created_at: float = Field(default_factory=time.time)

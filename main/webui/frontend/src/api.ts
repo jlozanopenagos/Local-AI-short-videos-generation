@@ -111,6 +111,40 @@ export async function geminiAuditPrompt(
   return res.json()
 }
 
+export async function generateScript(
+  scriptId: string,
+  options: { force?: boolean } = { force: true }
+): Promise<{ status: string; job_id: string; script_id: string }> {
+  const res = await fetch(`/api/scripts/${scriptId}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force: options.force ?? true }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to trigger script generation for ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function renderChalkboard(
+  scriptId: string,
+  chalkboardExercise?: string
+): Promise<{ status: string; message: string; image_file: string; script: ScriptDetail }> {
+  const res = await fetch(`/api/scripts/${scriptId}/render-chalkboard`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chalkboard_exercise: chalkboardExercise,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to render chalkboard for script ${scriptId}`)
+  }
+  return res.json()
+}
+
 export async function toggleScriptStage(
   scriptId: string,
   stage: string,

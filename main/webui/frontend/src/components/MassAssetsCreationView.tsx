@@ -13,6 +13,7 @@ import {
   Play,
   Filter,
   ExternalLink,
+  FileText
 } from 'lucide-react'
 import type { JobStage, SystemStatus, ValidatedScriptId, ScriptCatalogResponse } from '../types'
 import { createJob, validateScriptIds, fetchScriptCatalog } from '../api'
@@ -106,6 +107,14 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
     () => validatedItems.filter((item) => !item.exists),
     [validatedItems]
   )
+
+  const isGameId = useCallback((id: string) => {
+    const clean = id.trim().toUpperCase()
+    return clean.length >= 2 && clean.charAt(1) === 'G'
+  }, [])
+
+  const gameIds = useMemo(() => validIds.filter(isGameId), [validIds, isGameId])
+  const nonGameIds = useMemo(() => validIds.filter((id) => !isGameId(id)), [validIds, isGameId])
 
   // Remove an individual ID
   const handleRemoveId = (idToRemove: string) => {
@@ -213,8 +222,13 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
 
   // Launch Mass Asset Job
   const handleLaunch = async () => {
-    if (!validIds.length) {
-      setErrorMessage('Please provide at least one valid script ID.')
+    const targetIds = targetStage === 'chalkboard' ? gameIds : validIds
+    if (!targetIds.length) {
+      setErrorMessage(
+        targetStage === 'chalkboard'
+          ? 'Please provide at least one valid Game script ID (e.g. EG01, FG01, SG01, IG01) for chalkboard creation.'
+          : 'Please provide at least one valid script ID.'
+      )
       return
     }
 
@@ -222,7 +236,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
     setErrorMessage(null)
 
     try {
-      const job = await createJob(targetStage, validIds, {
+      const job = await createJob(targetStage, targetIds, {
         force: forceRegenerate,
       })
       onJobStarted(job.job_id)
@@ -236,18 +250,18 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   const isComfyRequired = targetStage === 'images' || targetStage === 'voice'
 
   return (
-    <div className="mass-creation-container">
+    <section className="mass-creation-container" aria-label="Mass asset creation">
       {/* View Header */}
       <div className="mass-creation-header">
         <div className="header-title-group">
           <div className="header-icon-wrap">
-            <Layers size={28} className="text-blue-400" />
+            <Layers size={28} className="icon-accent" />
           </div>
           <div>
-            <h1 className="header-title">Mass assets creation</h1>
+            <h1 className="header-title">Mass asset creation</h1>
             <p className="header-subtitle">
-              Batch create Voice tracks, Scene Illustrations, or Chalkboard Thumbnails for arbitrary IDs across any
-              language or video format with enforced re-generation.
+              Batch create voice tracks, scene illustrations, or chalkboard images for arbitrary IDs across any
+              language or video format with enforced regeneration.
             </p>
           </div>
         </div>
@@ -264,11 +278,28 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
       <div className="mass-step-card">
         <div className="step-badge-row">
           <span className="step-number">Step 1</span>
-          <span className="step-heading">Choose Asset Type to Create</span>
+          <span className="step-heading">Choose asset type to create</span>
         </div>
 
         <div className="asset-cards-grid">
-          {/* Option A: Images */}
+          {/* Option A: Script Generation */}
+          <div
+            className={`asset-option-card ${targetStage === 'scripts' ? 'selected' : ''}`}
+            onClick={() => setTargetStage('scripts')}
+          >
+            <div className="option-icon-box" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>
+              <FileText size={24} />
+            </div>
+            <div className="option-content">
+              <div className="option-title">Script dialogues</div>
+              <div className="option-desc">
+                Modular domain engines generating spoken script dialogues, timing, and chalkboard text.
+              </div>
+            </div>
+            <div className="option-stage-pill">Stage A</div>
+          </div>
+
+          {/* Option B: Images */}
           <div
             className={`asset-option-card ${targetStage === 'images' ? 'selected' : ''}`}
             onClick={() => setTargetStage('images')}
@@ -277,15 +308,15 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <ImageIcon size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Scene Images</div>
+              <div className="option-title">Scene images</div>
               <div className="option-desc">
-                2D cartoon narrative illustrations generated through ComfyUI for all scenes in each script.
+                Cartoon narrative illustrations generated through ComfyUI for all scenes in each script.
               </div>
             </div>
             <div className="option-stage-pill">Stage C</div>
           </div>
 
-          {/* Option B: Voice */}
+          {/* Option C: Voice */}
           <div
             className={`asset-option-card ${targetStage === 'voice' ? 'selected' : ''}`}
             onClick={() => setTargetStage('voice')}
@@ -294,7 +325,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Mic size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Voice Files (Audio)</div>
+              <div className="option-title">Voice files (audio)</div>
               <div className="option-desc">
                 Multi-character spoken dialogue and narration synthesized via Kokoro / ComfyUI.
               </div>
@@ -302,7 +333,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <div className="option-stage-pill">Stage B</div>
           </div>
 
-          {/* Option C: Thumbnails */}
+          {/* Option D: Thumbnails */}
           <div
             className={`asset-option-card ${targetStage === 'thumbnails' ? 'selected' : ''}`}
             onClick={() => setTargetStage('thumbnails')}
@@ -311,12 +342,29 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Sparkles size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Thumbnail Image</div>
+              <div className="option-title">Thumbnail image</div>
               <div className="option-desc">
-                High-contrast vertical chalkboard title card thumbnails (1080x1920) for YouTube Shorts.
+                High-contrast vertical title card thumbnails (1080x1920) for YouTube Shorts.
               </div>
             </div>
             <div className="option-stage-pill">Stage F</div>
+          </div>
+
+          {/* Option E: Chalkboard Images (Game) */}
+          <div
+            className={`asset-option-card ${targetStage === 'chalkboard' ? 'selected' : ''}`}
+            onClick={() => setTargetStage('chalkboard')}
+          >
+            <div className="option-icon-box" style={{ background: 'var(--sand-subtle)', color: 'var(--sand)', border: '1px solid var(--sand-border)' }}>
+              <Layers size={24} />
+            </div>
+            <div className="option-content">
+              <div className="option-title">Chalkboard images (Game)</div>
+              <div className="option-desc">
+                High-resolution native chalk typography on empty chalkboard for Game quiz scenes (instant, no ComfyUI/LLM).
+              </div>
+            </div>
+            <div className="option-stage-pill" style={{ background: 'var(--sand-subtle)', color: 'var(--sand)', border: '1px solid var(--sand-border)' }}>Game only</div>
           </div>
         </div>
       </div>
@@ -326,7 +374,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
         <div className="step-header-with-actions">
           <div className="step-badge-row">
             <span className="step-number">Step 2</span>
-            <span className="step-heading">Collect Script IDs</span>
+            <span className="step-heading">Collect script IDs</span>
           </div>
 
           <div className="mode-tabs">
@@ -334,7 +382,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               className={`mode-tab ${collectionMode === 'text' ? 'active' : ''}`}
               onClick={() => setCollectionMode('text')}
             >
-              Direct Paste / Input
+              Direct paste / input
             </button>
             <button
               className={`mode-tab ${collectionMode === 'csv' ? 'active' : ''}`}
@@ -346,7 +394,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               className={`mode-tab ${collectionMode === 'catalog' ? 'active' : ''}`}
               onClick={() => setCollectionMode('catalog')}
             >
-              Presets & Filters
+              Presets & filters
             </button>
           </div>
         </div>
@@ -366,9 +414,9 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 {parsedRawIds.length} unique ID(s) typed/pasted
               </span>
               {rawIdInput && (
-                <button className="btn btn-secondary btn-sm" onClick={handleClearAll}>
+                <button className="btn btn-outline btn-sm" onClick={handleClearAll}>
                   <Trash2 size={13} />
-                  <span>Clear Input</span>
+                  <span>Clear input</span>
                 </button>
               )}
             </div>
@@ -379,7 +427,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
         {collectionMode === 'csv' && (
           <div className="input-method-box csv-upload-box">
             <label className="csv-dropzone">
-              <Upload size={32} className="text-blue-400" />
+              <Upload size={32} className="icon-accent" />
               <div className="dropzone-text">
                 <strong>Click to select a CSV file</strong> or drag & drop here
               </div>
@@ -413,30 +461,84 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             </div>
             <div className="presets-buttons-row">
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-outline btn-sm"
                 onClick={() => handleLoadFromCatalog('images')}
                 disabled={isValidating}
               >
                 <ImageIcon size={14} />
-                <span>All Pending Scene Images</span>
+                <span>All pending scene images</span>
               </button>
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-outline btn-sm"
                 onClick={() => handleLoadFromCatalog('voice')}
                 disabled={isValidating}
               >
                 <Mic size={14} />
-                <span>All Pending Voice Tracks</span>
+                <span>All pending voice tracks</span>
               </button>
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-outline btn-sm"
                 onClick={() => handleLoadFromCatalog('thumbnails')}
                 disabled={isValidating}
               >
                 <Sparkles size={14} />
-                <span>All Pending Thumbnails</span>
+                <span>All pending thumbnails</span>
+              </button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={async () => {
+                  setIsValidating(true)
+                  setErrorMessage(null)
+                  try {
+                    const data: ScriptCatalogResponse = await fetchScriptCatalog({ pageSize: 100, stageFilter: 'all' })
+                    const gIds = data.items.filter((s) => isGameId(s.id)).map((s) => s.id)
+                    if (!gIds.length) {
+                      setErrorMessage('No Game scripts found in catalog.')
+                      return
+                    }
+                    setRawIdInput(gIds.join(', '))
+                    handleValidate(gIds)
+                  } catch (err) {
+                    setErrorMessage(`Failed to query catalog: ${err instanceof Error ? err.message : String(err)}`)
+                  } finally {
+                    setIsValidating(false)
+                  }
+                }}
+                disabled={isValidating}
+              >
+                <Layers size={14} />
+                <span>All Game scripts (G-series)</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Chalkboard Stage: Non-Game Scripts Warning Banner */}
+        {targetStage === 'chalkboard' && nonGameIds.length > 0 && (
+          <div
+            className="sheets-alert error"
+            style={{ margin: '14px 0 8px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} />
+              <span>
+                Chalkboard images only apply to Game videos (G-series). {nonGameIds.length} non-game ID(s) detected: <strong>{nonGameIds.slice(0, 5).join(', ')}{nonGameIds.length > 5 ? '...' : ''}</strong>.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.3)', color: 'var(--text-main)' }}
+              onClick={() => {
+                const updated = rawIdInput
+                  .split(/[\s,;\n\r\t]+/)
+                  .filter((id) => isGameId(id))
+                  .join(', ')
+                setRawIdInput(updated)
+              }}
+            >
+              Keep only Game IDs ({gameIds.length})
+            </button>
           </div>
         )}
 
@@ -447,24 +549,24 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <div className="chips-counts">
                 <span className="count-badge valid">
                   <CheckCircle2 size={14} />
-                  {validIds.length} Valid
+                  {validIds.length} valid
                 </span>
                 {invalidItems.length > 0 && (
                   <span className="count-badge invalid">
                     <AlertTriangle size={14} />
-                    {invalidItems.length} Not Found
+                    {invalidItems.length} not found
                   </span>
                 )}
               </div>
 
               <div className="chips-actions">
                 {invalidItems.length > 0 && (
-                  <button className="btn btn-secondary btn-sm text-amber-400" onClick={handleRemoveInvalid}>
-                    Remove {invalidItems.length} Invalid
+                  <button className="btn btn-outline btn-sm" style={{ color: 'var(--warning)', borderColor: 'var(--warning-border)' }} onClick={handleRemoveInvalid}>
+                    Remove {invalidItems.length} invalid
                   </button>
                 )}
-                <button className="btn btn-secondary btn-sm" onClick={handleClearAll}>
-                  Clear All
+                <button className="btn btn-outline btn-sm" onClick={handleClearAll}>
+                  Clear all
                 </button>
               </div>
             </div>
@@ -508,7 +610,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
       <div className="mass-step-card">
         <div className="step-badge-row">
           <span className="step-number">Step 3</span>
-          <span className="step-heading">Execution & Force Overwrite</span>
+          <span className="step-heading">Execution & force overwrite</span>
         </div>
 
         <div className="settings-content">
@@ -519,7 +621,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               onChange={(e) => setForceRegenerate(e.target.checked)}
             />
             <span className="checkbox-text">
-              <strong>Force re-generate even if marked as "done" in state JSON</strong>
+              <strong>Force regeneration even if marked as "done" in state JSON</strong>
               <span className="checkbox-hint">
                 Re-creates and overwrites existing asset files for all targeted IDs, resetting downstream status.
               </span>
@@ -540,23 +642,25 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           <div className="launch-action-row">
             <button
               className="btn btn-primary btn-lg"
-              disabled={validIds.length === 0 || isSubmitting}
+              disabled={(targetStage === 'chalkboard' ? gameIds.length === 0 : validIds.length === 0) || isSubmitting}
               onClick={handleLaunch}
             >
               <Play size={18} />
               <span>
                 {isSubmitting
-                  ? 'Dispatching Job...'
-                  : `Launch Mass Generation (${validIds.length} Scripts)`}
+                  ? 'Dispatching job...'
+                  : targetStage === 'chalkboard'
+                  ? `Launch chalkboard creation (${gameIds.length} Game scripts)`
+                  : `Launch mass generation (${validIds.length} scripts)`}
               </span>
             </button>
             <span className="launch-hint">
-              Target: <strong className="capitalize">{targetStage}</strong> • {validIds.length} script(s) queued
+              Target: <strong style={{ textTransform: 'capitalize' }}>{targetStage}</strong> • {targetStage === 'chalkboard' ? gameIds.length : validIds.length} script(s) queued
             </span>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   )
 }
 

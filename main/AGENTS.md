@@ -5,6 +5,9 @@ This project is an automated, enterprise-grade pipeline for generating viral, ed
 
 In addition to headless CLI batch scripts and interactive terminal tools, the project features a full **WebUI MVC application** built with a FastAPI backend and a modern React 19 + TypeScript + Vite frontend.
 
+> [!NOTE]
+> **Repository Scope & Isolation**: The `shorts_automation` directory is its own standalone Git repository with an independent git history, working tree, and testing infrastructure. It operates independently from companion projects (e.g. `GoogleSheet_UI_auditor`), exchanging data exclusively through the Google Apps Script Web App API and standard CSV interfaces. All agents must restrict edits strictly within `shorts_automation/`.
+
 ---
 
 ## The 4 Video Formats
@@ -214,11 +217,21 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 - **Video Type** (2nd char): `E` (Expression), `G` (Game), `R` (Roleplay), `F` (Fun Facts).
 - **Sequential Index** (3rd–4th digits): 2-digit zero-padded index per (language, type) pair (`01`, `02`, ..., `99`, `100`+).
 - **1,224 Synchronized Records across 16 CSVs**:
-  - **English** (372): 119 `EE` + 119 `EG` + 119 `ER` + 15 `EF`
-  - **French** (270): 85 `FE` + 85 `FG` + 85 `FR` + 15 `FF`
-  - **Spanish** (279): 88 `SE` + 88 `SG` + 88 `SR` + 15 `SF`
-  - **Italian** (303): 96 `IE` + 96 `IG` + 96 `IR` + 15 `IF`
+  - **English** (372): 100 `EE` + 100 `EG` + 100 `ER` + 72 `EF`
+  - **French** (270): 90 `FE` + 90 `FG` + 90 `FR`
+  - **Spanish** (279): 93 `SE` + 93 `SG` + 93 `SR`
+  - **Italian** (303): 105 `IE` + 105 `IG` + 105 `IR`
 - **Immutability**: Once generated into `state/<language>/<video_type>/script_<ID>.json`, downstream stages strictly inherit the state's ID. **IDs are never re-created or altered across pipeline stages**.
+
+### Current Production State & Asset Counts
+- **Stage A (Scripts)**: 1,223 / 1,224 JSON state files generated.
+- **Physical Assets on Disk (`D:\AI\output\video_assets`)**:
+  - `*_master.wav`: 190 audio files
+  - `images/` directories (≥4 images): 249 illustration sets
+  - `thumbnail.png`: 803 thumbnails
+  - `*_final.mp4`: 155 final assembled shorts
+  - `bank_music`: 160 pre-rendered BGM jam tracks (10 per category across all 16 matrices)
+- **Downstream Invalidation Note**: Downstream stages are intentionally set to `pending` whenever a script is edited or updated from Google Sheets Column D, ensuring that modified scripts are re-rendered into audio, subtitles, and video.
 
 ---
 
@@ -226,11 +239,11 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 
 | File / Folder | Role |
 | :--- | :--- |
-| `main/tools/webui.py` | Dedicated launcher for the WebUI MVC application (FastAPI + React 19 SPA). |
-| `main/webui/server.py` | FastAPI backend server with modular routers for scripts, media, jobs, system, and sheets. |
+| `main/tools/webui.py` | Dedicated launcher for the WebUI MVC application (FastAPI on port 8190 + React 19 SPA). |
+| `main/webui/server.py` | FastAPI backend server with modular routers for `scripts`, `media`, `jobs`, `system`, and `sheets`. |
 | `main/webui/frontend/` | React 19 + TypeScript + Vite frontend source code. |
 | `main/webui/static/` | Compiled static production bundle served directly by FastAPI. |
-| `main/webui/jobs/manager.py` | Background Job Manager with SSE logging and pipeline stage adapters (`voice`, `images`, `thumbnails`, `assembly`). |
+| `main/webui/jobs/manager.py` | Background Job Manager with SSE/WebSocket logging and pipeline stage adapters (`voice`, `images`, `thumbnails`, `assembly`). |
 | `main/main.py` | Main CLI orchestrator to run pipeline stages sequentially with health verification. |
 | `main/core/llama_manager.py` | Process supervisor for local llama.cpp server with VRAM freeing and status monitoring. |
 | `main/tools/llama.py` | CLI supervisor tool for manual control of llama-server (`start`, `stop`, `status`, `logs`). |
@@ -239,7 +252,7 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 | `main/video_creation/_A_video_scripts/script_modifier.py` | Script modifier supporting direct parsing, LLM structuring, and automatic `clean_game_challenge()` enforcement. |
 | `main/video_creation/_A_video_scripts/prompts/game_rules.py` | Authoritative GAME prompt rules enforcing clean option formatting, no stress giveaways, and separation of challenge and pressure. |
 | `main/connectivity/` | Google Sheets integration suite (Apps Script Web App client, fetcher, reconciler, poster, scanner). |
-| `test/run_tests.py` | Test runner for automated unit, integration, contract, and router tests (183+ tests passing). |
+| `test/run_tests.py` | Test runner for automated unit, integration, contract, and WebUI API tests (340 tests passing 100%). |
 
 ---
 

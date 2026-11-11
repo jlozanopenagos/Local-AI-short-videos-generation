@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import os
 import sys
@@ -5,6 +7,7 @@ import shutil
 import time
 import traceback
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 import logging
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -54,15 +57,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(
 logger = logging.getLogger(__name__)
 
 
-def process_script(
+def ensure_image_prompts_for_script(
     script_data: dict,
     state_manager: StateManager,
-    comfy_client: ImageComfyClient,
     prompt_builder: VisualPromptBuilder,
-    force: bool,
-    seed: int,
-    base_dir: Path
+    force: bool = False,
+    base_dir: Optional[Path] = None,
 ) -> bool:
+    """Pre-generates and persists general_prompt and storyboard image_prompts in state if missing or forced."""
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
@@ -73,12 +75,7 @@ def process_script(
         or metadata.get("VIDEO_TYPE", "EXPRESSION")
     ).upper()
 
-    print("=" * 60)
-    print(f"Processing Script ID: {script_id} for Images [{video_type}]")
-    print(f"Label: {label}")
-    print("=" * 60)
-
-    # Establish character genders: read from voice generation metadata or prompt user in terminal
+    # Establish character genders without interactive timer delay
     speakers_gender = script_data.get("content_metadata", {}).get("speakers_gender", {})
     if not isinstance(speakers_gender, dict):
         speakers_gender = {}
@@ -86,45 +83,13 @@ def process_script(
     if video_type == "ROLEPLAY":
         p1_g = speakers_gender.get("PERSON_ONE", "male")
         p2_g = speakers_gender.get("PERSON_TWO", "female")
+        speakers_gender["PERSON_ONE"] = p1_g
+        speakers_gender["PERSON_TWO"] = p2_g
+        if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+            script_data["content_metadata"] = {}
+        script_data["content_metadata"]["speakers_gender"] = speakers_gender
+        state_manager.save_script_state(script_id, script_data)
 
-        print("\n" + "-" * 55)
-        print("Roleplay Character Genders (matched to voices):")
-        print(f"  [1] PERSON_ONE: {p1_g.upper()}")
-        print(f"  [2] PERSON_TWO: {p2_g.upper()}")
-        print("-" * 55)
-        try:
-            prompt_msg = (
-                f"Press Enter to use these genders, or type new ones "
-                f"(e.g. 'male, female' or 'female, male'): "
-            )
-            user_input = timed_input(
-                prompt=prompt_msg,
-                timeout=10.0,
-                default="",
-                default_msg=f"Using confirmed voice genders: PERSON_ONE={p1_g.upper()}, PERSON_TWO={p2_g.upper()}"
-            ).strip()
-            if user_input:
-                parts = [p.strip().lower() for p in user_input.replace("/", ",").split(",")]
-                if len(parts) >= 2:
-                    p1_g = "female" if "f" in parts[0] else "male"
-                    p2_g = "female" if "f" in parts[1] else "male"
-                elif len(parts) == 1:
-                    p1_g = "female" if "f" in parts[0] else "male"
-                speakers_gender["PERSON_ONE"] = p1_g
-                speakers_gender["PERSON_TWO"] = p2_g
-                if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
-                    script_data["content_metadata"] = {}
-                script_data["content_metadata"]["speakers_gender"] = speakers_gender
-                state_manager.save_script_state(script_id, script_data)
-                print(f"-> Genders established: PERSON_ONE={p1_g.upper()}, PERSON_TWO={p2_g.upper()}\n")
-            else:
-                print(f"-> Using confirmed voice genders: PERSON_ONE={p1_g.upper()}, PERSON_TWO={p2_g.upper()}\n")
-        except (KeyboardInterrupt, EOFError):
-            print("\nUsing default voice genders.\n")
-
-    script_output_dir = get_script_output_dir(script_id, label, base_dir) / "images"
-    script_output_dir.mkdir(parents=True, exist_ok=True)
-    
     sections = parse_sections(script_text)
     if not sections:
         logger.warning("[%s] No sections found in script.", script_id)
@@ -145,16 +110,6 @@ def process_script(
         and (video_type != "ROLEPLAY" or k.strip().lower() in VALID_ROLEPLAY_SECTIONS)
         and v.strip()
     }
-
-    # Clean up any stale/orphaned images from obsolete schemas (e.g. core_learning, old dialogue parts)
-    for old_img in script_output_dir.glob(f"script_{script_id}_*.png"):
-        sec_name = old_img.stem[len(f"script_{script_id}_"):].lower()
-        if sec_name not in valid_active_sections:
-            try:
-                old_img.unlink()
-                logger.info("[%s] Cleaned up obsolete legacy image: %s", script_id, old_img.name)
-            except Exception:
-                pass
 
     content_meta = script_data.get("content_metadata", {})
     prompt_params = script_data.get("prompt_params", {})
@@ -223,9 +178,6 @@ def process_script(
         script_data["content_metadata"] = {}
     script_data["content_metadata"]["anchor_environment"] = general_prompt
 
-    print(f"\n[Locked Story World & General Prompt]:\n>> {general_prompt} <<\n")
-
-    # Generate complete non-repetitive visual storyboard across all active scenes
     existing_prompts = script_data.get("assets", {}).get("image_prompts", {})
     all_scenes_have_prompts = (
         isinstance(existing_prompts, dict)
@@ -236,40 +188,138 @@ def process_script(
     )
 
     if all_scenes_have_prompts and not force:
-        storyboard_prompts = existing_prompts
-        print("[State] Using existing visual storyboard prompts from state.")
-    else:
-        print("\n" + "=" * 60)
-        print(f"[Storyboard Director] Generating Non-Repetitive Storyboard for: {script_id}")
-        print("=" * 60)
-        sections_for_storyboard = {
-            k: v for k, v in sections.items()
-            if k.strip().lower() in valid_active_sections
-        }
+        return True
 
-        ensure_llama_running()
-        storyboard_prompts = prompt_builder.build_storyboard_prompts(
-            script_text=script_text,
-            label=label,
-            sections=sections_for_storyboard,
-            script_id=script_id,
-            speakers_gender=speakers_gender,
-            video_type=video_type,
-            character_personalities=character_personalities,
-            topic=topic,
-            scenario=scenario,
-            lexical_field=lexical_field,
-            anchor_environment=anchor_environment,
-            general_prompt=general_prompt,
-        )
-        if "assets" not in script_data or not isinstance(script_data["assets"], dict):
-            script_data["assets"] = {}
-        script_data["assets"]["image_prompts"] = storyboard_prompts
-        state_manager.save_script_state(script_id, script_data)
+    sections_for_storyboard = {
+        k: v for k, v in sections.items()
+        if k.strip().lower() in valid_active_sections
+    }
 
-    # Release LLM VRAM before batch generation in ComfyUI
-    print("\n[GPU Handoff] Stopping llama-server to release ~2.0 GB VRAM for ComfyUI...")
+    ensure_llama_running()
+    storyboard_prompts = prompt_builder.build_storyboard_prompts(
+        script_text=script_text,
+        label=label,
+        sections=sections_for_storyboard,
+        script_id=script_id,
+        speakers_gender=speakers_gender,
+        video_type=video_type,
+        character_personalities=character_personalities,
+        topic=topic,
+        scenario=scenario,
+        lexical_field=lexical_field,
+        anchor_environment=anchor_environment,
+        general_prompt=general_prompt,
+    )
+    if not storyboard_prompts:
+        raise ValueError(f"[{script_id}] LLM failed to produce storyboard visual prompts.")
+    if "assets" not in script_data or not isinstance(script_data["assets"], dict):
+        script_data["assets"] = {}
+    script_data["assets"]["image_prompts"] = storyboard_prompts
+    state_manager.save_script_state(script_id, script_data)
+    return True
+
+
+def process_script(
+    script_data: dict,
+    state_manager: StateManager,
+    comfy_client: ImageComfyClient,
+    prompt_builder: VisualPromptBuilder,
+    force: bool,
+    seed: int,
+    base_dir: Path,
+    check_cancelled: Any | None = None,
+) -> bool:
+    script_id = script_data["id"]
+    script_text = script_data.get("script_text", "")
+    metadata = script_data.get("metadata", {})
+    label = metadata.get("LABEL", "english")
+    video_type = (
+        script_data.get("content_metadata", {}).get("video_type")
+        or script_data.get("prompt_params", {}).get("VIDEO_TYPE")
+        or metadata.get("VIDEO_TYPE", "EXPRESSION")
+    ).upper()
+
+    print("=" * 60)
+    print(f"Processing Script ID: {script_id} for Images [{video_type}]")
+    print(f"Label: {label}")
+    print("=" * 60)
+
+    # 1. Ensure visual prompts exist
+    ensure_image_prompts_for_script(
+        script_data=script_data,
+        state_manager=state_manager,
+        prompt_builder=prompt_builder,
+        force=False,
+        base_dir=base_dir,
+    )
+
+    # 2. Release LLM VRAM before batch generation in ComfyUI
     ensure_llama_stopped()
+
+    # 3. Setup output directory and parse sections
+    script_output_dir = get_script_output_dir(script_id, label, base_dir) / "images"
+    script_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    sections = parse_sections(script_text)
+    if not sections:
+        logger.warning("[%s] No sections found in script.", script_id)
+        return False
+
+    VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
+    VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"}
+    METADATA_IGNORE_KEYS = {
+        "title", "difficulty", "emotion", "game_type", "related_content",
+        "category", "subcategory", "topic", "learning_objective",
+        "chalkboard_exercise", "target_expression", "roleplay_scenario"
+    }
+
+    valid_active_sections = {
+        k.strip().lower() for k, v in sections.items()
+        if k.strip().lower() not in METADATA_IGNORE_KEYS
+        and (video_type != "GAME" or k.strip().lower() in VALID_GAME_SECTIONS)
+        and (video_type != "ROLEPLAY" or k.strip().lower() in VALID_ROLEPLAY_SECTIONS)
+        and v.strip()
+    }
+
+    # Clean up any stale/orphaned images from obsolete schemas
+    for old_img in script_output_dir.glob(f"script_{script_id}_*.png"):
+        sec_name = old_img.stem[len(f"script_{script_id}_"):].lower()
+        if sec_name not in valid_active_sections:
+            try:
+                old_img.unlink()
+                logger.info("[%s] Cleaned up obsolete legacy image: %s", script_id, old_img.name)
+            except Exception:
+                pass
+
+    content_meta = script_data.get("content_metadata", {})
+    prompt_params = script_data.get("prompt_params", {})
+    storyboard_prompts = dict(script_data.get("assets", {}).get("image_prompts", {}))
+    general_prompt = script_data.get("assets", {}).get("general_prompt", "")
+    character_personalities = content_meta.get("character_personalities", None)
+    speakers_gender = content_meta.get("speakers_gender", {})
+    anchor_environment = content_meta.get("anchor_environment", "")
+
+    topic = (
+        prompt_params.get("EXPRESSION")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or prompt_params.get("TOPIC")
+        or content_meta.get("topic")
+        or content_meta.get("target_expression")
+        or ""
+    )
+    scenario = (
+        content_meta.get("roleplay_scenario")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or prompt_params.get("CONTEXT")
+        or content_meta.get("learning_objective")
+        or ""
+    )
+    lexical_field = (
+        prompt_params.get("LEXICAL_FIELD")
+        or content_meta.get("subcategory")
+        or content_meta.get("category")
+        or ""
+    )
 
     success = True
     comfy_tasks = []
@@ -394,7 +444,11 @@ def process_script(
                 tasks=comfy_tasks,
                 stall_timeout=IMAGE_STALL_TIMEOUT,
                 progress_callback=_on_batch_progress,
+                check_cancelled=check_cancelled,
             )
+        except InterruptedError:
+            print(f"[{script_id}] ComfyUI batch rendering cancelled.")
+            return False
         except Exception as exc:
             logger.error("[%s] Unexpected batch generation error: %s", script_id, exc)
             success = False

@@ -10,15 +10,20 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
+  Layers,
   RefreshCw,
   Code,
-  Edit3
+  Edit3,
+  FileText
 } from 'lucide-react'
 import type { ScriptDetail, JobStage } from '../types'
 import {
   fetchScriptDetail,
   getMediaUrl,
   createJob,
+  generateScript,
+  renderChalkboard,
   updateScript,
   geminiAuditPrompt,
   fetchGeminiStatus,
@@ -60,7 +65,31 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [jsonMode, setJsonMode] = useState(false)
   const [rawJsonText, setRawJsonText] = useState('')
   const [savingScript, setSavingScript] = useState(false)
+  const [generatingScript, setGeneratingScript] = useState(false)
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Image enlargement Lightbox state
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string; subtitle?: string } | null>(null)
+
+  // Chalkboard re-rendering state
+  const [renderingChalkboard, setRenderingChalkboard] = useState(false)
+  const [chalkboardRenderStatus, setChalkboardRenderStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [imgCacheBuster, setImgCacheBuster] = useState<number>(Date.now())
+
+  // Escape key listener for image lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && enlargedImage) {
+        setEnlargedImage(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [enlargedImage])
+
+  const isGameScript =
+    detail?.video_type?.toUpperCase() === 'GAME' ||
+    (detail?.id ? detail.id.length >= 2 && detail.id.charAt(1).toUpperCase() === 'G' : false)
 
   const populateEditorState = (data: ScriptDetail) => {
     // 1. General & Scene prompts
@@ -116,13 +145,56 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const handleRunStage = async (stage: JobStage) => {
     setTriggeringStage(stage)
     try {
-      const job = await createJob(stage, [scriptId])
+      const job = await createJob(stage, [scriptId], { force: true })
       onJobStarted(job.job_id)
       onClose()
     } catch (err) {
       alert(`Could not start ${stage}: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setTriggeringStage(null)
+    }
+  }
+
+  const handleRegenerateScriptInPlace = async () => {
+    setGeneratingScript(true)
+    setSaveStatus(null)
+    try {
+      const resp = await generateScript(scriptId, { force: true })
+      setSaveStatus({
+        type: 'success',
+        message: `🤖 LLM script generation started (#${resp.job_id}). Updating state...`,
+      })
+
+      // Poll until completed and refresh state
+      let attempts = 0
+      const pollTimer = setInterval(async () => {
+        attempts++
+        try {
+          const updated = await fetchScriptDetail(scriptId)
+          if (updated.stages.scripts === 'done' || attempts >= 25) {
+            clearInterval(pollTimer)
+            setDetail(updated)
+            populateEditorState(updated)
+            setGeneratingScript(false)
+            setSaveStatus({
+              type: 'success',
+              message: '✓ Script regenerated successfully! Entire JSON state reloaded.',
+            })
+            setTimeout(() => setSaveStatus(null), 6000)
+          }
+        } catch {
+          if (attempts >= 25) {
+            clearInterval(pollTimer)
+            setGeneratingScript(false)
+          }
+        }
+      }, 1500)
+    } catch (err) {
+      setSaveStatus({
+        type: 'error',
+        message: `Script generation failed: ${err instanceof Error ? err.message : String(err)}`,
+      })
+      setGeneratingScript(false)
     }
   }
 
@@ -302,6 +374,38 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     }
   }
 
+  const handleRerenderChalkboard = async () => {
+    if (!detail) return
+    setRenderingChalkboard(true)
+    setChalkboardRenderStatus(null)
+    try {
+      const res = await renderChalkboard(detail.id, chalkboardExercise)
+      if (res.script) {
+        setDetail(res.script)
+        populateEditorState(res.script)
+      } else {
+        const reloaded = await fetchScriptDetail(detail.id)
+        setDetail(reloaded)
+        populateEditorState(reloaded)
+      }
+      setImgCacheBuster(Date.now())
+      setChalkboardRenderStatus({
+        type: 'success',
+        message: '✓ Chalkboard challenge image rendered and updated!',
+      })
+      setTimeout(() => {
+        setChalkboardRenderStatus(null)
+      }, 5000)
+    } catch (err) {
+      setChalkboardRenderStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setRenderingChalkboard(false)
+    }
+  }
+
   const handleResetEditor = () => {
     if (detail) {
       populateEditorState(detail)
@@ -326,9 +430,9 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
             {/* Header info */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700 }}>
-                <span style={{ color: 'var(--accent)' }}>[{detail.script_id}]</span> {detail.title || detail.topic}
+                <span className="icon-sand" style={{ fontFamily: 'var(--font-mono)' }}>[{detail.script_id}]</span> {detail.title || detail.topic}
               </h2>
-              <span className="brand-badge" style={{ textTransform: 'uppercase' }}>
+              <span className="brand-badge badge-sand">
                 {detail.language} / {detail.type}
               </span>
             </div>
@@ -348,39 +452,52 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
               }}
             >
               <span style={{ fontSize: '13px', fontWeight: 600, marginRight: '4px' }}>
-                Run Pipeline:
+                Run pipeline:
               </span>
               <button
+                className={`btn btn-sm ${detail.stages.scripts === 'done' ? 'btn-outline' : 'btn-primary'}`}
+                disabled={triggeringStage !== null || generatingScript}
+                onClick={() => handleRunStage('scripts')}
+                title="Generate or redo script dialogues (Stage A)"
+              >
+                <FileText size={13} />
+                <span>Script {detail.stages.scripts === 'done' ? '✓' : ''}</span>
+              </button>
+              <button
                 className={`btn btn-sm ${detail.stages.voice === 'done' ? 'btn-outline' : 'btn-primary'}`}
-                disabled={triggeringStage !== null}
+                disabled={triggeringStage !== null || generatingScript}
                 onClick={() => handleRunStage('voice')}
+                title="Generate voiceover narration (Stage B)"
               >
                 <Mic size={13} />
-                <span>Voice (B) {detail.stages.voice === 'done' ? '✓' : ''}</span>
+                <span>Voice {detail.stages.voice === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.images === 'done' ? 'btn-outline' : 'btn-primary'}`}
                 disabled={triggeringStage !== null}
                 onClick={() => handleRunStage('images')}
+                title="Generate scene images (Stage C)"
               >
                 <ImageIcon size={13} />
-                <span>Images (C) {detail.stages.images === 'done' ? '✓' : ''}</span>
+                <span>Images {detail.stages.images === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.thumbnails === 'done' ? 'btn-outline' : 'btn-primary'}`}
                 disabled={triggeringStage !== null}
                 onClick={() => handleRunStage('thumbnails')}
+                title="Generate thumbnail card (Stage F)"
               >
                 <Sparkles size={13} />
-                <span>Thumbnail (F) {detail.stages.thumbnails === 'done' ? '✓' : ''}</span>
+                <span>Thumbnail {detail.stages.thumbnails === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.assembly === 'done' ? 'btn-outline' : 'btn-success'}`}
                 disabled={triggeringStage !== null}
                 onClick={() => handleRunStage('assembly')}
+                title="Assemble final short video (Stage G)"
               >
                 <Film size={13} />
-                <span>Assemble (G) {detail.stages.assembly === 'done' ? '✓' : ''}</span>
+                <span>Assemble video {detail.stages.assembly === 'done' ? '✓' : ''}</span>
               </button>
             </div>
 
@@ -390,25 +507,25 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 className={`nav-btn ${activeTab === 'storyboard' ? 'active' : ''}`}
                 onClick={() => setActiveTab('storyboard')}
               >
-                Storyboard Scenes ({(detail.scenes || []).length})
+                Storyboard scenes ({(detail.scenes || []).length})
               </button>
               <button
                 className={`nav-btn ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => setActiveTab('overview')}
               >
-                Script & Chalkboard
+                Script & chalkboard
               </button>
               <button
                 className={`nav-btn ${activeTab === 'youtube' ? 'active' : ''}`}
                 onClick={() => setActiveTab('youtube')}
               >
-                YouTube Metadata
+                YouTube metadata
               </button>
               <button
                 className={`nav-btn ${activeTab === 'media' ? 'active' : ''}`}
                 onClick={() => setActiveTab('media')}
               >
-                Media Players
+                Media players
               </button>
             </div>
 
@@ -430,22 +547,21 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Sparkles size={16} color="var(--accent)" />
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        General Scene Anchor Prompt
+                      <Sparkles size={16} className="icon-accent" />
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
+                        General scene anchor prompt
                       </span>
                     </div>
                     <span
                       className="brand-badge"
                       style={{
-                        background: detail.stages.images === 'done' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                        color: detail.stages.images === 'done' ? 'var(--success)' : '#f59e0b',
-                        border: `1px solid ${detail.stages.images === 'done' ? 'var(--success)' : '#f59e0b'}`,
+                        background: detail.stages.images === 'done' ? 'var(--success-bg)' : 'var(--warning-bg)',
+                        color: detail.stages.images === 'done' ? 'var(--success)' : 'var(--warning)',
+                        border: `1px solid ${detail.stages.images === 'done' ? 'var(--success-border)' : 'var(--warning-border)'}`,
                         fontSize: '11px',
-                        textTransform: 'uppercase',
                       }}
                     >
-                      {detail.stages.images === 'done' ? 'Images Ready (Done)' : 'Image Generation Pending'}
+                      {detail.stages.images === 'done' ? 'Images ready' : 'Image generation pending'}
                     </span>
                   </div>
 
@@ -454,15 +570,15 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       fontSize: '12px',
                       color: 'var(--text-muted)',
                       lineHeight: '1.4',
-                      background: 'rgba(56, 189, 248, 0.08)',
-                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                      background: 'var(--accent-subtle)',
+                      border: '1px solid var(--accent-border)',
                       padding: '8px 12px',
                       borderRadius: '6px',
                     }}
                   >
-                    💡 <strong>Visual Story World Rule:</strong> If you edit and save a new version of the general prompt, 
+                    💡 <strong>Visual story world rule:</strong> If you edit and save a new version of the general prompt, 
                     the script's <code>image_generation</code> status automatically switches to <strong>pending</strong>. 
-                    When you click <strong>Images (C)</strong>, the LLM will automatically re-generate all specific scene prompts aligned with the new story world before creating images.
+                    When you run <strong>Images</strong>, the LLM will automatically regenerate all specific scene prompts aligned with the new story world before creating images.
                   </div>
 
                   {generalPromptStatus && (
@@ -473,9 +589,9 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                         gap: '8px',
                         padding: '10px 14px',
                         borderRadius: '6px',
-                        background: generalPromptStatus.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        border: `1px solid ${generalPromptStatus.type === 'success' ? 'var(--success)' : 'var(--danger, #ef4444)'}`,
-                        color: generalPromptStatus.type === 'success' ? 'var(--success)' : '#f87171',
+                        background: generalPromptStatus.type === 'success' ? 'var(--success-bg)' : 'var(--danger-bg)',
+                        border: `1px solid ${generalPromptStatus.type === 'success' ? 'var(--success-border)' : 'var(--danger-border)'}`,
+                        color: generalPromptStatus.type === 'success' ? 'var(--success)' : 'var(--danger)',
                         fontSize: '13px',
                         fontWeight: 500,
                       }}
@@ -568,20 +684,51 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   )}
                 </div>
 
+                {/* Chalkboard Feedback Alert */}
+                {chalkboardRenderStatus && (
+                  <div
+                    className={`sheets-alert ${chalkboardRenderStatus.type}`}
+                    style={{ marginBottom: '12px', fontSize: '13px' }}
+                  >
+                    {chalkboardRenderStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                    <span>{chalkboardRenderStatus.message}</span>
+                  </div>
+                )}
+
                 {/* Scene Cards */}
                 {(detail.scenes || []).map((sc, idx) => {
-                  const imgUrl = sc.image_file ? getMediaUrl(sc.image_file) : null
+                  const rawImg = sc.image_file ? getMediaUrl(sc.image_file) : null
+                  const imgUrl = rawImg ? `${rawImg}${rawImg.includes('?') ? '&' : '?'}t=${imgCacheBuster}` : null
                   const currentPrompt = editScenePrompts[sc.scene_type] ?? sc.prompt ?? ''
                   const isSavingThisScene = savingSceneType === sc.scene_type
                   const promptModified = currentPrompt !== (sc.prompt || '')
+                  const isChallengeScene = sc.scene_type.toLowerCase() === 'challenge'
 
                   return (
                     <div key={idx} className="storyboard-card">
                       <div className="storyboard-thumb">
-                        {imgUrl && detail.stages.images === 'done' ? (
-                          <a href={imgUrl} target="_blank" rel="noreferrer" title="Click to view full image">
+                        {imgUrl ? (
+                          <div
+                            className="storyboard-thumb-clickable"
+                            onClick={() =>
+                              setEnlargedImage({
+                                url: imgUrl,
+                                title: `${detail.id} - ${sc.label || sc.scene_type} (Scene ${idx + 1})`,
+                                subtitle: sc.voice_line ? `"${sc.voice_line}"` : undefined,
+                              })
+                            }
+                            title="Click to inspect enlarged image"
+                            style={{
+                              cursor: 'zoom-in',
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
                             <img src={imgUrl} alt={sc.scene_type} loading="lazy" />
-                          </a>
+                          </div>
                         ) : (
                           <div style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', padding: '8px' }}>
                             <ImageIcon size={22} style={{ margin: '0 auto 4px auto' }} />
@@ -600,12 +747,50 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                           "{sc.voice_line}"
                         </div>
 
+                        {/* Dedicated Chalkboard Re-render Action for GAME Challenge scene */}
+                        {isGameScript && isChallengeScene && (
+                          <div
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.08)',
+                              border: '1px solid rgba(168, 85, 247, 0.25)',
+                              borderRadius: '6px',
+                              padding: '10px 12px',
+                              marginTop: '8px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '12px',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 600, color: '#c084fc' }}>
+                                High-Resolution Game Chalkboard
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                Native typography rendered on empty chalkboard (zero ComfyUI/LLM needed).
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              onClick={handleRerenderChalkboard}
+                              disabled={renderingChalkboard}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              title="Re-render high-resolution chalkboard image directly from current chalkboard text"
+                            >
+                              <Layers size={13} />
+                              <span>{renderingChalkboard ? 'Rendering Chalkboard...' : 'Redo Chalkboard Image'}</span>
+                            </button>
+                          </div>
+                        )}
+
                         <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px', marginTop: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                             <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                              ComfyUI Scene Prompt:
+                              {isGameScript && isChallengeScene ? 'Chalkboard Scene Note:' : 'ComfyUI Scene Prompt:'}
                             </span>
-                            {promptModified && (
+                            {!isChallengeScene && promptModified && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-primary"
@@ -618,27 +803,33 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                               </button>
                             )}
                           </div>
-                          <textarea
-                            rows={3}
-                            className="search-input"
-                            style={{
-                              width: '100%',
-                              fontSize: '12px',
-                              fontStyle: 'italic',
-                              lineHeight: '1.4',
-                              resize: 'vertical',
-                            }}
-                            value={currentPrompt}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              setEditScenePrompts((prev) => ({ ...prev, [sc.scene_type]: val }))
-                            }}
-                            placeholder={
-                              detail.stages.images === 'pending'
-                                ? "Pending: The LLM will automatically generate this prompt when you run Images (C)..."
-                                : "Enter scene-specific illustration prompt..."
-                            }
-                          />
+                          {isGameScript && isChallengeScene ? (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                              Scene 2 Challenge is rendered directly as high-resolution chalkboard typography from the <strong>Script & Chalkboard</strong> tab exercise text. ComfyUI prompt does not apply to this scene.
+                            </div>
+                          ) : (
+                            <textarea
+                              rows={3}
+                              className="search-input"
+                              style={{
+                                width: '100%',
+                                fontSize: '12px',
+                                fontStyle: 'italic',
+                                lineHeight: '1.4',
+                                resize: 'vertical',
+                              }}
+                              value={currentPrompt}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                setEditScenePrompts((prev) => ({ ...prev, [sc.scene_type]: val }))
+                              }}
+                              placeholder={
+                                detail.stages.images === 'pending'
+                                  ? "Pending: The LLM will automatically generate this prompt when you run Images (C)..."
+                                  : "Enter scene-specific illustration prompt..."
+                              }
+                            />
+                          )}
                         </div>
                       </div>
                     </div>
@@ -680,8 +871,19 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                     <button
                       type="button"
                       className="btn btn-sm btn-outline"
+                      onClick={handleRegenerateScriptInPlace}
+                      disabled={generatingScript || savingScript}
+                      title="Re-generate script dialogues with dedicated LLM domain engine"
+                      style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                    >
+                      <Sparkles size={13} className={generatingScript ? 'animate-spin' : ''} />
+                      <span>{generatingScript ? 'Generating with LLM...' : 'Re-do Script with LLM'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
                       onClick={handleResetEditor}
-                      disabled={savingScript}
+                      disabled={savingScript || generatingScript}
                       title="Discard unsaved changes and reload from state"
                     >
                       <RefreshCw size={13} />
@@ -691,7 +893,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       type="button"
                       className="btn btn-sm btn-primary"
                       onClick={handleSaveScriptAndChalkboard}
-                      disabled={savingScript}
+                      disabled={savingScript || generatingScript}
                     >
                       <Save size={13} />
                       <span>{savingScript ? 'Saving to JSON...' : 'Save Changes to State'}</span>
@@ -699,61 +901,63 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   </div>
                 </div>
 
-                {/* Section 1: Chalkboard Content */}
-                <div
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Chalkboard Content (Image Definition)
+                {/* Section 1: Chalkboard Content (Only for Game 'G' scripts) */}
+                {(detail.script_id.toUpperCase().startsWith('G') || detail.type?.toLowerCase() === 'game') && (
+                  <div
+                    style={{
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
+                        Chalkboard content (image definition)
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Used for thumbnail & Scene 2 chalkboard
+                      </span>
                     </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      Used for thumbnail & Scene 2 chalkboard
-                    </span>
-                  </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      Chalkboard Title / Target Expression
-                    </label>
-                    <input
-                      type="text"
-                      className="search-input"
-                      style={{ width: '100%', fontSize: '14px' }}
-                      value={chalkboardTitle}
-                      onChange={(e) => setChalkboardTitle(e.target.value)}
-                      placeholder="e.g. Tomar el pelo / avoir de la chance"
-                    />
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                      Appears on the video thumbnail and props inside classroom scenes.
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Chalkboard title / target expression
+                      </label>
+                      <input
+                        type="text"
+                        className="search-input"
+                        style={{ width: '100%', fontSize: '14px' }}
+                        value={chalkboardTitle}
+                        onChange={(e) => setChalkboardTitle(e.target.value)}
+                        placeholder="e.g. Tomar el pelo / avoir de la chance"
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        Appears on the video thumbnail and props inside classroom scenes.
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      Chalkboard Quiz Exercise / Prompt (Scene 2 Image)
-                    </label>
-                    <textarea
-                      rows={4}
-                      className="search-input"
-                      style={{ width: '100%', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5', resize: 'vertical' }}
-                      value={chalkboardExercise}
-                      onChange={(e) => setChalkboardExercise(e.target.value)}
-                      placeholder="e.g. ¿Qué significa exactamente la frase me estás tomando el pelo?&#10;A: Te estás burlando de mí.&#10;B: Me estás peinando.&#10;C: Me estás diciendo la verdad."
-                    />
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                      Defines the text drawn on the image chalkboard for quiz/game scenes.
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Chalkboard quiz exercise / prompt (Scene 2 image)
+                      </label>
+                      <textarea
+                        rows={4}
+                        className="search-input"
+                        style={{ width: '100%', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5', resize: 'vertical' }}
+                        value={chalkboardExercise}
+                        onChange={(e) => setChalkboardExercise(e.target.value)}
+                        placeholder="e.g. ¿Qué significa exactamente la frase me estás tomando el pelo?&#10;A: Te estás burlando de mí.&#10;B: Me estás peinando.&#10;C: Me estás diciendo la verdad."
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        Defines the text drawn on the image chalkboard for quiz/game scenes.
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Section 2: Script Content */}
                 <div
@@ -842,8 +1046,24 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   )}
                 </div>
 
-                {/* Bottom Save Button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                {/* Bottom Save Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {isGameScript && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={async () => {
+                        await handleSaveScriptAndChalkboard()
+                        await handleRerenderChalkboard()
+                      }}
+                      disabled={savingScript || renderingChalkboard}
+                      style={{ padding: '8px 18px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      title="Save script & chalkboard changes to JSON and immediately re-render the chalkboard image"
+                    >
+                      <Sparkles size={15} />
+                      <span>{renderingChalkboard ? 'Rendering Chalkboard...' : 'Save & Render Chalkboard'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -972,14 +1192,118 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   <div>
                     <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Chalkboard Thumbnail</h4>
                     <img
-                      src={getMediaUrl(detail.assets.thumbnail)}
+                      src={`${getMediaUrl(detail.assets.thumbnail)}${getMediaUrl(detail.assets.thumbnail).includes('?') ? '&' : '?'}t=${imgCacheBuster}`}
                       alt="Thumbnail"
-                      style={{ maxWidth: '240px', borderRadius: '8px', border: '1px solid var(--border)' }}
+                      onClick={() =>
+                        setEnlargedImage({
+                          url: `${getMediaUrl(detail.assets.thumbnail!)}${getMediaUrl(detail.assets.thumbnail!).includes('?') ? '&' : '?'}t=${imgCacheBuster}`,
+                          title: `${detail.id} - Chalkboard Thumbnail`,
+                          subtitle: detail.title,
+                        })
+                      }
+                      title="Click to view enlarged thumbnail"
+                      style={{ maxWidth: '240px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
                     />
                   </div>
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* High-Resolution Image Lightbox Overlay */}
+        {enlargedImage && (
+          <div
+            className="image-lightbox-overlay"
+            onClick={() => setEnlargedImage(null)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.90)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              zIndex: 99999,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                position: 'relative',
+                maxWidth: '92vw',
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Lightbox Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  width: '100%',
+                  marginBottom: '12px',
+                  color: '#fff',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>
+                    {enlargedImage.title}
+                  </div>
+                  {enlargedImage.subtitle && (
+                    <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '2px', maxWidth: '700px' }}>
+                      {enlargedImage.subtitle}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setEnlargedImage(null)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '34px',
+                      height: '34px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '18px',
+                    }}
+                    title="Close preview (Esc)"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Lightbox Image Preview */}
+              <img
+                src={enlargedImage.url}
+                alt={enlargedImage.title}
+                style={{
+                  maxHeight: '82vh',
+                  maxWidth: '88vw',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                }}
+              />
+            </div>
           </div>
         )}
 

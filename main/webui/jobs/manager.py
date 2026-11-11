@@ -29,10 +29,12 @@ from webui.jobs.models import (
     JobStatus,
 )
 from webui.jobs.adapters.base import BaseStageAdapter
+from webui.jobs.adapters.scripts import ScriptsAdapter
 from webui.jobs.adapters.thumbnails import ThumbnailsAdapter
 from webui.jobs.adapters.voice import VoiceAdapter
 from webui.jobs.adapters.images import ImagesAdapter
 from webui.jobs.adapters.assembly import AssemblyAdapter
+from webui.jobs.adapters.chalkboard import ChalkboardAdapter
 
 logger = logging.getLogger("webui.jobs")
 
@@ -114,10 +116,12 @@ class JobManager:
 
         # Registered stage adapters
         self._adapters: Dict[JobStage, BaseStageAdapter] = {
+            JobStage.SCRIPTS: ScriptsAdapter(),
             JobStage.VOICE: VoiceAdapter(),
             JobStage.IMAGES: ImagesAdapter(),
             JobStage.THUMBNAILS: ThumbnailsAdapter(),
             JobStage.ASSEMBLY: AssemblyAdapter(),
+            JobStage.CHALKBOARD: ChalkboardAdapter(),
         }
 
         # Start background worker daemon
@@ -143,6 +147,7 @@ class JobManager:
             stage=request.stage,
             status=JobStatus.QUEUED,
             script_ids=request.script_ids,
+            options=request.options,
             progress=initial_progress,
             logs=[f"[{time.strftime('%H:%M:%S')}] Job enqueued for {len(request.script_ids)} script(s)."],
             created_at=time.time(),
@@ -168,6 +173,7 @@ class JobManager:
 
     def cancel_job(self, job_id: str) -> bool:
         """Marks a queued or running job as cancelled."""
+        adapter_to_cancel = None
         with self._lock:
             job = self._jobs.get(job_id)
             if not job:
@@ -176,12 +182,23 @@ class JobManager:
                 return False
 
             self._cancelled_jobs.add(job_id)
-            if job.status == JobStatus.QUEUED:
-                job.status = JobStatus.CANCELLED
-                job.finished_at = time.time()
+            prev_status = job.status
+            job.status = JobStatus.CANCELLED
+            job.finished_at = time.time()
+            if prev_status == JobStatus.QUEUED:
                 job.logs.append(f"[{time.strftime('%H:%M:%S')}] Job cancelled while queued.")
+            else:
+                job.logs.append(f"[{time.strftime('%H:%M:%S')}] Job cancellation requested by user. Halting active tasks...")
+                if self._current_job_id == job_id:
+                    adapter_to_cancel = self._adapters.get(job.stage)
 
-        self._broadcast_job_event(job_id, {"type": "job_cancelled", "job_id": job_id})
+        if adapter_to_cancel and hasattr(adapter_to_cancel, "cancel"):
+            try:
+                adapter_to_cancel.cancel()
+            except Exception as e:
+                logger.warning(f"Error calling cancel() on adapter for stage '{job.stage}': {e}")
+
+        self._broadcast_job_event(job_id, {"type": "job_cancelled", "job_id": job_id, "status": "cancelled"})
         return True
 
     def is_cancelled(self, job_id: str) -> bool:
@@ -333,7 +350,7 @@ class JobManager:
             try:
                 result = adapter.run(
                     script_ids=job.script_ids,
-                    options={},
+                    options=getattr(job, "options", {}) or {},
                     emit_log=emit_log,
                     emit_progress=emit_progress,
                     check_cancelled=lambda: self.is_cancelled(job_id),
@@ -359,9 +376,15 @@ class JobManager:
             self._broadcast_job_event(job_id, {"type": event_type, "job_id": job_id, "result": result})
 
         except Exception as exc:
-            err_msg = str(exc)
-            emit_log(f"FATAL EXCEPTION: {err_msg}")
             with self._lock:
+                if self.is_cancelled(job_id):
+                    job.status = JobStatus.CANCELLED
+                    job.finished_at = time.time()
+                    emit_log("Job execution halted (cancelled by user).")
+                    self._broadcast_job_event(job_id, {"type": "job_cancelled", "job_id": job_id})
+                    return
+                err_msg = str(exc)
+                emit_log(f"FATAL EXCEPTION: {err_msg}")
                 job.status = JobStatus.FAILED
                 job.finished_at = time.time()
                 job.error = err_msg

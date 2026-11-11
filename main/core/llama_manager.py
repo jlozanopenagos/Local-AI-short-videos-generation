@@ -113,20 +113,20 @@ class LlamaManager:
                 pass
 
     def _is_pid_alive(self, pid: int) -> bool:
-        """Verifies if a process ID is active and corresponds to a llama process on Windows."""
+        """Verifies if a process ID is active on Windows without spawning subprocesses."""
         if pid <= 0:
             return False
         if os.name == "nt":
             try:
-                out = subprocess.check_output(
-                    f"tasklist /FI \"PID eq {pid}\" /FO CSV /NH",
-                    shell=True,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                ).strip()
-                if not out or "No tasks are running" in out:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.OpenProcess(0x1000, False, int(pid))
+                if not handle:
                     return False
-                return str(pid) in out
+                exit_code = ctypes.c_ulong()
+                ok = kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                kernel32.CloseHandle(handle)
+                return bool(ok and exit_code.value == 259)  # STILL_ACTIVE = 259
             except Exception:
                 return False
         else:
@@ -136,17 +136,18 @@ class LlamaManager:
             except (OSError, ProcessLookupError):
                 return False
 
-    def is_reachable(self, timeout: float = 1.5) -> bool:
+    def is_reachable(self, timeout: float = 0.5) -> bool:
         """Checks if llama-server HTTP endpoint responds."""
         base_endpoint = self.api_url.replace("/v1", "")
-        test_endpoints = [f"{self.api_url}/models", f"{base_endpoint}/health", f"{base_endpoint}/props"]
+        test_endpoints = [f"{base_endpoint}/health", f"{self.api_url}/models"]
         for ep in test_endpoints:
             try:
                 resp = requests.get(ep, timeout=timeout)
                 if resp.status_code in (200, 204):
                     return True
             except Exception:
-                continue
+                # If host/port refused connection, do not retry multiple paths on the same closed port
+                break
         return False
 
     def is_running(self) -> Tuple[bool, Optional[int]]:
@@ -410,14 +411,27 @@ class LlamaManager:
         return self.start(timeout=timeout, wait=True)
 
     def get_status(self) -> Dict[str, Any]:
-        """Returns structured health and status dictionary."""
-        active, pid = self.is_running()
-        reachable = self.is_reachable(timeout=1.0)
+        """Returns structured health and status dictionary without redundant network probes."""
+        pid = self._read_pid()
+        reachable = self.is_reachable(timeout=0.5)
+        pid_alive = bool(pid and self._is_pid_alive(pid))
+
+        if reachable and not pid_alive:
+            discovered_pid = self._discover_pid_from_port()
+            if discovered_pid:
+                self._write_pid(discovered_pid)
+                pid = discovered_pid
+                pid_alive = True
+        elif pid and not pid_alive and not reachable:
+            self._clear_pid()
+            pid = None
+
+        active = pid_alive or reachable
         return {
             "status": "ONLINE" if (active and reachable) else "OFFLINE",
             "active": active,
             "reachable": reachable,
-            "pid": pid,
+            "pid": pid if active else None,
             "port": self.port,
             "api_url": self.api_url,
             "llm_dir": str(self.llm_dir),
