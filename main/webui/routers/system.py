@@ -218,7 +218,7 @@ def get_gemini_status() -> Dict[str, Any]:
     key = (os.getenv("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")).strip()
     return {
         "configured": bool(key),
-        "model": getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash"),
+        "model": getattr(settings, "GEMINI_MODEL", "gemini-3.5-flash-lite"),
     }
 
 

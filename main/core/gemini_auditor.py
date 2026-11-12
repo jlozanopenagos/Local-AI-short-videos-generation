@@ -33,8 +33,12 @@ if str(MAIN_DIR) not in sys.path:
 logger = logging.getLogger(__name__)
 
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODEL = "gemini-2.5-flash"
-FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
+FALLBACK_MODELS = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+]
 
 # ==============================================================================
 # IMMUTABLE PRODUCTION ANCHORS (PARTS 8 & 9)
