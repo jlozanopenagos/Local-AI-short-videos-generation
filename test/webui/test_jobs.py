@@ -41,14 +41,17 @@ class TestWebUIJobs(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(create_app())
         self.jm = get_job_manager()
-        # Register a quick mock adapter for scripts stage to test pipeline execution
+        # Register a quick mock adapter for scripts and assembly stages to test pipeline execution without real ffmpeg/llm
         self.mock_adapter = MockAdapter()
         self.jm.register_adapter(JobStage.SCRIPTS, self.mock_adapter)
+        self.jm.register_adapter(JobStage.ASSEMBLY, self.mock_adapter)
 
     def tearDown(self):
         # pyrefly: ignore[missing-import]
         from webui.jobs.adapters.scripts import ScriptsAdapter
+        from webui.jobs.adapters.assembly import AssemblyAdapter
         self.jm.register_adapter(JobStage.SCRIPTS, ScriptsAdapter())
+        self.jm.register_adapter(JobStage.ASSEMBLY, AssemblyAdapter())
 
     def test_enqueue_job_rest(self):
         """Verify POST /api/jobs enqueues a job."""
@@ -112,15 +115,58 @@ class TestWebUIJobs(unittest.TestCase):
         res = self.client.post("/api/jobs", json={"stage": "scripts", "script_ids": ["PRINT_TEST"]})
         job_id = res.json()["job_id"]
         # Give worker a moment to execute
-        for _ in range(20):
+        for _ in range(50):
             time.sleep(0.1)
             job = self.jm.get_job(job_id)
-            if job and job.status == JobStatus.COMPLETED:
+            if job and job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
                 break
         self.assertIsNotNone(job)
         all_logs = " ".join(job.logs)
         self.assertIn("Captured print statement", all_logs)
         self.assertIn("Captured logging info", all_logs)
+
+    def test_assembly_job_enqueue(self):
+        """Verify POST /api/jobs enqueues an assembly stage job."""
+        response = self.client.post(
+            "/api/jobs",
+            json={"stage": "assembly", "script_ids": ["IE07", "IG07"]},
+        )
+        self.assertEqual(response.status_code, 202)
+        data = response.json()
+        self.assertEqual(data["stage"], "assembly")
+        self.assertEqual(data["script_ids"], ["IE07", "IG07"])
+
+    @patch("webui.jobs.adapters.assembly.StateManager")
+    @patch("webui.jobs.adapters.assembly.process_script")
+    def test_assembly_adapter_execution(self, mock_process, mock_sm_cls):
+        """Verify AssemblyAdapter runs process_script and reports progress."""
+        from webui.jobs.adapters.assembly import AssemblyAdapter
+
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "IE07",
+            "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "pending"},
+        }
+        mock_sm_cls.return_value = mock_sm
+        mock_process.return_value = True
+
+        adapter = AssemblyAdapter()
+        logs = []
+        progress = []
+
+        result = adapter.run(
+            script_ids=["IE07"],
+            options={"force": True},
+            emit_log=lambda msg: logs.append(msg),
+            emit_progress=lambda cur, tot, sid: progress.append((cur, tot, sid)),
+            check_cancelled=lambda: False,
+        )
+
+        self.assertEqual(result["success_count"], 1)
+        self.assertEqual(result["failed_ids"], [])
+        self.assertTrue(mock_process.called)
+        self.assertTrue(any("✓ Video assembly completed" in l for l in logs))
 
 
 if __name__ == "__main__":

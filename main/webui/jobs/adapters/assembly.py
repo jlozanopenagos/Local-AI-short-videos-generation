@@ -1,5 +1,5 @@
 """
-webui/jobs/adapters/assembly.py — Stage G (Video Assembly) adapter.
+webui/jobs/adapters/assembly.py — Stage G (Video Assembly) adapter for batch & mass video production.
 """
 
 from __future__ import annotations
@@ -15,11 +15,14 @@ if str(BASE_DIR) not in sys.path:
 
 from core.state_manager import StateManager
 from video_creation._G_video_assembly.main import process_script
+from video_creation._G_video_assembly.core.transcriber import Transcriber
+from video_creation._G_video_assembly.core.subtitle_builder import SubtitleBuilder
+from video_creation._G_video_assembly.core.video_assembler import VideoAssembler
 from webui.jobs.adapters.base import BaseStageAdapter
 
 
 class AssemblyAdapter(BaseStageAdapter):
-    """Executes Stage G video assembly."""
+    """Executes Stage G mass video assembly."""
 
     def run(
         self,
@@ -38,6 +41,19 @@ class AssemblyAdapter(BaseStageAdapter):
 
         emit_log(f"Starting Video Assembly for {total} script(s)...")
 
+        # Instantiate core assembly workers once to reuse memory and models across mass batches
+        transcriber = None
+        builder = None
+        assembler = None
+        try:
+            emit_log("Initializing Video Assembly engines (Whisper transcriber, ASS builder, FFmpeg assembler)...")
+            transcriber = Transcriber()
+            builder = SubtitleBuilder()
+            assembler = VideoAssembler()
+            emit_log("✓ Assembly engines initialized.")
+        except Exception as init_exc:
+            emit_log(f"Warning: Engine pre-initialization notice: {init_exc}. Will fall back to per-script init if needed.")
+
         for idx, script_id in enumerate(script_ids, start=1):
             if check_cancelled():
                 emit_log(f"Job cancelled by user at script {script_id}.")
@@ -52,9 +68,23 @@ class AssemblyAdapter(BaseStageAdapter):
 
             script_data = sm.get_script_state(script_id)
             status = script_data.get("status", {})
+
             if not force and status.get("video_assembly") == "done":
                 emit_log(f"[{script_id}] Video already assembled — skipping.")
                 success_count += 1
+                continue
+
+            # Verify prerequisites
+            has_voice = status.get("voice_generation") == "done"
+            has_images = status.get("image_generation") == "done"
+            if not has_voice or not has_images:
+                missing = []
+                if not has_voice:
+                    missing.append("Voice Audio (Stage B)")
+                if not has_images:
+                    missing.append("Images (Stage C)")
+                emit_log(f"[{script_id}] Skipping assembly — prerequisites missing: {', '.join(missing)}.")
+                failed_ids.append(script_id)
                 continue
 
             max_attempts = int(options.get("max_attempts", 3))
@@ -72,7 +102,11 @@ class AssemblyAdapter(BaseStageAdapter):
                     ok = process_script(
                         script_data=script_data,
                         state_manager=sm,
+                        transcriber=transcriber,
+                        builder=builder,
+                        assembler=assembler,
                         base_dir=BASE_DIR,
+                        regenerate_subtitles=force,
                         auto=True,
                     )
                     dur = time.time() - t0
@@ -103,4 +137,3 @@ class AssemblyAdapter(BaseStageAdapter):
             "failed_ids": failed_ids,
             "total": total,
         }
-

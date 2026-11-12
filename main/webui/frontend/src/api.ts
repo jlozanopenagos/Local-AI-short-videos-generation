@@ -264,4 +264,21 @@ export async function validateScriptIds(scriptIds: string[]): Promise<ValidateId
   return res.json()
 }
 
+export async function redoSceneImage(
+  scriptId: string,
+  sceneType: string,
+  options: { prompt?: string; seed?: number } = {}
+): Promise<{ status: string; message: string; image_file: string; script: ScriptDetail }> {
+  const res = await fetch(`/api/scripts/${scriptId}/scenes/${encodeURIComponent(sceneType)}/redo-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to redo image for scene '${sceneType}' in script ${scriptId}`)
+  }
+  return res.json()
+}
+
 

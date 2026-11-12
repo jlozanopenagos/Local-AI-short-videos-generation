@@ -13,7 +13,8 @@ import {
   Play,
   Filter,
   ExternalLink,
-  FileText
+  FileText,
+  Video
 } from 'lucide-react'
 import type { JobStage, SystemStatus, ValidatedScriptId, ScriptCatalogResponse } from '../types'
 import { createJob, validateScriptIds, fetchScriptCatalog } from '../api'
@@ -144,7 +145,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   }
 
   // Quick preset loader from catalog by stage
-  const handleLoadFromCatalog = async (filterKey: 'voice' | 'images' | 'thumbnails') => {
+  const handleLoadFromCatalog = async (filterKey: 'voice' | 'images' | 'thumbnails' | 'assembly') => {
     setIsValidating(true)
     setErrorMessage(null)
     try {
@@ -153,7 +154,9 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           ? 'missing_voice'
           : filterKey === 'images'
             ? 'missing_images'
-            : 'all'
+            : filterKey === 'assembly'
+              ? 'ready_for_assembly'
+              : 'all'
 
       const data: ScriptCatalogResponse = await fetchScriptCatalog({
         pageSize: 100,
@@ -162,7 +165,11 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
 
       const loadedIds = data.items.map((s) => s.id)
       if (!loadedIds.length) {
-        setErrorMessage(`No scripts found with pending ${filterKey}.`)
+        setErrorMessage(
+          filterKey === 'assembly'
+            ? 'No scripts currently ready for video assembly (voice and images must be completed first).'
+            : `No scripts found with pending ${filterKey}.`
+        )
         return
       }
 
@@ -366,6 +373,23 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             </div>
             <div className="option-stage-pill" style={{ background: 'var(--sand-subtle)', color: 'var(--sand)', border: '1px solid var(--sand-border)' }}>Game only</div>
           </div>
+
+          {/* Option F: Video Assembly */}
+          <div
+            className={`asset-option-card ${targetStage === 'assembly' ? 'selected' : ''}`}
+            onClick={() => setTargetStage('assembly')}
+          >
+            <div className="option-icon-box" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+              <Video size={24} />
+            </div>
+            <div className="option-content">
+              <div className="option-title">Video assembly</div>
+              <div className="option-desc">
+                Full vertical YouTube Shorts (master voice audio, scene visuals, ASS subtitles, bank music, and opening/closure cards).
+              </div>
+            </div>
+            <div className="option-stage-pill" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)' }}>Stage G</div>
+          </div>
         </div>
       </div>
 
@@ -483,6 +507,15 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               >
                 <Sparkles size={14} />
                 <span>All pending thumbnails</span>
+              </button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => handleLoadFromCatalog('assembly')}
+                disabled={isValidating}
+                style={{ borderColor: 'rgba(59, 130, 246, 0.5)', color: '#3b82f6' }}
+              >
+                <Video size={14} />
+                <span>Ready for video assembly</span>
               </button>
               <button
                 className="btn btn-outline btn-sm"

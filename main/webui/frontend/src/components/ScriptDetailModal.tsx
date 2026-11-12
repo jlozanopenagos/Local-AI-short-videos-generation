@@ -27,7 +27,8 @@ import {
   updateScript,
   geminiAuditPrompt,
   fetchGeminiStatus,
-  saveGeminiKey
+  saveGeminiKey,
+  redoSceneImage
 } from '../api'
 
 interface ScriptDetailModalProps {
@@ -69,11 +70,15 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // Image enlargement Lightbox state
-  const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string; subtitle?: string } | null>(null)
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string; subtitle?: string; sceneType?: string } | null>(null)
 
   // Chalkboard re-rendering state
   const [renderingChalkboard, setRenderingChalkboard] = useState(false)
   const [chalkboardRenderStatus, setChalkboardRenderStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Scene image re-rendering state
+  const [redoingSceneType, setRedoingSceneType] = useState<string | null>(null)
+  const [sceneImageStatus, setSceneImageStatus] = useState<{ scene: string; type: 'success' | 'error'; message: string } | null>(null)
   const [imgCacheBuster, setImgCacheBuster] = useState<number>(Date.now())
 
   // Escape key listener for image lightbox
@@ -406,6 +411,41 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     }
   }
 
+  const handleRedoSceneImage = async (sceneType: string) => {
+    if (!detail) return
+    setRedoingSceneType(sceneType)
+    setSceneImageStatus(null)
+    try {
+      const promptToUse = editScenePrompts[sceneType] || undefined
+      const res = await redoSceneImage(detail.id, sceneType, { prompt: promptToUse })
+      if (res.script) {
+        setDetail(res.script)
+        populateEditorState(res.script)
+      } else {
+        const reloaded = await fetchScriptDetail(detail.id)
+        setDetail(reloaded)
+        populateEditorState(reloaded)
+      }
+      setImgCacheBuster(Date.now())
+      setSceneImageStatus({
+        scene: sceneType,
+        type: 'success',
+        message: `✓ Scene '${sceneType}' image regenerated with ComfyUI and updated!`,
+      })
+      setTimeout(() => {
+        setSceneImageStatus(null)
+      }, 6000)
+    } catch (err) {
+      setSceneImageStatus({
+        scene: sceneType,
+        type: 'error',
+        message: `Failed to redo image for '${sceneType}': ${err instanceof Error ? err.message : String(err)}`,
+      })
+    } finally {
+      setRedoingSceneType(null)
+    }
+  }
+
   const handleResetEditor = () => {
     if (detail) {
       populateEditorState(detail)
@@ -695,18 +735,51 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   </div>
                 )}
 
+                {/* Scene Image Feedback Alert */}
+                {sceneImageStatus && (
+                  <div
+                    className={`sheets-alert ${sceneImageStatus.type === 'success' ? 'success' : 'error'}`}
+                    style={{ marginBottom: '12px', fontSize: '13px' }}
+                  >
+                    {sceneImageStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                    <span>{sceneImageStatus.message}</span>
+                  </div>
+                )}
+
                 {/* Scene Cards */}
                 {(detail.scenes || []).map((sc, idx) => {
                   const rawImg = sc.image_file ? getMediaUrl(sc.image_file) : null
                   const imgUrl = rawImg ? `${rawImg}${rawImg.includes('?') ? '&' : '?'}t=${imgCacheBuster}` : null
                   const currentPrompt = editScenePrompts[sc.scene_type] ?? sc.prompt ?? ''
                   const isSavingThisScene = savingSceneType === sc.scene_type
+                  const isRedoingThisScene = redoingSceneType === sc.scene_type
                   const promptModified = currentPrompt !== (sc.prompt || '')
                   const isChallengeScene = sc.scene_type.toLowerCase() === 'challenge'
 
                   return (
                     <div key={idx} className="storyboard-card">
-                      <div className="storyboard-thumb">
+                      <div className="storyboard-thumb" style={{ position: 'relative' }}>
+                        {isRedoingThisScene && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '6px',
+                              color: '#fff',
+                              fontSize: '11px',
+                              gap: '6px',
+                              zIndex: 10,
+                            }}
+                          >
+                            <RefreshCw size={18} className="spin" />
+                            <span>ComfyUI...</span>
+                          </div>
+                        )}
                         {imgUrl ? (
                           <div
                             className="storyboard-thumb-clickable"
@@ -715,6 +788,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                                 url: imgUrl,
                                 title: `${detail.id} - ${sc.label || sc.scene_type} (Scene ${idx + 1})`,
                                 subtitle: sc.voice_line ? `"${sc.voice_line}"` : undefined,
+                                sceneType: sc.scene_type,
                               })
                             }
                             title="Click to inspect enlarged image"
@@ -740,7 +814,28 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       <div className="storyboard-body" style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="brand-badge">{sc.label || sc.scene_type}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Scene {idx + 1}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Scene {idx + 1}</span>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline"
+                              style={{
+                                fontSize: '11px',
+                                padding: '2px 8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                borderColor: 'var(--accent)',
+                                color: 'var(--accent)',
+                              }}
+                              onClick={() => handleRedoSceneImage(sc.scene_type)}
+                              disabled={isRedoingThisScene || isSavingThisScene}
+                              title={`Redo image for ${sc.label || sc.scene_type} using ComfyUI with current prompt`}
+                            >
+                              <RefreshCw size={11} className={isRedoingThisScene ? 'spin' : ''} />
+                              <span>{isRedoingThisScene ? 'Rendering...' : 'Redo Image'}</span>
+                            </button>
+                          </div>
                         </div>
 
                         <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', marginTop: '4px' }}>
@@ -1266,6 +1361,22 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  {enlargedImage.sceneType && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      onClick={() => {
+                        if (enlargedImage.sceneType) {
+                          handleRedoSceneImage(enlargedImage.sceneType)
+                        }
+                      }}
+                      disabled={redoingSceneType === enlargedImage.sceneType}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                    >
+                      <RefreshCw size={12} className={redoingSceneType === enlargedImage.sceneType ? 'spin' : ''} />
+                      <span>{redoingSceneType === enlargedImage.sceneType ? 'Generating...' : 'Redo Image'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-sm"

@@ -23,6 +23,7 @@ if str(BASE_DIR) not in sys.path:
 
 from core.state_manager import StateManager
 from core.expression_db import is_expression_done, get_all_done_expression_ids
+from video_creation._C_image_generation.main import ensure_llama_stopped
 
 router = APIRouter(prefix="/api/scripts", tags=["Scripts"])
 
@@ -998,6 +999,140 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
         "valid_count": valid_count,
         "invalid_count": invalid_count,
         "total": len(results),
+    }
+
+
+class RedoSceneImageRequest(BaseModel):
+    prompt: Optional[str] = None
+    seed: Optional[int] = None
+
+
+@router.post("/{script_id}/scenes/{scene_type}/redo-image")
+def redo_scene_image_endpoint(
+    script_id: str,
+    scene_type: str,
+    payload: Optional[RedoSceneImageRequest] = None
+) -> Dict[str, Any]:
+    """
+    Regenerates a specific scene illustration for a script using ComfyUI with the existing
+    specific prompt (or updated prompt if provided) and a fresh random seed.
+    Updates the script's image asset, saves state, and refreshes the catalog cache.
+    """
+    import random
+    from config.settings import (
+        COMFY_API_URL,
+        IMAGE_WORKFLOW_PATH,
+        IMAGE_DEFAULT_STEPS,
+        IMAGE_DEFAULT_WIDTH,
+        IMAGE_DEFAULT_HEIGHT,
+        IMAGE_STALL_TIMEOUT,
+        get_script_output_dir,
+    )
+    from core.state_manager import resolve_lang_and_type
+    from video_creation._C_image_generation.core.comfy_client import ImageComfyClient
+    from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+    from video_creation._C_image_generation.main import ensure_llama_stopped
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    sec_lower = scene_type.strip().lower()
+
+    # 1. Resolve prompt to use
+    prompt = None
+    if payload and payload.prompt and payload.prompt.strip():
+        prompt = payload.prompt.strip()
+    else:
+        assets = state_data.setdefault("assets", {})
+        prompts_map = assets.get("image_prompts") or {}
+        visual_prompts = state_data.get("visual_prompts") or {}
+        prompt = (
+            prompts_map.get(sec_lower)
+            or prompts_map.get(scene_type)
+            or visual_prompts.get(sec_lower)
+            or visual_prompts.get(scene_type)
+        )
+
+    if not prompt or not str(prompt).strip():
+        raise HTTPException(
+            status_code=400,
+            detail=f"No prompt available for scene '{scene_type}'. Please enter a prompt before regenerating."
+        )
+
+    # 2. Release LLM VRAM before launching ComfyUI task
+    try:
+        ensure_llama_stopped()
+    except Exception:
+        pass
+
+    # 3. Resolve destination path
+    lang, _ = resolve_lang_and_type(canonical_id)
+    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=BASE_DIR) / "images"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = out_dir / f"script_{canonical_id}_{sec_lower}.png"
+
+    # 4. Connect to ComfyUI and generate
+    if not IMAGE_WORKFLOW_PATH.exists():
+        raise HTTPException(status_code=500, detail=f"Workflow template missing: {IMAGE_WORKFLOW_PATH}")
+
+    try:
+        comfy_client = ImageComfyClient(
+            api_url=COMFY_API_URL,
+            workflow_path=IMAGE_WORKFLOW_PATH,
+            poll_timeout=3600,
+            poll_interval=2,
+        )
+        comfy_client.check_connection()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"ComfyUI is offline or unreachable at {COMFY_API_URL}: {exc}. Please verify ComfyUI is running."
+        )
+
+    styled_prompt = sanitize_and_style_prompt(str(prompt).strip())
+    seed = payload.seed if (payload and payload.seed is not None) else random.randint(1, 10**15)
+
+    try:
+        comfy_client.generate_image(
+            prompt_text=styled_prompt,
+            filename_prefix=f"Z-Image/script_{canonical_id}_{sec_lower}",
+            dest_path=dest_path,
+            seed=seed,
+            steps=IMAGE_DEFAULT_STEPS,
+            width=IMAGE_DEFAULT_WIDTH,
+            height=IMAGE_DEFAULT_HEIGHT,
+            stall_timeout=IMAGE_STALL_TIMEOUT,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"ComfyUI image generation failed: {exc}")
+
+    # 5. Update state assets
+    assets = state_data.setdefault("assets", {})
+    image_prompts = assets.setdefault("image_prompts", {})
+    image_prompts[sec_lower] = str(prompt).strip()
+    assets["image_dir"] = str(out_dir)
+
+    img_list = assets.get("images")
+    if not isinstance(img_list, list):
+        img_list = []
+    dest_str = str(dest_path)
+    if dest_str not in img_list:
+        img_list.append(dest_str)
+    assets["images"] = img_list
+
+    # Save state & update cache
+    sm.save_script_state(canonical_id, state_data)
+    _update_cached_script(canonical_id, state_data)
+
+    return {
+        "status": "success",
+        "message": f"Scene '{scene_type}' regenerated successfully for {canonical_id}",
+        "image_file": dest_str,
+        "seed": seed,
+        "script": get_script(canonical_id),
     }
 
 

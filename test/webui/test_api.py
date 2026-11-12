@@ -320,3 +320,81 @@ class TestWebUIApi(unittest.TestCase):
         resp_data = resp.json()
         self.assertEqual(resp_data["stages"]["images"], "pending")
 
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("webui.routers.scripts.ensure_llama_stopped")
+    @patch("video_creation._C_image_generation.core.comfy_client.ImageComfyClient")
+    def test_redo_scene_image_endpoint_success(self, mock_client_cls, mock_stop_llama, mock_get_sm):
+        """Verify POST /api/scripts/{id}/scenes/{scene_type}/redo-image regenerates single scene with ComfyUI."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "IE07",
+            "content_metadata": {"language": "italian", "video_type": "expression", "topic": "Doppie consonanti"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "done",
+            },
+            "assets": {
+                "image_dir": "D:/test/images",
+                "images": ["D:/test/images/script_IE07_hook.png"],
+                "image_prompts": {"hook": "Narrator at Rome cafe with espresso"},
+            },
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+
+        resp = self.client.post(
+            "/api/scripts/IE07/scenes/hook/redo-image",
+            json={"prompt": "Updated vibrant Rome cafe prompt with espresso cup"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("hook", data["message"])
+        self.assertIn("script_IE07_hook.png", data["image_file"])
+
+        # Verify ComfyUI generate_image was called
+        mock_client.generate_image.assert_called_once()
+        self.assertTrue(mock_sm.save_script_state.called)
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("webui.routers.scripts.ensure_llama_stopped")
+    @patch("video_creation._C_image_generation.core.comfy_client.ImageComfyClient")
+    def test_redo_scene_image_comfy_offline(self, mock_client_cls, mock_stop_llama, mock_get_sm):
+        """Verify POST /api/scripts/{id}/scenes/{scene_type}/redo-image returns 503 when ComfyUI is offline."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "IE07",
+            "assets": {"image_prompts": {"hook": "Rome cafe"}},
+        }
+        mock_get_sm.return_value = mock_sm
+
+        mock_client = MagicMock()
+        mock_client.check_connection.side_effect = ConnectionError("ComfyUI offline")
+        mock_client_cls.return_value = mock_client
+
+        resp = self.client.post("/api/scripts/IE07/scenes/hook/redo-image", json={})
+        self.assertEqual(resp.status_code, 503)
+        self.assertIn("offline or unreachable", resp.json()["detail"])
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_redo_scene_image_missing_prompt(self, mock_get_sm):
+        """Verify 400 error when scene has no prompt in state and none passed in request."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "IE07",
+            "assets": {"image_prompts": {}},
+        }
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.post("/api/scripts/IE07/scenes/hook/redo-image", json={"prompt": ""})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("No prompt available", resp.json()["detail"])
+
