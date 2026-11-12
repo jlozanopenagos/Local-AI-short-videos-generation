@@ -366,7 +366,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Layers size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Chalkboard images (Game)</div>
+              <div className="option-title">Chalkboard images</div>
               <div className="option-desc">
                 High-resolution native chalk typography on empty chalkboard for Game quiz scenes (instant, no ComfyUI/LLM).
               </div>
@@ -683,8 +683,8 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 {isSubmitting
                   ? 'Dispatching job...'
                   : targetStage === 'chalkboard'
-                  ? `Launch chalkboard creation (${gameIds.length} Game scripts)`
-                  : `Launch mass generation (${validIds.length} scripts)`}
+                    ? `Launch chalkboard creation (${gameIds.length} Game scripts)`
+                    : `Launch mass generation (${validIds.length} scripts)`}
               </span>
             </button>
             <span className="launch-hint">
