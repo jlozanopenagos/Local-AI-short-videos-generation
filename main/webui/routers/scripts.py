@@ -622,7 +622,7 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     # If a new version of general prompt is saved:
     # - property 'image_generation' changes to 'pending'
     # - LLM must re-do all specific scene prompts, so existing image_prompts are invalidated
-    # - existing scene images are cleaned up so ComfyUI will re-generate them
+    # - existing scene images are preserved on disk (non-destructive editing)
     general_prompt_changed = False
     if payload.general_prompt is not None:
         curr_gp = str(state_data["assets"].get("general_prompt") or "").strip()
@@ -633,17 +633,6 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
             state_data["content_metadata"]["anchor_environment"] = new_gp
             state_data["status"]["image_generation"] = "pending"
             state_data["assets"]["image_prompts"] = {}
-
-            # Clean up obsolete scene images from disk
-            image_dir_str = state_data["assets"].get("image_dir")
-            if image_dir_str:
-                p = Path(image_dir_str)
-                if p.exists() and p.is_dir():
-                    for old_img in p.glob(f"script_{canonical_id}_*.png"):
-                        try:
-                            old_img.unlink()
-                        except Exception:
-                            pass
 
     # 5. Update specific scene prompts (only if general prompt did not just invalidate them)
     if payload.image_prompts is not None and not general_prompt_changed:
@@ -813,29 +802,13 @@ def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = 
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gemini Auditor error: {exc}")
 
-    # Update general prompt and anchor_environment
-    state_data["assets"]["general_prompt"] = audited_prompt
-    state_data["content_metadata"]["anchor_environment"] = audited_prompt
-
-    # Mark image generation as pending and clear stale prompts & images
-    state_data["status"]["image_generation"] = "pending"
-    state_data["assets"]["image_prompts"] = {}
-
-    image_dir_str = state_data["assets"].get("image_dir")
-    if image_dir_str:
-        p = Path(image_dir_str)
-        if p.exists() and p.is_dir():
-            for old_img in p.glob(f"script_{canonical_id}_*.png"):
-                try:
-                    old_img.unlink()
-                except Exception:
-                    pass
-
-    # Save to state store
-    sm.save_script_state(canonical_id, state_data)
-    _update_cached_script(canonical_id, state_data)
-
-    return get_script(canonical_id)
+    # Return the generated prompt as a draft for the user to review.
+    # Non-destructive: DO NOT overwrite state on disk and DO NOT delete existing images.
+    return {
+        "status": "success",
+        "audited_prompt": audited_prompt,
+        "script_id": canonical_id,
+    }
 
 
 class RenderChalkboardRequest(BaseModel):

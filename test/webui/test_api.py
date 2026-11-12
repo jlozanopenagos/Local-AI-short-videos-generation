@@ -307,18 +307,14 @@ class TestWebUIApi(unittest.TestCase):
         mock_audit.assert_called_once()
         self.assertEqual(mock_audit.call_args[1]["api_key"], "TEST_KEY")
 
-        # Verify state was saved with new prompt and image_generation = pending
-        self.assertTrue(mock_sm.save_script_state.called)
-        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
-        self.assertEqual(saved_id, "SR02")
-        self.assertEqual(saved_data["assets"]["general_prompt"], "Audited fresh skate plaza prompt")
-        self.assertEqual(saved_data["content_metadata"]["anchor_environment"], "Audited fresh skate plaza prompt")
-        self.assertEqual(saved_data["status"]["image_generation"], "pending")
-        self.assertEqual(saved_data["assets"]["image_prompts"], {})
+        # Verify state was NOT mutated or saved automatically (non-destructive draft)
+        self.assertFalse(mock_sm.save_script_state.called)
 
-        # Verify response stages
+        # Verify response returns audited draft for frontend review
         resp_data = resp.json()
-        self.assertEqual(resp_data["stages"]["images"], "pending")
+        self.assertEqual(resp_data["status"], "success")
+        self.assertEqual(resp_data["audited_prompt"], "Audited fresh skate plaza prompt")
+        self.assertEqual(resp_data["script_id"], "SR02")
 
     @patch("webui.routers.scripts._get_state_manager")
     @patch("webui.routers.scripts.ensure_llama_stopped")

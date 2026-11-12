@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODEL = "gemini-2.5-flash"
-FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-1.5-flash"]
+FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
 
 # ==============================================================================
 # IMMUTABLE PRODUCTION ANCHORS (PARTS 8 & 9)
@@ -223,15 +224,36 @@ def audit_general_prompt(
 
     existing_gp = (current_prompt or script_data.get("assets", {}).get("general_prompt", "")).strip()
 
+    # Dynamic creative lenses to force distinct, non-repetitive story worlds across successive runs
+    creative_lenses = [
+        "Artisanal & tactile craftsmanship (e.g. vintage printmaking studio, custom leathercraft bench, architectural blueprint drafting)",
+        "Atmospheric daylight & architectural textures (e.g. amber sunbeams piercing paned storefront glass, slate-blue herringbone floor shadows)",
+        "Vibrant cultural & vocational micro-world (e.g. vintage vinyl audio archive, municipal record hall, botanical pavilion, antique watchmaker bench)",
+        "Lively character interaction & specialized setting tools (e.g. tailoring scissors, brass cash registers, drafting compasses, espresso machines)",
+        "Dramatic spatial depth & layered background accents (e.g. mezzanine railings, paned street-facing windows with passersby, illuminated warm-wood shelving)",
+    ]
+    chosen_lens = random.choice(creative_lenses)
+    run_seed = random.randint(100000, 999999)
+
+    previous_contrast = ""
+    if existing_gp:
+        previous_contrast = (
+            f"PREVIOUS DRAFT (FOR CONTRAST ONLY — DO NOT COPY OR REPEAT THIS SETTING):\n"
+            f"\"{existing_gp}\"\n"
+            "MANDATE: Invent a COMPLETELY DIFFERENT physical setting, atmosphere, and props from the draft above.\n\n"
+        )
+
     # Build prompt enforcing ONLY Parts 1 to 7 and Anti-Cliché mandate
     prompt_text = (
         "You are an elite Visual Storyboard Director and Concept Artist for high-retention 2D animation Shorts.\n"
         "Your task is to audit and creatively write the Master Visual Story World for this Short to eliminate repetitive AI tropes.\n\n"
+        f"CREATIVE DIRECTIVE [RUN #{run_seed}]:\n"
+        f"Creative Focus for this take: {chosen_lens}.\n\n"
         f"SCRIPT ID: {script_id}\n"
         f"LANGUAGE: {language} ({video_type})\n"
         f"TOPIC/SITUATION: {topic}\n"
         f"SCRIPT DIALOGUE:\n{script_text}\n\n"
-        f"CURRENT GENERAL PROMPT TO REIMAGINE:\n\"{existing_gp}\"\n\n"
+        f"{previous_contrast}"
         "==================================================\n"
         "STRICT PRODUCTION MANDATE (PARTS 1 TO 7 ONLY):\n"
         "==================================================\n"
@@ -259,7 +281,7 @@ def audit_general_prompt(
             }
         ],
         "generationConfig": {
-            "temperature": 0.85,
+            "temperature": 0.95,
             "maxOutputTokens": 800,
         },
     }
@@ -313,7 +335,7 @@ def audit_general_prompt(
                         )
                         if val_attempt < max_validation_attempts:
                             # Adjust temperature slightly to provoke a fresher completion
-                            current_temp = payload["generationConfig"].get("temperature", 0.85)
+                            current_temp = payload["generationConfig"].get("temperature", 0.95)
                             payload["generationConfig"]["temperature"] = min(1.0, current_temp + 0.05)
                             time.sleep(1.0)
                             continue
@@ -336,6 +358,12 @@ def audit_general_prompt(
                     logger.warning(
                         "[%s] Gemini model '%s' returned 404 Not Found. Trying next fallback model...",
                         script_id, cur_model
+                    )
+                    break
+                elif response.status_code in (429, 500, 502, 503, 504):
+                    logger.warning(
+                        "[%s] Gemini model '%s' returned HTTP %d (%s). Falling back to next available model...",
+                        script_id, cur_model, response.status_code, response.text[:200]
                     )
                     break
                 else:
