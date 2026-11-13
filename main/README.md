@@ -114,8 +114,8 @@ Content strategy is divided across four distinct formats, each strictly governed
 | **Spoken Word Budget** | **85 to 110 words** | **145 to 180 words** | **95 to 125 words** | **95 to 135 words** |
 | **Target Runtime** | **38 to 48 seconds** | **60 to 80 seconds** | **40 to 55 seconds** | **40 to 60 seconds** |
 | **Speaker Cast** | 1 Voice (Narrator) | 3 Voices (Narrator, P1, P2)| 1 Voice (Narrator) | 1 Voice (Narrator) |
-| **Visual Structure** | 5 Narrative Sections | 6 Visual Scenes | 5 Visual Scenes + Chalkboard | 4 Narrative Sections |
-| **JSON Keys** | `title`, `hook`, `setup`, `discovery`, `example`, `payoff` | `title`, `hook`, `DIALOGUE_PART_1`–`4`, `PAYOFF` | `title`, `hook`, `challenge`, `pressure`, `answer`, `explanation` | `title`, `hook`, dynamic discovery keys, `payoff` |
+| **Visual Structure** | 5 Visual Scenes (ComfyUI) | 6 Timeline Cuts (4 ComfyUI) | 5 Scenes (2 ComfyUI + Chalkboard + Tito) | 5 Visual Scenes (ComfyUI) |
+| **JSON Keys** | `title`, `hook`, `setup`, `discovery`, `example`, `payoff` | `title`, `hook`, `DIALOGUE_PART_1`–`4`, `PAYOFF` | `title`, `hook`, `challenge`, `pressure`, `answer`, `explanation` | `title`, `hook`, `setup`, `discovery`, `explanation`, `payoff` |
 
 ### 1. EXPRESSION: Micro-Storytelling
 - **Pedagogical Standard**: Etymology, phonetic mechanics, and historical roots are hooks—**practical usage is the primary goal**. The `example` key is the anchor of the script, delivering complete colloquial usage in an authentic register.
@@ -157,38 +157,45 @@ Content strategy is divided across four distinct formats, each strictly governed
 
 ### 3. GAME: Fast-Paced Interactive Trivia
 - **Trivia Standard**: Pure educational quiz game—no fictional narratives or roleplay acting.
-- **5 Authorized Mechanics**:
-  1. *Rapid Acoustic Ear Challenge*: Word stress, heteronyms, minimal pairs.
-  2. *Native or Weird?*: Idiomatic naturalness vs literal translation trap.
-  3. *What Does It Really Mean?*: True figurative meaning vs comical literal trap.
-  4. *Counter Reflex / Real-Life Dilemma*: Fast barista, peer, or workplace response.
-  5. *Spot the Imposter*: 2 genuine idioms vs 1 fabricated phrase.
+- **5 Authorized Archetypes (`types/game/archetypes.py`)**:
+  1. *FALSE_FRIEND_TRAP*: Deceptive translation blunders, false cognates, and native idiom testing vs literal blunders (*parenti* vs *parents*, *embarazada* vs *embarrassed*, *poser un lapin*, *break a leg*).
+  2. *ODD_ONE_OUT*: Pattern recognition challenge with 3 or 4 candidates where one breaks a hidden grammar or category rule.
+  3. *SPOT_THE_MISTAKE*: Learner ego-challenge targeting common preposition or false agreement errors.
+  4. *MINIMAL_PAIR_SHOWDOWN*: Auditory perception challenge testing word stress (`PROject` vs `proJECT`) or phonemic contrasts.
+  5. *FILL_IN_THE_BLANK_SPEEDRUN*: High-velocity collocation and idiomatic sprint with 3 or 4 candidate options.
 - **Canonical 5-Section Narrative Architecture**:
   - `[HOOK]` (12–18 words): Fast dilemma or ear test setup.
-  - `[CHALLENGE]` (25–40 words): Narrator speaks the sentence and options with zero stress giveaways or connectors.
+  - `[CHALLENGE]` (25–40 words): Narrator speaks the scenario and candidate options cleanly with zero stress giveaways, zero connectors, and without spoiling the answer.
   - `[PRESSURE]` (8–14 words): Snappy countdown urging decision (*"Which one is it? A or B? Your answer is coming!"*). Strict separation: NEVER leave countdown/pressure text inside `[CHALLENGE]`.
   - `[ANSWER]` (15–22 words): Clear reveal of the winning option with linguistic justification.
   - `[EXPLANATION]` (20–30 words): Practical native usage rule, contrast summary, and punchy call-to-action.
 - **Acoustic Challenge Delivery & Syntax Rules**:
+  - **No Answer Spoilers in Spoken Audio**: The Narrator voices the scenario or prompt question clearly WITHOUT spoiling the solution in the test sentence before presenting the candidate choices.
   - **Neutral Lowercase Speech (Zero Stress Giveaways)**: Spoken challenge sentences use standard lowercase natural speech. NEVER write uppercase stress giveaways (e.g. `REcord` or `CONtract`) in the spoken challenge sentence, which would spoil the ear test.
-  - **Explicit Option Tags**: Options MUST start with uppercase letter tags: `A: `, `B: `, etc.
+  - **Explicit Option Tags**: Options MUST start with uppercase letter tags: `A: `, `B: `, `C: `, and optionally `D: `. Provide 3 or 4 options (or 2 for binary pairs).
   - **Zero Connectors**: NO coordinating conjunctions or connectors (`or`, `and`, `o`, `ou`, `oppure`, `e`) or commas before option tags.
   - **Carrier Context for Single Words**: When options are single words (e.g. heteronym nouns vs verbs), specify their grammatical category or carrier context (e.g. `A: a record. B: to record.`).
   - **Period Termination**: Every option MUST terminate with a period (`.`). The last option must NEVER end with `?`.
-  - **Zero Spoken Blanks**: Spoken challenge audio NEVER contains raw blanks (`___`). The visual blank belongs ONLY on the chalkboard.
-- **Chalkboard Exercise Synchronization**:
+  - **Zero Spoken Blanks**: Spoken challenge audio NEVER contains raw blanks (`___` or `____`). The visual blank belongs ONLY on the chalkboard.
+- **Chalkboard Exercise Synchronization & Localization**:
   - The `chalkboard_exercise` property in state JSON MUST be kept 100% synchronized with the `challenge` property.
+  - **100% Target Language Purity**: Localized headers via `get_localized_game_header()` (e.g. `QUE SIGNIFIE CETTE EXPRESSION ?`, `OÙ EST L'ERREUR ? / COMPLÉTEZ :`, `¿QUÉ SIGNIFICA ESTA EXPRESIÓN?`, `TROVA L'INTRUSO:`). Zero English words or headers on French, Spanish, or Italian chalkboards.
 - **Visual Chalkboard Renderer (`_C_image_generation/core/chalkboard_renderer.py`)**:
   - High-resolution typography rendered on CPU using Pillow and FreeType (Segoe Print Bold) onto `empty_chalkboard.png` with chalk-yellow questions, dividers, translucent green option cards, and yellow letter badges (A, B, C, D) in milliseconds with zero VRAM usage.
   - **Clean Option Text Isolation (`clean_option_text`)**: Programmatically strips trailing punctuation and coordinating conjunctions (`or`, `and`, `o`, `ou`, `e`) from option choices, ensuring pristine options without trailing commas or awkward words.
   - **Automatic Spoken Answer Masking in Listening Challenges (`mask_revealed_answer_in_question`)**: For acoustic and listening quizzes where the spoken narrative pronounces the answer, the renderer automatically detects if an option phrase appears in the question text and masks it with `_________`. This guarantees the visual chalkboard never spoils the spoken quiz.
   - **Subtitles**: Subtitles are suppressed exclusively during the `challenge` section so the chalkboard exercise remains clear and uncluttered, and the answer is never spoiled in text while the challenge audio plays. Subtitles resume normally for all other sections.
 - **Suspense Gap**: Audio engine inserts an exact 2.20-second suspense pause (`pressure_gap`) between `pressure` and `answer`.
+- **5-Scene Calibrated Image Pipeline**:
+  - ComfyUI renders ONLY 2 scenes (`hook` and `answer`).
+  - `challenge` is rendered natively on CPU via FreeType.
+  - `pressure` is loaded from static `<lang>_waiting.png`.
+  - `explanation` is automatically duplicated from `answer.png` post-batch.
 
 ### 4. FUN_FACTS: Viral Linguistic Curiosities
 - **Target Language Localization**: Prompts and state contents are localized 100% in the target language (French, Spanish, Italian, English) to guarantee authentic regional nuance and zero translation artifacts.
 - **6 Authorized Formats**: Format A (3 Facts), Format B (One Big Curiosity), Format C (Challenge), Format D (Mystery), Format E (Comparison), Format F (Ranking/List).
-- **Dynamic Scene Count Adaptability (4 vs 6 Scenes)**: Image generation in Stage C dynamically inspects section keys in `content_metadata.script`. Standard 4-section curiosity formats generate 4 distinct thematic scene images, while multi-fact or historical scripts generate 6 distinct scenes with full story-world consistency.
+- **Calibrated 5-Scene Count**: Generates 5 distinct thematic scene images (`hook`, `setup`, `discovery`, `explanation`, `payoff`) via ComfyUI with story-world consistency.
 - **Factual Integrity**: Programmatic guardrails reject folk etymologies and unverified language myths.
 
 ---

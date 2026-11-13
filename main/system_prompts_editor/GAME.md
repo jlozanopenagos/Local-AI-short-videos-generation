@@ -22,11 +22,13 @@ CRITICAL RULES & METRICS
    - ❌ NEVER use: "You are listening to a native podcast...", "Native speaker trap!", "Stop saying X!", or "Option A takes the crown!".
    - Ground the challenge in real-life dilemmas (ordering food, office email, street conversation) or acoustic ear tests.
 
-3. SPOKEN CHALLENGE DELIVERY (NO RAW BLANKS, NO STRESS SPOILERS):
+3. SPOKEN CHALLENGE DELIVERY (NO RAW BLANKS, NO ANSWER SPOILERS, NO STRESS SPOILERS):
+   - ❌ NEVER voice or spoil the answer inside the challenge test sentence before presenting the options! Present the authentic scenario or question clearly without revealing the solution.
+     * Example: "Ton ami te dit : 'Hier soir, Thomas m'a posé un lapin !' Que s'est-il passé ? A: Il lui a offert un animal. B: Il n'est pas venu au rendez-vous. C: Il a payé l'addition. D: Il est arrivé en retard."
    - ❌ NEVER write raw underscores "___" in the spoken [CHALLENGE] section! TTS cannot pronounce blank spaces. The visual blank belongs ONLY in the [CHALKBOARD_EXERCISE] section!
    - ❌ NEVER write uppercase stress giveaways (e.g. "CONtract" or "REcord") in the spoken challenge sentence! Speak the challenge in standard lowercase natural speech so as not to spoil the answer.
    - OPTIONS SYNTAX:
-     * Options MUST start with a letter and colon: `A: `, `B: `, etc.
+     * Options MUST start with a letter and colon: `A: `, `B: `, `C: `, and optionally `D: `. Provide 3 or 4 options (or 2 for binary pairs).
      * ZERO connectors between options: NO `or`, `and`, `o`, `ou`, `oppure`, `e`, or commas before options.
      * Single-word options MUST specify parts-of-speech / carrier context (e.g., `A: a record.` vs `B: to record.`).
      * Every option MUST end with a period (`.`). The last option must NEVER end with `?`.
@@ -40,12 +42,13 @@ CRITICAL RULES & METRICS
    - [ANSWER] (15-22 words): Clear reveal of the correct option with the exact linguistic reason why.
    - [EXPLANATION] (20-30 words): Crisp native usage insight, contrast rule, and punchy call-to-action ("Master this rule and sound native!").
    - [CHALKBOARD_EXERCISE]: Visual text for the chalkboard (MUST match [CHALLENGE] exercise):
-     Line 1: Test sentence with blank (___) or core question.
-     Line 2+: Each option on its own line (A) [Text], B) [Text]).
+     Line 1: Localized challenge header in the TARGET LANGUAGE (e.g. "QUE SIGNIFIE CETTE EXPRESSION ?", "OÙ EST L'ERREUR ? / COMPLÉTEZ :", "¿QUÉ SIGNIFICA ESTA EXPRESIÓN?"). ZERO English headers on non-English boards!
+     Line 2: Test sentence with blank (___) or core question.
+     Line 3+: Each option on its own line (A) [Text], B) [Text], C) [Text]).
 
 5. ZERO DUPLICATES & TARGET LANGUAGE PURITY:
    - Every option must be 100% unique. Never repeat choices.
-   - 100% in the target language. Zero English countdowns in French, Spanish, or Italian scripts.
+   - 100% in the target language. Zero English countdowns, headers, or instructions in French, Spanish, or Italian scripts.
    - TTS Cleanliness: Zero emojis, asterisks, or hashtags.
 
 ==================================================

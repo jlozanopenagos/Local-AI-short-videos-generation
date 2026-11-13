@@ -86,7 +86,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 340 automated tests across 4 layers (unit, integration & contracts, connectivity, webui)
+# Run all 358 automated tests across 4 layers (unit, integration & contracts, connectivity, webui)
 py test/run_tests.py
 
 # Run specific layers
@@ -220,7 +220,27 @@ The pipeline manages a canonical master catalog of **1,224 language learning scr
   - Automatically restarts the LLM server (`ensure_llama_running()`) once audio processing finishes.
   - Windowless background CLI supervisor available at `py main/tools/llama.py`.
 
-### Latest Release: Streamlined Voice Modifier, Distinct Roleplay Casting & Resilient Parser Architecture
+### Latest Release: Scene Calibration, Chalkboard Localization, Zero-Text Prompts & Safe ComfyUI Supervisor
+- **Calibrated Scene & Image Timeline Architecture**:
+  - **EXPRESSION (5 images)**: `hook`, `setup`, `discovery`, `example`, `payoff` rendered via ComfyUI.
+  - **GAME (5 images, 2 ComfyUI renders)**: `hook` and `answer` rendered via ComfyUI; `challenge` rendered natively on CPU via FreeType onto `empty_chalkboard.png` with zero VRAM; `pressure` loaded from static per-language Tito waiting image; `explanation` automatically duplicated from `answer.png`.
+  - **ROLEPLAY (6 timeline cuts, 4 ComfyUI renders)**: `hook`, `dialogue_part_2`, `dialogue_part_3`, `payoff` rendered via ComfyUI; dynamic 1.25x punch-in cuts for `dialogue_part_1` and `dialogue_part_4` in video assembly.
+  - **FUN_FACT (5 images)**: `hook`, `setup`, `discovery`, `explanation`, `payoff` rendered via ComfyUI.
+- **Chalkboard Language Purity & Localization (`get_localized_game_header`)**:
+  - Implemented `get_localized_game_header()` in `types/game/archetypes.py`, providing 100% culturally authentic, target-language headers (e.g. French: `QUE SIGNIFIE CETTE EXPRESSION ?`, Spanish: `¿QUÉ SIGNIFICA ESTA EXPRESIÓN?`, Italian: `COSA SIGNIFICA QUESTA ESPRESSIONE?`).
+  - Zero English headers or English instruction text allowed on non-English chalkboards.
+- **Deep Prompt Text & Quote Scrubbing (`sanitize_and_style_prompt`)**:
+  - Completely scrubs all quoted words, idioms, foreign phrases, and speech actions (`whispering the words...`, `saying the words...`) from image prompts to prevent diffusion models from hallucinating or painting pseudo-text onto characters and backgrounds.
+  - Enforced strict negative prompt directives: `NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography`.
+- **Game Archetypes & Challenge Logic Integrity**:
+  - Categorizes idioms and figurative expressions (e.g. *Poser un lapin*, *Break a leg*) under `FALSE_FRIEND_TRAP` (testing true native meaning vs literal blunder).
+  - Enforces that Narrator audio voices the scenario clearly without giving away or spoiling the solution in the question sentence.
+- **Port-Based PID Discovery & WebUI Crash Prevention**:
+  - Hardened `ComfyManager.stop()` with `_discover_pid_from_port()` to inspect only active TCP `LISTENING` sockets on `:8188`, refusing to kill parent/caller PIDs and preventing accidental WebUI process termination.
+- **QA Test Suite**:
+  - Expanded and verified test suite to **358 automated tests** passing 100%.
+
+### Previous Release: Streamlined Voice Modifier, Distinct Roleplay Casting & Resilient Parser Architecture
 - **Streamlined Voice Modifier & Recaster (`_B_voice_generation/voice_modifier.py`)**:
   - **Immediate Pre-Flight Health Assertions**: Runs backend connection checks (`require_services(comfy=True)` and local Kokoro engine readiness) upfront before asking for Script IDs or user input.
   - **Zero Manual File Selection**: Completely eliminated tedious manual reference file picking and 10-item `.wav` filename lists. Users only specify character/narrator genders (`male`/`female`), and the program automatically randomizes high-quality distinct voices from reference pools matching `main.py`.

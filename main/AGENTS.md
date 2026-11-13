@@ -63,48 +63,64 @@ The content strategy consists of four distinct formats queued from CSV files in 
 
 3. **GAME (`*_READY_PROMPTS_GAME.csv`)**:
    - **Purpose**: Fast-paced, educational interactive trivia quiz game show to test viewers' language skills.
-   - **Format Rules**: Strictly an educational trivia quiz game, NOT a narrative story. The LLM picks the best fit from 5 authorized game mechanics:
-     1. *The Rapid Acoustic Ear Challenge*: Word stress, heteronyms, minimal pairs, double consonants.
-     2. *Native or Weird? / Which One Sounds Natural?*: False friends, collocations, nuances.
-     3. *What Does It Really Mean?*: Idioms and slang.
-     4. *The Real-Life Dilemma / Counter Reflex*: In-medias-res pressure situations.
-     5. *Spot the Imposter*: 2 genuine expressions vs 1 fabricated imposter.
+   - **Format Rules**: Strictly an educational trivia quiz game, NOT a narrative story. The LLM picks the best fit from 5 authorized game archetypes (`types/game/archetypes.py`):
+     1. *FALSE_FRIEND_TRAP*: Deceptive translation cognates and idiomatic literal traps (e.g. *parenti* vs *parents*, *embarazada* vs *embarrassed*, *poser un lapin*, *break a leg*).
+     2. *ODD_ONE_OUT*: Pattern recognition challenge with 3 or 4 choices where one breaks a hidden grammatical or category rule.
+     3. *SPOT_THE_MISTAKE*: Learner ego-challenge isolating common preposition, agreement, or lexical blunders.
+     4. *MINIMAL_PAIR_SHOWDOWN*: Auditory perception challenge testing word stress (`PROject` vs `proJECT`) or phonemic contrasts.
+     5. *FILL_IN_THE_BLANK_SPEEDRUN*: High-velocity collocation and idiomatic sprint with 3 or 4 candidate options.
    - **5 Mandatory Spoken Sections**: `title`, `hook`, `challenge`, `pressure`, `answer`, `explanation`.
    - **Canonical Challenge & Option Syntax Standard (Strict Mandate)**:
+     - **No Answer Spoilers in Challenge**: The Narrator voices the scenario or prompt question clearly WITHOUT spoiling the answer before presenting the choices.
+       - *Correct*: `"Ton ami te dit : 'Hier soir, Thomas m'a posé un lapin !' Que s'est-il passé ? A: Il lui a offert un animal.  B: Il n'est pas venu au rendez-vous.  C: Il a payé l'addition.  D: Il est arrivé en retard."`
+       - *Prohibited*: Never state or imply the solution inside the test sentence (e.g. never write `"Il a décidé de Poser un lapin à son amie..."`).
+     - **No Raw Underscores in Audio**: Spoken challenge audio NEVER contains raw blanks (`___` or `____`). The blank belongs exclusively on the visual chalkboard.
      - **No Stress / Capitalization Giveaways**: The challenge test sentence and options MUST be written in natural lowercase (e.g. `record`, `present`, `contract`, `project`). Syllables must **never** be capitalized (`REcord`, `preSENT`, `conTRACT`), which gives away the answer visually.
-     - **Option Tags**: Options must strictly begin with an uppercase letter followed by a colon: `A: `, `B: `, `C: `.
+     - **Option Tags**: Options must strictly begin with an uppercase letter followed by a colon: `A: `, `B: `, `C: `, and optionally `D: `. Provide 3 to 4 options (or 2 for binary minimal pairs).
      - **Zero Connectors**: No conjunctions (`or`, `and`, `ou`, `o`, `oppure`, `y`, `e`) and no separating commas between options.
      - **Part of Speech Specification for Single Words**: When options are single words (distinguishing noun vs verb heteronyms), a grammatical contextualizer is mandatory (`a record` for noun, `to record` for verb; `a present` vs `to present`; articles/prepositions in other languages).
      - **Period Punctuation**: Every option MUST terminate with a period (`.`). The last option **NEVER ends with a question mark (`?`)**.
-     - **Canonical Challenge Examples**:
-       - *English*: `"She broke the world record in swimming. Which word did you hear? A: a record.  B: to record."`
-       - *Spanish*: `"¿Qué significa realmente la popular frase costar un ojo de la cara? A: Exigir un gran esfuerzo físico.  B: Ser extremadamente caro."`
-       - *French*: `"Quelle expression utilise un natif quand quelqu'un ne vient jamais à un rendez-vous ? A: Piser un lapin.  B: Poser un lapin."`
-       - *Italian*: `"Cosa dici a un amico prima di un esame importante? A: Forza e coraggio.  B: In bocca al lupo."`
+   - **Visuals & 5-Scene Calibrated Image Generation Pipeline**:
+     - Timeline requires EXACTLY 5 scene assets in `script_<ID>/images/`:
+       1. `hook`: Scenario dilemma setup rendered in 2D cartoon illustration via ComfyUI.
+       2. `challenge`: High-resolution typography rendered natively on CPU via FreeType onto `empty_chalkboard.png` with **100% target language localization** (`get_localized_game_header()`, e.g. `QUE SIGNIFIE CETTE EXPRESSION ?`, `OÙ EST L'ERREUR ? / COMPLÉTEZ :`, `¿QUÉ SIGNIFICA ESTA EXPRESIÓN?`). **ZERO English headers or text on non-English chalkboards**.
+       3. `pressure`: Static pre-made waiting illustration per language from `input/images/game_images/<lang>/<lang>_waiting.png`.
+       4. `answer`: Resolution / victory breakthrough illustration rendered via ComfyUI.
+       5. `explanation`: Reuses the `answer` illustration via automatic post-batch duplication (`script_<ID>_answer.png` $\rightarrow$ `script_<ID>_explanation.png`).
+     - **ComfyUI Batch Efficiency**: Exactly **2 scenes** (`hook` and `answer`) are sent to ComfyUI for generation, maximizing VRAM efficiency and GPU throughput.
+   - **Zero-Tolerance Text & Quote Scrubbing in Prompts**:
+     - Visual prompts must NEVER contain text inside quotation marks, speech verbs (`whispering the words...`), signboards with text, or letter names.
+     - `sanitize_and_style_prompt` scrubs all quoted words and speech phrases, reinforcing negative constraints: `NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography`.
    - **Strict Separation of Challenge and Pressure**:
-     - `challenge`: Exclusively contains the test sentence and options (`A: ...  B: ...`).
+     - `challenge`: Exclusively contains the test scenario and candidate options (`A: ...  B: ...`).
      - `pressure`: Exclusively contains countdown lines, time limits, and urgency prompts (*"Which one is it? A or B? Your answer is coming!"*, *"Tic-tac !"*, *"Il tempo scorre!"*). Pressure lines must **never** be placed inside `challenge`.
    - **Multi-Property State Synchronization**:
      - `content_metadata.script.challenge`
      - `content_metadata.chalkboard_exercise` (must match the clean challenge)
      - `script_text` (JSON string serialized from updated script)
      - All 388 GAME state files are 100% audited, aligned, and synchronized.
-   - **Visuals & Chalkboard Rendering**:
-     - `hook`: Dilemma / situation setup in 2D cartoon illustration via ComfyUI.
-     - `challenge`: **Native High-Resolution Chalkboard Renderer** (`core/chalkboard_renderer.py`). Uses PIL and FreeType (Segoe Print Bold) to render clean typography directly onto `empty_chalkboard.png` on CPU in milliseconds with zero VRAM overhead.
-     - `pressure`: Static pre-made waiting illustration per language from `input/images/game_images/<lang>/<lang>_waiting.png`.
-     - `answer` & `explanation`: Real-life resolution illustrations.
    - **Pacing & Audio**: `audio_processor.py` inserts a dedicated 2.20-second suspense pause (`pressure_gap`) between `pressure` and `answer`. Subtitles are suppressed exclusively during `challenge` so options remain unobstructed and the answer is never spoiled in text.
    - **Target Duration & Word Budget**: **40 to 55 seconds** (strictly **95–125 spoken words** across all sections).
-   - **Status**: **Fully implemented, verified, and operational**.
+   - **Status**: **Fully implemented, calibrated, and operational**.
 
 4. **FUN_FACTS (`*_READY_PROMPTS_FUN_FACTS.csv`)**:
-   - **Purpose**: Umbrella category for short, entertaining, surprising language discoveries following **HOOK $\rightarrow$ DISCOVERY $\rightarrow$ PAYOFF $\rightarrow$ CTA / REACTION**.
+   - **Purpose**: Umbrella category for short, entertaining, surprising language discoveries following **HOOK $\rightarrow$ SETUP $\rightarrow$ DISCOVERY $\rightarrow$ EXPLANATION $\rightarrow$ PAYOFF**.
    - **6 Authorized Formats**: Format A (3 Facts), Format B (One Big Curiosity), Format C (Challenge), Format D (Mystery), Format E (Comparison), Format F (Ranking/List).
    - **Target Language Localization**: All content in `*_READY_PROMPTS_FUN_FACTS.csv` (`TOPIC`, `FACT_DETAILS`, `HOOK_ANGLE`, `EMOTIONAL_TRIGGER`) is written directly in the target language (French, Spanish, Italian, English).
-   - **Dynamic Scene Count (4 vs 6 Scenes)**: Image generation dynamically inspects script section keys, generating 4 images for standard formats or 6 images for multi-fact/historical scripts.
+   - **Calibrated Scene Count**: Generates **5 distinct thematic scene images** (`hook`, `setup`, `discovery`, `explanation`, `payoff`) via ComfyUI.
    - **Target Duration & Word Budget**: **40 to 60 seconds** (strictly **95–135 spoken words** across all sections).
    - **Status**: **Fully implemented, verified, and operational**.
+
+---
+
+## Calibrated Scene & Image Architecture per Video Type
+
+| Video Type | Timeline Scenes | ComfyUI Renders | Special Asset Handling |
+| :--- | :---: | :---: | :--- |
+| **EXPRESSION** | **5** | 5 | `hook`, `setup`, `discovery`, `example`, `payoff` (all generated via ComfyUI). |
+| **GAME** | **5** | **2** | • `hook` & `answer`: Rendered via ComfyUI.<br>• `challenge`: High-res native chalkboard on CPU via Pillow/FreeType (zero VRAM).<br>• `pressure`: Static Tito waiting image per language.<br>• `explanation`: Automatically copied from `answer.png`. |
+| **ROLEPLAY** | **6** | **4** | • `hook`, `dialogue_part_2`, `dialogue_part_3`, `payoff`: Rendered via ComfyUI.<br>• `dialogue_part_1` & `dialogue_part_4`: Dynamic 1.25x punch-in cuts in assembly from `hook` and `payoff`. |
+| **FUN_FACT** | **5** | 5 | `hook`, `setup`, `discovery`, `explanation`, `payoff` (all generated via ComfyUI). |
 
 ---
 
@@ -181,6 +197,7 @@ The project features a full **Model-View-Controller (MVC)** WebUI providing an i
   - CLI management tool: `py main/tools/llama.py {start|stop|restart|status|logs}`.
 - **Headless ComfyUI Supervisor (`tools/comfy.py` & `core/comfy_manager.py`)**:
   - Spawns ComfyUI in the background via `pythonw.exe` (`CREATE_NO_WINDOW | DETACHED_PROCESS`), immunizing the system against Windows QuickEdit terminal freeze deadlocks.
+  - **Port-Based PID Discovery & Self-Termination Protection**: `ComfyManager.stop()` discovers PIDs strictly via active TCP `LISTENING` sockets on `:8188` (`_discover_pid_from_port()`) and explicitly refuses to kill `os.getpid()` or `os.getppid()`, preventing accidental WebUI server crashes.
   - CLI management tool: `py main/tools/comfy.py {start|stop|restart|status|logs}`.
 - **Low-VRAM Optimizations**:
   - SenseVoice ASR offloaded to CPU in ComfyUI Qwen3-TTS.
@@ -252,7 +269,7 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 | `main/video_creation/_A_video_scripts/script_modifier.py` | Script modifier supporting direct parsing, LLM structuring, and automatic `clean_game_challenge()` enforcement. |
 | `main/video_creation/_A_video_scripts/prompts/game_rules.py` | Authoritative GAME prompt rules enforcing clean option formatting, no stress giveaways, and separation of challenge and pressure. |
 | `main/connectivity/` | Google Sheets integration suite (Apps Script Web App client, fetcher, reconciler, poster, scanner). |
-| `test/run_tests.py` | Test runner for automated unit, integration, contract, and WebUI API tests (340 tests passing 100%). |
+| `test/run_tests.py` | Test runner for automated unit, integration, contract, and WebUI API tests (358 tests passing 100%). |
 
 ---
 
