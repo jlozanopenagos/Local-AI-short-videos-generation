@@ -488,6 +488,7 @@ class ScriptUpdateRequest(BaseModel):
     chalkboard_title: Optional[str] = None
     target_expression: Optional[str] = None
     general_prompt: Optional[str] = None
+    character_anchors: Optional[Dict[str, Any]] = None
     image_prompts: Optional[Dict[str, str]] = None
 
 
@@ -552,6 +553,7 @@ def get_script(script_id: str) -> Dict[str, Any]:
         "lexical_field": p_params.get("LEXICAL_FIELD") or meta.get("lexical_field") or "",
         "learning_objective": meta.get("learning_objective") or "",
         "general_prompt": assets.get("general_prompt") or "",
+        "character_anchors": assets.get("character_anchors") or {},
         "speakers_voice": meta.get("speakers_voice") or {},
         "speakers_gender": meta.get("speakers_gender") or {},
         "character_personalities": meta.get("character_personalities") or {},
@@ -633,6 +635,9 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
             state_data["content_metadata"]["anchor_environment"] = new_gp
             state_data["status"]["image_generation"] = "pending"
             state_data["assets"]["image_prompts"] = {}
+
+    if payload.character_anchors is not None:
+        state_data["assets"]["character_anchors"] = payload.character_anchors
 
     # 5. Update specific scene prompts (only if general prompt did not just invalidate them)
     if payload.image_prompts is not None and not general_prompt_changed:
@@ -807,6 +812,7 @@ def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = 
     return {
         "status": "success",
         "audited_prompt": audited_prompt,
+        "character_anchors": state_data.get("assets", {}).get("character_anchors") or {},
         "script_id": canonical_id,
     }
 

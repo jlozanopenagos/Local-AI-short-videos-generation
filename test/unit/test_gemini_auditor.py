@@ -15,8 +15,12 @@ if str(MAIN_DIR) not in sys.path:
 from core.gemini_auditor import (
     audit_general_prompt,
     _clean_gemini_output,
+    _clean_gemini_output_with_anchors,
     _strip_redundant_tails,
     validate_gemini_core_prompt,
+    detect_script_domain,
+    get_video_type_directive,
+    extract_character_anchors_from_output,
     POSITIVE_STYLE_PILLAR,
     NEGATIVE_PROMPT_SHIELD,
 )
@@ -144,6 +148,66 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertIn(POSITIVE_STYLE_PILLAR, result)
         self.assertIn(NEGATIVE_PROMPT_SHIELD, result)
         self.assertFalse(result.startswith("```"))
+
+    def test_detect_script_domain_and_guidance(self):
+        """Verify semantic domain is detected from topic/script keywords."""
+        # 1. Family / Holiday dinner
+        doc_family = {
+            "content_metadata": {"language": "italian", "topic": "parenti vs genitori"},
+            "script_text": "A Natale ci riuniamo a cena con i parenti a casa mia."
+        }
+        domain, guidance = detect_script_domain(doc_family)
+        self.assertEqual(domain, "Family, Home & Holiday Gatherings")
+        self.assertIn("dining room", guidance)
+
+        # 2. Food / Dining
+        doc_food = {
+            "content_metadata": {"language": "spanish", "topic": "Pedir la cuenta"},
+            "script_text": "En el restaurante comemos pasta y pizza deliciosa."
+        }
+        domain, guidance = detect_script_domain(doc_food)
+        self.assertEqual(domain, "Food, Culinary & Dining")
+        self.assertIn("culinary", guidance)
+
+        # 3. Travel / Transit
+        doc_travel = {
+            "content_metadata": {"language": "french", "topic": "Prendre le train"},
+            "script_text": "A la gare de Lyon, nous prenons le train avec nos valises."
+        }
+        domain, guidance = detect_script_domain(doc_travel)
+        self.assertEqual(domain, "Travel, Transit & Commute")
+        self.assertIn("transit", guidance)
+
+    def test_get_video_type_directive(self):
+        """Verify distinct video type directives for Expression vs Game vs Roleplay."""
+        dir_game = get_video_type_directive("GAME")
+        self.assertIn("Interactive Challenge Arena", dir_game)
+        self.assertIn("timer", dir_game.lower())
+
+        dir_roleplay = get_video_type_directive("ROLEPLAY")
+        self.assertIn("Character Drama", dir_roleplay)
+        self.assertIn("interpersonal", dir_roleplay.lower())
+
+        dir_expr = get_video_type_directive("EXPRESSION")
+        self.assertIn("Everyday Cultural Observation", dir_expr)
+        self.assertIn("relatable", dir_expr.lower())
+
+    def test_extract_character_anchors_from_output(self):
+        """Verify [CHARACTER_ANCHORS] block is cleanly extracted into structured dictionary."""
+        sample = (
+            "[CHARACTER_ANCHORS]\n"
+            "CHAR_1: 15-16yo high-school student boy | hair: messy dark-brown curls | attire: burgundy wool cardigan over jersey | shoes: leather work boots\n"
+            "CHAR_2: 15-16yo high-school student girl | hair: copper-tinted bob | attire: indigo denim chore jacket | shoes: canvas sneakers\n"
+            "[/CHARACTER_ANCHORS]\n\n"
+            "Medium wide eye-level shot. Inside a dining room..."
+        )
+        cleaned, anchors = extract_character_anchors_from_output(sample)
+        self.assertEqual(cleaned, "Medium wide eye-level shot. Inside a dining room...")
+        self.assertEqual(anchors["char1_hair"], "messy dark-brown curls")
+        self.assertEqual(anchors["char1_attire"], "burgundy wool cardigan over jersey")
+        self.assertEqual(anchors["char1_shoes"], "leather work boots")
+        self.assertEqual(anchors["char2_hair"], "copper-tinted bob")
+        self.assertIn("Character appearance continuity", anchors["continuity_summary"])
 
 
 if __name__ == "__main__":

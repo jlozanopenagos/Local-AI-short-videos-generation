@@ -95,7 +95,7 @@ export async function geminiAuditPrompt(
   scriptId: string,
   currentPrompt?: string,
   apiKey?: string
-): Promise<{ status: string; audited_prompt: string; script_id: string }> {
+): Promise<{ status: string; audited_prompt: string; character_anchors?: Record<string, any>; script_id: string }> {
   const res = await fetch(`/api/scripts/${scriptId}/gemini-audit-prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -118,6 +118,7 @@ export interface ScriptDetail extends ScriptSummary {
   base_setting?: string
   lexical_field?: string
   general_prompt?: string
+  character_anchors?: Record<string, any>
   learning_objective?: string
   speakers_voice?: Record<string, string>
   speakers_gender?: Record<string, string>
@@ -137,6 +138,7 @@ export interface ScriptUpdatePayload {
   chalkboard_title?: string
   target_expression?: string
   general_prompt?: string
+  character_anchors?: Record<string, any>
   image_prompts?: Record<string, string>
 }
 

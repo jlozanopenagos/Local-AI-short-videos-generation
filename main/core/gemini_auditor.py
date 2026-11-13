@@ -59,8 +59,283 @@ NEGATIVE_PROMPT_SHIELD = (
 )
 
 
-def _clean_gemini_output(raw_text: str) -> str:
-    """Cleans up Gemini output to guarantee raw prompt text with zero markdown or conversational baggage."""
+def detect_script_domain(script_data: Dict[str, Any]) -> Tuple[str, str]:
+    """
+    Analyzes script metadata, topic, scenario, and dialogue text to identify
+    the real-world semantic domain and generate dynamic context guidance.
+    """
+    content_meta = script_data.get("content_metadata") or {}
+    prompt_params = script_data.get("prompt_params") or {}
+    metadata = script_data.get("metadata") or {}
+
+    raw_topic = str(
+        content_meta.get("topic")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or content_meta.get("target_expression")
+        or metadata.get("TITLE")
+        or ""
+    )
+    scenario = str(content_meta.get("story_scenario") or prompt_params.get("ROLEPLAY_SCENARIO") or "")
+    lexical = str(content_meta.get("lexical_field") or prompt_params.get("LEXICAL_FIELD") or "")
+    raw_script = str(script_data.get("script_text") or "")
+    lang = str(content_meta.get("language") or metadata.get("LABEL") or "English").title()
+
+    combined = f"{raw_topic} {scenario} {lexical} {raw_script}".lower()
+
+    domain_rules = [
+        (
+            "Family, Home & Holiday Gatherings",
+            [
+                "parenti", "genitori", "family", "famiglia", "familia", "famille",
+                "parents", "relatives", "cugini", "cousin", "nonni", "grandparents",
+                "casa", "home", "house", "dinner", "cena", "pranzo", "natale", "christmas",
+                "holiday", "festa", "fratello", "sorella", "brother", "sister",
+                "mamma", "papà", "mom", "dad", "living room", "kitchen", "cucina",
+                "tablecloth", "sofa", "porch", "patio", "ancestor", "heritage"
+            ],
+            f"Ground this visual world in an authentic {lang} domestic or family setting "
+            f"(e.g. a warm holiday dining room with festive table setting, a lively family kitchen, "
+            f"an intimate living room gathering, or an outdoor courtyard porch) directly reflecting family life and shared meals."
+        ),
+        (
+            "Food, Culinary & Dining",
+            [
+                "food", "cibo", "comida", "nourriture", "eat", "eating", "mangiare",
+                "comer", "manger", "restaurant", "ristorante", "restaurante", "cafe",
+                "café", "trattoria", "pizza", "pasta", "cooking", "cuoco", "chef",
+                "recipe", "ricetta", "breakfast", "colazione", "desayuno", "lunch",
+                "dish", "beverage", "espresso", "cappuccino", "tasting", "pastry", "wine"
+            ],
+            f"Ground this visual world in a vibrant culinary or dining setting in {lang} culture "
+            f"(e.g. a neighborhood trattoria dining table, an open kitchen pass, an outdoor cafe terrace, "
+            f"a lively food hall, or a coffee counter)."
+        ),
+        (
+            "Travel, Transit & Commute",
+            [
+                "travel", "viaggio", "viaje", "voyage", "train", "treno", "tren",
+                "airport", "aeroporto", "aeropuerto", "gare", "stazione", "estación",
+                "station", "ticket", "biglietto", "billete", "bus", "autobus", "subway",
+                "metro", "tram", "hotel", "albergo", "suitcase", "valigia", "maleta",
+                "baggage", "flight", "volo", "vuelo", "trip", "tourism", "turista",
+                "luggage", "platform", "backpack", "ferry"
+            ],
+            f"Ground this visual world in an authentic travel or transit hub "
+            f"(e.g. a railway station platform with vintage departures board, a tramway interchange, "
+            f"an airport check-in concourse, or a scenic transit stop)."
+        ),
+        (
+            "Academic, School & Study Life",
+            [
+                "school", "scuola", "escuela", "école", "class", "classe", "aula",
+                "exam", "esame", "examen", "test", "study", "studiare", "estudiar",
+                "étudier", "teacher", "professore", "profesor", "prof", "student",
+                "studente", "homework", "compiti", "tarea", "devoirs", "library",
+                "biblioteca", "bibliothèque", "grade", "voto", "nota", "university",
+                "università", "campus", "blackboard", "chalkboard", "desk"
+            ],
+            f"Ground this visual world in an authentic student academic environment "
+            f"(e.g. a university library study nook with green-shaded brass lamps, a campus project table, "
+            f"a student common room, or a classroom study corner)."
+        ),
+        (
+            "Workplace & Professional Life",
+            [
+                "work", "lavoro", "trabajo", "travail", "office", "ufficio", "oficina",
+                "bureau", "boss", "capo", "jefe", "colleague", "collega", "colega",
+                "meeting", "riunione", "reunión", "job", "interview", "colloquio",
+                "entrevista", "company", "azienda", "empresa", "email", "client", "career"
+            ],
+            f"Ground this visual world in a realistic professional or vocational workspace "
+            f"(e.g. a shared creative studio, a municipal client counter, an architectural drafting atelier, "
+            f"or an open-plan office discussion nook)."
+        ),
+        (
+            "Shopping, Markets & Commerce",
+            [
+                "shop", "negozio", "tienda", "magasin", "store", "buy", "comprare",
+                "comprar", "acheter", "price", "prezzo", "precio", "prix", "clothes",
+                "vestiti", "ropa", "vêtements", "market", "mercato", "mercado", "marché",
+                "supermarket", "cashier", "cassa", "caja", "boutique", "receipt", "shopping"
+            ],
+            f"Ground this visual world in a lively commercial or market space "
+            f"(e.g. a bustling neighborhood open-air market, a vintage storefront counter, "
+            f"or a specialty goods boutique)."
+        ),
+        (
+            "Sports, Outdoor & Fitness",
+            [
+                "sport", "calcio", "football", "soccer", "gym", "palestra", "gimnasio",
+                "fitness", "run", "correre", "correr", "courir", "match", "partita",
+                "partido", "coach", "allenatore", "entrenador", "court", "field", "stadium",
+                "basketball", "tennis", "skate", "cycling"
+            ],
+            f"Ground this visual world in an active sports or recreation environment "
+            f"(e.g. a community sports club bleacher, an outdoor court sideline, a skate park perimeter, "
+            f"or a lakeside athletic path)."
+        ),
+        (
+            "Arts, Music & Culture",
+            [
+                "music", "musica", "musique", "song", "canzone", "canción", "chanson",
+                "art", "arte", "cinema", "film", "movie", "theatre", "teatro", "théâtre",
+                "concert", "concerto", "dance", "ballo", "danza", "danse", "instrument",
+                "guitar", "piano", "museum", "museo", "gallery", "exhibition"
+            ],
+            f"Ground this visual world in an expressive creative or cultural space "
+            f"(e.g. an intimate music practice studio, a cinema lobby, an art gallery corridor, "
+            f"or a theater backstage)."
+        ),
+        (
+            "Healthcare & Wellbeing",
+            [
+                "doctor", "dottore", "médico", "médecin", "hospital", "ospedale", "hopital",
+                "pharmacy", "farmacia", "pharmacie", "sick", "malato", "enfermo", "malade",
+                "pain", "dolore", "dolor", "douleur", "medicine", "medicina", "médicament",
+                "health", "salute", "salud", "santé", "dentist", "dentista"
+            ],
+            f"Ground this visual world in a healthcare or wellness setting "
+            f"(e.g. an authentic neighborhood pharmacy counter, a clinic waiting room with paned windows, "
+            f"or an apothecary consultation nook)."
+        ),
+    ]
+
+    for domain_name, kw_list, guidance in domain_rules:
+        if any(re.search(r'\b' + re.escape(w) + r'\b', combined) for w in kw_list):
+            return domain_name, guidance
+
+    # Default fallback: authentic everyday cultural street/piazza life
+    return (
+        "Everyday Neighborhood & Social Life",
+        f"Ground this visual world in an authentic everyday social setting reflecting {lang} culture "
+        f"(e.g. a lively neighborhood piazza corner, a sunlit public park bench by historic facades, "
+        f"or an open-air pedestrian promenade) where natural everyday dialogue occurs."
+    )
+
+
+def get_video_type_directive(video_type: str) -> str:
+    """
+    Returns specialized visual storytelling directives tailored to the video type.
+    Ensures that an Expression, Game, Roleplay, and Fun Facts Short sharing the same
+    expression receive distinctly different scene archetypes, props, and moods.
+    """
+    vt = (video_type or "EXPRESSION").upper().strip()
+    if vt in ("GAME", "QUIZ"):
+        return (
+            "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena)\n"
+            "- Core Visual Objective: High-stakes interactive dilemma, puzzle challenge, or competitive test of wits.\n"
+            "- Setting Mood: Playful competitive focus, suspenseful countdown tension, active problem-solving.\n"
+            "- Mandatory Challenge Props: Include concrete interactive quiz/challenge items between characters "
+            "(e.g. a wooden challenge board or notebook, an hourglass timer, answer placards, scorecards, brass study bells, or flashcards).\n"
+            "- Poses & Expressions: High-energy concentration, playful rivalry, dilemma gestures, or triumphant breakthrough."
+        )
+    elif vt in ("ROLEPLAY", "ROLE_PLAY"):
+        return (
+            "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Interpersonal Banter)\n"
+            "- Core Visual Objective: Character-driven emotional exchange, comedic misunderstanding, or interpersonal debate.\n"
+            "- Setting Mood: Close interpersonal shared space emphasizing conversational proxemics across a table or counter.\n"
+            "- Mandatory Conversational Foil Props: A concrete physical object causing or anchoring the discussion "
+            "(e.g. a disputed handwritten list, a shared schedule, a mobile screen, blueprints, or physical items being compared).\n"
+            "- Poses & Expressions: Expressive conversational acting contrast (one character animatedly arguing or explaining "
+            "with expressive hand gestures, while the counterpart reacts with skepticism, curiosity, or sudden realization)."
+        )
+    elif vt in ("FUN_FACTS", "FACTS"):
+        return (
+            "VIDEO TYPE ARCHETYPE: FUN FACTS (Curiosity & Cultural Discovery)\n"
+            "- Core Visual Objective: Documentary exploration, historical curiosity, or surprising cultural revelation.\n"
+            "- Setting Mood: Wonder, exploratory depth, intrigue, and cultural mystery.\n"
+            "- Mandatory Discovery Props: Concrete items of investigation (e.g. magnifying glass, vintage maps, open reference encyclopedias, antique cultural artifacts).\n"
+            "- Poses & Expressions: Fascinated discovery, pointing out an unexpected detail, shared wonder."
+        )
+    else:  # EXPRESSION (default)
+        return (
+            "VIDEO TYPE ARCHETYPE: EXPRESSION (Everyday Cultural Observation)\n"
+            "- Core Visual Objective: Natural, authentic demonstration of an idiom or cultural phrase in everyday real-world life.\n"
+            "- Setting Mood: Relatable everyday social observation, relaxed conversational rhythm, warmth.\n"
+            "- Mandatory Natural Props: Everyday carry items grounding the moment (e.g. espresso cups, shopping bags, rolled newspaper, bicycle, umbrella).\n"
+            "- Poses & Expressions: Natural social observation, relaxed gestures, everyday conversational warmth."
+        )
+
+
+def _parse_character_line(line: str) -> Dict[str, str]:
+    parts = line.split("|")
+    res: Dict[str, str] = {}
+    for p in parts:
+        p = p.strip()
+        if ":" in p:
+            k, v = p.split(":", 1)
+            k_low = k.strip().lower()
+            v_val = v.strip()
+            if "hair" in k_low:
+                res["hair"] = v_val
+            elif "attire" in k_low or "clothes" in k_low or "outfit" in k_low:
+                res["attire"] = v_val
+            elif "shoe" in k_low or "footwear" in k_low:
+                res["shoes"] = v_val
+            elif "char" in k_low:
+                res["identity"] = v_val
+    return res
+
+
+def extract_character_anchors_from_output(raw_text: str) -> Tuple[str, Dict[str, str]]:
+    """
+    Extracts [CHARACTER_ANCHORS] block from Gemini output if present.
+    Returns cleaned text without the anchor block, plus the structured character anchors dictionary.
+    """
+    cleaned = (raw_text or "").strip()
+    pattern = r'\[CHARACTER_ANCHORS\](.*?)\[/CHARACTER_ANCHORS\]'
+    m = re.search(pattern, cleaned, flags=re.DOTALL | re.IGNORECASE)
+    anchors: Dict[str, str] = {}
+
+    if m:
+        block = m.group(1).strip()
+        cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE).strip()
+
+        p1_info: Dict[str, str] = {}
+        p2_info: Dict[str, str] = {}
+        for line in block.splitlines():
+            line_str = line.strip()
+            if not line_str:
+                continue
+            if "CHAR_1" in line_str.upper():
+                p1_info = _parse_character_line(line_str)
+            elif "CHAR_2" in line_str.upper():
+                p2_info = _parse_character_line(line_str)
+
+        if p1_info:
+            anchors["char1_identity"] = p1_info.get("identity", "15-year-old high-school student boy")
+            anchors["char1_hair"] = p1_info.get("hair", "short textured dark hair")
+            anchors["char1_attire"] = p1_info.get("attire", "a casual overshirt over a tee")
+            anchors["char1_shoes"] = p1_info.get("shoes", "sneakers")
+            anchors["char1_desc"] = (
+                f"{anchors['char1_identity']} with {anchors['char1_hair']} wearing {anchors['char1_attire']} "
+                f"and {anchors['char1_shoes']}"
+            )
+        if p2_info:
+            anchors["char2_identity"] = p2_info.get("identity", "15-year-old high-school student girl")
+            anchors["char2_hair"] = p2_info.get("hair", "sleek dark bob")
+            anchors["char2_attire"] = p2_info.get("attire", "a corduroy jacket")
+            anchors["char2_shoes"] = p2_info.get("shoes", "loafers")
+            anchors["char2_desc"] = (
+                f"{anchors['char2_identity']} with {anchors['char2_hair']} wearing {anchors['char2_attire']} "
+                f"and {anchors['char2_shoes']}"
+            )
+
+        if "char1_desc" in anchors and "char2_desc" in anchors:
+            anchors["continuity_summary"] = (
+                f"Character appearance continuity: Character 1 is a {anchors['char1_desc']}; "
+                f"Character 2 is a {anchors['char2_desc']}."
+            )
+        elif "char1_desc" in anchors:
+            anchors["continuity_summary"] = (
+                f"Character appearance continuity: The protagonist is a {anchors['char1_desc']}."
+            )
+
+    return cleaned, anchors
+
+
+def _clean_gemini_output_with_anchors(raw_text: str) -> Tuple[str, Dict[str, str]]:
+    """Cleans up Gemini output and extracts structured character anchors if present."""
     text = (raw_text or "").strip()
 
     # 1. Strip markdown code fences (```markdown ... ``` or ```text ... ``` or ``` ... ```)
@@ -69,17 +344,26 @@ def _clean_gemini_output(raw_text: str) -> str:
     if m:
         text = m.group(1).strip()
 
-    # 2. Strip conversational prefixes
+    # 2. Extract structured [CHARACTER_ANCHORS] block if present
+    text, anchors = extract_character_anchors_from_output(text)
+
+    # 3. Strip conversational prefixes
     prefix_pattern = (
         r"^(?:(?:Here is|Here's) (?:the |a )?(?:new |audited |revised )?(?:general |master )?prompt[:\s]*|"
-        r"(?:General Prompt|Master Story World|Prompt|Visual Prompt|Core Prompt)[:\s]*)\s*"
+        r"(?:General Prompt|Master Story World|Prompt|Visual Prompt|Core Prompt|Narrative Scene|Part 2|Part B)[:\s]*)\s*"
     )
     text = re.sub(prefix_pattern, "", text, flags=re.IGNORECASE).strip()
 
-    # 3. Strip outer enclosing double or single quotes
+    # 4. Strip outer enclosing double or single quotes
     if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
         text = text[1:-1].strip()
 
+    return text, anchors
+
+
+def _clean_gemini_output(raw_text: str) -> str:
+    """Cleans up Gemini output to guarantee raw prompt text with zero markdown or conversational baggage."""
+    text, _ = _clean_gemini_output_with_anchors(raw_text)
     return text
 
 
@@ -228,13 +512,28 @@ def audit_general_prompt(
 
     existing_gp = (current_prompt or script_data.get("assets", {}).get("general_prompt", "")).strip()
 
-    # Dynamic creative lenses to force distinct, non-repetitive story worlds across successive runs
+    # Detect semantic domain and video type archetypes
+    detected_domain, domain_guidance = detect_script_domain(script_data)
+    video_type_directive = get_video_type_directive(video_type)
+
+    # Determine gender words for characters
+    c1_gender = "boy"
+    c2_gender = "girl"
+    if isinstance(speakers_gender, dict):
+        p1 = str(speakers_gender.get("PERSON_ONE") or speakers_gender.get("NARRATOR") or "").lower()
+        p2 = str(speakers_gender.get("PERSON_TWO") or "").lower()
+        if "f" in p1 or "girl" in p1 or "woman" in p1:
+            c1_gender = "girl"
+        if "m" in p2 or "boy" in p2 or "man" in p2:
+            c2_gender = "boy"
+
+    # Dynamic creative lenses focusing on cinematographic perspectives (no hardcoded shops)
     creative_lenses = [
-        "Artisanal & tactile craftsmanship (e.g. vintage printmaking studio, custom leathercraft bench, architectural blueprint drafting)",
-        "Atmospheric daylight & architectural textures (e.g. amber sunbeams piercing paned storefront glass, slate-blue herringbone floor shadows)",
-        "Vibrant cultural & vocational micro-world (e.g. vintage vinyl audio archive, municipal record hall, botanical pavilion, antique watchmaker bench)",
-        "Lively character interaction & specialized setting tools (e.g. tailoring scissors, brass cash registers, drafting compasses, espresso machines)",
-        "Dramatic spatial depth & layered background accents (e.g. mezzanine railings, paned street-facing windows with passersby, illuminated warm-wood shelving)",
+        "Dynamic foreground framing with concrete setting props anchored in the immediate midground",
+        "Rich atmospheric natural daylight filtering through windows, casting directional colored floor shadows",
+        "Tactile regional materials and authentic architectural depth reflecting the cultural setting",
+        "Expressive character interaction and conversational body language anchored around focal setting objects",
+        "Deep spatial composition with layered background doorways, arches, or storefront glass adding environmental realism",
     ]
     chosen_lens = random.choice(creative_lenses)
     run_seed = random.randint(100000, 999999)
@@ -247,31 +546,41 @@ def audit_general_prompt(
             "MANDATE: Invent a COMPLETELY DIFFERENT physical setting, atmosphere, and props from the draft above.\n\n"
         )
 
-    # Build prompt enforcing ONLY Parts 1 to 7 and Anti-Cliché mandate
+    # Build prompt enforcing Context Domain, Video Type Archetype, Character Anchors, and 7-part Narrative Scene
     prompt_text = (
         "You are an elite Visual Storyboard Director and Concept Artist for high-retention 2D animation Shorts.\n"
         "Your task is to audit and creatively write the Master Visual Story World for this Short to eliminate repetitive AI tropes.\n\n"
         f"CREATIVE DIRECTIVE [RUN #{run_seed}]:\n"
-        f"Creative Focus for this take: {chosen_lens}.\n\n"
+        f"Cinematographic Focus: {chosen_lens}.\n\n"
+        f"SEMANTIC DOMAIN: {detected_domain}\n"
+        f"DOMAIN DIRECTIVE: {domain_guidance}\n\n"
+        f"{video_type_directive}\n\n"
         f"SCRIPT ID: {script_id}\n"
         f"LANGUAGE: {language} ({video_type})\n"
         f"TOPIC/SITUATION: {topic}\n"
         f"SCRIPT DIALOGUE:\n{script_text}\n\n"
         f"{previous_contrast}"
         "==================================================\n"
-        "STRICT PRODUCTION MANDATE (PARTS 1 TO 7 ONLY):\n"
+        "STRICT PRODUCTION MANDATE (TWO PARTS):\n"
         "==================================================\n"
-        "Generate ONLY the narrative visual scene core (Parts 1 to 7). DO NOT include art style tags or negative prompt exclusions (these are appended automatically downstream).\n\n"
-        "Follow this exact 7-part narrative structure in a single cohesive, richly detailed paragraph (~110-150 words):\n"
+        "Generate your response in EXACTLY two parts:\n\n"
+        "PART A: STRUCTURED CHARACTER ANCHORS (mandatory [CHARACTER_ANCHORS] tags)\n"
+        "Define locked physical character traits to maintain 100% visual identity continuity:\n"
+        "[CHARACTER_ANCHORS]\n"
+        f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment> | shoes: <explicit footwear>\n"
+        f"CHAR_2: 15-16yo high-school student {c2_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment> | shoes: <explicit footwear>\n"
+        "[/CHARACTER_ANCHORS]\n\n"
+        "PART B: MASTER NARRATIVE SCENE (PARTS 1 TO 7 ONLY)\n"
+        "Follow this exact 7-part narrative structure in a single cohesive, richly detailed paragraph (~110-145 words):\n"
         "1. CAMERA SHOT & FRAMING: Open with 'Medium wide eye-level shot.' to guarantee lens perspective.\n"
-        "2. THEMATIC SCENE CONTEXT: Ground the physical setting in an authentic, distinct real-world environment derived directly from the dialogue's concrete situation, conflict, or occupations.\n"
-        "   ⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are flea markets, pottery/ceramic workshops, rooftop greenhouses, generic modern coffee shops, or plain empty classrooms. Invent settings specifically reflecting the dialogue's reality (e.g. vintage record archive, municipal records office, antique clock repair workshop, architectural blueprint atelier, neighborhood tailor shop, sunlit bakery courtyard, maritime docks, tramway terminus).\n"
-        f"3. CHARACTER 1 (Subject): One 15-16yo high-school student ({gender_desc}) with distinctive hairstyle (e.g. textured curls, sleek angled bob, braided half-up, tapered fade), expressive cartoon facial acting (wide cartoon eyes, specular pupil highlights), and layered, setting-appropriate wardrobe with explicit footwear.\n"
-        f"4. CHARACTER 2 (Counterpart): The second 15-16yo student in an active complementary pose, with unique hair, wardrobe, and shoes.\n"
-        "5. MIDGROUND ANCHOR PROPS: Concrete physical objects on the counter, table, or between characters that prevent hallucinations and anchor the interaction.\n"
-        "6. ARCHITECTURAL BACKGROUND: Detailed cultural and architectural background textures providing authentic environmental depth.\n"
+        "2. THEMATIC SCENE CONTEXT: Ground the physical setting authentically in the SEMANTIC DOMAIN and VIDEO TYPE ARCHETYPE above. "
+        "⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are generic modern coffee shops, plain empty classrooms, pottery/ceramic workshops, rooftop greenhouses, and random flea markets. Ground the setting authentically in the dialogue domain.\n"
+        f"3. CHARACTER 1 (Subject): Integrate CHAR_1 using the exact hair, wardrobe, and shoes defined in Part A, with expressive cartoon facial acting (large clear cartoon eyes, visible white sclera, specular pupil highlights).\n"
+        "4. CHARACTER 2 (Counterpart): Integrate CHAR_2 in an active complementary pose matching their Part A definition.\n"
+        "5. MIDGROUND ANCHOR PROPS: Concrete physical objects on the table/counter between characters matching the video type archetype.\n"
+        "6. ARCHITECTURAL BACKGROUND: Cultural and architectural textures providing regional depth.\n"
         "7. CINEMATIC LIGHTING & SHADOWS: Warm/cool color contrast (e.g. amber sunbeams casting slate-blue directional cast shadows across the floor).\n\n"
-        "OUTPUT RULE: Return ONLY the raw prompt text for Parts 1 to 7. Zero markdown fences, zero quotes, zero commentary."
+        "OUTPUT RULE: Return ONLY Part A and Part B. Zero conversational filler, zero quotes, zero markdown commentary outside the block."
     )
 
     payload = {
@@ -328,7 +637,11 @@ def audit_general_prompt(
                         raise ValueError(f"Gemini returned empty parts in candidate: {cand}")
 
                     raw_generated = parts[0]["text"]
-                    cleaned_core = _clean_gemini_output(raw_generated)
+                    cleaned_core, parsed_anchors = _clean_gemini_output_with_anchors(raw_generated)
+                    if parsed_anchors and isinstance(script_data, dict):
+                        if "assets" not in script_data or not isinstance(script_data["assets"], dict):
+                            script_data["assets"] = {}
+                        script_data["assets"]["character_anchors"] = parsed_anchors
 
                     # Automated Result Checker
                     is_valid, reason = validate_gemini_core_prompt(cleaned_core, finish_reason)

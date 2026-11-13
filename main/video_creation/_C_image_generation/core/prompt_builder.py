@@ -946,12 +946,13 @@ def sanitize_character_hair(raw_hair: str, is_female: bool, is_primary: bool = T
 def extract_or_build_character_anchors(
     general_prompt: str,
     speakers_gender: dict = None,
-    video_type: str = "EXPRESSION"
+    video_type: str = "EXPRESSION",
+    character_anchors: dict = None,
 ) -> dict[str, str]:
     """
     Extracts or establishes consistent, locked character traits (hair color, hairstyle, wardrobe)
-    from the General Prompt so they can be repeated verbatim in every scene prompt.
-    Prevents character identity drift, hair color swapping, and age inconsistency.
+    from the General Prompt or structured character anchors so they can be repeated verbatim
+    in every scene prompt. Prevents character identity drift, hair swapping, and wardrobe changes.
     """
     speakers_gender = speakers_gender or {}
     video_type_upper = video_type.strip().upper()
@@ -964,12 +965,50 @@ def extract_or_build_character_anchors(
     p2 = str(speakers_gender.get("PERSON_TWO", "male")).lower()
     p1_is_female = "f" in p1 or "girl" in p1 or "woman" in p1
     p2_is_female = "f" in p2 or "girl" in p2 or "woman" in p2
+    gender_word1 = "girl" if p1_is_female else "boy"
+    gender_word2 = "girl" if p2_is_female else "boy"
 
-    garments = r"(?:blazer|vest|coat|smock|apron|jacket|robe|dress|sweater|shirt|suit|cardigan|hoodie|uniform|tunic)"
+    # 1. Use pre-extracted structured character anchors if available
+    if isinstance(character_anchors, dict) and character_anchors.get("char1_desc"):
+        c1_desc = character_anchors["char1_desc"]
+        c2_desc = character_anchors.get("char2_desc") or f"15-year-old high-school student {gender_word2}"
+        cont_summary = character_anchors.get("continuity_summary") or (
+            f"Character appearance continuity: Character 1 is a {c1_desc}; Character 2 is a {c2_desc}."
+            if has_two_characters else f"Character appearance continuity: The protagonist is a {c1_desc}."
+        )
+        return {
+            "has_two_characters": str(has_two_characters),
+            "char1_desc": c1_desc,
+            "char2_desc": c2_desc,
+            "char1_hair": character_anchors.get("char1_hair", ""),
+            "char2_hair": character_anchors.get("char2_hair", ""),
+            "char1_attire": character_anchors.get("char1_attire", ""),
+            "char2_attire": character_anchors.get("char2_attire", ""),
+            "continuity_summary": cont_summary,
+        }
 
-    # 1. Search for hair specifications in general prompt
+    # 2. Check for [CHARACTER_ANCHORS] block embedded inside general_prompt
+    anchor_block_match = re.search(r'\[CHARACTER_ANCHORS\](.*?)\[/CHARACTER_ANCHORS\]', general_prompt, re.DOTALL | re.IGNORECASE)
+    if anchor_block_match:
+        from core.gemini_auditor import extract_character_anchors_from_output
+        _, parsed = extract_character_anchors_from_output(general_prompt)
+        if parsed and parsed.get("char1_desc"):
+            return {
+                "has_two_characters": str(has_two_characters),
+                "char1_desc": parsed["char1_desc"],
+                "char2_desc": parsed.get("char2_desc", f"15-year-old high-school student {gender_word2}"),
+                "char1_hair": parsed.get("char1_hair", ""),
+                "char2_hair": parsed.get("char2_hair", ""),
+                "char1_attire": parsed.get("char1_attire", ""),
+                "char2_attire": parsed.get("char2_attire", ""),
+                "continuity_summary": parsed.get("continuity_summary", ""),
+            }
+
+    # 3. Fallback to resilient regex extraction from narrative general prompt
+    garments = r"(?:blazer|vest|coat|smock|apron|jacket|robe|dress|sweater|shirt|suit|cardigan|hoodie|uniform|tunic|jersey|overshirt|jeans|trousers|sneakers|boots|loafers)"
+
     hair_matches = re.findall(
-        r"(\b(?:dark|jet-black|black|brown|chestnut|auburn|blonde|caramel|brunette|red)\s+[^,\.]{0,35}?\bhair\b[^,\.]*|\bshort\s+[^,\.]{0,30}?\bhair\b[^,\.]*)",
+        r"(\b(?:dark|jet-black|black|brown|chestnut|auburn|blonde|caramel|brunette|red|copper|amber)?\s*[^,\.]{0,25}?\b(?:hair|curls|fade|bob|undercut|braid|braided|ponytail|quiff|buzz)\b[^,\.]*)",
         general_prompt,
         re.IGNORECASE,
     )
@@ -980,8 +1019,7 @@ def extract_or_build_character_anchors(
     char1_hair = sanitize_character_hair(raw_h1, is_female=p1_is_female, is_primary=True)
     char2_hair = sanitize_character_hair(raw_h2, is_female=p2_is_female, is_primary=False)
 
-    # 2. Search for attire in general prompt
-    attire_pattern = re.compile(rf"(?:in|wearing)\s+([^,\.]{{3,45}}?\b{garments}\b[^,\.]*?)", re.IGNORECASE)
+    attire_pattern = re.compile(rf"(?:in|wearing)\s+([^,\.]{{3,50}}?\b{garments}\b[^,\.]*?)", re.IGNORECASE)
     attire_matches = attire_pattern.findall(general_prompt)
     if len(attire_matches) >= 2:
         char1_attire = attire_matches[0].strip()
@@ -992,9 +1030,6 @@ def extract_or_build_character_anchors(
     else:
         char1_attire = "an authentic thematic costume matching this setting"
         char2_attire = "a complementary thematic costume matching this setting"
-
-    gender_word1 = "girl" if p1_is_female else "boy"
-    gender_word2 = "girl" if p2_is_female else "boy"
 
     char1_desc = f"15-year-old high-school student {gender_word1} with {char1_hair} wearing {char1_attire}"
     char2_desc = f"15-year-old high-school student {gender_word2} with {char2_hair} wearing {char2_attire}"
@@ -1036,6 +1071,7 @@ def _build_storyboard_context(
     lexical_field: str = "",
     anchor_environment: str = "",
     general_prompt: str = "",
+    character_anchors: dict = None,
 ) -> str:
     """Build the prompt for generating a complete, non-repetitive visual storyboard in JSON."""
     ctx = _extract_shared_story_context(
@@ -1052,6 +1088,13 @@ def _build_storyboard_context(
     )
     anchor_environment = ctx["anchor_environment"]
 
+    char_anchors = extract_or_build_character_anchors(
+        general_prompt=general_prompt,
+        speakers_gender=speakers_gender,
+        video_type=video_type,
+        character_anchors=character_anchors,
+    )
+
     general_prompt_block = ""
     if general_prompt:
         general_prompt_block = (
@@ -1062,10 +1105,13 @@ def _build_storyboard_context(
             "established in this General Prompt! Micro-zones, props, architecture, and lighting must belong to this specific story world. "
             "NEVER relocate scenes to a different or unrelated location (e.g. if General Prompt establishes a sunny vintage park skate plaza, "
             "every scene MUST take place in that skate plaza or adjacent park area; NEVER switch the environment to a kitchen, restaurant, or classroom).\n"
-            "2. MANDATORY CHARACTER CONTINUITY: Diffusion models generate EACH scene image independently with zero memory of other scenes! "
-            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat each character's exact demographic (15-16yo high-school student), "
-            "exact hair color, exact hairstyle, and exact wardrobe established in the General Prompt. "
-            "NEVER omit the hair color, hairstyle, or wardrobe from any scene prompt!\n\n"
+            "2. MANDATORY CHARACTER CONTINUITY:\n"
+            f"   - Character 1 (Protagonist): {char_anchors['char1_desc']}\n"
+            f"   - Character 2 (Counterpart): {char_anchors['char2_desc']}\n"
+            "Diffusion models generate EACH scene image independently with zero memory of other scenes! "
+            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat the featured character's exact demographic (15-16yo high-school student), "
+            "exact hair color, exact hairstyle, and exact wardrobe specified above. "
+            "NEVER invent different clothing or different hairstyles across scenes!\n\n"
         )
 
     formatted_scenes = []
@@ -1525,6 +1571,7 @@ class VisualPromptBuilder:
         lexical_field: str = "",
         anchor_environment: str = "",
         general_prompt: str = "",
+        character_anchors: dict = None,
         temperature: float = 0.7,
         max_retries: int = 3,
     ) -> dict[str, str]:
@@ -1576,6 +1623,7 @@ class VisualPromptBuilder:
             lexical_field=lexical_field,
             anchor_environment=anchor_environment,
             general_prompt=general_prompt,
+            character_anchors=character_anchors,
         )
 
         logger.info(
@@ -1683,6 +1731,7 @@ class VisualPromptBuilder:
             general_prompt=general_prompt,
             speakers_gender=speakers_gender,
             video_type=video_type,
+            character_anchors=character_anchors,
         )
 
         final_prompts: dict[str, str] = {}

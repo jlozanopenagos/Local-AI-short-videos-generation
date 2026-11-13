@@ -571,6 +571,7 @@ def modify_group_interactive(
     }
 
 
+    character_anchors = script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None
     generated_scene_prompts: Dict[str, str] = {}
     try:
         ensure_llama_running()
@@ -587,6 +588,7 @@ def modify_group_interactive(
             lexical_field=lexical_field_str,
             anchor_environment=confirmed_general_prompt,
             general_prompt=confirmed_general_prompt,
+            character_anchors=character_anchors,
         )
         for s_key, s_prompt in storyboard_map.items():
             clean_p = sanitize_and_style_prompt(s_prompt)
@@ -1193,6 +1195,7 @@ def modify_scene_interactive(
             custom_prompt_text = existing_prompt
         elif opt_input == "5":
             print("\n[LLM] Regenerating cohesive, non-repetitive visual storyboard for all scenes...")
+            character_anchors = script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None
             new_storyboard = prompt_builder.build_storyboard_prompts(
                 script_text=script_text,
                 label=label,
@@ -1206,6 +1209,7 @@ def modify_scene_interactive(
                 lexical_field=lexical_field_str,
                 anchor_environment=anchor_environment,
                 general_prompt=general_prompt_val,
+                character_anchors=character_anchors,
             )
             if "assets" not in script_data or not isinstance(script_data["assets"], dict):
                 script_data["assets"] = {}

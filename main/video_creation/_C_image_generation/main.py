@@ -195,6 +195,7 @@ def ensure_image_prompts_for_script(
         if k.strip().lower() in valid_active_sections
     }
 
+    character_anchors = script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None
     ensure_llama_running()
     storyboard_prompts = prompt_builder.build_storyboard_prompts(
         script_text=script_text,
@@ -209,6 +210,7 @@ def ensure_image_prompts_for_script(
         lexical_field=lexical_field,
         anchor_environment=anchor_environment,
         general_prompt=general_prompt,
+        character_anchors=character_anchors,
     )
     if not storyboard_prompts:
         raise ValueError(f"[{script_id}] LLM failed to produce storyboard visual prompts.")
