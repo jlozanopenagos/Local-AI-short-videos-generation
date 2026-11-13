@@ -127,6 +127,18 @@ def detect_game_archetype(input_data: Dict[str, Any]) -> str:
     ):
         return GameArchetype.ODD_ONE_OUT
 
+    # Idiom / Figurative Meaning Trap (e.g. Break a leg, Poser un lapin, Costar un ojo de la cara)
+    if (
+        "idiom" in combined_text
+        or "modismo" in combined_text
+        or "expression idiomatique" in combined_text
+        or "superstition" in combined_text
+        or "refrán" in combined_text
+        or "proverbe" in combined_text
+        or "dicho" in combined_text
+    ):
+        return GameArchetype.FALSE_FRIEND_TRAP
+
     # Spot the Mistake
     if (
         "mistake" in combined_text
@@ -151,37 +163,82 @@ def detect_game_archetype(input_data: Dict[str, Any]) -> str:
     return fallbacks[hash_val % len(fallbacks)]
 
 
+def get_localized_game_header(archetype: str, language: str) -> str:
+    """Returns the culturally authentic, target-language header for chalkboard rendering."""
+    lang = (language or "english").strip().lower()
+    headers = {
+        GameArchetype.ODD_ONE_OUT: {
+            "english": "SPOT THE INTRUDER:",
+            "french": "TROUVEZ L'INTRUS :",
+            "spanish": "¡ENCUENTRA EL INTRUSO!:",
+            "italian": "TROVA L'INTRUSO:",
+        },
+        GameArchetype.SPOT_THE_MISTAKE: {
+            "english": "WHERE IS THE MISTAKE? / COMPLETE NATURALLY:",
+            "french": "OÙ EST L'ERREUR ? / COMPLÉTEZ :",
+            "spanish": "¿DÓNDE ESTÁ EL ERROR? / COMPLETA :",
+            "italian": "DOV'È L'ERRORE? / COMPLETA :",
+        },
+        GameArchetype.FILL_IN_THE_BLANK_SPEEDRUN: {
+            "english": "COMPLETE THE EXPRESSION:",
+            "french": "COMPLÉTEZ L'EXPRESSION :",
+            "spanish": "COMPLETA LA EXPRESIÓN:",
+            "italian": "COMPLETA L'ESPRESSIONE:",
+        },
+        GameArchetype.FALSE_FRIEND_TRAP: {
+            "english": "WHAT DOES IT MEAN?",
+            "french": "QUE SIGNIFIE CETTE EXPRESSION ?",
+            "spanish": "¿QUÉ SIGNIFICA ESTA EXPRESIÓN?",
+            "italian": "COSA SIGNIFICA QUESTA ESPRESSIONE?",
+        },
+        GameArchetype.MINIMAL_PAIR_SHOWDOWN: {
+            "english": "WHICH WORD DID YOU HEAR?",
+            "french": "QUEL MOT AVEZ-VOUS ENTENDU ?",
+            "spanish": "¿QUÉ PALABRA ESCUCHASTE?",
+            "italian": "QUALE PAROLA HAI SENTITO?",
+        },
+    }
+    arch_map = headers.get(archetype, {})
+    return arch_map.get(lang, arch_map.get("english", "CHALLENGE:"))
+
+
 def get_archetype_prompt_instructions(archetype: str, target_lang: str, expr: str) -> str:
     """Returns specialized prompt instructions tailored to the specific game archetype."""
     target_lang_upper = target_lang.upper()
+    lang_lower = (target_lang or "english").strip().lower()
+    header = get_localized_game_header(archetype, lang_lower)
 
     if archetype == GameArchetype.FALSE_FRIEND_TRAP:
         return f"""
 -----------------------------
-GAME ARCHETYPE: FALSE FRIEND TRAP (Falsos Amigos / Faux-amis)
+GAME ARCHETYPE: FALSE FRIEND TRAP / IDIOM TRAP (Falsos Amigos / Faux-amis)
 -----------------------------
-CORE OBJECTIVE: Break the deceptive translation trap where a learner's brain translates a look-alike literally!
+CORE OBJECTIVE: Break the deceptive translation trap where a learner's brain translates a look-alike literally, or test the native meaning of an idiom!
 NUMBER OF OPTIONS: Provide EXACTLY 3 or 4 options (A, B, C, optionally D).
-- Option A or B MUST be the deceptive literal trap that sounds like a cognate.
+- Option A or B MUST be the deceptive literal trap that sounds like a cognate (e.g. "Poser un lapin" -> "He gave you a pet rabbit", "Break a leg" -> "Break your bone").
 - One option MUST be the true authentic native meaning.
 - Remaining options MUST be plausible but distinct contextual distractors.
 
 SPOKEN NARRATION RULES (TTS AUDIO):
-- Hook: High-energy pattern-interrupt warning about an embarrassing or funny translation mishap.
-- Challenge: Spoken naturally by the Narrator voicing the test sentence with the native word in place, then explicitly voicing ALL options cleanly:
+- Hook: High-energy pattern-interrupt warning about an embarrassing or funny translation mishap (100% in {target_lang_upper}).
+- Challenge: Spoken naturally by the Narrator voicing the test scenario with the native phrase in place, then explicitly voicing ALL candidate meanings cleanly:
   e.g.: "If your friend says 'Sono pieno di parenti', what does it mean? A: I have many parents.  B: I have many relatives.  C: I have many partners.  D: I have many debts."
+  e.g. French: "Ton ami te dit : 'Hier soir, Thomas m'a posé un lapin !' Que s'est-il passé ? A: Il lui a offert un animal.  B: Il n'est pas venu au rendez-vous.  C: Il a payé l'addition.  D: Il est arrivé en retard."
   (NEVER include raw '___' in spoken audio!)
-- Pressure: Fast urgency line (3 seconds countdown).
-- Answer: Direct reveal (e.g. "It's B!") explaining why the deceptive cognate is wrong and what the real word for the trap is.
+  (NEVER give away the meaning in the question!)
+- Pressure: Fast urgency line (3 seconds countdown, 100% in {target_lang_upper}).
+- Answer: Direct reveal (e.g. "It's B!", "¡Es la B!", "C'est la B !") explaining why the deceptive trap is wrong and what the true native meaning is.
 - Explanation: Real-life native usage contrast with an engaging loop hook.
 
 VISUAL CHALKBOARD RULES (ON SCREEN):
-- The 'chalkboard_exercise' MUST be multiline with the test challenge and 3-4 options:
-  [Clear test sentence or deceptive phrase in {target_lang_upper}]
-  A) [Option A]
-  B) [Option B]
-  C) [Option C]
-  D) [Option D (optional)]
+- 100% IN {target_lang_upper}: The entire 'chalkboard_exercise' MUST be strictly in {target_lang_upper}. ZERO English text or headers!
+- The 'chalkboard_exercise' MUST be multiline with the header, challenge phrase, and 3-4 options:
+  {header}
+  [Clear test sentence or phrase in {target_lang_upper}]
+  A) [Option A in {target_lang_upper}]
+  B) [Option B in {target_lang_upper}]
+  C) [Option C in {target_lang_upper}]
+  D) [Option D in {target_lang_upper} (optional)]
 """
 
     elif archetype == GameArchetype.ODD_ONE_OUT:
@@ -195,20 +252,22 @@ NUMBER OF OPTIONS: Provide EXACTLY 3 or 4 options (A, B, C, and optionally D).
 - Exactly ONE option breaks the rule (the intruder).
 
 SPOKEN NARRATION RULES (TTS AUDIO):
-- Hook: Challenge the learner's pattern recognition ("Three of these words share an invisible secret, but one is a trap!").
+- Hook: Challenge the learner's pattern recognition ("Three of these words share an invisible secret, but one is a trap!", 100% in {target_lang_upper}).
 - Challenge: Spoken naturally voicing each option clearly without filler:
   e.g.: "Listen to all four verbs: A: Went.  B: Bought.  C: Fixed.  D: Caught. Which one is the odd one out?"
-- Pressure: Fast urgency line (3 seconds countdown).
+  e.g. French: "Écoute ces quatre verbes : A: Mangé.  B: Chanté.  C: Parlé.  D: Pris. Lequel est l'intrus ?"
+- Pressure: Fast urgency line (3 seconds countdown, 100% in {target_lang_upper}).
 - Answer: Reveal the winning letter and name the exact linguistic pattern that unifies the others.
 - Explanation: Brief native breakdown of the grammar rule and invitation to drop score in the comments.
 
 VISUAL CHALKBOARD RULES (ON SCREEN):
+- 100% IN {target_lang_upper}: The entire 'chalkboard_exercise' MUST be strictly in {target_lang_upper}. ZERO English text or headers!
 - The 'chalkboard_exercise' MUST display:
-  SPOT THE INTRUDER:
-  A) [Word 1]
-  B) [Word 2]
-  C) [Word 3]
-  D) [Word 4 (optional)]
+  {header}
+  A) [Word 1 in {target_lang_upper}]
+  B) [Word 2 in {target_lang_upper}]
+  C) [Word 3 in {target_lang_upper}]
+  D) [Word 4 in {target_lang_upper} (optional)]
 """
 
     elif archetype == GameArchetype.SPOT_THE_MISTAKE:
@@ -220,23 +279,26 @@ CORE OBJECTIVE: Train the learner to catch the #1 subtle grammatical or preposit
 NUMBER OF OPTIONS: Provide EXACTLY 3 or 4 options (A, B, C, optionally D).
 - Present candidate corrections for the error (e.g. different prepositions, conjugations, or phrasing variants).
 - Exactly ONE option is 100% grammatically natural for a native speaker.
+- ❌ NEVER put the candidate answer word inside the challenge sentence before asking the question!
 
 SPOKEN NARRATION RULES (TTS AUDIO):
-- Hook: High-energy challenge targeting a common learner mistake ("Native speakers use this daily, but 90% of students say it wrong!").
-- Challenge: Voice the scenario or sentence and read the candidate options cleanly:
-  e.g.: "How do you naturally complete: 'It depends ___ your decision'? A: on.  B: of.  C: from.  D: about."
-- Pressure: Snappy countdown line.
+- Hook: High-energy challenge targeting a common learner mistake ("Native speakers use this daily, but 90% of students say it wrong!", 100% in {target_lang_upper}).
+- Challenge: Voice the scenario or question sentence naturally and read the candidate options cleanly:
+  e.g.: "How do you naturally complete this phrase: 'It depends...' A: on your choice.  B: of your choice.  C: from your choice.  D: with your choice."
+  e.g. French: "Comment dit-on naturellement en français : A: Dépendre de toi.  B: Dépendre sur toi.  C: Dépendre à toi.  D: Dépendre pour toi."
+- Pressure: Snappy countdown line (100% in {target_lang_upper}).
 - Answer: Direct reveal with the grammatical rule and why the common distractor is an error.
 - Explanation: Native mnemonic trick to never make that mistake again.
 
 VISUAL CHALKBOARD RULES (ON SCREEN):
+- 100% IN {target_lang_upper}: The entire 'chalkboard_exercise' MUST be strictly in {target_lang_upper}. ZERO English text or headers!
 - The 'chalkboard_exercise' MUST display the sentence with a blank (___) and options:
-  WHERE IS THE MISTAKE? / COMPLETE NATURALLY:
+  {header}
   "Sentence with ___ in {target_lang_upper}"
-  A) [Correction A]
-  B) [Correction B]
-  C) [Correction C]
-  D) [Correction D (optional)]
+  A) [Correction A in {target_lang_upper}]
+  B) [Correction B in {target_lang_upper}]
+  C) [Correction C in {target_lang_upper}]
+  D) [Correction D in {target_lang_upper} (optional)]
 """
 
     elif archetype == GameArchetype.MINIMAL_PAIR_SHOWDOWN:
@@ -250,15 +312,17 @@ NUMBER OF OPTIONS: Provide 2 or 3 options (A, B, optionally C).
 - One option is the noun/adjective form, the other is the verb/alternative form.
 
 SPOKEN NARRATION RULES (TTS AUDIO):
-- Hook: Auditory challenge ("Did you know shifting one syllable completely changes this word from an object to an action?").
+- Hook: Auditory challenge ("Did you know shifting one syllable completely changes this word from an object to an action?", 100% in {target_lang_upper}).
 - Challenge: Spoken naturally by the Narrator pronouncing the test sentence with the exact native inflection, followed by:
   "Which word did you hear? A: [Option A].  B: [Option B]."
-- Pressure: Fast countdown line.
+- Pressure: Fast countdown line (100% in {target_lang_upper}).
 - Answer: Reveal the correct option and break down the stress rule (e.g. "Stress on first syllable for nouns, second for verbs!").
 - Explanation: Native pronunciation tip.
 
 VISUAL CHALKBOARD RULES (ON SCREEN):
+- 100% IN {target_lang_upper}: The entire 'chalkboard_exercise' MUST be strictly in {target_lang_upper}. ZERO English text or headers!
 - The 'chalkboard_exercise' MUST display UPPERCASE syllable stress notation:
+  {header}
   [Sentence with ___ in {target_lang_upper}]
   A) [e.g. PROject (noun)]
   B) [e.g. proJECT (verb)]
@@ -273,21 +337,25 @@ CORE OBJECTIVE: Fast-paced idiomatic and collocation challenge under time pressu
 NUMBER OF OPTIONS: Provide EXACTLY 3 or 4 options (A, B, C, and optionally D).
 - One option is the authentic native collocation or idiom.
 - Other options are plausible contextual distractors (different prepositions, synonyms, or literal translations).
+- ❌ NEVER put the answer word into the prompt sentence!
 
 SPOKEN NARRATION RULES (TTS AUDIO):
-- Hook: Speedrun dilemma ("Quick test! You have three seconds to finish this native phrase!").
-- Challenge: Spoken naturally voicing the complete test sentence with the target word in place, then announcing:
-  "Which word fits best? A: [Option A].  B: [Option B].  C: [Option C].  D: [Option D]."
-- Pressure: Fast urgency countdown line.
+- Hook: Speedrun dilemma ("Quick test! You have three seconds to finish this native phrase!", 100% in {target_lang_upper}).
+- Challenge: Spoken naturally voicing the context up to the missing element or asking which choice completes it:
+  e.g.: "Which word completes this common idiom: 'To cost an arm and a...' A: leg.  B: hand.  C: foot.  D: head."
+  e.g. French: "Quel mot complète cette expression : 'Hier, il m'a posé un...' A: lapin.  B: lièvre.  C: chat.  D: renard."
+- Pressure: Fast urgency countdown line (100% in {target_lang_upper}).
 - Answer: Direct reveal with the idiomatic origin and meaning.
 - Explanation: How natives use it in daily conversation.
 
 VISUAL CHALKBOARD RULES (ON SCREEN):
+- 100% IN {target_lang_upper}: The entire 'chalkboard_exercise' MUST be strictly in {target_lang_upper}. ZERO English text or headers!
 - The 'chalkboard_exercise' MUST display:
+  {header}
   [Contextual sentence with blank ___ in {target_lang_upper}]
-  A) [Option A]
-  B) [Option B]
-  C) [Option C]
-  D) [Option D (optional)]
+  A) [Option A in {target_lang_upper}]
+  B) [Option B in {target_lang_upper}]
+  C) [Option C in {target_lang_upper}]
+  D) [Option D in {target_lang_upper} (optional)]
 """
 

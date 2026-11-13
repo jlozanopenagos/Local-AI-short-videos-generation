@@ -31,7 +31,11 @@ AUDIO NARRATION VS VISUAL CHALKBOARD (CRITICAL DISTINCTION)
 -----------------------------
 1. SPOKEN "challenge" PROPERTY (AUDIO FOR TTS):
    ❌ NEVER put "___", "____", or raw underscores in the spoken challenge! TTS cannot pronounce underscores.
-   👉 The Narrator in audio reads the complete test sentence naturally (voicing Option A or the target rhythm in place), and then explicitly announces the choices.
+   ❌ NEVER put the answer or solution inside the challenge sentence before asking the question!
+   👉 The Narrator in audio voices the scenario or prompt question clearly without spoiling the answer, then explicitly announces the choices:
+      e.g. for meaning: "If your friend says 'Break a leg', what does it mean? A: Break your bone.  B: Good luck.  C: Be careful.  D: Hurry up."
+      e.g. for fill-in: "How do you naturally complete this phrase: 'I'll keep my fingers...' A: crossed.  B: folded.  C: open.  D: tied."
+      e.g. for French: "Ton ami te dit : 'Hier, Thomas m'a posé un lapin !' Que s'est-il passé ? A: Il n'est pas venu au rendez-vous.  B: Il lui a offert un animal.  C: Il a payé l'addition.  D: Il est arrivé en retard."
    👉 Natural casing: Do NOT yell or spell out all-caps syllables in spoken text. Write natural lowercase/sentence case for smooth TTS inflection.
    👉 Option formatting: Options must begin with "A: ", "B: ", "C: ", and optionally "D: ". Terminate each option with a period (.).
    👉 Provide 3 or 4 options (or 2 for binary stress contrasts).
@@ -39,9 +43,10 @@ AUDIO NARRATION VS VISUAL CHALKBOARD (CRITICAL DISTINCTION)
 
 2. VISUAL "chalkboard_exercise" PROPERTY (DISPLAYED ON SCREEN):
    👉 The visual chalkboard is for the viewer's eyes!
-   👉 The first line MUST be the test sentence or challenge header in TARGET_LANGUAGE.
+   👉 100% IN TARGET_LANGUAGE: All headers, question lines, and options MUST be strictly in TARGET_LANGUAGE. ZERO mixed languages or English headers on French/Spanish/Italian boards!
+   👉 The first line MUST be the test sentence or localized challenge header in TARGET_LANGUAGE.
    👉 Followed by each option on its own separate line starting with A), B), C), and optionally D):
-      "chalkboard_exercise": "[Sentence with ___ in TARGET_LANGUAGE]\\nA) [Option A]\\nB) [Option B]\\nC) [Option C]\\nD) [Option D]"
+      "chalkboard_exercise": "[Sentence with ___ or question in TARGET_LANGUAGE]\\nA) [Option A]\\nB) [Option B]\\nC) [Option C]\\nD) [Option D]"
    👉 For syllable stress contrasts (heteronyms), the chalkboard options retain the UPPERCASE syllable stress notation (e.g. "A) PROject\\nB) proJECT") so the visual contrast is immediately clear to the viewer.
 
 -----------------------------

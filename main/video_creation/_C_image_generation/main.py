@@ -95,7 +95,10 @@ def ensure_image_prompts_for_script(
         logger.warning("[%s] No sections found in script.", script_id)
         return False
 
-    VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
+    # For GAME shorts, LLM storyboard prompts are only needed for 'hook' and 'answer'.
+    # 'challenge' is rendered as native chalkboard, 'pressure' is static Tito waiting,
+    # and 'explanation' reuses the 'answer' image.
+    VALID_PROMPT_GAME_SECTIONS = {"hook", "answer"}
     VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"}
     METADATA_IGNORE_KEYS = {
         "title", "difficulty", "emotion", "game_type", "related_content",
@@ -106,7 +109,7 @@ def ensure_image_prompts_for_script(
     valid_active_sections = {
         k.strip().lower() for k, v in sections.items()
         if k.strip().lower() not in METADATA_IGNORE_KEYS
-        and (video_type != "GAME" or k.strip().lower() in VALID_GAME_SECTIONS)
+        and (video_type != "GAME" or k.strip().lower() in VALID_PROMPT_GAME_SECTIONS)
         and (video_type != "ROLEPLAY" or k.strip().lower() in VALID_ROLEPLAY_SECTIONS)
         and v.strip()
     }
@@ -267,6 +270,10 @@ def process_script(
         logger.warning("[%s] No sections found in script.", script_id)
         return False
 
+    # For GAME shorts, 5 scenes make up the timeline:
+    # ComfyUI produces 2 scenes ('hook' and 'answer').
+    # 'challenge' is rendered as native chalkboard, 'pressure' is static Tito waiting,
+    # and 'explanation' reuses the 'answer' image to maintain visual continuity.
     VALID_GAME_SECTIONS = {"hook", "challenge", "pressure", "answer", "explanation"}
     VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"}
     METADATA_IGNORE_KEYS = {
@@ -389,6 +396,10 @@ def process_script(
                 except Exception as exc:
                     logger.error("[%s] Native chalkboard rendering failed: %s. Falling back to Z-Image.", script_id, exc)
 
+        # Specialized handling for GAME: EXPLANATION (Reuses answer image to maintain visual continuity)
+        if video_type == "GAME" and section_name.lower() == "explanation":
+            continue
+
         visual_prompt = storyboard_prompts.get(sec_lower) or storyboard_prompts.get(section_name)
         if not visual_prompt:
             try:
@@ -454,6 +465,17 @@ def process_script(
         except Exception as exc:
             logger.error("[%s] Unexpected batch generation error: %s", script_id, exc)
             success = False
+
+    # Specialized handling for GAME: EXPLANATION (Reuses answer image to maintain visual continuity)
+    if success and video_type == "GAME":
+        answer_img = script_output_dir / f"script_{script_id}_answer.png"
+        explanation_img = script_output_dir / f"script_{script_id}_explanation.png"
+        if answer_img.exists() and (force or not explanation_img.exists()):
+            try:
+                shutil.copy2(answer_img, explanation_img)
+                print(f"[OK] Reused answer image for explanation: {answer_img.name} -> {explanation_img.name}")
+            except Exception as exc:
+                logger.warning("[%s] Failed to copy answer image to explanation: %s", script_id, exc)
 
     if success:
         script_data["assets"]["image_dir"] = str(script_output_dir)

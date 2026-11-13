@@ -93,16 +93,28 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
         keys_lower = [k.lower() for k in keys]
 
         if any("dialogue_part" in k for k in keys_lower):
-            # Roleplay script
+            # Roleplay script (6 scenes)
             ordered_keys = ["hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"]
+        elif any(k in keys_lower for k in ["challenge", "pressure", "answer"]):
+            # Game script (5 scenes: hook, challenge, pressure, answer, explanation)
+            ordered_keys = ["hook", "challenge", "pressure", "answer", "explanation"]
         elif any(k in keys_lower for k in ["setup", "discovery", "example"]):
-            # Expression script
+            # Expression script (5 scenes)
             ordered_keys = ["hook", "setup", "discovery", "example", "payoff"]
+        elif any(k in keys_lower for k in ["setup", "discovery", "explanation"]):
+            # Fun Facts script (5 scenes)
+            ordered_keys = ["hook", "setup", "discovery", "explanation", "payoff"]
         elif any(k in keys_lower for k in ["question", "countdown", "reveal"]):
-            # Game script
+            # Legacy Game script
             ordered_keys = ["hook", "question", "options", "countdown", "reveal", "payoff"]
         else:
-            ordered_keys = [k for k in keys if k.lower() != "title"]
+            ordered_keys = [
+                k for k in keys
+                if k.lower() not in (
+                    "title", "game_archetype", "category", "subcategory",
+                    "topic", "learning_objective", "chalkboard_exercise"
+                )
+            ]
 
         for idx, key in enumerate(ordered_keys, start=1):
             # Find matching key in script_obj case-insensitively

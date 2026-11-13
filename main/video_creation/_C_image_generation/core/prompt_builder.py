@@ -1292,7 +1292,21 @@ def sanitize_and_style_prompt(prompt: str) -> str:
         flags=re.IGNORECASE,
     )
 
-    # 3d. Absolute text, letter, and typography scrubbing to prevent diffusion models from painting text/letters onto images
+    # 3d. Absolute text, quote, speech, and typography scrubbing to prevent diffusion models from painting text onto images
+    # Scrub all text inside quotes: "...", '...', “...”, ‘...’, «...»
+    text = re.sub(r'["“«][^"”»]{1,60}["”»]', "expressive dialogue", text)
+    text = re.sub(r"['‘][^'’]{1,60}['’]", "expressive dialogue", text)
+
+    # Scrub verbs of speaking followed by words/phrases
+    text = re.sub(r"\b(?:whispering|saying|speaking|mouthing|shouting|calling|reading|repeating)\s+(?:the\s+words?|the\s+phrase)?\s*[^,\.]{1,40}", "speaking expressively", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bwith\s+the\s+words?\s+[^,\.]{1,40}", "with expressive visual details", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bthe\s+words?\s+[^,\.]{1,30}", "expressive dialogue", text, flags=re.IGNORECASE)
+
+    # Scrub signs, posters, screens, boards with text
+    text = re.sub(r"\b(?:labeled|inscribed\s+with|reading|displaying\s+(?:the\s+text)?)\s+[^,\.]{1,40}", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:a\s+)?(?:sign|poster|banner|board|screen|tablet|t-shirt|shirt|hoodie)\s+(?:with|showing|saying|displaying)\s+[^,\.]{1,40}", "thematic decor", text, flags=re.IGNORECASE)
+
+    # Scrub letter / alphabet mentions
     text = re.sub(r"\b(?:holding|waving|showing|with|displaying)\s+(?:a\s+)?(?:large,?\s+)?(?:stylized\s+)?(?:prop|sign|card|banner|object)?\s*representing\s+(?:the\s+)?letters?\s+[A-Za-z0-9_\-]+\b", "gesturing with an expressive physical prop", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:the\s+)?letters?\s+[A-Z]\b", "an expressive thematic prop", text)
     text = re.sub(r"\bdouble\s+[A-Za-z]\b", "expressive vocal inflection", text, flags=re.IGNORECASE)
@@ -1301,8 +1315,6 @@ def sanitize_and_style_prompt(prompt: str) -> str:
     text = re.sub(r"\b(?:distinguishing|differentiating)\s+between\s+[A-Za-zÀ-ÿ0-9_\-]+\s+and\s+[A-Za-zÀ-ÿ0-9_\-]+\b", "subtle vocal demonstration", text, flags=re.IGNORECASE)
     text = re.sub(r"\bpronunciation\s+of\s+[^,\.]{1,50}", "subtle vocal delivery", text, flags=re.IGNORECASE)
     text = re.sub(r"\bsound\s+of\s+[A-Za-zÀ-ÿ0-9_\-]+", "vocal resonance", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:labeled|inscribed\s+with|reading|displaying\s+the\s+text)\s+[^,\.]{1,40}", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bwith\s+the\s+words?\s+[^,\.]{1,40}", "with expressive visual details", text, flags=re.IGNORECASE)
 
     # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades
     text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 15-year-old high-school student boy", text, flags=re.IGNORECASE)
@@ -1324,7 +1336,7 @@ def sanitize_and_style_prompt(prompt: str) -> str:
         "rich detailed environmental interior background with depth and warm atmospheric lighting. "
         "(high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, "
         "NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
-        "NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+        "NO 3D render, NO photorealism, NO photograph, NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography, NO watermark)."
     )
 
     if "(high-school student protagonist, thematic costume" not in text:
