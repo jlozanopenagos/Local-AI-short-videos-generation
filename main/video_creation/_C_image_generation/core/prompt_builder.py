@@ -990,6 +990,7 @@ def extract_or_build_character_anchors(
     # 2. Check for [CHARACTER_ANCHORS] block embedded inside general_prompt
     anchor_block_match = re.search(r'\[CHARACTER_ANCHORS\](.*?)\[/CHARACTER_ANCHORS\]', general_prompt, re.DOTALL | re.IGNORECASE)
     if anchor_block_match:
+        # pyrefly: ignore[missing-import]
         from core.gemini_auditor import extract_character_anchors_from_output
         _, parsed = extract_character_anchors_from_output(general_prompt)
         if parsed and parsed.get("char1_desc"):

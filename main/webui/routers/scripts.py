@@ -490,6 +490,7 @@ class ScriptUpdateRequest(BaseModel):
     general_prompt: Optional[str] = None
     character_anchors: Optional[Dict[str, Any]] = None
     image_prompts: Optional[Dict[str, str]] = None
+    game_archetype: Optional[str] = None
 
 
 @router.get("/{script_id}")
@@ -530,6 +531,21 @@ def get_script(script_id: str) -> Dict[str, Any]:
     img_list = summary.get("assets", {}).get("images", [])
     scenes = _extract_scenes_from_state(state_data, img_list)
 
+    # Detect game archetype if applicable
+    game_archetype = ""
+    is_game = (
+        (meta.get("video_type") or p_params.get("VIDEO_TYPE") or "").upper() == "GAME"
+        or (len(canonical_id) >= 2 and canonical_id[1].upper() == "G")
+    )
+    if is_game:
+        from video_creation._A_video_scripts.types.game.archetypes import detect_game_archetype
+        game_archetype = (
+            meta.get("game_archetype")
+            or p_params.get("game_archetype")
+            or p_params.get("GAME_ARCHETYPE")
+            or detect_game_archetype({**p_params, **meta, "SCRIPT_ID": canonical_id})
+        )
+
     # YouTube publishing metadata
     youtube_metadata = {
         "title": raw_meta.get("TITLE") or summary.get("title", ""),
@@ -548,6 +564,7 @@ def get_script(script_id: str) -> Dict[str, Any]:
         "chalkboard_exercise": chalkboard_exercise,
         "chalkboard_title": chalkboard_title,
         "target_expression": target_expression,
+        "game_archetype": game_archetype,
         "story_scenario": p_params.get("ROLEPLAY_SCENARIO") or meta.get("story_scenario") or "",
         "base_setting": meta.get("base_setting") or meta.get("setting") or "",
         "lexical_field": p_params.get("LEXICAL_FIELD") or meta.get("lexical_field") or "",
@@ -614,6 +631,11 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     if payload.target_expression is not None:
         state_data["content_metadata"]["target_expression"] = payload.target_expression
         state_data["prompt_params"]["EXPRESSION"] = payload.target_expression
+
+    if payload.game_archetype is not None:
+        state_data["content_metadata"]["game_archetype"] = payload.game_archetype
+        state_data["prompt_params"]["game_archetype"] = payload.game_archetype
+        state_data["prompt_params"]["GAME_ARCHETYPE"] = payload.game_archetype
 
     if "assets" not in state_data or not isinstance(state_data["assets"], dict):
         state_data["assets"] = {}

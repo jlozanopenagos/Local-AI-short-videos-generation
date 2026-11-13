@@ -105,6 +105,89 @@ class TestGameEngine(unittest.TestCase):
         self.assertFalse(res.is_valid)
         self.assertTrue(any("multiline" in err.lower() for err in res.errors))
 
+    def test_detect_game_archetype_logic(self):
+        from video_creation._A_video_scripts.types.game.archetypes import (
+            GameArchetype,
+            detect_game_archetype,
+        )
+
+        # 1. Explicit override
+        self.assertEqual(
+            detect_game_archetype({"game_archetype": "ODD_ONE_OUT"}),
+            GameArchetype.ODD_ONE_OUT,
+        )
+        self.assertEqual(
+            detect_game_archetype({"GAME_ARCHETYPE": "FALSE_FRIEND_TRAP"}),
+            GameArchetype.FALSE_FRIEND_TRAP,
+        )
+
+        # 2. Stress / Heteronym detection
+        self.assertEqual(
+            detect_game_archetype({"SPECIAL_TREATMENT": "Word stress heteronym contrast"}),
+            GameArchetype.MINIMAL_PAIR_SHOWDOWN,
+        )
+        self.assertEqual(
+            detect_game_archetype({"EXPRESSION": "PROject vs proJECT"}),
+            GameArchetype.MINIMAL_PAIR_SHOWDOWN,
+        )
+
+        # 3. False Friend detection
+        self.assertEqual(
+            detect_game_archetype({"SUBJECT": "Falsos amigos en español", "EXPRESSION": "embarazada"}),
+            GameArchetype.FALSE_FRIEND_TRAP,
+        )
+        self.assertEqual(
+            detect_game_archetype({"CONTEXT": "Italian false friend parenti vs genitori"}),
+            GameArchetype.FALSE_FRIEND_TRAP,
+        )
+
+        # 4. Odd one out detection
+        self.assertEqual(
+            detect_game_archetype({"SUBJECT": "Spot the odd one out irregular verbs"}),
+            GameArchetype.ODD_ONE_OUT,
+        )
+
+        # 5. Spot the mistake detection
+        self.assertEqual(
+            detect_game_archetype({"SUBJECT": "Spot the mistake with common prepositions"}),
+            GameArchetype.SPOT_THE_MISTAKE,
+        )
+
+    def test_sanitize_and_validate_four_options(self):
+        engine = GameEngine()
+        board_text = (
+            "Select the correct native preposition:\n"
+            "A) depend on\n"
+            "B) depend of\n"
+            "C) depend from\n"
+            "D) depend about"
+        )
+        raw_script = {
+            "title": "Depend On English Preposition Quiz",
+            "script": {
+                "title": "Depend On English Preposition Quiz",
+                "hook": "Ninety percent of English learners make this exact preposition mistake when talking to native speakers! Let's see if you can solve this in three seconds.",
+                "challenge": "Before we launch the new marketing project, remember that our success depends on your final decision. Which preposition did you hear?",
+                "pressure": "Three seconds on the clock! Choose wisely before time expires!",
+                "answer": "It is Option A! In English, we always say depend on, never depend of or depend from. It is a locked native collocation.",
+                "explanation": "Translating directly from languages like Spanish or French causes people to say depend of, which sounds unnatural. Remember: depend on the outcome. Follow for more daily English challenges!",
+            },
+            "chalkboard_exercise": board_text,
+        }
+
+        sanitized = engine.sanitize(raw_script)
+        spoken_chal = sanitized["script"]["challenge"]
+
+        # All 4 options must be voiced in challenge audio
+        self.assertIn("A: depend on.", spoken_chal)
+        self.assertIn("B: depend of.", spoken_chal)
+        self.assertIn("C: depend from.", spoken_chal)
+        self.assertIn("D: depend about.", spoken_chal)
+
+        # Validation must pass cleanly
+        res = validate_game_script(sanitized)
+        self.assertTrue(res.is_valid, f"Validation errors: {res.errors}")
+
 
 if __name__ == "__main__":
     unittest.main()

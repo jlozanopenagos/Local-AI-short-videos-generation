@@ -1,4 +1,6 @@
-import type { SystemStatus, ScriptSummary, ScriptDetail, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse } from './types'
+import type { SystemStatus, ScriptSummary, ScriptDetail, ScriptUpdatePayload, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse } from './types'
+
+export type { ScriptUpdatePayload }
 
 export async function fetchSystemStatus(): Promise<SystemStatus> {
   const res = await fetch('/api/system/status')
@@ -66,16 +68,6 @@ export async function fetchScriptDetail(scriptId: string): Promise<ScriptDetail>
   const res = await fetch(`/api/scripts/${scriptId}`)
   if (!res.ok) throw new Error(`Script HTTP ${res.status}`)
   return res.json()
-}
-
-export interface ScriptUpdatePayload {
-  script_text?: string
-  script_dict?: Record<string, any>
-  chalkboard_exercise?: string
-  chalkboard_title?: string
-  target_expression?: string
-  general_prompt?: string
-  image_prompts?: Record<string, string>
 }
 
 export async function updateScript(scriptId: string, payload: ScriptUpdatePayload): Promise<ScriptDetail> {

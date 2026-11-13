@@ -119,6 +119,7 @@ export interface ScriptDetail extends ScriptSummary {
   lexical_field?: string
   general_prompt?: string
   character_anchors?: Record<string, any>
+  game_archetype?: string
   learning_objective?: string
   speakers_voice?: Record<string, string>
   speakers_gender?: Record<string, string>
@@ -140,6 +141,7 @@ export interface ScriptUpdatePayload {
   general_prompt?: string
   character_anchors?: Record<string, any>
   image_prompts?: Record<string, string>
+  game_archetype?: string
 }
 
 export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly' | 'chalkboard'

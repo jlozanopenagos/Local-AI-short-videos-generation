@@ -85,6 +85,24 @@ A: Napoléon était un un grand homme respecté dans toute l'Europe. B: Napoléo
             with Image.open(out) as im:
                 self.assertEqual(im.size, (576, 1024))
 
+    def test_render_chalkboard_image_four_options_creates_image(self):
+        """Verifies render_chalkboard_image runs end-to-end with 4 options and produces valid image."""
+        empty_cb = GAME_IMAGES_DIR / "empty_chalkboard.png"
+        if not empty_cb.exists():
+            self.skipTest("empty_chalkboard.png not found")
+        exercise_text = """Where is the mistake?
+"It depends ___ your decision."
+A) depend on
+B) depend of
+C) depend from
+D) depend about"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            dest = Path(tmp_dir) / "test_four_opts_output.png"
+            out = render_chalkboard_image(empty_cb, exercise_text, dest)
+            self.assertTrue(out.exists())
+            with Image.open(out) as im:
+                self.assertEqual(im.size, (576, 1024))
+
 
 if __name__ == "__main__":
     unittest.main()

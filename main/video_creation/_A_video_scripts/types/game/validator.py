@@ -12,7 +12,7 @@ from ...common.text_utils import count_spoken_words
 
 EXPECTED_GAME_KEYS = ("title", "hook", "challenge", "pressure", "answer", "explanation")
 MIN_GAME_WORDS = 95
-MAX_GAME_WORDS = 130  # Allow a tiny buffer up to 130 for natural language variations
+MAX_GAME_WORDS = 135  # Accommodates 3 to 4 voiced options within 40-55s duration
 
 
 def validate_game_script(

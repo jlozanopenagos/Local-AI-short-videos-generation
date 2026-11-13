@@ -7,11 +7,16 @@ from __future__ import annotations
 import re
 from typing import Any, Dict
 
+from .archetypes import (
+    ARCHETYPE_METADATA,
+    detect_game_archetype,
+    get_archetype_prompt_instructions,
+)
 from .rules import GAME_RULES
 
 
 def build_game_prompt(input_data: Dict[str, Any]) -> str:
-    """Constructs the LLM generation prompt for a game short."""
+    """Constructs the LLM generation prompt for a game short with archetype specialization."""
     script_id = input_data.get("SCRIPT_ID") or input_data.get("script_id") or "GAME01"
     target_lang = input_data.get("LANGUAGE") or input_data.get("language") or "English"
     expr = (
@@ -30,33 +35,14 @@ def build_game_prompt(input_data: Dict[str, Any]) -> str:
     lexical = input_data.get("LEXICAL_FIELD") or input_data.get("lexical_field") or ""
     special = input_data.get("SPECIAL_TREATMENT") or input_data.get("special_treatment") or ""
 
-    is_stress = bool(
-        "stress" in special.lower()
-        or "heteronym" in special.lower()
-        or re.search(r"\b[A-Z]{2,}[a-z]+|\b[a-z]+[A-Z]{2,}", expr)
-    )
-
-    stress_instructions = ""
-    if is_stress:
-        stress_instructions = f"""
-CRITICAL WORD STRESS / HETERONYM CONTRAST:
-- The target pair is: '{expr}'
-- In 'chalkboard_exercise', line 1 has the test sentence with the blank (___). The options MUST display the distinct uppercase syllable stress:
-  [Sentence with ___ in {target_lang.upper()}]
-  A) [First option, e.g. PROject or a project]
-  B) [Second option, e.g. proJECT or to project]
-- In spoken 'challenge' (audio narration), the Narrator reads the complete test sentence naturally with proper pronunciation, then voices the choices without raw blanks or spelling out all-caps letters:
-  e.g. "The committee decided to project the quarterly results. Which one did you hear? A: a project.  B: to project."
-"""
+    # Detect or respect explicitly chosen game archetype
+    archetype = detect_game_archetype(input_data)
+    archetype_info = ARCHETYPE_METADATA.get(archetype, {})
+    archetype_instructions = get_archetype_prompt_instructions(archetype, target_lang, expr)
 
     context_details = []
     if subject:
         subj_guide = f"- LINGUISTIC FOCUS (SUBJECT): {subject}"
-        s_lower = subject.lower()
-        if "stress" in s_lower or "heteronym" in s_lower:
-            subj_guide += " -> The quiz MUST test syllable stress distinction!"
-        elif "idiom" in s_lower or "modismo" in s_lower:
-            subj_guide += " -> The quiz MUST test the true idiomatic meaning vs a funny literal trap!"
         context_details.append(subj_guide)
 
     if context:
@@ -86,9 +72,11 @@ Generate a complete, viral LINGUISTIC GAME video script for:
 - SCRIPT ID: {script_id}
 - TARGET LANGUAGE: {target_lang.upper()}
 - TARGET WORD / CONTRAST: {expr}
+- SELECTED GAME ARCHETYPE: {archetype} ({archetype_info.get('display_name', '')})
 {context_block}
-{stress_instructions}
 {target_mandate}
+
+{archetype_instructions}
 
 {GAME_RULES}
 
@@ -98,15 +86,16 @@ MANDATORY JSON OUTPUT FORMAT
 You MUST return ONLY a valid JSON object matching this exact structure:
 {{
   "title": "Catchy 3-6 word title in {target_lang.upper()} without emojis",
+  "game_archetype": "{archetype}",
   "script": {{
     "title": "Same catchy title in {target_lang.upper()}",
     "hook": "Magnetic, fast-paced hook in {target_lang.upper()}",
-    "challenge": "Spoken sentence without blanks + voiced options (A: ...  B: ...) in {target_lang.upper()}",
+    "challenge": "Spoken sentence without blanks + voiced options (A: ...  B: ...  C: ...) in {target_lang.upper()}",
     "pressure": "Punchy countdown/urgency line in {target_lang.upper()}",
     "answer": "Direct reveal of winning option with linguistic punch in {target_lang.upper()}",
     "explanation": "Crisp real-life explanation and CTA/loop in {target_lang.upper()}"
   }},
-  "chalkboard_exercise": "[Sentence with ___ in {target_lang.upper()}]\\nA) [Option A]\\nB) [Option B]"
+  "chalkboard_exercise": "[Test sentence in {target_lang.upper()}]\\nA) [Option A]\\nB) [Option B]\\nC) [Option C]\\nD) [Option D (if applicable)]"
 }}
 """
     return prompt.strip()

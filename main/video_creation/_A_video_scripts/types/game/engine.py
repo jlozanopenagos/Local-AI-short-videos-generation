@@ -63,14 +63,14 @@ class GameEngine(BaseScriptEngine):
 
         # Extract options from board for challenge synthesis if needed
         board_lines = [l.strip() for l in board_str.splitlines() if l.strip()]
-        opt_a, opt_b = None, None
+        detected_opts: Dict[str, str] = {}
         for l in board_lines:
-            ma = re.match(r"^A\s*[:\)\.\-]\s*(.+)$", l, re.IGNORECASE)
-            if ma:
-                opt_a = ma.group(1).strip()
-            mb = re.match(r"^B\s*[:\)\.\-]\s*(.+)$", l, re.IGNORECASE)
-            if mb:
-                opt_b = mb.group(1).strip()
+            m = re.match(r"^([A-D])\s*[:\)\.\-]\s*(.+)$", l, re.IGNORECASE)
+            if m:
+                detected_opts[m.group(1).upper()] = m.group(2).strip()
+
+        opt_a = detected_opts.get("A")
+        opt_b = detected_opts.get("B")
 
         # 3. Sanitize spoken challenge audio string
         chal = str(script_body.get("challenge", "")).strip()
@@ -97,10 +97,13 @@ class GameEngine(BaseScriptEngine):
 
             # Ensure options are properly voiced
             has_opts = bool(re.search(r"\bA\s*[:\)\.\-]", chal, re.IGNORECASE) and re.search(r"\bB\s*[:\)\.\-]", chal, re.IGNORECASE))
-            if not has_opts and opt_a and opt_b:
-                opt_a_clean = opt_a.rstrip(".?! ") + "."
-                opt_b_clean = opt_b.rstrip(".?! ") + "."
-                chal = chal.rstrip(":., ") + f". A: {opt_a_clean}  B: {opt_b_clean}"
+            if not has_opts and len(detected_opts) >= 2:
+                voiced_parts = []
+                for letter in ["A", "B", "C", "D"]:
+                    if letter in detected_opts:
+                        clean_text = detected_opts[letter].rstrip(".?! ") + "."
+                        voiced_parts.append(f"{letter}: {clean_text}")
+                chal = chal.rstrip(":., ") + ". " + "  ".join(voiced_parts)
 
             script_body["challenge"] = chal
 
@@ -109,6 +112,8 @@ class GameEngine(BaseScriptEngine):
             cleaned["script"] = script_body
             if board_str:
                 cleaned["chalkboard_exercise"] = board_str
+            if "game_archetype" in cleaned:
+                cleaned["script"]["game_archetype"] = cleaned["game_archetype"]
         else:
             cleaned = script_body
             if board_str:

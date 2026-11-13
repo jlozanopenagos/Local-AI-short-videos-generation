@@ -63,6 +63,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   // Script & Chalkboard editor local state
   const [chalkboardTitle, setChalkboardTitle] = useState('')
   const [chalkboardExercise, setChalkboardExercise] = useState('')
+  const [editGameArchetype, setEditGameArchetype] = useState<string>('FILL_IN_THE_BLANK_SPEEDRUN')
   const [scriptFields, setScriptFields] = useState<Record<string, string>>({})
   const [jsonMode, setJsonMode] = useState(false)
   const [rawJsonText, setRawJsonText] = useState('')
@@ -108,10 +109,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     }
     setEditScenePrompts(scenePromptMap)
 
-    // 2. Chalkboard
+    // 2. Chalkboard & Game Archetype
     const titleVal = data.chalkboard_title || data.target_expression || data.title || ''
     setChalkboardTitle(titleVal)
     setChalkboardExercise(data.chalkboard_exercise || '')
+    setEditGameArchetype(data.game_archetype || 'FILL_IN_THE_BLANK_SPEEDRUN')
 
     // 3. Script structure
     let sDict: Record<string, any> = {}
@@ -165,6 +167,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     setGeneratingScript(true)
     setSaveStatus(null)
     try {
+      if (isGameScript) {
+        await updateScript(scriptId, {
+          game_archetype: editGameArchetype,
+          chalkboard_title: chalkboardTitle,
+          chalkboard_exercise: chalkboardExercise,
+        })
+      }
       const resp = await generateScript(scriptId, { force: true })
       setSaveStatus({
         type: 'success',
@@ -362,6 +371,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
         chalkboard_exercise: chalkboardExercise,
         script_dict: finalScriptDict,
         script_text: finalScriptText,
+        ...(isGameScript ? { game_archetype: editGameArchetype } : {}),
       })
 
       setDetail(updated)
@@ -1018,11 +1028,36 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
-                        Chalkboard content (image definition)
+                        Game Dynamics & Chalkboard definition
                       </div>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        Used for thumbnail & Scene 2 chalkboard
+                        Used for Scene 2 chalkboard & game logic
                       </span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Game Archetype (Challenge Format)
+                      </label>
+                      <select
+                        className="search-input"
+                        style={{ width: '100%', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', cursor: 'pointer' }}
+                        value={editGameArchetype}
+                        onChange={(e) => setEditGameArchetype(e.target.value)}
+                      >
+                        <option value="FALSE_FRIEND_TRAP">🎭 False Friend Trap (Falsos Amigos / Faux-amis) — 3-4 options</option>
+                        <option value="ODD_ONE_OUT">🔍 Odd One Out (El Intruso / L'Intrus) — 3-4 options</option>
+                        <option value="SPOT_THE_MISTAKE">⚠️ Spot the Mistake (Encuentra el Error) — 3-4 options</option>
+                        <option value="MINIMAL_PAIR_SHOWDOWN">🎙️ Minimal Pair / Stress Showdown (Heteronyms) — 2-3 options</option>
+                        <option value="FILL_IN_THE_BLANK_SPEEDRUN">⚡ Fill-in-the-Blank Speedrun (Rellena el Hueco) — 3-4 options</option>
+                      </select>
+                      <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px' }}>
+                        {editGameArchetype === 'FALSE_FRIEND_TRAP' && 'Highlights deceptive literal translation traps with native contrasts.'}
+                        {editGameArchetype === 'ODD_ONE_OUT' && 'Presents words sharing a hidden grammar rule, challenging the learner to spot the outlier.'}
+                        {editGameArchetype === 'SPOT_THE_MISTAKE' && 'Ego challenge targeting common intermediate learner errors (prepositions, agreement).'}
+                        {editGameArchetype === 'MINIMAL_PAIR_SHOWDOWN' && 'Auditory challenge distinguishing word stress (e.g. PROject vs proJECT) or minimal sounds.'}
+                        {editGameArchetype === 'FILL_IN_THE_BLANK_SPEEDRUN' && 'Rapid collocation sprint testing authentic idioms under time pressure.'}
+                      </div>
                     </div>
 
                     <div>

@@ -221,6 +221,13 @@ class ScriptsAdapter(BaseStageAdapter):
                 or prompt_params.get("format")
                 or ""
             )
+            game_archetype = (
+                options.get("game_archetype")
+                or content_meta.get("game_archetype")
+                or prompt_params.get("game_archetype")
+                or prompt_params.get("GAME_ARCHETYPE")
+                or ""
+            )
 
             # Construct comprehensive input payload
             payload = {
@@ -230,6 +237,8 @@ class ScriptsAdapter(BaseStageAdapter):
                 "language": lang,
                 "TYPE": vtype,
                 "type": vtype,
+                "GAME_ARCHETYPE": game_archetype,
+                "game_archetype": game_archetype,
                 "TARGET_EXPRESSION": target_expression,
                 "target_expression": target_expression,
                 "EXPRESSION": target_expression,
@@ -306,6 +315,12 @@ class ScriptsAdapter(BaseStageAdapter):
 
                 if "chalkboard_exercise" in result.script:
                     content_meta["chalkboard_exercise"] = result.script["chalkboard_exercise"]
+
+                detected_arch = result.script.get("game_archetype") or payload.get("game_archetype")
+                if detected_arch:
+                    content_meta["game_archetype"] = detected_arch
+                    payload["game_archetype"] = detected_arch
+                    payload["GAME_ARCHETYPE"] = detected_arch
 
                 state["prompt_params"] = payload
                 state["script_text"] = json.dumps(script_body, indent=2, ensure_ascii=False)
