@@ -5,12 +5,14 @@ import unittest
 
 import tempfile
 from pathlib import Path
+# pyrefly: ignore[missing-import]
 from PIL import Image, ImageDraw
 
 # pyrefly: ignore [missing-import]
 from video_creation._C_image_generation.core.chalkboard_renderer import (
     parse_quiz_exercise, fit_option_text, render_chalkboard_image, _get_font
 )
+# pyrefly: ignore[missing-import]
 from config import GAME_IMAGES_DIR
 
 

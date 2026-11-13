@@ -106,6 +106,7 @@ class TestGameEngine(unittest.TestCase):
         self.assertTrue(any("multiline" in err.lower() for err in res.errors))
 
     def test_detect_game_archetype_logic(self):
+        # pyrefly: ignore[missing-import]
         from video_creation._A_video_scripts.types.game.archetypes import (
             GameArchetype,
             detect_game_archetype,

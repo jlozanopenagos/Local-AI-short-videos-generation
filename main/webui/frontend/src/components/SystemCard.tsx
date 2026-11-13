@@ -29,7 +29,10 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
     action: 'start' | 'stop' | 'restart',
     e?: React.MouseEvent
   ) => {
-    if (e) e.stopPropagation()
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     setBusyService(`${service}-${action}`)
     try {
       await controlService(service, action)
@@ -65,6 +68,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
           {comfyOnline ? `${vramUsed.toFixed(1)}/${vramTotal.toFixed(0)} GB` : 'offline'}
         </span>
         <button
+          type="button"
           className={`btn btn-sm ${comfyOnline ? 'btn-danger' : 'btn-success'}`}
           style={{ padding: '2px 5px', minHeight: '20px' }}
           disabled={busyService !== null}
@@ -87,6 +91,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
           {llmOnline ? `:${llm?.port || 8080}` : 'on-demand'}
         </span>
         <button
+          type="button"
           className={`btn btn-sm ${llmOnline ? 'btn-danger' : 'btn-success'}`}
           style={{ padding: '2px 5px', minHeight: '20px' }}
           disabled={busyService !== null}
@@ -150,6 +155,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
               {comfyOnline ? (
                 <>
                   <button
+                    type="button"
                     className="btn btn-danger btn-sm"
                     disabled={busyService !== null}
                     onClick={(e) => handleAction('comfyui', 'stop', e)}
@@ -158,6 +164,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                     <span>Stop</span>
                   </button>
                   <button
+                    type="button"
                     className="btn btn-outline btn-sm"
                     disabled={busyService !== null}
                     onClick={(e) => handleAction('comfyui', 'restart', e)}
@@ -168,6 +175,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                 </>
               ) : (
                 <button
+                  type="button"
                   className="btn btn-success btn-sm"
                   disabled={busyService !== null}
                   onClick={(e) => handleAction('comfyui', 'start', e)}
@@ -214,6 +222,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
               {llmOnline ? (
                 <>
                   <button
+                    type="button"
                     className="btn btn-danger btn-sm"
                     disabled={busyService !== null}
                     onClick={(e) => handleAction('llm', 'stop', e)}
@@ -222,6 +231,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                     <span>Stop</span>
                   </button>
                   <button
+                    type="button"
                     className="btn btn-outline btn-sm"
                     disabled={busyService !== null}
                     onClick={(e) => handleAction('llm', 'restart', e)}
@@ -232,6 +242,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                 </>
               ) : (
                 <button
+                  type="button"
                   className="btn btn-success btn-sm"
                   disabled={busyService !== null}
                   onClick={(e) => handleAction('llm', 'start', e)}

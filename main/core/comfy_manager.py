@@ -147,6 +147,32 @@ class ComfyManager:
         except (OSError, ProcessLookupError):
             return False
 
+    def _discover_pid_from_port(self) -> Optional[int]:
+        """Discovers process ID listening on the configured ComfyUI port."""
+        if os.name == "nt":
+            try:
+                out = subprocess.check_output(
+                    f"netstat -ano -p tcp | findstr :{self.port}",
+                    shell=True,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                )
+                current_pid = os.getpid()
+                parent_pid = os.getppid() if hasattr(os, "getppid") else -1
+                for line in out.splitlines():
+                    parts = line.strip().split()
+                    if (
+                        len(parts) >= 5
+                        and "LISTENING" in parts[3]
+                        and f":{self.port}" in parts[1]
+                    ):
+                        target_pid = int(parts[4])
+                        if target_pid > 0 and target_pid not in (current_pid, parent_pid):
+                            return target_pid
+            except Exception:
+                pass
+        return None
+
     def is_reachable(self, timeout: float = 2.0) -> bool:
         """Checks if ComfyUI HTTP server is reachable and responding."""
         endpoint = f"{self.api_url}/system_stats"
@@ -164,12 +190,21 @@ class ComfyManager:
         pid = self._read_pid()
         reachable = self.is_reachable(timeout=1.5)
 
+        current_pid = os.getpid()
+        parent_pid = os.getppid() if hasattr(os, "getppid") else -1
+        if pid in (current_pid, parent_pid):
+            pid = None
+
         if pid and self._is_pid_alive(pid):
             return True, pid
 
         if reachable:
-            # ComfyUI is running on port even if pid file was missing
-            return True, pid
+            # ComfyUI is running on port even if pid file was missing/stale
+            discovered_pid = self._discover_pid_from_port()
+            if discovered_pid:
+                self._write_pid(discovered_pid)
+                return True, discovered_pid
+            return True, None
 
         # Stale PID cleanup
         if pid and not reachable:
@@ -316,10 +351,20 @@ class ComfyManager:
         Gracefully terminates the ComfyUI process and its process tree on Windows.
         """
         running, pid = self.is_running()
+        if not pid:
+            pid = self._discover_pid_from_port()
+
         if not running and not pid:
             print("[ComfyUI] Already stopped.")
             self._clear_pid()
             return True
+
+        # Safety check: NEVER kill current process or parent process!
+        current_pid = os.getpid()
+        parent_pid = os.getppid() if hasattr(os, "getppid") else -1
+        if pid in (current_pid, parent_pid):
+            print(f"[ComfyUI Error] Safety guard: Refusing to kill current process (PID: {pid})!", file=sys.stderr)
+            return False
 
         print(f"[ComfyUI] Stopping ComfyUI process (PID: {pid or 'port-bound'})...")
 
@@ -346,15 +391,28 @@ class ComfyManager:
                 os.kill(pid, 15)  # SIGTERM
             except Exception:
                 pass
+        elif os.name == "nt":
+            # If PID was not initially discovered, attempt discovery again
+            disc_pid = self._discover_pid_from_port()
+            if disc_pid and disc_pid not in (current_pid, parent_pid):
+                try:
+                    subprocess.run(
+                        f"taskkill /PID {disc_pid} /T /F",
+                        shell=True,
+                        capture_output=True,
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
 
         # 3. Wait for port release
         start_t = time.time()
         while time.time() - start_t < timeout:
-            if not self.is_reachable(timeout=1.0):
+            if not self.is_reachable(timeout=0.5):
                 self._clear_pid()
                 print("[ComfyUI] Stopped successfully.")
                 return True
-            time.sleep(1.0)
+            time.sleep(0.5)
 
         self._clear_pid()
         print("[ComfyUI] Stopped (port freed).")

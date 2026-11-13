@@ -348,10 +348,19 @@ class LlamaManager:
         Gracefully terminates the llama-server process tree on Windows to free VRAM.
         """
         running, pid = self.is_running()
+        if not pid:
+            pid = self._discover_pid_from_port()
+
         if not running and not pid:
             print("[LlamaServer] Already stopped.")
             self._clear_pid()
             return True
+
+        current_pid = os.getpid()
+        parent_pid = os.getppid() if hasattr(os, "getppid") else -1
+        if pid in (current_pid, parent_pid):
+            print(f"[LlamaServer Error] Safety guard: Refusing to kill current process (PID: {pid})!", file=sys.stderr)
+            return False
 
         print(f"[LlamaServer] Stopping llama-server process (PID: {pid or 'port-bound'})...")
 
