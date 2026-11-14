@@ -31,7 +31,7 @@ from config import (
     get_script_output_dir
 )
 # pyrefly: ignore [missing-import]
-from state_manager import StateManager
+from state_manager import StateManager, resolve_lang_and_type
 # pyrefly: ignore [missing-import]
 from core.cli_prompt import (
     timed_input,
@@ -68,11 +68,14 @@ def ensure_image_prompts_for_script(
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
-    label = metadata.get("LABEL", "english")
+    resolved_lang, resolved_type = resolve_lang_and_type(script_id, script_data)
+    label = metadata.get("LABEL") or resolved_lang
     video_type = (
         script_data.get("content_metadata", {}).get("video_type")
         or script_data.get("prompt_params", {}).get("VIDEO_TYPE")
-        or metadata.get("VIDEO_TYPE", "EXPRESSION")
+        or metadata.get("VIDEO_TYPE")
+        or resolved_type
+        or "EXPRESSION"
     ).upper()
 
     # Establish character genders without interactive timer delay
@@ -237,11 +240,14 @@ def process_script(
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
-    label = metadata.get("LABEL", "english")
+    resolved_lang, resolved_type = resolve_lang_and_type(script_id, script_data)
+    label = metadata.get("LABEL") or resolved_lang
     video_type = (
         script_data.get("content_metadata", {}).get("video_type")
         or script_data.get("prompt_params", {}).get("VIDEO_TYPE")
-        or metadata.get("VIDEO_TYPE", "EXPRESSION")
+        or metadata.get("VIDEO_TYPE")
+        or resolved_type
+        or "EXPRESSION"
     ).upper()
 
     print("=" * 60)
