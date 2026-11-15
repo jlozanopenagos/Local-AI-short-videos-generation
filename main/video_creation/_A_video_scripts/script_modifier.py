@@ -213,11 +213,11 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
         "discovery": re.compile(r"^(?:discovery|découverte|descubrimiento|scoperta)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "example": re.compile(r"^(?:example|exemple|ejemplo|esempio)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "payoff": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion|cta|call[_\s]to[_\s]action)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_1": re.compile(r"^(?:dialogue[_\s]part[_\s]1|dialogue[_\s]1|part[_\s]1)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_2": re.compile(r"^(?:dialogue[_\s]part[_\s]2|dialogue[_\s]2|part[_\s]2)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_3": re.compile(r"^(?:dialogue[_\s]part[_\s]3|dialogue[_\s]3|part[_\s]3)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_4": re.compile(r"^(?:dialogue[_\s]part[_\s]4|dialogue[_\s]4|part[_\s]4)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "PAYOFF": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_1": re.compile(r"^(?:dialogue[_\s]part[_\s]1|dialogue[_\s]1|part[_\s]1)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_2": re.compile(r"^(?:dialogue[_\s]part[_\s]2|dialogue[_\s]2|part[_\s]2)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_3": re.compile(r"^(?:dialogue[_\s]part[_\s]3|dialogue[_\s]3|part[_\s]3)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_4": re.compile(r"^(?:dialogue[_\s]part[_\s]4|dialogue[_\s]4|part[_\s]4)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "payoff": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion|cta|call[_\s]to[_\s]action)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "challenge": re.compile(r"^(?:challenge|défi|desafío|sfida|question)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "pressure": re.compile(r"^(?:pressure|pression|presión|pressione|countdown)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "answer": re.compile(r"^(?:answer|réponse|respuesta|risposta)\s*[:：]\s*(.*)$", re.IGNORECASE),
@@ -584,22 +584,22 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
             parts = partition_turns_into_four_parts(turns)
             parsed = {
                 "hook": hook or (lines[0] if lines else ""),
-                "DIALOGUE_PART_1": parts[0],
-                "DIALOGUE_PART_2": parts[1],
-                "DIALOGUE_PART_3": parts[2],
-                "DIALOGUE_PART_4": parts[3],
-                "PAYOFF": payoff or (lines[-1] if len(lines) > 1 else hook),
+                "dialogue_part_1": parts[0],
+                "dialogue_part_2": parts[1],
+                "dialogue_part_3": parts[2],
+                "dialogue_part_4": parts[3],
+                "payoff": payoff or (lines[-1] if len(lines) > 1 else hook),
             }
         else:
             hook = clean_narrator_prefix(lines[0])
             last_line = clean_narrator_prefix(lines[-1])
             parsed = {
                 "hook": hook,
-                "DIALOGUE_PART_1": "\n".join(lines[1:-1]) if len(lines) > 2 else (lines[1] if len(lines) > 1 else ""),
-                "DIALOGUE_PART_2": "",
-                "DIALOGUE_PART_3": "",
-                "DIALOGUE_PART_4": "",
-                "PAYOFF": last_line if len(lines) > 1 else hook,
+                "dialogue_part_1": "\n".join(lines[1:-1]) if len(lines) > 2 else (lines[1] if len(lines) > 1 else ""),
+                "dialogue_part_2": "",
+                "dialogue_part_3": "",
+                "dialogue_part_4": "",
+                "payoff": last_line if len(lines) > 1 else hook,
             }
 
     elif vtype in ("FUN_FACTS", "FUNFACTS"):
@@ -641,17 +641,17 @@ Required "script" object structure for ROLEPLAY:
 {
     "title": "Short Catchy YouTube Title",
     "hook": "Narrator opening hook setting up the scene...",
-    "DIALOGUE_PART_1": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "DIALOGUE_PART_2": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "DIALOGUE_PART_3": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "DIALOGUE_PART_4": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "PAYOFF": "Narrator closing explanation and memorable takeaway..."
+    "dialogue_part_1": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "dialogue_part_2": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "dialogue_part_3": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "dialogue_part_4": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "payoff": "Narrator closing explanation and memorable takeaway..."
 }
 Note on Character Dialogue & Narration:
-- In "hook" and "PAYOFF", do NOT include the prefix "Narrator:" or "Voiceover:" because the TTS narrator voice speaks these sections automatically.
+- In "hook" and "payoff", do NOT include the prefix "Narrator:" or "Voiceover:" because the TTS narrator voice speaks these sections automatically.
 - Must have character dialogue lines prefixed with PERSON_ONE (Acting Tone): and PERSON_TWO (Acting Tone):
-- Do NOT insert the Narrator into DIALOGUE_PART_1, 2, 3, or 4.
-- Distribute character dialogue turns across DIALOGUE_PART_1 through DIALOGUE_PART_4 without duplicating any lines. If there are 5 turns, put the first 2 in DIALOGUE_PART_1 and 1 in each remaining part.
+- Do NOT insert the Narrator into dialogue_part_1, 2, 3, or 4.
+- Distribute character dialogue turns across dialogue_part_1 through dialogue_part_4 without duplicating any lines. If there are 5 turns, put the first 2 in dialogue_part_1 and 1 in each remaining part.
 - In "character_personalities", infer distinct personalities for PERSON_ONE and PERSON_TWO based on their dialogue.
 """
     elif vtype == "GAME":
@@ -762,7 +762,7 @@ Format:
 CANONICAL_SCRIPT_KEYS_BY_TYPE: Dict[str, list[str]] = {
     "EXPRESSION": ["title", "hook", "setup", "discovery", "example", "payoff"],
     "GAME": ["title", "hook", "challenge", "pressure", "answer", "explanation"],
-    "ROLEPLAY": ["title", "hook", "DIALOGUE_PART_1", "DIALOGUE_PART_2", "DIALOGUE_PART_3", "DIALOGUE_PART_4", "PAYOFF"],
+    "ROLEPLAY": ["title", "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"],
     "FUN_FACTS": ["title", "hook", "setup", "discovery", "payoff"],
 }
 
@@ -940,7 +940,20 @@ def format_script_with_llm(
         if matched_k and matched_k in script_field:
             ordered_script[c_key] = script_field[matched_k]
 
+    NON_SPOKEN_METADATA_KEYS = {
+        "game_archetype", "difficulty", "learning_objective", "category",
+        "subcategory", "video_type", "language", "tags", "hashtags",
+        "target_expression", "topic", "related_content", "character_personalities",
+        "chalkboard_exercise", "anchor_environment", "character_anchors", "speakers_voice",
+        "speakers_gender", "cast_meta", "prompt_params"
+    }
+
     for sk, sv in script_field.items():
+        if sk.lower() in NON_SPOKEN_METADATA_KEYS:
+            # Preserve in parsed_json root if not present, but NEVER put in spoken script
+            if sk not in parsed_json:
+                parsed_json[sk] = sv
+            continue
         if sk.lower() != "title" and not any(ck.lower() == sk.lower() for ck in canonical_keys):
             ordered_script[sk] = sv
 
@@ -956,7 +969,9 @@ def format_script_with_llm(
         if "challenge" in script_field and isinstance(script_field["challenge"], str):
             script_field["challenge"] = clean_game_challenge(script_field["challenge"], sid=script_id)
         challenge_text = script_field.get("challenge", "")
-        parsed_json["chalkboard_exercise"] = challenge_text
+        # Format options with newlines for clean chalkboard layout
+        chalkboard_clean = re.sub(r"\s+([A-D]\s*[:\)\.\-])", r"\n\1", challenge_text).strip()
+        parsed_json["chalkboard_exercise"] = chalkboard_clean
         if "content_metadata" in parsed_json and isinstance(parsed_json["content_metadata"], dict):
             del parsed_json["content_metadata"]
 
@@ -971,6 +986,24 @@ def format_script_with_llm(
             parsed_json["character_personalities"]["PERSON_ONE"] = "Expressive, animated, relatable conversational partner experiencing the scenario."
         if "PERSON_TWO" not in parsed_json["character_personalities"]:
             parsed_json["character_personalities"]["PERSON_TWO"] = "Knowledgeable, natural native speaker offering authentic cultural guidance."
+
+    # Preserve existing continuity, voice assignments, and technical metadata
+    preserve_keys = [
+        "character_anchors",
+        "cast_meta",
+        "anchor_environment",
+        "speakers_gender",
+        "speakers_voice",
+        "game_type",
+        "game_archetype",
+        "roleplay_scenario",
+        "cultural_locale",
+        "lexical_field",
+        "emotional_trigger",
+    ]
+    for pk in preserve_keys:
+        if pk in existing_content_metadata and pk not in parsed_json:
+            parsed_json[pk] = existing_content_metadata[pk]
 
     parsed_json["script"] = script_field
     parsed_json["video_type"] = video_type.upper()
@@ -1098,6 +1131,18 @@ def modify_video_script(
         ]
         for stage in downstream_stages:
             state["status"][stage] = "pending"
+
+        # Invalidate stale downstream assets so new prompts & media match the updated script
+        if "assets" in state and isinstance(state["assets"], dict):
+            # Preserve character anchors for multi-scene visual continuity
+            saved_anchors = state["assets"].get("character_anchors")
+            state["assets"]["image_prompts"] = {}
+            state["assets"]["images"] = {}
+            state["assets"]["audio_path"] = None
+            state["assets"]["final_video"] = None
+            state["assets"]["thumbnail_path"] = None
+            if saved_anchors:
+                state["assets"]["character_anchors"] = saved_anchors
 
     # Save updated state
     state_manager.save_script_state(script_id, state)

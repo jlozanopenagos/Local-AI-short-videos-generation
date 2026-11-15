@@ -117,6 +117,120 @@ class TestSheetsRouter(unittest.TestCase):
         self.assertEqual(status["result"]["updated_count"], 0)
         mock_modify.assert_not_called()
 
+    def test_modify_video_script_schema_harmonization_and_asset_invalidation(self):
+        """Verify that modify_video_script produces canonical lowercase keys, preserves character anchors & voices, and clears stale image prompts."""
+        import json
+        import tempfile
+        from video_creation._A_video_scripts.script_modifier import modify_video_script
+        from core.state_manager import StateManager
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base_dir = Path(tmp_dir)
+            state_mgr = StateManager(base_dir)
+
+            # 1. Setup mock ER01 state
+            initial_state = {
+                "id": "ER01",
+                "status": {
+                    "script_generation": "done",
+                    "voice_generation": "done",
+                    "image_generation": "done",
+                    "thumbnail_generation": "done",
+                    "video_assembly": "done",
+                },
+                "prompt_params": {
+                    "SCRIPT_ID": "ER01",
+                    "TARGET_LANGUAGE": "English",
+                    "VIDEO_TYPE": "ROLEPLAY",
+                    "TOPIC": "Break a leg",
+                },
+                "script_text": "{}",
+                "content_metadata": {
+                    "video_type": "ROLEPLAY",
+                    "language": "English",
+                    "topic": "Break a leg",
+                    "character_anchors": {
+                        "has_two_characters": True,
+                        "char1_gender": "female",
+                        "char1_hair": "dark ponytail",
+                    },
+                    "speakers_voice": {
+                        "Narrator": "golden_narrator.wav",
+                        "PERSON_ONE": "voice_1.wav",
+                    },
+                    "speakers_gender": {
+                        "Narrator": "female",
+                        "PERSON_ONE": "female",
+                    },
+                    "anchor_environment": "Dressing room backstage.",
+                    "script": {},
+                },
+                "assets": {
+                    "image_prompts": {
+                        "hook": "Old hook prompt",
+                        "dialogue_part_1": "Old dialogue prompt",
+                    },
+                    "character_anchors": {
+                        "char1_gender": "female",
+                    },
+                },
+                "metadata": {
+                    "TITLE": "Old Title",
+                    "DESCRIPTION": "Old Desc",
+                    "TAGS": "old, tags",
+                },
+            }
+
+            state_mgr.save_script_state("ER01", initial_state)
+
+            raw_new_script = """Hook: A frantic actor forgets their line backstage before the show starts!
+dialogue_part_1: PERSON_ONE (Panicked): I forgot the words!
+PERSON_TWO (Calm): Deep breaths, you got this.
+dialogue_part_2: PERSON_ONE (Nervous): What if I mess up?
+PERSON_TWO (Smirking): Break a leg!
+dialogue_part_3: PERSON_ONE (Relieved): Wait, break a leg means good luck?
+PERSON_TWO (Chuckling): Exactly, theater folklore!
+dialogue_part_4: PERSON_ONE (Smiling): Okay, I'm ready.
+PERSON_TWO (Nodding): Go crush it!
+payoff: A theatrical superstition turns stage panic into pure energy!"""
+
+            ok = modify_video_script(
+                script_id="ER01",
+                raw_script_text=raw_new_script,
+                reset_downstream=True,
+                base_dir=base_dir,
+                auto_update_csv=False,
+            )
+            self.assertTrue(ok)
+
+            updated = state_mgr.get_script_state("ER01")
+            content_meta = updated["content_metadata"]
+            script_dict = content_meta["script"]
+
+            # Verify lowercase keys
+            expected_keys = ["title", "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"]
+            for k in expected_keys:
+                self.assertIn(k, script_dict)
+
+            # Verify uppercase keys are NOT present
+            self.assertNotIn("DIALOGUE_PART_1", script_dict)
+            self.assertNotIn("PAYOFF", script_dict)
+
+            # Verify continuity metadata was preserved
+            self.assertIn("character_anchors", content_meta)
+            self.assertEqual(content_meta["character_anchors"]["char1_hair"], "dark ponytail")
+            self.assertIn("speakers_voice", content_meta)
+            self.assertEqual(content_meta["speakers_voice"]["Narrator"], "golden_narrator.wav")
+            self.assertEqual(content_meta["anchor_environment"], "Dressing room backstage.")
+
+            # Verify downstream stages reset to pending
+            self.assertEqual(updated["status"]["voice_generation"], "pending")
+            self.assertEqual(updated["status"]["image_generation"], "pending")
+
+            # Verify stale image_prompts wiped to force fresh prompt generation
+            self.assertEqual(updated["assets"]["image_prompts"], {})
+            self.assertEqual(updated["assets"]["character_anchors"]["char1_gender"], "female")
+
 
 if __name__ == "__main__":
     unittest.main()

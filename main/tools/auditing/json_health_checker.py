@@ -104,7 +104,7 @@ class ScriptHealthAuditor:
 
                         # Check word count
                         spoken_words = sum(len(str(script_dict[k]).split()) for k in sections if k.lower() not in ILLEGAL_SCRIPT_KEYS)
-                        vtype = (prompt_params.get("VIDEO_TYPE") if prompt_params else "").upper()
+                        vtype = (prompt_params.get("VIDEO_TYPE") or "" if prompt_params else "").upper()
                         if not vtype:
                             vtype = (content_meta.get("video_type") or "EXPRESSION").upper()
 

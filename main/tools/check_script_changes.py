@@ -56,8 +56,15 @@ from core.state_manager import StateManager
 from video_creation._A_video_scripts.script_modifier import modify_video_script
 
 
+IGNORED_SCRIPT_KEYS = {
+    "title", "game_archetype", "difficulty", "learning_objective", "category",
+    "subcategory", "video_type", "language", "tags", "hashtags", "target_expression",
+    "topic", "related_content", "chalkboard_exercise"
+}
+
+
 def extract_spoken_text_from_state(state: Dict[str, Any]) -> str:
-    """Extracts all spoken sections from state JSON, excluding the title."""
+    """Extracts all spoken sections from state JSON, excluding the title and metadata keys."""
     if not isinstance(state, dict):
         return ""
 
@@ -76,7 +83,7 @@ def extract_spoken_text_from_state(state: Dict[str, Any]) -> str:
         spoken_parts = [
             str(v).strip()
             for k, v in script_obj.items()
-            if k.lower() != "title" and isinstance(v, str) and str(v).strip()
+            if k.lower() not in IGNORED_SCRIPT_KEYS and isinstance(v, str) and str(v).strip()
         ]
         return "\n\n".join(spoken_parts).strip()
 
