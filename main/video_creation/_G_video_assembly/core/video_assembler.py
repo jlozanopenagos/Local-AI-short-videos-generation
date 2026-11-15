@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 class VideoAssembler:
-    def assemble(self, script_id: str, timings_path: Path, image_dir: Path, audio_path: Path, ass_path: Path, output_path: Path, bgm_path: Path = None, watermark_path: Path = None, opening_path: Path = None, closure_path: Path = None):
+    def assemble(self, script_id: str, timings_path: Path, image_dir: Path, audio_path: Path, ass_path: Path, output_path: Path, bgm_path: Path = None, watermark_path: Path = None, opening_path: Path = None, closure_path: Path = None, video_type: str = ""):
         if opening_path:
             opening_path = Path(opening_path)
         if closure_path:
@@ -95,6 +95,7 @@ class VideoAssembler:
             file_name = current.get("path", Path()).name.lower()
             is_chalkboard = (sec_name == "challenge") or ("challenge" in file_name) or ("chalkboard" in file_name)
 
+            vt_clean = str(video_type or "").strip().lower()
             if is_chalkboard:
                 # Ultra-slow, readable cinematic float for chalkboard quizzes (+0.12% per sec, max 2% zoom)
                 # Preserves complete legibility so viewers can focus and all option boxes (A, B, C, D) remain fully in view
@@ -102,12 +103,20 @@ class VideoAssembler:
                 y_expr = "ih/2-(ih/zoom/2)"
             elif current.get("punch_in", False):
                 # Gentle punch-in cut (1.18x crop/zoom, framed slightly higher on faces)
-                z_expr = "if(lte(on,1),1.18,min(zoom+0.0004,1.28))"
-                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.03))"
+                z_expr = "if(lte(on,1),1.18,min(zoom+0.0004,1.25))"
+                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.04))"
+            elif vt_clean == "roleplay":
+                # Calmer, subtle float for rapid 6-beat dialogue cuts (prevents optical pumping on 2-3s shots)
+                z_expr = "min(zoom+0.00025,1.06)"
+                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.04))"
+            elif vt_clean in ("fun_facts", "funfacts"):
+                # Elegant vertical bias towards monumental anomaly in upper frame
+                z_expr = "min(zoom+0.0003,1.08)"
+                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.06))"
             else:
-                # Slower, elegant cinematic float (+1.5% zoom per sec)
-                z_expr = "min(zoom+0.0006,1.15)"
-                y_expr = "ih/2-(ih/zoom/2)"
+                # Calibrated narrative float: +0.75% zoom/sec, max 1.08x zoom (safeguards Rule-of-Thirds margins and facial headroom)
+                z_expr = "min(zoom+0.0003,1.08)"
+                y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.04))"
 
             stream = (
                 ffmpeg.input(current['path'].resolve().as_posix(), thread_queue_size=16 + i)

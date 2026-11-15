@@ -222,35 +222,44 @@ def get_video_type_directive(video_type: str) -> str:
     vt = (video_type or "EXPRESSION").upper().strip()
     if vt in ("GAME", "QUIZ"):
         return (
-            "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena)\n"
+            "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena & Symmetrical Dilemma)\n"
             "- Core Visual Objective: High-stakes interactive dilemma, puzzle challenge, or competitive test of wits.\n"
+            "- Camera Framing: Front-facing, symmetrical medium eye-level shot (Wes Anderson-style central balance).\n"
+            "- Staging & Spatial Depth: The teen protagonist is centrally positioned under an intense dramatic overhead spotlight beam, frozen at an organic physical crossroads between two contrasting pathways/doorways, or holding two conflicting physical objects in hesitation.\n"
+            "- Fourth-Wall Gaze: The protagonist makes 100% DIRECT FOURTH-WALL EYE CONTACT into the camera with wide, puzzled eyes, directly engaging the viewer in the dilemma!\n"
             "- Setting Mood: Playful competitive focus, suspenseful countdown tension, active problem-solving.\n"
-            "- Mandatory Challenge Props: Include concrete interactive quiz/challenge items between characters "
-            "(e.g. a wooden challenge board or notebook, an hourglass timer, answer placards, scorecards, brass study bells, or flashcards).\n"
-            "- Poses & Expressions: High-energy concentration, playful rivalry, dilemma gestures, or triumphant breakthrough."
+            "- Mandatory Challenge Props: Concrete non-text objects representing the trap or choice (e.g. an hourglass timer, keys, tools). STRICT BAN ON TEXT: NO flashcards, NO answer placards, NO scorecards, NO writing.\n"
+            "- Poses & Expressions: High-energy concentration, dilemma gestures, frozen hesitation."
         )
     elif vt in ("ROLEPLAY", "ROLE_PLAY"):
         return (
-            "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Interpersonal Banter)\n"
+            "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Cinematic Threshold Dialogue)\n"
             "- Core Visual Objective: Character-driven emotional exchange, comedic misunderstanding, or interpersonal debate.\n"
+            "- Camera Framing: Dynamic 3/4 diagonal profile or over-the-shoulder framing across a physical boundary.\n"
+            "- Staging & Spatial Depth: Establish a dynamic diagonal trajectory across a physical boundary (doorframe, table edge, counter, or curtain line) with characters engaged in close conversational drama.\n"
+            "- Fourth-Wall Gaze: STRICT 0% EYE CONTACT WITH THE VIEWER! 100% in-scene peer-to-peer interaction. Characters look at each other or the shared prop, NEVER at the camera.\n"
             "- Setting Mood: Close interpersonal shared space emphasizing conversational proxemics across a table or counter.\n"
-            "- Mandatory Conversational Foil Props: A concrete physical object causing or anchoring the discussion "
-            "(e.g. a disputed handwritten list, a shared schedule, a mobile screen, blueprints, or physical items being compared).\n"
-            "- Poses & Expressions: Expressive conversational acting contrast (one character animatedly arguing or explaining "
-            "with expressive hand gestures, while the counterpart reacts with skepticism, curiosity, or sudden realization)."
+            "- Mandatory Conversational Foil Props: A concrete physical object causing or anchoring the discussion (e.g. tools, utensils, garments, blueprints, or physical items being compared).\n"
+            "- Poses & Expressions: Expressive conversational acting contrast (one character animatedly arguing or explaining with expressive hand gestures, while the counterpart reacts with skepticism, curiosity, or sudden realization)."
         )
     elif vt in ("FUN_FACTS", "FACTS"):
         return (
-            "VIDEO TYPE ARCHETYPE: FUN FACTS (Curiosity & Cultural Discovery)\n"
+            "VIDEO TYPE ARCHETYPE: FUN FACTS (Curiosity & Monumental Scale of Wonder)\n"
             "- Core Visual Objective: Documentary exploration, historical curiosity, or surprising cultural revelation.\n"
+            "- Camera Framing: Dramatic low-angle heroic perspective looking upward from low ground elevation.\n"
+            "- Staging & Spatial Depth: The teen protagonist is positioned in the lower third of the frame, head tilted upward in awe at a towering, imposing cultural anomaly, ancient clockwork, or giant historic relic.\n"
+            "- Fourth-Wall Gaze: Characters gaze UPWARD with fascinated awe towards the focal discovery (NOT staring forward into the camera).\n"
             "- Setting Mood: Wonder, exploratory depth, intrigue, and cultural mystery.\n"
             "- Mandatory Discovery Props: Concrete items of investigation (e.g. magnifying glass, vintage maps, open reference encyclopedias, antique cultural artifacts).\n"
             "- Poses & Expressions: Fascinated discovery, pointing out an unexpected detail, shared wonder."
         )
     else:  # EXPRESSION (default)
         return (
-            "VIDEO TYPE ARCHETYPE: EXPRESSION (Everyday Cultural Observation)\n"
+            "VIDEO TYPE ARCHETYPE: EXPRESSION (Everyday Cultural Observation & Layered Depth)\n"
             "- Core Visual Objective: Natural, authentic demonstration of an idiom or cultural phrase in everyday real-world life.\n"
+            "- Camera Framing: 35mm angled foreground-to-background depth composition (Rule of Thirds).\n"
+            "- Staging & Spatial Depth: The teen student protagonist occupies the foreground left or right (35-40%), while the narrative action unfolds in the midground/background (60% depth) like a living diorama.\n"
+            "- Fourth-Wall Gaze: Conspiratorial guide — the foreground protagonist turns 3/4 toward the viewer with an expressive, knowing glance (arched eyebrow, subtle smirk), while the background subject is immersed in the scene (looking away from camera).\n"
             "- Setting Mood: Relatable everyday social observation, relaxed conversational rhythm, warmth.\n"
             "- Mandatory Natural Props: Everyday carry items grounding the moment (e.g. espresso cups, shopping bags, rolled newspaper, bicycle, umbrella).\n"
             "- Poses & Expressions: Natural social observation, relaxed gestures, everyday conversational warmth."
@@ -538,6 +547,17 @@ def audit_general_prompt(
     chosen_lens = random.choice(creative_lenses)
     run_seed = random.randint(100000, 999999)
 
+    # Detect camera framing opener tailored to video type archetype
+    vt_clean = video_type.upper().strip()
+    if vt_clean in ("GAME", "QUIZ"):
+        camera_opener = "Front-facing symmetrical medium eye-level shot."
+    elif vt_clean in ("FUN_FACTS", "FACTS"):
+        camera_opener = "Dramatic low-angle heroic shot looking upward from low ground elevation."
+    elif vt_clean in ("ROLEPLAY", "ROLE_PLAY"):
+        camera_opener = "Dynamic diagonal 3/4 medium two-shot across a physical threshold."
+    else:  # EXPRESSION
+        camera_opener = "Angled 35mm foreground-to-background depth shot."
+
     previous_contrast = ""
     if existing_gp:
         previous_contrast = (
@@ -572,7 +592,7 @@ def audit_general_prompt(
         "[/CHARACTER_ANCHORS]\n\n"
         "PART B: MASTER NARRATIVE SCENE (PARTS 1 TO 7 ONLY)\n"
         "Follow this exact 7-part narrative structure in a single cohesive, richly detailed paragraph (~110-145 words):\n"
-        "1. CAMERA SHOT & FRAMING: Open with 'Medium wide eye-level shot.' to guarantee lens perspective.\n"
+        f"1. CAMERA SHOT & FRAMING: Open with '{camera_opener}' to guarantee lens perspective.\n"
         "2. THEMATIC SCENE CONTEXT: Ground the physical setting authentically in the SEMANTIC DOMAIN and VIDEO TYPE ARCHETYPE above. "
         "⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are generic modern coffee shops, plain empty classrooms, pottery/ceramic workshops, rooftop greenhouses, and random flea markets. Ground the setting authentically in the dialogue domain.\n"
         f"3. CHARACTER 1 (Subject): Integrate CHAR_1 using the exact hair, wardrobe, and shoes defined in Part A, with expressive cartoon facial acting (large clear cartoon eyes, visible white sclera, specular pupil highlights).\n"

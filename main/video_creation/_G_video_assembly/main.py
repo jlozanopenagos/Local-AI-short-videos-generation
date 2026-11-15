@@ -320,11 +320,13 @@ def process_script(
         if assembler is None:
             assembler = VideoAssembler()
 
+        vtype = resolve_script_video_type(script_data)
         final_video_path = script_output_dir / f"script_{script_id}_final.mp4"
         success = assembler.assemble(
             script_id, timings_path, image_dir, audio_path, ass_path, final_video_path, 
             bgm_path=bgm_path, watermark_path=watermark_path,
-            opening_path=opening_path, closure_path=closure_path
+            opening_path=opening_path, closure_path=closure_path,
+            video_type=vtype
         )
         
         if success:

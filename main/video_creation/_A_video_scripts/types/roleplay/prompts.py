@@ -77,7 +77,7 @@ def build_roleplay_prompt(input_data: Dict[str, Any]) -> str:
 -------------------------------------------------------------
 CRITICAL LANGUAGE MANDATE (100% {target_lang.upper()} ONLY - ZERO ENGLISH)
 -------------------------------------------------------------
-- EVERY SINGLE WORD in the entire JSON output ("title", "hook", "DIALOGUE_PART_1..4", "PAYOFF") MUST be written 100% in {target_lang.upper()}!
+- EVERY SINGLE WORD in the entire JSON output ("title", "hook", "dialogue_part_1..4", "payoff") MUST be written 100% in {target_lang.upper()}!
 - Characters MUST speak authentic, colloquial {target_lang.upper()} naturally.
 - Do NOT write in English under any circumstances.
 """
@@ -114,11 +114,11 @@ You MUST return ONLY a valid JSON object matching this exact structure:
   "script": {{
     "title": "Same catchy title in {target_lang.upper()}",
     "hook": "Magnetic situational setup in {target_lang.upper()} (15-20 words, do NOT include 'NARRATOR:' tag)",
-    "DIALOGUE_PART_1": "PERSON_ONE (Acting Emotion): Opening realistic conversational line in {target_lang.upper()}...\\nPERSON_TWO (Acting Emotion): Immediate natural peer reaction in {target_lang.upper()}...",
-    "DIALOGUE_PART_2": "PERSON_ONE (Acting Emotion): Follow-up line or humorous misunderstanding...\\nPERSON_TWO (Acting Emotion): Spontaneous peer clarification...",
-    "DIALOGUE_PART_3": "PERSON_ONE (Acting Emotion): Playful nuance check or emotional reaction...\\nPERSON_TWO (Acting Emotion): Crisp real-life demo of the expression...",
-    "DIALOGUE_PART_4": "PERSON_ONE (Acting Emotion): Comedic punchline or relief...\\nPERSON_TWO (Acting Emotion): Final witty remark...",
-    "PAYOFF": "Punchy human takeaway + mandatory CTA in {target_lang.upper()} (20-25 words, do NOT include 'NARRATOR:' tag)"
+    "dialogue_part_1": "PERSON_ONE (Acting Emotion): Opening realistic conversational line in {target_lang.upper()}...\\nPERSON_TWO (Acting Emotion): Immediate natural peer reaction in {target_lang.upper()}...",
+    "dialogue_part_2": "PERSON_ONE (Acting Emotion): Follow-up line or humorous misunderstanding...\\nPERSON_TWO (Acting Emotion): Spontaneous peer clarification...",
+    "dialogue_part_3": "PERSON_ONE (Acting Emotion): Playful nuance check or emotional reaction...\\nPERSON_TWO (Acting Emotion): Crisp real-life demo of the expression...",
+    "dialogue_part_4": "PERSON_ONE (Acting Emotion): Comedic punchline or relief...\\nPERSON_TWO (Acting Emotion): Final witty remark...",
+    "payoff": "Punchy human takeaway + mandatory CTA in {target_lang.upper()} (20-25 words, do NOT include 'NARRATOR:' tag)"
   }}
 }}
 """
