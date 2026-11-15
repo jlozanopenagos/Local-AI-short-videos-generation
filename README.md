@@ -196,6 +196,11 @@ The pipeline manages a canonical master catalog of **1,224 language learning scr
 ## Recent Changes
 
 ### Latest Release: Modern WebUI Studio, Mass Assets Creation, Canonical GAME Format & VRAM Arbiter
+- **Visual Grammar, Character Continuity & Game Timeline Refinement**:
+  - **Fun Facts & Global Text Shielding**: Positive prompts enforce abstract wavy cartoon scribble lines on documents/scrolls/books; automatic quote and phrase stripping blocks diffusion models from painting text onto images.
+  - **Game Shorts 5 Distinct Cuts**: Expanded ComfyUI rendering to 3 scenes (`hook`, `answer`, `explanation`), eliminating duplicate images between scenes 4 & 5 (`hook` ComfyUI $\rightarrow$ `challenge` Chalkboard $\rightarrow$ `pressure` Tito $\rightarrow$ `answer` ComfyUI $\rightarrow$ `explanation` ComfyUI).
+  - **Character Appearance Continuity & Demographic Lock**: Single source of truth in `content_metadata.character_anchors` with locked gender, hairstyle, and wardrobe. Demographic anchored to *16-year-old high-school teenager with tall slender young-adult proportions (mature teenage features, NOT a child)*. Gender-attire integrity checks prevent male corsets/kirtles, and negative prompt shield blocks young children and childish proportions.
+  - **Voice Pipeline Metadata Shield**: Sanitized `script_parser.py` section discovery to ignore metadata keys (`game_archetype`, `difficulty`, etc.), preventing TTS from vocalizing metadata fields as spoken dialogue turns.
 - **Modern WebUI Management Studio (`main/webui/`)**:
   - Full-stack browser application powered by **FastAPI** backend and **React 19 + TypeScript + Vite + Tailwind CSS** frontend.
   - Pre-compiled production bundle served directly from `main/webui/static/` with zero Node.js runtime needed in production.

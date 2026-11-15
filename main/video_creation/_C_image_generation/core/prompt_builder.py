@@ -969,17 +969,17 @@ def extract_or_build_character_anchors(
         or bool("PERSON_TWO" in speakers_gender)
     )
 
-    p1 = str(speakers_gender.get("PERSON_ONE") or speakers_gender.get("NARRATOR") or "female").lower()
-    p2 = str(speakers_gender.get("PERSON_TWO", "male")).lower()
-    p1_is_female = "f" in p1 or "girl" in p1 or "woman" in p1
-    p2_is_female = "f" in p2 or "girl" in p2 or "woman" in p2
+    p1_raw = str(speakers_gender.get("PERSON_ONE") or speakers_gender.get("NARRATOR") or speakers_gender.get("Narrator") or "female").lower()
+    p2_raw = str(speakers_gender.get("PERSON_TWO") or speakers_gender.get("Person_Two") or "male").lower()
+    p1_is_female = "f" in p1_raw or "girl" in p1_raw or "woman" in p1_raw
+    p2_is_female = "f" in p2_raw or "girl" in p2_raw or "woman" in p2_raw
     gender_word1 = "girl" if p1_is_female else "boy"
     gender_word2 = "girl" if p2_is_female else "boy"
 
     # 1. Use pre-extracted structured character anchors if available
     if isinstance(character_anchors, dict) and character_anchors.get("char1_desc"):
         c1_desc = character_anchors["char1_desc"]
-        c2_desc = character_anchors.get("char2_desc") or f"15-year-old high-school student {gender_word2}"
+        c2_desc = character_anchors.get("char2_desc") or f"16-year-old high-school teenage {gender_word2} (tall slender proportions, mature teenage features, NOT a child)"
         cont_summary = character_anchors.get("continuity_summary") or (
             f"Character appearance continuity: Character 1 is a {c1_desc}; Character 2 is a {c2_desc}."
             if has_two_characters else f"Character appearance continuity: The protagonist is a {c1_desc}."
@@ -1005,7 +1005,7 @@ def extract_or_build_character_anchors(
             return {
                 "has_two_characters": str(has_two_characters),
                 "char1_desc": parsed["char1_desc"],
-                "char2_desc": parsed.get("char2_desc", f"15-year-old high-school student {gender_word2}"),
+                "char2_desc": parsed.get("char2_desc", f"16-year-old high-school teenage {gender_word2} (tall slender proportions, mature teenage features, NOT a child)"),
                 "char1_hair": parsed.get("char1_hair", ""),
                 "char2_hair": parsed.get("char2_hair", ""),
                 "char1_attire": parsed.get("char1_attire", ""),
@@ -1040,8 +1040,14 @@ def extract_or_build_character_anchors(
         char1_attire = "an authentic thematic costume matching this setting"
         char2_attire = "a complementary thematic costume matching this setting"
 
-    char1_desc = f"15-year-old high-school student {gender_word1} with {char1_hair} wearing {char1_attire}"
-    char2_desc = f"15-year-old high-school student {gender_word2} with {char2_hair} wearing {char2_attire}"
+    # Enforce gender-attire integrity: prevent male characters from inheriting feminine corsets/bodices/kirtles
+    if not p1_is_female:
+        char1_attire = re.sub(r"\b(?:bodice|corset|kirtle|skirt|gown|dress)\b", "doublet and tailored trousers", char1_attire, flags=re.IGNORECASE)
+    if not p2_is_female:
+        char2_attire = re.sub(r"\b(?:bodice|corset|kirtle|skirt|gown|dress)\b", "doublet and tailored trousers", char2_attire, flags=re.IGNORECASE)
+
+    char1_desc = f"16-year-old high-school teenage {gender_word1} (tall slender proportions, mature teenage features, NOT a child) with {char1_hair} wearing {char1_attire}"
+    char2_desc = f"16-year-old high-school teenage {gender_word2} (tall slender proportions, mature teenage features, NOT a child) with {char2_hair} wearing {char2_attire}"
 
     if has_two_characters:
         continuity_summary = (
@@ -1160,12 +1166,12 @@ def _build_storyboard_context(
             f"1. ARCHETYPE VISUAL GRAMMAR & SCENE MATRIX (MANDATORY):\n"
             f"   - HOOK [THE SYMMETRICAL DILEMMA]: Front-facing, symmetrical medium eye-level shot (Wes Anderson-style central balance). Protagonist is centered under an intense overhead spotlight beam, frozen at a physical crossroads between two contrasting paths or holding two conflicting thematic objects in hesitation. The protagonist makes 100% DIRECT FOURTH-WALL EYE CONTACT into the camera with wide, puzzled eyes!\n"
             f"   - ANSWER [THE EUREKA BREAKTHROUGH]: Dynamic asymmetrical medium action shot! Protagonist breaks free from the dilemma with radiant relief, joyful smile, and forward kinetic momentum in the authentic setting.\n"
-            f"   - EXPLANATION: Real-world application showing natural confident usage.\n"
-            f"2. ZERO-TOLERANCE TEXT & SCREEN BAN: Do NOT depict chalkboards, whiteboards, screens, tablets, smartphones showing text/options, quiz cards, buzzers, podiums, or countdown timers. Focus 100% on the human character dilemma and authentic setting.\n"
+            f"   - EXPLANATION [CULTURAL IMMERSION]: Real-world narrative medium shot showing the protagonist in the authentic setting actively engaging in the cultural practice, ritual, or real-life application of the idiom.\n"
+            f"2. ZERO-TOLERANCE TEXT & SCREEN BAN: Do NOT depict chalkboards, whiteboards, screens, tablets, smartphones showing text/options, quiz cards, buzzers, podiums, or countdown timers. Completely ban all written words, letters, phrases, and quotes. If documents or papers appear, describe them strictly as containing abstract wavy cartoon doodle lines, 0% legible text. Focus 100% on the human character dilemma and authentic setting.\n"
             f"3. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Strictly ban generic words like 'two teens'.\n"
-            f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student demographic (15-16yo, tall slender proportions), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+            f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact 16-year-old high-school student demographic (tall slender proportions, mature teenage features, NOT a child), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
             f"5. LENGTH: Around 70-110 words per scene prompt.\n\n"
-            f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
+            f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, answer, explanation) to its final prompt string."
         )
     elif video_type_upper in ["FUN_FACTS", "FUNFACTS", "FUNFACT"]:
         director_task = (
@@ -1175,9 +1181,10 @@ def _build_storyboard_context(
             f"   - HOOK [THE SCALE OF WONDER]: Dramatic low-angle heroic 24mm wide shot looking up from floor level. Protagonist in lower third looking upward in jaw-dropped awe at an imposing, towering cultural anomaly or historic marvel. Upward gaze, volumetric lighting shafts, monumental scale contrast.\n"
             f"   - SETUP / DISCOVERY / FACTS: Collaborative inspection and dynamic reveal of the fascinating historical discovery in motion.\n"
             f"   - PAYOFF: Mind-blown celebratory outro celebrating trivia mastery.\n"
-            f"2. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Strictly ban generic words like 'two teens'.\n"
-            f"3. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student demographic (15-16yo, tall slender proportions), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
-            f"4. LENGTH: Around 70-110 words per scene prompt.\n\n"
+            f"2. ZERO-TOLERANCE TEXT BAN: Do NOT include words, quotes, letters, phrases, vocabulary words, or complete sentences in the visual prompt! If scrolls, books, parchment, signs, or artifacts are depicted, describe them strictly as containing 'abstract wavy cartoon scribble lines, graphic doodle curves, or decorative geometric diagrams representing text, completely devoid of legible alphabet letters, words, or typography'.\n"
+            f"3. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Strictly ban generic words like 'two teens'.\n"
+            f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact 16-year-old high-school student demographic (tall slender proportions, mature teenage features, NOT a child), hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+            f"5. LENGTH: Around 70-110 words per scene prompt.\n\n"
             f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
         )
     else:
@@ -1275,26 +1282,21 @@ def sanitize_and_style_prompt(prompt: str) -> str:
 
     # 3b. Ensure male characters NEVER have feminine hairstyles (buns, bobs, ponytails, chignons)
     text = re.sub(
-        r"\bwith\s+[^,\.]{0,45}?\b(?:tied in a (?:sleek\s+)?bun|in a (?:sleek\s+)?bun|sleek bun|hair bun|in a bob|in a ponytail|chignon)\b",
-        "with short textured dark hair and a neat side-part",
+        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,40}?)\b(?:tied in a (?:sleek\s+)?bun|in a (?:sleek\s+)?bun|sleek bun|hair bun|in a bob|in a ponytail|chignon)\b",
+        r"\1\2with short textured dark hair and neat side-part",
         text,
         flags=re.IGNORECASE,
     )
+    # Ensure male characters NEVER wear female garments (bodices, corsets, kirtles, skirts, dresses, gowns)
     text = re.sub(
-        r"\b(boy|man|male(?:\s+teen|\s+student)?)\b([^,\.]{0,40}?)\b(?:tied in a (?:sleek\s+)?bun|in a (?:sleek\s+)?bun|sleek bun|hair bun|in a bob|in a ponytail|chignon)\b",
-        r"\1\2with short textured dark hair and neat side-part",
+        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,50}?)\b(?:bodice|corset|kirtle|skirt|gown|dress)\b",
+        r"\1\2theatrical doublet and tailored trousers",
         text,
         flags=re.IGNORECASE,
     )
     # 3c. Ensure female characters NEVER have masculine haircuts (quiffs, buzz cuts, crew cuts)
     text = re.sub(
-        r"\bwith\s+[^,\.]{0,45}?\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
-        "with textured caramel-brown hair styled in soft shoulder-length waves",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(
-        r"\b(girl|woman|female(?:\s+teen|\s+student)?)\b([^,\.]{0,40}?)\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
+        r"\b(girl|woman|female(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,40}?)\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
         r"\1\2with soft wavy hair resting over shoulders",
         text,
         flags=re.IGNORECASE,
@@ -1310,6 +1312,20 @@ def sanitize_and_style_prompt(prompt: str) -> str:
     text = re.sub(r"\bwith\s+the\s+words?\s+[^,\.]{1,40}", "with expressive visual details", text, flags=re.IGNORECASE)
     text = re.sub(r"\bthe\s+words?\s+[^,\.]{1,30}", "expressive dialogue", text, flags=re.IGNORECASE)
 
+    # Scrub document / scroll / paper / parchment text references and replace with cartoon graphic doodles
+    text = re.sub(
+        r"\b(?:revealing|reveals?|displaying|inscribed\s+with|containing|featuring)\s+(?:the\s+)?(?:two-word\s+|three-word\s+)?\b(?:statement|phrase|sentence|words?|text|quote)\b\s*[^,\.]{0,60}",
+        "featuring abstract wavy cartoon doodle lines and geometric graphical diagrams representing text, completely devoid of legible letters or words",
+        text,
+        flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r"\b(?:scroll|parchment|book|manuscript|document|page|slate|paper)\s+that\s+reveals?\s+[^,\.]{0,60}",
+        "blank parchment scroll adorned only with decorative wavy graphic scribble lines and zero text",
+        text,
+        flags=re.IGNORECASE
+    )
+
     # Scrub signs, posters, screens, boards with text
     text = re.sub(r"\b(?:labeled|inscribed\s+with|reading|displaying\s+(?:the\s+text)?)\s+[^,\.]{1,40}", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:a\s+)?(?:sign|poster|banner|board|screen|tablet|t-shirt|shirt|hoodie)\s+(?:with|showing|saying|displaying)\s+[^,\.]{1,40}", "thematic decor", text, flags=re.IGNORECASE)
@@ -1324,13 +1340,14 @@ def sanitize_and_style_prompt(prompt: str) -> str:
     text = re.sub(r"\bpronunciation\s+of\s+[^,\.]{1,50}", "subtle vocal delivery", text, flags=re.IGNORECASE)
     text = re.sub(r"\bsound\s+of\s+[A-Za-zÀ-ÿ0-9_\-]+", "vocal resonance", text, flags=re.IGNORECASE)
 
-    # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 15-year-old high-school student boy", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a 15-year-old high-school student girl", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a 15-year-old high-school student protagonist", text, flags=re.IGNORECASE)
-    text = re.sub(r"(?<!\bNO\s)(?<!\bmiddle-aged\s)(?<!\bolder\s)\b(adult|grown-?up)s?\b", "high-school students", text, flags=re.IGNORECASE)
-    text = re.sub(r"(?<!\bNO\s)\ban adult\b", "a high-school student", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:8|9|10|11|12|13|14)-year-old\b", "15-year-old", text, flags=re.IGNORECASE)
+    # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades (16yo, tall slender proportions, NOT a child)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 16-year-old high-school teenage boy", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a 16-year-old high-school teenage girl", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a 16-year-old high-school teenage protagonist", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\bNO\s)(?<!\bmiddle-aged\s)(?<!\bolder\s)\b(adult|grown-?up)s?\b", "high-school teenagers", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\bNO\s)\ban adult\b", "a high-school teenager", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:8|9|10|11|12|13|14|15)-year-old\b", "16-year-old", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:kid|child|children)\b", "teenager", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:wearing\s+)?normal clothing\b", "wearing thematically authentic scene costume", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:smart\s+)?casual attire\b", "thematic scene-specific wardrobe", text, flags=re.IGNORECASE)
     text = re.sub(r"\bcasual clothes\b", "thematic scene-specific costume", text, flags=re.IGNORECASE)
@@ -1338,11 +1355,12 @@ def sanitize_and_style_prompt(prompt: str) -> str:
     # 5. Mandatory 2D Cartoon Style Anchor with High School Proportions & Safe Exclusions
     style_mandate = (
         "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-        "vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), "
+        "vibrant flat colors, bold outlines, expressive high-school student character design (approx. 16 years old, tall slender proportions, mature teenage features, NOT a child), "
         "large clear cartoon eyes with visible white sclera and specular pupil highlights, "
         "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
         "rich detailed environmental interior background with depth and warm atmospheric lighting. "
         "(high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, "
+        "NO young children, NO elementary kids, NO childish proportions, "
         "NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
         "NO 3D render, NO photorealism, NO photograph, NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography, NO watermark)."
     )
@@ -1758,12 +1776,9 @@ class VisualPromptBuilder:
         final_prompts: dict[str, str] = {}
         for sec_key, raw_prompt in storyboard_dict.items():
             prompt_str = raw_prompt.strip()
-            # Verify if character hair and wardrobe continuity tokens are present
-            c1_words = [w for w in re.findall(r'\b[a-zA-Z]{4,}\b', anchors["char1_attire"].lower()) if w not in {"with", "wear", "wearing", "over", "into"}]
-            has_c1_attire = any(w in prompt_str.lower() for w in c1_words) if c1_words else True
-            has_c1_hair = any(w in prompt_str.lower() for w in ["hair", "bun", "ponytail", "quiff", "bob", "undercut", "curls"])
-
-            if not (has_c1_attire and has_c1_hair):
+            # Only append continuity summary if prompt completely lacks character description
+            has_character = any(w in prompt_str.lower() for w in ["student", "teen", "protagonist", "character", "girl", "boy", "actor", "actress", "man", "woman"])
+            if not has_character and anchors.get("continuity_summary"):
                 prompt_str = f"{prompt_str.rstrip('. ')}. {anchors['continuity_summary']}"
 
             final_prompts[sec_key] = sanitize_and_style_prompt(prompt_str)

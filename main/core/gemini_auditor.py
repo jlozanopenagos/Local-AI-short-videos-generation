@@ -55,7 +55,7 @@ POSITIVE_STYLE_PILLAR = (
 NEGATIVE_PROMPT_SHIELD = (
     "(thematic setting visible, explicit footwear on feet, NO bare feet, NO dot eyes, "
     "NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text, "
-    "NO speech bubbles, NO floating symbols)"
+    "NO speech bubbles, NO floating symbols, NO young children, NO elementary kids, NO childish proportions)"
 )
 
 
@@ -662,6 +662,9 @@ def audit_general_prompt(
                         if "assets" not in script_data or not isinstance(script_data["assets"], dict):
                             script_data["assets"] = {}
                         script_data["assets"]["character_anchors"] = parsed_anchors
+                        if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
+                            script_data["content_metadata"] = {}
+                        script_data["content_metadata"]["character_anchors"] = parsed_anchors
 
                     # Automated Result Checker
                     is_valid, reason = validate_gemini_core_prompt(cleaned_core, finish_reason)

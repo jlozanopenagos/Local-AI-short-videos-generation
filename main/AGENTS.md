@@ -81,16 +81,23 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - **Part of Speech Specification for Single Words**: When options are single words (distinguishing noun vs verb heteronyms), a grammatical contextualizer is mandatory (`a record` for noun, `to record` for verb; `a present` vs `to present`; articles/prepositions in other languages).
      - **Period Punctuation**: Every option MUST terminate with a period (`.`). The last option **NEVER ends with a question mark (`?`)**.
    - **Visuals & 5-Scene Calibrated Image Generation Pipeline**:
-     - Timeline requires EXACTLY 5 scene assets in `script_<ID>/images/`:
-       1. `hook`: Scenario dilemma setup rendered in 2D cartoon illustration via ComfyUI.
-       2. `challenge`: High-resolution typography rendered natively on CPU via FreeType onto `empty_chalkboard.png` with **100% target language localization** (`get_localized_game_header()`, e.g. `QUE SIGNIFIE CETTE EXPRESSION ?`, `OÙ EST L'ERREUR ? / COMPLÉTEZ :`, `¿QUÉ SIGNIFICA ESTA EXPRESIÓN?`). **ZERO English headers or text on non-English chalkboards**.
-       3. `pressure`: Static pre-made waiting illustration per language from `input/images/game_images/<lang>/<lang>_waiting.png`.
-       4. `answer`: Resolution / victory breakthrough illustration rendered via ComfyUI.
-       5. `explanation`: Reuses the `answer` illustration via automatic post-batch duplication (`script_<ID>_answer.png` $\rightarrow$ `script_<ID>_explanation.png`).
-     - **ComfyUI Batch Efficiency**: Exactly **2 scenes** (`hook` and `answer`) are sent to ComfyUI for generation, maximizing VRAM efficiency and GPU throughput.
+     - Timeline requires EXACTLY 5 distinct, non-repeating scene assets in script_<ID>/images/:
+       1. hook: Scenario dilemma setup rendered in 2D cartoon illustration via ComfyUI (symmetrical spotlight framing, 100% direct fourth-wall eye contact).
+       2. challenge: High-resolution typography rendered natively on CPU via FreeType onto empty_chalkboard.png with **100% target language localization** (get_localized_game_header(), e.g. QUE SIGNIFIE CETTE EXPRESSION ?, OÙ EST L'ERREUR ? / COMPLÉTEZ :, ¿QUÉ SIGNIFICA ESTA EXPRESIÓN?). **ZERO English headers or text on non-English chalkboards**.
+       3. pressure: Static pre-made waiting illustration per language from input/images/game_images/<lang>/<lang>_waiting.png.
+       4. nswer: Resolution / victory breakthrough illustration rendered via ComfyUI (dynamic action, triumphant breakthrough).
+       5. explanation: Dedicated cultural immersion narrative illustration rendered via ComfyUI (authentic practical real-world usage, ZERO duplicate images with answer).
+     - **ComfyUI Batch Processing**: Exactly **3 scenes** (hook, nswer, explanation) are sent to ComfyUI for generation, paired with CPU chalkboard and static Tito to yield 5 distinct timeline cuts.
    - **Zero-Tolerance Text & Quote Scrubbing in Prompts**:
-     - Visual prompts must NEVER contain text inside quotation marks, speech verbs (`whispering the words...`), signboards with text, or letter names.
-     - `sanitize_and_style_prompt` scrubs all quoted words and speech phrases, reinforcing negative constraints: `NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography`.
+     - Visual prompts must NEVER contain text inside quotation marks, speech verbs (whispering the words...), signboards with text, or letter names.
+     - Any parchment, scroll, book, or paper must be described with abstract wavy cartoon doodle lines and geometric diagrams, completely devoid of legible text, words, or letters.
+     - sanitize_and_style_prompt scrubs all quoted words and speech phrases, reinforcing negative constraints: NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography, NO young children, NO elementary kids, NO childish proportions.
+   - **Character Appearance Continuity & Demographic Lock**:
+     - Single source of truth in content_metadata.character_anchors with locked gender, hairstyle, and wardrobe.
+     - Strict demographic anchor: *16-year-old high-school teenager with tall, slender young-adult proportions (NOT a child, NOT a kid, NOT an adult)*.
+     - Gender-attire integrity: male characters are barred from feminine garments (bodices, corsets, kirtles, skirts, dresses).
+     - Elimination of conflicting double prompt injections (no duplicate or contradictory character descriptions within the same prompt).
+
    - **Strict Separation of Challenge and Pressure**:
      - `challenge`: Exclusively contains the test scenario and candidate options (`A: ...  B: ...`).
      - `pressure`: Exclusively contains countdown lines, time limits, and urgency prompts (*"Which one is it? A or B? Your answer is coming!"*, *"Tic-tac !"*, *"Il tempo scorre!"*). Pressure lines must **never** be placed inside `challenge`.

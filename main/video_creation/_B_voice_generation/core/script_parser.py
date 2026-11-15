@@ -266,15 +266,22 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
         "discovery", "example", "reveal", "answer", "surprise", "explanation",
         "payoff", "cta"
     ]
+    # Metadata and structural keys that must never be vocalized by TTS
+    ignored_keys = {
+        "title", "título", "titre", "titolo",
+        "game_archetype", "archetype", "difficulty", "cultural_locale",
+        "subject", "target_focus", "learning_objective", "lexical_field",
+        "language", "video_type", "version", "id", "notes", "chalkboard"
+    }
     existing_keys = list(sections.keys())
     
     if any(k in known_order for k in existing_keys):
         section_order = [k for k in known_order if k in existing_keys]
         for k in existing_keys:
-            if k not in known_order and k != "title":
+            if k not in known_order and k not in ignored_keys:
                 section_order.append(k)
     else:
-        section_order = [k for k in existing_keys if k != "title"]
+        section_order = [k for k in existing_keys if k not in ignored_keys]
     
     segment_idx = 1
     for sec in section_order:

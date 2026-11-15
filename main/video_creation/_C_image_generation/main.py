@@ -98,10 +98,10 @@ def ensure_image_prompts_for_script(
         logger.warning("[%s] No sections found in script.", script_id)
         return False
 
-    # For GAME shorts, LLM storyboard prompts are only needed for 'hook' and 'answer'.
-    # 'challenge' is rendered as native chalkboard, 'pressure' is static Tito waiting,
-    # and 'explanation' reuses the 'answer' image.
-    VALID_PROMPT_GAME_SECTIONS = {"hook", "answer"}
+    # For GAME shorts, LLM storyboard prompts are generated for 'hook', 'answer', and 'explanation'.
+    # 'challenge' is rendered as native chalkboard, 'pressure' is static Tito waiting.
+    # 'explanation' has its own unique cultural immersion prompt to guarantee zero duplicate images.
+    VALID_PROMPT_GAME_SECTIONS = {"hook", "answer", "explanation"}
     VALID_ROLEPLAY_SECTIONS = {"hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"}
     METADATA_IGNORE_KEYS = {
         "title", "difficulty", "emotion", "game_type", "related_content",
@@ -201,7 +201,13 @@ def ensure_image_prompts_for_script(
         if k.strip().lower() in valid_active_sections
     }
 
-    character_anchors = script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None
+    cast_meta = script_data.get("cast", {}) if isinstance(script_data.get("cast"), dict) else {}
+    character_anchors = (
+        content_meta.get("character_anchors")
+        or cast_meta.get("character_anchors")
+        or (script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None)
+        or prompt_params.get("CHARACTER_ANCHORS")
+    )
     ensure_llama_running()
     storyboard_prompts = prompt_builder.build_storyboard_prompts(
         script_text=script_text,
@@ -402,10 +408,6 @@ def process_script(
                 except Exception as exc:
                     logger.error("[%s] Native chalkboard rendering failed: %s. Falling back to Z-Image.", script_id, exc)
 
-        # Specialized handling for GAME: EXPLANATION (Reuses answer image to maintain visual continuity)
-        if video_type == "GAME" and section_name.lower() == "explanation":
-            continue
-
         visual_prompt = storyboard_prompts.get(sec_lower) or storyboard_prompts.get(section_name)
         if not visual_prompt:
             try:
@@ -471,17 +473,6 @@ def process_script(
         except Exception as exc:
             logger.error("[%s] Unexpected batch generation error: %s", script_id, exc)
             success = False
-
-    # Specialized handling for GAME: EXPLANATION (Reuses answer image to maintain visual continuity)
-    if success and video_type == "GAME":
-        answer_img = script_output_dir / f"script_{script_id}_answer.png"
-        explanation_img = script_output_dir / f"script_{script_id}_explanation.png"
-        if answer_img.exists() and (force or not explanation_img.exists()):
-            try:
-                shutil.copy2(answer_img, explanation_img)
-                print(f"[OK] Reused answer image for explanation: {answer_img.name} -> {explanation_img.name}")
-            except Exception as exc:
-                logger.warning("[%s] Failed to copy answer image to explanation: %s", script_id, exc)
 
     if success:
         script_data["assets"]["image_dir"] = str(script_output_dir)
