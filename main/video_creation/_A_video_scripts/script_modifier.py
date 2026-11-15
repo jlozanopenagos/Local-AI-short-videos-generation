@@ -399,7 +399,7 @@ def clean_game_challenge(chal: str, sid: str = "") -> str:
         w = m.group(0)
         if w in ("A", "B", "C", "D", "PM", "AM", "OK", "TV", "USA", "DNA", "VIP"):
             return w
-        return w.replace("-", "").lower()
+        return w.lower()
 
     for match in opt_regex.finditer(rest):
         letter = match.group(1).upper()
@@ -412,17 +412,11 @@ def clean_game_challenge(chal: str, sid: str = "") -> str:
         content = re.sub(r"\b[a-zA-Z]*[A-Z]{2,}[a-zA-Z-]*\b", _lower_stress, content)
 
         w_lower = content.lower().strip()
-        if w_lower in GAME_STRESS_WORDS_MAP:
+        if len(content.split()) == 1 and w_lower in GAME_STRESS_WORDS_MAP and w_lower not in ("desert", "dessert"):
             if letter == "A":
                 content = GAME_STRESS_WORDS_MAP[w_lower][0]
             elif letter == "B":
                 content = GAME_STRESS_WORDS_MAP[w_lower][1]
-
-        if sid and sid.upper() == "EG30":
-            if letter == "A":
-                content = "fill"
-            elif letter == "B":
-                content = "feel"
 
         if not content.endswith("."):
             content = content + "."
@@ -517,11 +511,19 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
             }
         elif len(lines) > 5:
             hook = lines[0]
-            # Try to identify answer line via keywords across languages
+            # Identify the actual answer section via strict answer phrase patterns
+            answer_patterns = [
+                re.compile(r"\b(?:the\s+)?(?:correct\s+)?answer\s+(?:is|wins|était|c'est)\b", re.I),
+                re.compile(r"\boption\s+[a-d]\s+(?:is|wins|est|è|es)\b", re.I),
+                re.compile(r"\b(?:it\s+is|it's|c'est|è|es)\s+[a-d]\b", re.I),
+                re.compile(r"\b(?:the\s+)?winner\s+is\b", re.I),
+                re.compile(r"\b(?:la\s+)?(?:réponse|risposta|respuesta)\s+(?:est|è|es|correcta)\b", re.I),
+                re.compile(r"\b(?:gagnant|ganador)\b", re.I),
+                re.compile(r"^(?:answer|réponse|risposta|respuesta)\s*[:：]", re.I),
+            ]
             ans_idx = -1
             for i in range(2, len(lines)):
-                l_lower = lines[i].lower()
-                if any(w in l_lower for w in ("winner", "answer", "correct", "is a", "is b", "it's a", "it's b", "c'est", "gagnant", "ganador", "risposta", "réponse", "opción", "option", "la a", "la b")):
+                if any(p.search(lines[i]) for p in answer_patterns):
                     ans_idx = i
                     break
 

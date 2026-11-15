@@ -246,8 +246,8 @@ def validate_idiomatic_roleplay(script: dict, params: dict) -> list[str]:
         # Fallback: use the shortest overall candidate
         target_idiom = min(quoted_candidates, key=len).strip().lower()
 
-    part1_text = str(script.get("DIALOGUE_PART_1", "")).lower()
-    part4_text = str(script.get("DIALOGUE_PART_4", ""))
+    part1_text = str(script.get("dialogue_part_1") or script.get("DIALOGUE_PART_1") or "").lower()
+    part4_text = str(script.get("dialogue_part_4") or script.get("DIALOGUE_PART_4") or "")
 
     # --- Gate 1: Full idiom form in DIALOGUE_PART_1 ---
     if target_idiom and target_idiom not in part1_text:
@@ -430,7 +430,7 @@ def handle_prompt(
                     for k, v in script_field.items()
                     if "dialogue" in k.lower()
                 )
-                part_4_text = str(script_field.get("DIALOGUE_PART_4", "")).strip()
+                part_4_text = str(script_field.get("dialogue_part_4") or script_field.get("DIALOGUE_PART_4") or "").strip()
                 ends_with_unresolved_question = part_4_text.endswith("?")
                 missing_payoff = "payoff" not in keys_lower
                 missing_hook = "hook" not in keys_lower
@@ -482,7 +482,7 @@ def handle_prompt(
                     print(f"[{script_number}/{total}] Validation check failed: {'; '.join(reasons)}. Retrying generation...")
                     retry_prompt = prompt + (
                         f"\n\nCRITICAL RETRY REQUIREMENT: Your previous draft had errors: {'; '.join(reasons)}. "
-                        f"1. The 'script' object MUST contain EXACTLY these 7 keys: 'title', 'hook', 'DIALOGUE_PART_1', 'DIALOGUE_PART_2', 'DIALOGUE_PART_3', 'DIALOGUE_PART_4', 'PAYOFF'.\n"
+                        f"1. The 'script' object MUST contain EXACTLY these 7 keys: 'title', 'hook', 'dialogue_part_1', 'dialogue_part_2', 'dialogue_part_3', 'dialogue_part_4', 'payoff'.\n"
                         f"2. Total spoken words across all sections (excluding title) MUST be STRICTLY between {min_limit} and {max_limit} words for a 60-80s max runtime.\n"
                         f"3. Strict alternating speaker turns: PERSON_ONE then PERSON_TWO in every dialogue part.\n"
                         f"4. The target expression / phonetic word MUST be explicitly spoken in DIALOGUE_PART_1."
