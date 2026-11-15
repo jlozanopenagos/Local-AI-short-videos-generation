@@ -135,8 +135,8 @@ def detect_script_domain(script_data: Dict[str, Any]) -> Tuple[str, str]:
                 "università", "campus", "blackboard", "chalkboard", "desk"
             ],
             f"Ground this visual world in an authentic student academic environment "
-            f"(e.g. a university library study nook with green-shaded brass lamps, a campus project table, "
-            f"a student common room, or a classroom study corner)."
+            f"(e.g. a university library research carrel with green-shaded brass lamps, a campus project table, "
+            f"an architectural student drafting atelier, or a student common room lounge)."
         ),
         (
             "Workplace & Professional Life",

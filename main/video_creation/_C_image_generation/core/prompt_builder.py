@@ -259,8 +259,9 @@ ABSOLUTE ZERO-TOLERANCE BAN ON TEXT & TEXT-BEARING SURFACES:
 - Any attempt to depict words, letters, options, or screens causes image generation models to hallucinate garbled, nonsensical pseudo-text gibberish.
 - Instead, depict pure real-life human situations and relatable visual storytelling (e.g. someone examining a curious artifact, someone gesturing during an active demonstration, someone celebrating with a proud smile in their environment). The image must be 100% text-free, screen-free, and board-free!
 
-ANTI-CAFETERIA & NO LOCATION FLIPPING DIRECTIVE:
+ANTI-CLICHÉ & ANTI-CAFETERIA DIRECTIVE:
 - NEVER default to a generic cafeteria, coffee shop, or cafe table unless the script explicitly and specifically mentions ordering coffee, a barista, or a cafe setting.
+- STRICTLY BAN OVERUSED AI CLICHÉS: NO greenhouses, NO conservatories, NO plant nurseries, NO generic classrooms, NO school lecture rooms, NO generic flower shops, NO pottery/ceramic studios.
 - ALL SCENES IN THIS SHORT MUST BELONG TO THE SAME COHESIVE PHYSICAL STORY WORLD. Do not randomly switch rooms or environments between scenes!
 
 MANDATORY MULTI-CHARACTER GENDER SPECIFICATION (ZERO-AMBIGUITY RULE):
@@ -382,8 +383,13 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
    - Every scene MUST look like a frame from a stylized 2D cartoon narrative illustration, hand-drawn 2D animation art style, with vibrant flat colors, clean lineart, and storybook charm.
    - ABSOLUTELY FORBIDDEN: Photorealism, realistic photos, 3D renders, CGI, real-life photography.
 
-8. ANTI-CAFETERIA DIRECTIVE:
-   - NEVER default to a generic cafeteria or cafe table unless the setting explicitly requires one.
+8. STRICT ANTI-CLICHÉ & ANTI-GENERIC BAN (CRITICAL):
+   - ABSOLUTELY BANNED SCENARIOS: Strictly DO NOT generate or default to the following overused AI clichés:
+     * NO greenhouses, conservatories, glasshouses, plant nurseries, or rooms filled with potted plants (unless the script is explicitly about gardening or botany).
+     * NO generic empty classrooms, school desks, teacher blackboards, or academic lecture rooms (unless the script explicitly describes a school lesson).
+     * NO generic flower shops, pottery/ceramic workshops, or random flea markets.
+     * NO generic modern coffee shops, cafe tables, or barista counters (unless the script explicitly mentions ordering coffee or a cafe setting).
+   - AUTHENTIC REAL-WORLD DIVERSITY: Always ground the setting directly in the authentic cultural, vocational, or narrative domain established in the Master Story World / General Prompt!
 
 9. HIGH-FIDELITY CHARACTER FACIAL QUALITY (STRICT BAN ON DOT EYES / MINIMALIST FACES):
    - Characters across ALL scenes must maintain consistent, high-end 2D cartoon animation fidelity.
@@ -468,7 +474,7 @@ EXPLICIT_SCENARIO_DOMAINS = [
     (r'\b(train|station|subway|metro|platform|railway)\b', "scenic railway station (featuring: passenger platform, ticketing hall, waiting concourse, vintage trackside bench)"),
     (r'\b(hospital|doctor|clinic|medical|patient|nurse|consultation)\b', "bright modern wellness and medical consultation clinic (featuring: examination room, consultation desk, waiting lounge)"),
     (r'\b(street|city|avenue|plaza|sidewalk|urban|crosswalk|boulevard)\b', "bustling historic city avenue (featuring: pedestrian sidewalk, brick storefronts, street corner plaza, park bench)"),
-    (r'\b(park|garden|nature|tree|bench|flower|outdoor|trail)\b', "sunlit botanical park (featuring: walking promenade, garden pavilion, shaded wooden bench, flower lawn)"),
+    (r'\b(park|garden|nature|tree|bench|flower|outdoor|trail)\b', "sunlit municipal park promenade (featuring: walking promenade, historic stone balustrade, shaded wooden bench, open lawn)"),
     (r'\b(gym|workout|fitness|sport|athletic|exercise|dumbbells)\b', "dynamic modern athletic training gym (featuring: fitness floor, weights zone, training track, recovery lounge)"),
     (r'\b(market|store|boutique|seller|bazaar|craft)\b', "neighborhood artisan market boutique (featuring: craft display table, checkout counter, goods shelf, street awning)"),
     (r'\b(beach|sea|ocean|coastal|boat|sand|shore)\b', "sunlit coastal seaside promenade (featuring: ocean overlook deck, sand dunes path, beach pavilion)"),
@@ -482,10 +488,11 @@ def is_figurative_idiom(
     scenario: str = "",
     script_text: str = "",
 ) -> bool:
-    """Detects if the script is about an idiom or figurative expression."""
+    """Detects if the script is about an idiom or figurative expression across languages."""
     combined = f"{topic} {lexical_field} {scenario} {script_text}".lower()
     idiom_markers = [
         "idiom", "expression", "saying", "figurative", "slang", "proverb",
+        "dicho", "modismo", "expresión", "locución", "idiotismo",
         "piece of cake", "break a leg", "bite the bullet", "spill the beans",
         "under the weather", "cost an arm and a leg", "burn the midnight oil",
         "hit the nail on the head", "once in a blue moon", "barking up the wrong tree",
@@ -493,6 +500,10 @@ def is_figurative_idiom(
         "call it a day", "cut corners", "easy as pie", "drop in the ocean",
         "rule of thumb", "through the grapevine", "pull someone's leg",
         "actions speak louder", "beat around the bush", "blessing in disguise",
+        # Multilingual Idioms
+        "poser un lapin", "yeux de la tête", "coup de foudre", "dans les pommes", "du gâteau",
+        "costar un ojo", "ojo de la cara", "tomar el pelo", "en las nubes", "pan comido",
+        "in bocca al lupo", "occhio della testa", "mani bucate", "lucciole per lanterne",
     ]
     return any(marker in combined for marker in idiom_markers)
 
@@ -526,18 +537,20 @@ def resolve_anchor_environment(
 
     # 2. Check for figurative idioms (Allows creative graphic visual metaphors)
     if is_figurative_idiom(topic, lexical_field, scenario, script_text):
-        if "piece of cake" in combined_script or "easy as pie" in combined_script:
+        if any(w in combined_script for w in ("piece of cake", "easy as pie", "pan comido", "du gâteau")):
             return "chic modern social dining salon or studio lounge (featuring: central display table showcasing an elaborate towering multi-tier cake with a single slice removed, stylish seating lounge, sunlit terrace)"
-        elif "break a leg" in combined_script:
+        elif any(w in combined_script for w in ("break a leg", "in bocca al lupo")):
             return "historic theater and performing arts center (featuring: dressing room with mirror, backstage wings with velvet curtains, rehearsal stage, grand auditorium)"
         elif "spill the beans" in combined_script:
             return "vibrant artisan kitchen and social pantry lounge (featuring: open prep counter with oversized ceramic bean jars, cozy banquette table, sunlit courtyard)"
-        elif "under the weather" in combined_script:
-            return "cozy sunlit living room and wellness study (featuring: comfortable sofa with warm knitted throw, herbal tea table, indoor botanical plants, reading window)"
+        elif any(w in combined_script for w in ("under the weather", "dans les pommes")):
+            return "cozy sunlit living room and wellness study (featuring: comfortable sofa with warm knitted throw, warm ceramic tea mugs on a low wooden table, soft reading window, warm fireplace mantle)"
         elif "burn the midnight oil" in combined_script:
             return "quiet late-night home study and creative library (featuring: vintage wooden desk with brass lamp, tall bookshelves, armchair, evening city skyline window)"
-        elif "cost an arm and a leg" in combined_script:
+        elif any(w in combined_script for w in ("cost an arm and a leg", "ojo de la cara", "yeux de la tête", "occhio della testa")):
             return "chic metropolitan haute-couture boutique and promenade (featuring: extravagant luxury mannequin displays, marble counter, elegant shopping boulevard)"
+        elif "poser un lapin" in combined_script:
+            return "charming historic bistro exterior and clock tower plaza (featuring: outdoor cafe table with an untouched cup, historic clock face showing late time, cobblestone promenade)"
         return "vibrant modern creative studio and everyday living space (featuring: focus work area, collaborative lounge, demonstration bench, sunlit terrace)"
 
     # 3. Check for explicit keyword domains in script text and metadata
@@ -550,7 +563,7 @@ def resolve_anchor_environment(
         (r'\b(train|station|subway|metro|platform|railway)\b', "scenic railway station (featuring: passenger platform, ticketing hall, waiting concourse, vintage trackside bench)"),
         (r'\b(hospital|doctor|clinic|medical|patient|nurse|consultation)\b', "bright modern wellness and medical consultation clinic (featuring: examination room, consultation desk, waiting lounge)"),
         (r'\b(street|city|avenue|plaza|sidewalk|urban|crosswalk|boulevard)\b', "bustling historic city avenue (featuring: pedestrian sidewalk, brick storefronts, street corner plaza, park bench)"),
-        (r'\b(park|garden|nature|tree|bench|flower|outdoor|trail)\b', "sunlit botanical park (featuring: walking promenade, garden pavilion, shaded wooden bench, flower lawn)"),
+        (r'\b(park|garden|nature|tree|bench|flower|outdoor|trail)\b', "sunlit municipal park promenade (featuring: walking promenade, historic stone balustrade, shaded wooden bench, open lawn)"),
         (r'\b(gym|workout|fitness|sport|athletic|exercise|dumbbells)\b', "dynamic modern athletic training gym (featuring: fitness floor, weights zone, training track, recovery lounge)"),
         (r'\b(market|store|boutique|seller|bazaar|craft)\b', "neighborhood artisan market boutique (featuring: craft display table, checkout counter, goods shelf, street awning)"),
         (r'\b(beach|sea|ocean|coastal|boat|sand|shore)\b', "sunlit coastal seaside promenade (featuring: ocean overlook deck, sand dunes path, beach pavilion)"),
@@ -561,8 +574,8 @@ def resolve_anchor_environment(
         if re.search(pattern, combined_script):
             return domain
 
-    # 4. Authentic modern everyday setting fallback (NON-cafeteria)
-    return "sunlit modern apartment living room and creative study (featuring: focus work desk, conversation lounge, bookshelf, indoor botanical plants)"
+    # 4. Authentic modern everyday setting fallback (NON-cafeteria, NON-classroom, NON-greenhouse)
+    return "vibrant modern creative studio and cultural study lounge (featuring: collaborative work table, conversation lounge, reference bookshelf, architectural drafting desk, sunlit terrace window)"
 
 
 def _extract_shared_story_context(
@@ -1918,7 +1931,8 @@ class VisualPromptBuilder:
             "   Describe the physical stage, setting props, and characters standing ready on set in their thematic costumes and positions matching the format staging above.\n"
             "   DO NOT describe temporary dialogue actions (such as shouting, covering ears, arguing, or gesturing) in this General Prompt! Temporary actions belong strictly to individual scene prompts.\n"
             "7. Keep the description rich, concrete, vivid, and around 110-180 words (detailed enough to establish specific character clothing, positions, and environmental props).\n"
-            "8. Return ONLY the visual prompt text. No markdown formatting, no commentary."
+            "8. ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are generic greenhouses or plant nurseries, plain empty classrooms/schools, pottery/ceramic workshops, flower shops, or generic coffee shops. Ground the setting authentically in the dialogue domain.\n"
+            "9. Return ONLY the visual prompt text. No markdown formatting, no commentary."
         )
 
         user_content = (
