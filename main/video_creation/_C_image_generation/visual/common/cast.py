@@ -221,30 +221,39 @@ def build_character_cast(
     c1_sents: list[str] = []
     c2_sents: list[str] = []
 
+    C2_MARKERS = (
+        'companion', 'peer', 'char_2', 'character 2', 'counterpart',
+        'on the right', 'to his right', 'to her right', 'second character',
+        'beside him', 'beside her', 'next to him', 'next to her',
+    )
+
     for idx, s in enumerate(sents):
         s_clean = _clean_character_clause(s)
         s_low = s_clean.lower()
         if not any(h in s_low for h in HUMAN_WORDS):
             continue
 
-        if any(w in s_low for w in ['companion', 'peer', 'char_2', 'counterpart', 'on the right stands', 'second character']):
-            c2_sents.append(s_clean)
-            if idx + 1 < len(sents):
-                next_clean = _clean_character_clause(sents[idx + 1])
-                if any(w in next_clean.lower() for w in CLOTHING_WORDS):
-                    c2_sents.append(next_clean)
+        if any(w in s_low for w in C2_MARKERS):
+            if not c2_sents:
+                c2_sents.append(s_clean)
+                if idx + 1 < len(sents):
+                    next_clean = _clean_character_clause(sents[idx + 1])
+                    next_low = next_clean.lower()
+                    if any(w in next_low for w in CLOTHING_WORDS) and not any(w in next_low for w in C2_MARKERS):
+                        c2_sents.append(next_clean)
         else:
             if not c1_sents:
                 c1_sents.append(s_clean)
                 if idx + 1 < len(sents):
                     next_clean = _clean_character_clause(sents[idx + 1])
-                    if any(w in next_clean.lower() for w in CLOTHING_WORDS):
+                    next_low = next_clean.lower()
+                    if any(w in next_low for w in CLOTHING_WORDS) and not any(w in next_low for w in C2_MARKERS):
                         c1_sents.append(next_clean)
 
     c1_text = ' '.join(c1_sents).strip()
     c2_text = ' '.join(c2_sents).strip()
 
-    # 2. Authoritative Gender Detection (General Prompt > speakers_gender fallback)
+    # 2. Authoritative Gender Detection (for ROLEPLAY, align PERSON_ONE / PERSON_TWO with speakers_gender so solo shots match TTS voices!)
     search_target_c1 = c1_text or general_prompt
     c1_male_score = len(re.findall(
         r'\b(boy|male|guy|young man|man|chico|muchacho|hombre|he wears|he stands|his hair|his build)\b',
@@ -265,8 +274,6 @@ def build_character_cast(
             or get_speaker_gender_safe(speakers_gender, "NARRATOR", "")
         ).lower()
         p1_is_female = "f" in p1_raw or "girl" in p1_raw or "woman" in p1_raw
-
-    gender_word1 = "girl" if p1_is_female else "boy"
 
     search_target_c2 = c2_text or general_prompt
     c2_male_score = len(re.findall(
@@ -289,6 +296,20 @@ def build_character_cast(
         else:
             p2_is_female = not p1_is_female
 
+    # If the General Prompt described two characters in the opposite order of speakers_gender
+    # (e.g. boy first, girl second, while PERSON_ONE/Narrator is female), swap c1 and c2 so
+    # Character 1 (Protagonist / PERSON_ONE) always matches the primary speaker's gender!
+    expected_p1_raw = (
+        get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "")
+        or get_speaker_gender_safe(speakers_gender, "NARRATOR", "")
+    ).lower()
+    if expected_p1_raw and c1_text and c2_text and (p1_is_female != p2_is_female):
+        expected_p1_female = "f" in expected_p1_raw or "girl" in expected_p1_raw or "woman" in expected_p1_raw
+        if p1_is_female != expected_p1_female and p2_is_female == expected_p1_female:
+            c1_text, c2_text = c2_text, c1_text
+            p1_is_female, p2_is_female = p2_is_female, p1_is_female
+
+    gender_word1 = "girl" if p1_is_female else "boy"
     gender_word2 = "girl" if p2_is_female else "boy"
 
     # 3. Use pre-extracted structured character anchors ONLY IF consistent with General Prompt

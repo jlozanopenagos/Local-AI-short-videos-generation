@@ -53,21 +53,21 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
 
     # 3b. Ensure male characters NEVER have feminine hairstyles (buns, bobs, ponytails, chignons)
     text = re.sub(
-        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,40}?)\b(?:tied in a (?:sleek\s+)?bun|in a (?:sleek\s+)?bun|sleek bun|hair bun|in a bob|in a ponytail|chignon)\b",
+        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,80}?)\b(?:(?:with\s+|and\s+)?(?:dark\s+|black\s+|brown\s+|wavy\s+|long\s+)*hair\s+(?:tied\s+)?in\s+an?\s+(?:sleek\s+|high\s+|elegant\s+)?(?:bun|ponytail|bob|braid|chignon)|tied in a (?:sleek\s+|high\s+)?(?:bun|ponytail)|in a (?:sleek\s+|high\s+)?(?:bun|ponytail|bob|braid)|sleek (?:bun|ponytail)|hair bun|in a bob|in a ponytail|chignon)\b",
         r"\1\2with short textured dark hair and neat side-part",
         text,
         flags=re.IGNORECASE,
     )
     # Ensure male characters NEVER wear female garments (bodices, corsets, kirtles, skirts, dresses, gowns)
     text = re.sub(
-        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,50}?)\b(?:bodice|corset|kirtle|skirt|gown|dress)\b",
+        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,60}?)\b(?:bodice|corset|kirtle|skirt|gown|dress)\b",
         r"\1\2theatrical doublet and tailored trousers",
         text,
         flags=re.IGNORECASE,
     )
     # 3c. Ensure female characters NEVER have masculine haircuts (quiffs, buzz cuts, crew cuts)
     text = re.sub(
-        r"\b(girl|woman|female(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,40}?)\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
+        r"\b(girl|woman|female(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,60}?)\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
         r"\1\2with soft wavy hair resting over shoulders",
         text,
         flags=re.IGNORECASE,
@@ -97,9 +97,26 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
         flags=re.IGNORECASE
     )
 
-    # Scrub signs, posters, screens, boards with text
+    # Scrub signs, posters, screens, boards with text (preserve shirts/hoodies with clothing details like sleeves/scarf!)
     text = re.sub(r"\b(?:labeled|inscribed\s+with|reading|displaying\s+(?:the\s+text)?)\s+[^,\.]{1,40}", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:a\s+)?(?:sign|poster|banner|board|screen|tablet|t-shirt|shirt|hoodie)\s+(?:with|showing|saying|displaying)\s+[^,\.]{1,40}", "thematic decor", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\b(?:a\s+)?(?:sign|poster|banner|board|screen|tablet|chalkboard|blackboard|whiteboard)\s+(?:with|showing|saying|displaying|covered\s+in|(?:subtly\s+)?referencing)\s+[^,\.]{1,50}",
+        "thematic decor",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(?:a\s+)?(?:t-shirt|shirt|hoodie)\s+(?:saying|reading|inscribed\s+with|(?:with|showing|displaying)\s+(?:the\s+)?(?:text|words?|letters?|phrase|quote|slogan|logo))\s*[^,\.]{0,40}",
+        "thematic garment",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(?:a\s+|an\s+)?(?:large,?\s+|small,?\s+)?(?:ornate,?\s+)?(?:metallic\s+)?(?:sign|placard|price\s+tag|framed\s+quote)\s+(?:with\s+(?:exaggerated\s+)?numbers|(?:subtly\s+)?referencing\s+[^,\.]{1,40}|about\s+[^,\.]{1,40})",
+        "an authentic decorative setting prop",
+        text,
+        flags=re.IGNORECASE,
+    )
 
     # Scrub letter / alphabet mentions
     text = re.sub(r"\b(?:holding|waving|showing|with|displaying)\s+(?:a\s+)?(?:large,?\s+)?(?:stylized\s+)?(?:prop|sign|card|banner|object)?\s*representing\s+(?:the\s+)?letters?\s+[A-Za-z0-9_\-]+\b", "gesturing with an expressive physical prop", text, flags=re.IGNORECASE)

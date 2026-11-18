@@ -321,7 +321,7 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * EVERY SINGLE SCENE PROMPT MUST EXPLICITLY REPEAT THE EXACT SAME VISUAL TRAITS FOR EACH CHARACTER:
        - Exact demographic & skin tone: e.g. "14-16-year-old high-school student girl with fair peach skin", "14-16-year-old high-school student boy with warm tan skin" (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child). NEVER omit skin tone, otherwise camera angle changes (like close-up hooks) will drift into a completely different ethnicity!
        - Exact eye color: e.g. "expressive dark brown cartoon eyes", "warm hazel cartoon eyes".
-       - Exact hair color AND exact hairstyle: e.g. "dark hair in a sleek ponytail", "short textured dark-brown hair with clean tapered sides" (NEVER change or omit hair color or styling!).
+       - Exact hair color AND exact gender-accurate hairstyle: e.g. for a GIRL: "dark wavy hair in a sleek ponytail"; for a BOY: "short textured dark-brown hair with clean tapered sides and neat side-part" (NEVER give a boy a ponytail, bun, or long hair; NEVER change or omit hair color or styling!).
        - Exact wardrobe and garment colors: e.g. "wearing her emerald velvet blazer over white shirt", "wearing his denim utility vest over charcoal long-sleeve" (NEVER change or omit wardrobe!).
        - Exact staging: Character 1 on the LEFT, Character 2 on the RIGHT.
      * NEVER omit the characters' skin tone, eye color, hair color, hairstyle, or wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!

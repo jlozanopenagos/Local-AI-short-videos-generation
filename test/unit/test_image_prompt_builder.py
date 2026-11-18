@@ -207,6 +207,40 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertEqual(state["assets"]["character_anchors"], anchors)
         self.assertEqual(state["content_metadata"]["character_anchors"], anchors)
 
+    def test_shirt_with_sleeves_or_scarf_is_not_scrubbed_into_thematic_decor(self):
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        s1 = sanitize_and_style_prompt("A 15-year-old boy wearing a crisp light blue linen button-down shirt with rolled-up sleeves.")
+        self.assertIn("shirt with rolled-up sleeves", s1)
+        self.assertNotIn("thematic decor", s1)
+
+        s2 = sanitize_and_style_prompt("A 15-year-old girl dressed in a cream-colored linen shirt with a vibrant olive green scarf.")
+        self.assertIn("shirt with a vibrant olive green scarf", s2)
+        self.assertNotIn("thematic decor", s2)
+
+        s3 = sanitize_and_style_prompt("A 15-year-old boy wearing a t-shirt with the words hello world.")
+        self.assertNotIn("hello world", s3)
+
+    def test_male_with_dark_hair_in_a_sleek_ponytail_is_scrubbed(self):
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        s = sanitize_and_style_prompt("One high school student boy with dark hair in a sleek ponytail wearing a navy polo shirt.")
+        self.assertNotIn("ponytail", s.lower())
+        self.assertIn("short textured dark hair", s.lower())
+
+    def test_character_cast_splits_beside_her_and_aligns_with_speakers_gender(self):
+        from _C_image_generation.visual.common import build_character_cast
+
+        gp = (
+            "Medium shot. Inside a theater dressing room, a tall teen boy with short textured dark hair wears an emerald doublet. "
+            "Beside him near a rehearsal stage, a teen girl with long wavy auburn hair wears a sapphire Tudor gown."
+        )
+        # When Narrator/PERSON_ONE is female, c1 and c2 swap so Character 1 is the girl
+        cast = build_character_cast(gp, speakers_gender={"Narrator": "female"}, video_type="EXPRESSION")
+        self.assertTrue(cast.p1_is_female)
+        self.assertIn("sapphire Tudor gown", cast.char1_desc)
+        self.assertIn("emerald doublet", cast.char2_desc)
+
 
 class TestGoldenScriptSnapshots(unittest.TestCase):
     @classmethod

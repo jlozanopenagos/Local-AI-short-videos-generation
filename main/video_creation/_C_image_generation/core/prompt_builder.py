@@ -351,6 +351,16 @@ def _build_storyboard_context(
 
     general_prompt_block = ""
     if general_prompt:
+        has_two_chars = char_anchors.get("has_two_characters") in (True, "True") or video_type.strip().upper() == "ROLEPLAY"
+        if has_two_chars:
+            char_continuity_lines = (
+                f"   - Character 1 (Protagonist / PERSON_ONE): {char_anchors['char1_desc']}\n"
+                f"   - Character 2 (Counterpart / PERSON_TWO): {char_anchors['char2_desc']}\n"
+            )
+        else:
+            char_continuity_lines = (
+                f"   - Solo Protagonist: {char_anchors['char1_desc']} (SOLO protagonist format — do NOT add a second companion unless the specific scene beat requires social contrast).\n"
+            )
         general_prompt_block = (
             "MASTER STORY WORLD, PHYSICAL SETTING & CHARACTER ANCHOR (FROM GENERAL PROMPT):\n"
             f">> {general_prompt} <<\n\n"
@@ -360,8 +370,7 @@ def _build_storyboard_context(
             "NEVER relocate scenes to a different or unrelated location (e.g. if General Prompt establishes a sunny vintage park skate plaza, "
             "every scene MUST take place in that skate plaza or adjacent park area; NEVER switch the environment to a kitchen, restaurant, or classroom).\n"
             "2. MANDATORY CHARACTER CONTINUITY:\n"
-            f"   - Character 1 (Protagonist): {char_anchors['char1_desc']}\n"
-            f"   - Character 2 (Counterpart): {char_anchors['char2_desc']}\n"
+            f"{char_continuity_lines}"
             "Diffusion models generate EACH scene image independently with zero memory of other scenes! "
             "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat the featured character's exact demographic (14-16yo high-school student, natural balanced teenage proportions, NOT a child), "
             "exact hair color, exact hairstyle, and exact wardrobe specified above. "
@@ -897,12 +906,21 @@ class VisualPromptBuilder:
             protagonist_hair = (
                 "dark wavy hair tied in an elegant ponytail or chic shoulder-length bob"
                 if is_female
-                else "short textured dark hair with clean tapered sides and a neat side-part (NEVER buns or long hair for boys!)"
+                else "short textured dark hair with clean tapered sides and a neat side-part (NEVER buns, bobs, ponytails, or long hair for boys!)"
             )
+            if video_type_clean in ("GAME", "QUIZ", "FUN_FACTS", "FUNFACTS", "FUNFACT", "FACTS"):
+                companion_rule = (
+                    "   - SOLO PROTAGONIST MANDATE (CRITICAL): This is a SOLO protagonist format! "
+                    "Describe ONLY this single primary character on set. Strictly DO NOT include a second character, companion, or peer in the General Prompt!"
+                )
+            else:
+                companion_rule = (
+                    "   - Staging & Companion Rule: If a secondary character or peer is genuinely needed by the story, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, skin tone, hair color, and distinct thematic costumes (NEVER plain t-shirts/hoodies)!"
+                )
             character_directive = (
                 f"2. Protagonist (MANDATORY EXACT SKIN TONE, EYE COLOR, HAIR & WARDROBE CONTINUITY):\n"
                 f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), eye color (e.g. 'dark brown cartoon eyes'), hair color and hairstyle (e.g. '{protagonist_hair}'), and an authentic thematic costume/wardrobe explicitly matching this setting (describe specific colors and garment types — NEVER plain generic t-shirts/hoodies).\n"
-                f"   - Staging & Companion Rule: If any secondary character, peer, or companion appears, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, skin tone, hair color, and distinct thematic costumes (NEVER plain t-shirts/hoodies)!"
+                f"{companion_rule}"
             )
 
         video_type_clean = (video_type or "EXPRESSION").strip().upper()
