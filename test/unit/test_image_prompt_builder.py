@@ -174,6 +174,40 @@ class TestLanguageVisualLayer(unittest.TestCase):
             self.assertTrue(prof.general_prompt_camera_opener.endswith("."))
 
 
+class TestStructuredCharacterCast(unittest.TestCase):
+    def test_game_and_fun_facts_stay_solo_even_if_prompt_mentions_friend(self):
+        from _C_image_generation.visual.common import build_character_cast
+
+        gp = "Medium shot. A 15-year-old high-school student boy in a bakery thinking about a gift for his friend."
+        cast_game = build_character_cast(gp, speakers_gender={"NARRATOR": "male"}, video_type="GAME")
+        self.assertFalse(cast_game.has_two_characters)
+        cast_ff = build_character_cast(gp, speakers_gender={"NARRATOR": "male"}, video_type="FUN_FACTS")
+        self.assertFalse(cast_ff.has_two_characters)
+        cast_rp = build_character_cast(gp, speakers_gender={}, video_type="ROLEPLAY")
+        self.assertTrue(cast_rp.has_two_characters)
+
+    def test_centralized_default_speakers_gender(self):
+        from _C_image_generation.visual.common import resolve_default_speakers_gender
+
+        rp_defaults = resolve_default_speakers_gender({}, video_type="ROLEPLAY")
+        self.assertEqual(rp_defaults["PERSON_ONE"], "male")
+        self.assertEqual(rp_defaults["PERSON_TWO"], "female")
+
+        rp_f_first = resolve_default_speakers_gender({"PERSON_ONE": "female"}, video_type="ROLEPLAY")
+        self.assertEqual(rp_f_first["PERSON_ONE"], "female")
+        self.assertEqual(rp_f_first["PERSON_TWO"], "male")
+
+    def test_persist_character_anchors_in_state(self):
+        from _C_image_generation.visual.common import persist_character_anchors_in_state
+
+        state = {"id": "EE01", "assets": {}, "content_metadata": {}}
+        gp = "A 15-year-old high-school student girl with dark hair in a ponytail wearing an emerald blazer."
+        anchors = persist_character_anchors_in_state(state, gp, {"NARRATOR": "female"}, "EXPRESSION")
+        self.assertEqual(anchors["gender_word1"], "girl")
+        self.assertEqual(state["assets"]["character_anchors"], anchors)
+        self.assertEqual(state["content_metadata"]["character_anchors"], anchors)
+
+
 class TestGoldenScriptSnapshots(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

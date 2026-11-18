@@ -39,11 +39,15 @@ from ..visual.common import (
     resolve_anchor_environment,
     FEMALE_HAIRSTYLE_TERMS,
     MALE_HAIRSTYLE_TERMS,
+    CharacterCast,
     get_speaker_gender_safe,
+    resolve_default_speakers_gender,
     sanitize_character_hair,
     _split_sentences_safe,
     _clean_character_clause,
+    build_character_cast,
     extract_or_build_character_anchors,
+    persist_character_anchors_in_state,
     sanitize_and_style_prompt,
     is_present_heteronym_topic,
     _extract_json_payload,
@@ -1057,8 +1061,9 @@ class VisualPromptBuilder:
             or bool(speakers_gender and any("two" in str(k).lower() for k in speakers_gender))
         )
         if has_two_characters:
-            p1_g = get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "female")
-            p2_g = get_speaker_gender_safe(speakers_gender, "PERSON_TWO", "male")
+            resolved_sg = resolve_default_speakers_gender(speakers_gender, video_type="ROLEPLAY")
+            p1_g = resolved_sg.get("PERSON_ONE", "male")
+            p2_g = resolved_sg.get("PERSON_TWO", "female")
             p1_is_female = "f" in str(p1_g).lower() or "girl" in str(p1_g).lower()
             p2_is_female = "f" in str(p2_g).lower() or "girl" in str(p2_g).lower()
             p1_word = "girl" if p1_is_female else "boy"

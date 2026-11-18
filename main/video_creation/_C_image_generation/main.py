@@ -53,6 +53,8 @@ from _C_image_generation.core.prompt_builder import (
     resolve_anchor_environment,
     sanitize_and_style_prompt,
     get_speaker_gender_safe,
+    resolve_default_speakers_gender,
+    persist_character_anchors_in_state,
 )
 from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
 from _B_voice_generation.core.script_parser import parse_sections
@@ -89,10 +91,7 @@ def ensure_image_prompts_for_script(
         speakers_gender = {}
 
     if video_type == "ROLEPLAY":
-        p1_g = get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "male")
-        p2_g = get_speaker_gender_safe(speakers_gender, "PERSON_TWO", "female")
-        speakers_gender["PERSON_ONE"] = p1_g
-        speakers_gender["PERSON_TWO"] = p2_g
+        speakers_gender = resolve_default_speakers_gender(speakers_gender, video_type="ROLEPLAY")
         if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
             script_data["content_metadata"] = {}
         script_data["content_metadata"]["speakers_gender"] = speakers_gender
@@ -188,6 +187,12 @@ def ensure_image_prompts_for_script(
     if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
         script_data["content_metadata"] = {}
     script_data["content_metadata"]["anchor_environment"] = general_prompt
+    persist_character_anchors_in_state(
+        script_data=script_data,
+        general_prompt=general_prompt,
+        speakers_gender=speakers_gender,
+        video_type=video_type,
+    )
 
     existing_prompts = script_data.get("assets", {}).get("image_prompts", {})
     all_scenes_have_prompts = (

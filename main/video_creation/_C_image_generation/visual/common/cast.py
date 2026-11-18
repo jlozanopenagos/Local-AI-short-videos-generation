@@ -1,9 +1,15 @@
 """
-visual/common/cast.py — Character gender lookup, hairstyle sanitization, and character anchor extraction.
+visual/common/cast.py — Structured CharacterCast model, centralized gender defaults (Q6),
+hairstyle sanitization, and character anchor extraction/persistence (Phase 6).
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
+from typing import Any, Dict
+
+DEFAULT_P1_GENDER = "male"
+DEFAULT_P2_GENDER = "female"
 
 FEMALE_HAIRSTYLE_TERMS = [
     "bun", "bob", "ponytail", "pigtail", "braid", "braided", "chignon",
@@ -13,6 +19,42 @@ MALE_HAIRSTYLE_TERMS = [
     "quiff", "buzz", "crew-cut", "crew cut", "fade", "pompadour",
     "sideburns", "flat-top", "undercut"
 ]
+
+
+@dataclass
+class CharacterCast:
+    """
+    Structured representation of a script's visual character ensemble.
+    Can be serialized directly into `content_metadata.character_anchors` and `assets.character_anchors`.
+    """
+    has_two_characters: bool
+    char1_desc: str
+    char2_desc: str
+    char1_hair: str = ""
+    char2_hair: str = ""
+    char1_attire: str = ""
+    char2_attire: str = ""
+    gender_word1: str = "boy"
+    gender_word2: str = "girl"
+    p1_is_female: bool = False
+    p2_is_female: bool = True
+    continuity_summary: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "has_two_characters": str(self.has_two_characters),
+            "char1_desc": self.char1_desc,
+            "char2_desc": self.char2_desc,
+            "char1_hair": self.char1_hair,
+            "char2_hair": self.char2_hair,
+            "char1_attire": self.char1_attire,
+            "char2_attire": self.char2_attire,
+            "gender_word1": self.gender_word1,
+            "gender_word2": self.gender_word2,
+            "p1_is_female": self.p1_is_female,
+            "p2_is_female": self.p2_is_female,
+            "continuity_summary": self.continuity_summary,
+        }
 
 
 def get_speaker_gender_safe(speakers_gender: dict, role: str, default: str = "") -> str:
@@ -67,6 +109,30 @@ def get_speaker_gender_safe(speakers_gender: dict, role: str, default: str = "")
     return default
 
 
+def resolve_default_speakers_gender(speakers_gender: dict = None, video_type: str = "EXPRESSION") -> Dict[str, str]:
+    """
+    Centralizes default gender resolution (Q6) across `_C/main.py`, `prompt_builder.py`, and `image_modifier.py`.
+    Default when unspecified: PERSON_ONE / NARRATOR = male, PERSON_TWO = female.
+    """
+    sg = dict(speakers_gender) if isinstance(speakers_gender, dict) else {}
+    vt = (video_type or "EXPRESSION").strip().upper()
+    if vt in ("ROLEPLAY", "ROLE_PLAY"):
+        p1 = get_speaker_gender_safe(sg, "PERSON_ONE", DEFAULT_P1_GENDER)
+        p1_is_f = "f" in str(p1).lower() or "girl" in str(p1).lower()
+        default_p2 = DEFAULT_P1_GENDER if p1_is_f else DEFAULT_P2_GENDER
+        p2 = get_speaker_gender_safe(sg, "PERSON_TWO", default_p2)
+        sg["PERSON_ONE"] = p1
+        sg["PERSON_TWO"] = p2
+    else:
+        p1 = (
+            get_speaker_gender_safe(sg, "NARRATOR", "")
+            or get_speaker_gender_safe(sg, "PERSON_ONE", DEFAULT_P1_GENDER)
+        )
+        if not sg:
+            sg["NARRATOR"] = p1
+    return sg
+
+
 def sanitize_character_hair(raw_hair: str, is_female: bool, is_primary: bool = True) -> str:
     """
     Enforces 100% gender-accurate hairstyles.
@@ -76,19 +142,16 @@ def sanitize_character_hair(raw_hair: str, is_female: bool, is_primary: bool = T
     hair_lower = raw_hair.lower().strip()
 
     if not is_female:  # MALE CHARACTER
-        # If male was assigned ANY feminine hairstyle or empty:
         if any(trig in hair_lower for trig in FEMALE_HAIRSTYLE_TERMS) or not hair_lower:
             if is_primary or "dark" in hair_lower or "black" in hair_lower:
                 return "short textured dark hair with clean tapered sides and a neat side-part"
             else:
                 return "short textured chestnut-brown hair with clean-cut neckline and defined sideburns"
-        # Guarantee "short" is present so diffusion models never draw long hair on boys
         if "short" not in hair_lower and "tapered" not in hair_lower and "crew" not in hair_lower:
             return f"short {raw_hair.strip()}"
         return raw_hair.strip()
 
     else:  # FEMALE CHARACTER
-        # If female was assigned ANY masculine hairstyle or empty:
         if any(trig in hair_lower for trig in MALE_HAIRSTYLE_TERMS) or not hair_lower:
             if is_primary or "dark" in hair_lower or "black" in hair_lower:
                 return "dark wavy hair tied in an elegant high ponytail with soft face-framing strands"
@@ -113,34 +176,40 @@ def _clean_character_clause(text: str) -> str:
     return t
 
 
-def extract_or_build_character_anchors(
+def build_character_cast(
     general_prompt: str,
     speakers_gender: dict = None,
     video_type: str = "EXPRESSION",
     character_anchors: dict = None,
-) -> dict[str, str]:
+) -> CharacterCast:
     """
-    Extracts or establishes consistent, locked character traits (hair color, hairstyle, wardrobe)
-    from the General Prompt or structured character anchors so they can be repeated verbatim
-    in every scene prompt. Prevents character identity drift, hair swapping, and wardrobe changes.
-
-    CRITICAL RULE: The General Prompt is the authoritative visual source of truth for character gender,
-    hair, and wardrobe. Speakers_gender is only a secondary fallback when the General Prompt is silent.
+    Builds a structured `CharacterCast` from the General Prompt or pre-extracted anchors.
     """
     speakers_gender = speakers_gender or {}
-    video_type_upper = video_type.strip().upper()
-    has_two_characters = (
-        video_type_upper in ("ROLEPLAY", "ROLE_PLAY")
-        or bool(re.search(r'\b(companion|peer|friend|two characters|both characters|char_2|person_two|counterpart|on the right stands)\b', general_prompt, re.I))
-        or bool(isinstance(speakers_gender, dict) and any("two" in str(k).lower() for k in speakers_gender))
-    )
+    video_type_upper = (video_type or "EXPRESSION").strip().upper()
+    from ..types import get_visual_profile
+
+    profile = get_visual_profile(video_type_upper)
+    type_is_duo = profile.has_two_characters_default if profile is not None else video_type_upper in ("ROLEPLAY", "ROLE_PLAY")
+
+    # GAME and FUN_FACTS are solo formats unless PERSON_TWO is explicitly in speakers_gender
+    if video_type_upper in ("GAME", "QUIZ", "FUN_FACTS", "FUNFACTS", "FUNFACT", "FACTS"):
+        has_two_characters = bool(
+            isinstance(speakers_gender, dict)
+            and any("two" in str(k).lower() and v for k, v in speakers_gender.items())
+        )
+    else:
+        has_two_characters = (
+            type_is_duo
+            or bool(re.search(r'\b(companion|peer|friend|two characters|both characters|char_2|person_two|counterpart|on the right stands)\b', general_prompt, re.I))
+            or bool(isinstance(speakers_gender, dict) and any("two" in str(k).lower() for k in speakers_gender))
+        )
 
     sents = _split_sentences_safe(general_prompt)
 
-    # 1. Identify Character 1 and Character 2 sentences directly from the General Prompt
     HUMAN_WORDS = [
         'student', 'boy', 'girl', 'protagonist', 'character', 'peer', 'companion', 'teen',
-        '15-year', '16-year', '15yo', '16yo', 'young man', 'young woman', 'chico', 'chica',
+        '14-year', '15-year', '16-year', '14-16', '15yo', '16yo', 'young man', 'young woman', 'chico', 'chica',
         'hombre', 'mujer', 'muchacho', 'muchacha', 'char_1', 'char_2'
     ]
     CLOTHING_WORDS = [
@@ -191,7 +260,6 @@ def extract_or_build_character_anchors(
     elif c1_female_score > c1_male_score:
         p1_is_female = True
     else:
-        # Fallback to speakers_gender case-insensitively
         p1_raw = (
             get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "")
             or get_speaker_gender_safe(speakers_gender, "NARRATOR", "")
@@ -200,7 +268,6 @@ def extract_or_build_character_anchors(
 
     gender_word1 = "girl" if p1_is_female else "boy"
 
-    # Gender detection for Character 2
     search_target_c2 = c2_text or general_prompt
     c2_male_score = len(re.findall(
         r'\b(boy|male|guy|young man|man|chico|muchacho|hombre|he wears|he stands|his hair|his build)\b',
@@ -229,27 +296,26 @@ def extract_or_build_character_anchors(
         c1_desc = character_anchors["char1_desc"]
         c1_desc_lower = c1_desc.lower()
         anchor_is_female = bool(re.search(r'\b(girl|female|woman|chica|muchacha|mujer)\b', c1_desc_lower))
-        # If anchors are consistent with the General Prompt's gender, use them
         if anchor_is_female == p1_is_female:
             c2_desc = character_anchors.get("char2_desc") or (c2_text if c2_text else f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)")
             cont_summary = character_anchors.get("continuity_summary") or (
                 f"Character appearance continuity: Character 1 is a {c1_desc}; Character 2 is a {c2_desc}."
                 if has_two_characters else f"Character appearance continuity: The protagonist is a {c1_desc}."
             )
-            return {
-                "has_two_characters": str(has_two_characters),
-                "char1_desc": c1_desc,
-                "char2_desc": c2_desc,
-                "char1_hair": character_anchors.get("char1_hair", ""),
-                "char2_hair": character_anchors.get("char2_hair", ""),
-                "char1_attire": character_anchors.get("char1_attire", ""),
-                "char2_attire": character_anchors.get("char2_attire", ""),
-                "gender_word1": gender_word1,
-                "gender_word2": gender_word2,
-                "p1_is_female": p1_is_female,
-                "p2_is_female": p2_is_female,
-                "continuity_summary": cont_summary,
-            }
+            return CharacterCast(
+                has_two_characters=has_two_characters,
+                char1_desc=c1_desc,
+                char2_desc=c2_desc,
+                char1_hair=character_anchors.get("char1_hair", ""),
+                char2_hair=character_anchors.get("char2_hair", ""),
+                char1_attire=character_anchors.get("char1_attire", ""),
+                char2_attire=character_anchors.get("char2_attire", ""),
+                gender_word1=gender_word1,
+                gender_word2=gender_word2,
+                p1_is_female=p1_is_female,
+                p2_is_female=p2_is_female,
+                continuity_summary=cont_summary,
+            )
 
     # 4. Check for [CHARACTER_ANCHORS] block embedded inside general_prompt
     anchor_block_match = re.search(r'\[CHARACTER_ANCHORS\](.*?)\[/CHARACTER_ANCHORS\]', general_prompt, re.DOTALL | re.IGNORECASE)
@@ -258,20 +324,20 @@ def extract_or_build_character_anchors(
         from core.gemini_auditor import extract_character_anchors_from_output
         _, parsed = extract_character_anchors_from_output(general_prompt)
         if parsed and parsed.get("char1_desc"):
-            return {
-                "has_two_characters": str(has_two_characters),
-                "char1_desc": parsed["char1_desc"],
-                "char2_desc": parsed.get("char2_desc", f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)"),
-                "char1_hair": parsed.get("char1_hair", ""),
-                "char2_hair": parsed.get("char2_hair", ""),
-                "char1_attire": parsed.get("char1_attire", ""),
-                "char2_attire": parsed.get("char2_attire", ""),
-                "gender_word1": gender_word1,
-                "gender_word2": gender_word2,
-                "p1_is_female": p1_is_female,
-                "p2_is_female": p2_is_female,
-                "continuity_summary": parsed.get("continuity_summary", ""),
-            }
+            return CharacterCast(
+                has_two_characters=has_two_characters,
+                char1_desc=parsed["char1_desc"],
+                char2_desc=parsed.get("char2_desc", f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)"),
+                char1_hair=parsed.get("char1_hair", ""),
+                char2_hair=parsed.get("char2_hair", ""),
+                char1_attire=parsed.get("char1_attire", ""),
+                char2_attire=parsed.get("char2_attire", ""),
+                gender_word1=gender_word1,
+                gender_word2=gender_word2,
+                p1_is_female=p1_is_female,
+                p2_is_female=p2_is_female,
+                continuity_summary=parsed.get("continuity_summary", ""),
+            )
 
     # 5. Build coherent character description directly from General Prompt prose
     if c1_text:
@@ -308,17 +374,57 @@ def extract_or_build_character_anchors(
             f"Character appearance continuity: The protagonist is {char1_desc}."
         )
 
-    return {
-        "has_two_characters": str(has_two_characters),
-        "char1_desc": char1_desc,
-        "char2_desc": char2_desc,
-        "char1_hair": "",
-        "char2_hair": "",
-        "char1_attire": "",
-        "char2_attire": "",
-        "gender_word1": gender_word1,
-        "gender_word2": gender_word2,
-        "p1_is_female": p1_is_female,
-        "p2_is_female": p2_is_female,
-        "continuity_summary": continuity_summary,
-    }
+    return CharacterCast(
+        has_two_characters=has_two_characters,
+        char1_desc=char1_desc,
+        char2_desc=char2_desc,
+        gender_word1=gender_word1,
+        gender_word2=gender_word2,
+        p1_is_female=p1_is_female,
+        p2_is_female=p2_is_female,
+        continuity_summary=continuity_summary,
+    )
+
+
+def extract_or_build_character_anchors(
+    general_prompt: str,
+    speakers_gender: dict = None,
+    video_type: str = "EXPRESSION",
+    character_anchors: dict = None,
+) -> dict[str, str]:
+    """
+    Extracts or establishes consistent, locked character traits (hair color, hairstyle, wardrobe)
+    from the General Prompt or structured character anchors so they can be repeated verbatim
+    in every scene prompt.
+    """
+    return build_character_cast(
+        general_prompt=general_prompt,
+        speakers_gender=speakers_gender,
+        video_type=video_type,
+        character_anchors=character_anchors,
+    ).to_dict()
+
+
+def persist_character_anchors_in_state(
+    script_data: Dict[str, Any],
+    general_prompt: str,
+    speakers_gender: dict = None,
+    video_type: str = "EXPRESSION",
+) -> Dict[str, Any]:
+    """
+    Extracts structured character anchors from the authoritative General Prompt and stores them
+    in both `script_data['assets']['character_anchors']` and `script_data['content_metadata']['character_anchors']`.
+    """
+    existing = (
+        (script_data.get("content_metadata") or {}).get("character_anchors")
+        or (script_data.get("assets") or {}).get("character_anchors")
+    )
+    anchors = extract_or_build_character_anchors(
+        general_prompt=general_prompt,
+        speakers_gender=speakers_gender,
+        video_type=video_type,
+        character_anchors=existing,
+    )
+    script_data.setdefault("assets", {})["character_anchors"] = anchors
+    script_data.setdefault("content_metadata", {})["character_anchors"] = anchors
+    return anchors
