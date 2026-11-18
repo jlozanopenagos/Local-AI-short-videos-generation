@@ -407,28 +407,8 @@ _STORYBOARD_DIRECTOR_SYSTEM_PROMPT = build_storyboard_system_prompt()
 
 
 def _get_language_palette(language: str) -> str:
-    lang = language.lower().strip()
-    if "french" in lang or "français" in lang:
-        return (
-            "BRAND PALETTE MOOD (FRENCH): Elegant, warm, cultured, friendly.\n"
-            "Key Accent Colors: French Blue, Deep Teal, and restrained Red.\n"
-        )
-    elif "spanish" in lang or "español" in lang:
-        return (
-            "BRAND PALETTE MOOD (SPANISH): Warm, energetic, expressive, welcoming.\n"
-            "Key Accent Colors: Warm Cream, Orange, Terracotta, and Botanical Green.\n"
-        )
-    elif "italian" in lang or "italiano" in lang:
-        return (
-            "BRAND PALETTE MOOD (ITALIAN): Warm, passionate, stylish, vibrant.\n"
-            "Key Accent Colors: Mediterranean Blue, Olive Green, Warm Terracotta, and Sunlit Gold.\n"
-        )
-    else:
-        # Default to English
-        return (
-            "BRAND PALETTE MOOD (ENGLISH): Warm, vibrant, natural, cinematic.\n"
-            "Key Accent Colors: Forest Green, Warm Ochre, Rich Amber, Slate Blue, Cream.\n"
-        )
+    from ..languages import get_language_profile
+    return get_language_profile(language).palette_mood
 
 
 def _parse_label(label: str) -> tuple[str, str, str]:

@@ -130,6 +130,31 @@ class TestVisualProfileRegistry(unittest.TestCase):
             self.assertIn(scene_name.upper(), goal)
 
 
+class TestLanguageVisualLayer(unittest.TestCase):
+    def test_language_registry_resolves_names_labels_and_script_ids(self):
+        from _C_image_generation.visual.languages import get_language_profile
+
+        self.assertEqual(get_language_profile("English").language, "english")
+        self.assertEqual(get_language_profile("French | work | greetings").language, "french")
+        self.assertEqual(get_language_profile("français").language, "french")
+        self.assertEqual(get_language_profile("Spanish").language, "spanish")
+        self.assertEqual(get_language_profile("español").language, "spanish")
+        self.assertEqual(get_language_profile("Italian").language, "italian")
+        self.assertEqual(get_language_profile("FE01").language, "french")
+        self.assertEqual(get_language_profile("SR01").language, "spanish")
+        self.assertEqual(get_language_profile("IG02").language, "italian")
+        self.assertEqual(get_language_profile("EE01").language, "english")
+
+    def test_language_profiles_do_not_contain_camera_angle_or_video_type_directives(self):
+        from _C_image_generation.visual.languages import ALL_LANGUAGE_PROFILES
+
+        forbidden = ("85mm", "24mm", "fourth-wall", "roleplay", "dialogue_part", "chalkboard")
+        for prof in ALL_LANGUAGE_PROFILES:
+            blob = f"{prof.palette_mood} {prof.cultural_cue}".lower()
+            for term in forbidden:
+                self.assertNotIn(term, blob, f"Language profile {prof.language} leaked type/camera term '{term}'")
+
+
 class TestGoldenScriptSnapshots(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
