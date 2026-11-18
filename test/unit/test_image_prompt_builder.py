@@ -63,6 +63,34 @@ class TestSanitizerSnapshots(unittest.TestCase):
         self.assertTrue(is_present_heteronym_topic(topic="PREsent vs preSENT"))
         self.assertFalse(is_present_heteronym_topic(topic="break a leg"))
 
+    def test_sanitizer_run3_polish_rules(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        # 1. Strips echoed rubric headers & General Visual Prompt prefix
+        header_out = sanitize_and_style_prompt("HOOK [THE INSIDER GUIDE]: Medium close-up 50mm shot.")
+        self.assertFalse(header_out.startswith("HOOK"))
+        self.assertIn("Medium close-up 50mm shot", header_out)
+
+        gp_prefix_out = sanitize_and_style_prompt("General Visual Prompt: A vibrant 2D cartoon lounge.")
+        self.assertFalse(gp_prefix_out.startswith("General Visual Prompt"))
+
+        # 2. Repairs speaking expressivelyr mid-word truncation and respects word boundaries
+        trunc_out = sanitize_and_style_prompt(
+            "He is actively speaking expressivelyr, visually demonstrating the acoustic power."
+        )
+        self.assertNotIn("expressivelyr", trunc_out)
+        self.assertIn("speaking expressively,", trunc_out)
+
+        # 3. Scrubs floating word-cards, phonetic symbols, and giant letters
+        floating_out = sanitize_and_style_prompt(
+            "Oversized, stylized word-cards and phonetic symbols floating in the air alongside oversized, stylized letters (like a giant K and N) and glowing 21 individual letters."
+        )
+        self.assertNotIn("word-cards", floating_out.lower())
+        self.assertNotIn("phonetic symbols", floating_out.lower())
+        self.assertNotIn("giant k and n", floating_out.lower())
+        self.assertNotIn("individual letters", floating_out.lower())
+
 
 class TestEnvironmentSnapshots(unittest.TestCase):
     def test_environment_resolution_unchanged(self):

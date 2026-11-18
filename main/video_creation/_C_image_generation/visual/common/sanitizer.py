@@ -38,6 +38,14 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
         flags=re.DOTALL | re.IGNORECASE,
     )
 
+    # Strip echoed rubric headers or general prompt prefixes at the start of the string
+    text = re.sub(
+        r"^(?:General\s+Visual\s+Prompt\s*:\s*|(?:HOOK|SETUP|DISCOVERY|EXAMPLE|PAYOFF|ANSWER|EXPLANATION|CHALLENGE|PRESSURE|DIALOGUE_PART_\d)\s*\[[^\]]+\]\s*:\s*)+",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
     # 1. Clean out interjections that cause diffusion models to paint letters onto the image
     text = re.sub(r"['\"]?\baha!?['\"]?", "sudden breakthrough clarity", text, flags=re.IGNORECASE)
     text = re.sub(r"['\"]?\beureka!?['\"]?", "sudden discovery", text, flags=re.IGNORECASE)
@@ -78,10 +86,11 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
     text = re.sub(r'["“«][^"”»]{1,60}["”»]', "expressive dialogue", text)
     text = re.sub(r"['‘][^'’]{1,60}['’]", "expressive dialogue", text)
 
-    # Scrub verbs of speaking followed by words/phrases
-    text = re.sub(r"\b(?:whispering|saying|speaking|mouthing|shouting|calling|reading|repeating)\s+(?:the\s+words?|the\s+phrase)?\s*[^,\.]{1,40}", "speaking expressively", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bwith\s+the\s+words?\s+[^,\.]{1,40}", "with expressive visual details", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bthe\s+words?\s+[^,\.]{1,30}", "expressive dialogue", text, flags=re.IGNORECASE)
+    # Scrub verbs of speaking followed by words/phrases (always terminate on a word boundary \b so words are never sliced mid-token)
+    text = re.sub(r"\bspeaking\s+expressively[a-z]+\b", "speaking expressively", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:whispering|saying|speaking|mouthing|shouting|calling|reading|repeating)\s+(?:the\s+words?|the\s+phrase)?\s*[^,\.]{1,40}\b", "speaking expressively", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bwith\s+the\s+words?\s+[^,\.]{1,40}\b", "with expressive visual details", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bthe\s+words?\s+[^,\.]{1,30}\b", "expressive dialogue", text, flags=re.IGNORECASE)
 
     # Scrub document / scroll / paper / parchment text references and replace with cartoon graphic doodles
     text = re.sub(
@@ -118,7 +127,11 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
         flags=re.IGNORECASE,
     )
 
-    # Scrub letter / alphabet mentions
+    # Scrub letter / alphabet / word-card / phonetic symbol mentions
+    text = re.sub(r"\b(?:oversized,?\s+)?(?:stylized\s+)?letters?\s*\(\s*like\s+[^)]+\)", "stylized abstract geometric emblems", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:oversized,?\s+)?(?:stylized\s+)?word-?cards?(?:\s+and\s+phonetic\s+symbols?)?\b", "stylized abstract graphic emblems", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bphonetic\s+symbols?\b", "abstract acoustic wave emblems", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:oversized,?\s+)?(?:glowing\s+)?(?:\d+\s+)?individual\s+letters?\b", "glowing circular emblems", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:holding|waving|showing|with|displaying)\s+(?:a\s+)?(?:large,?\s+)?(?:stylized\s+)?(?:prop|sign|card|banner|object)?\s*representing\s+(?:the\s+)?letters?\s+[A-Za-z0-9_\-]+\b", "gesturing with an expressive physical prop", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:the\s+)?letters?\s+[A-Z]\b", "an expressive thematic prop", text)
     text = re.sub(r"\bdouble\s+[A-Za-z]\b", "expressive vocal inflection", text, flags=re.IGNORECASE)
