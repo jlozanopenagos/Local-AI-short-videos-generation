@@ -46,6 +46,7 @@ from ..visual.common import (
     sanitize_and_style_prompt,
     _extract_json_payload,
 )
+from ..visual.types import get_visual_profile
 
 
 def _extract_shared_story_context(
@@ -214,7 +215,10 @@ def _build_user_context(
     p2_g = p2_word.upper()
 
     # ── Video-Type Specific Situational Directions ───────────────────────────
-    if video_type_upper == "GAME":
+    profile = get_visual_profile(video_type_upper)
+    if profile is not None:
+        text_rule = profile.build_single_scene_goal(scene_lower, p1_word, p2_word)
+    elif video_type_upper == "GAME":
         if scene_lower == "hook":
             text_rule = (
                 "SCENE GOAL — HOOK (THE FRONTAL DILEMMA):\n"
@@ -498,7 +502,10 @@ def _build_storyboard_context(
     scenes_block = "\n".join(formatted_scenes)
 
     video_type_upper = video_type.strip().upper()
-    if video_type_upper == "ROLEPLAY":
+    profile = get_visual_profile(video_type_upper)
+    if profile is not None:
+        director_task = profile.build_storyboard_director_task(p1_word, p2_word)
+    elif video_type_upper == "ROLEPLAY":
         p1_word = char_anchors.get("gender_word1") or ("girl" if char_anchors.get("p1_is_female") else "boy")
         p2_word = char_anchors.get("gender_word2") or ("girl" if char_anchors.get("p2_is_female") else "boy")
         p1 = p1_word.upper()
@@ -1079,7 +1086,10 @@ class VisualPromptBuilder:
             )
 
         video_type_clean = (video_type or "EXPRESSION").strip().upper()
-        if video_type_clean == "GAME":
+        profile = get_visual_profile(video_type_clean)
+        if profile is not None:
+            format_staging_directive = profile.build_format_staging_directive()
+        elif video_type_clean == "GAME":
             format_staging_directive = (
                 "5. FORMAT STAGING DIRECTIVE (GAME — FRONTAL DILEMMA & FOURTH-WALL EYE CONTACT):\n"
                 "   - Hook Scene: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo teen protagonist centered, making 100% direct fourth-wall eye contact into the camera lens with an expressive, animated dilemma expression.\n"
