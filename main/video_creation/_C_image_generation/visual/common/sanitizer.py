@@ -51,9 +51,9 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
     text = text.replace('"', '').replace("'", "")
     text = re.sub(r"\s+", " ", text).strip()
 
-    # 3b. Ensure male characters NEVER have feminine hairstyles (buns, bobs, ponytails, chignons)
+    # 3b. Ensure male characters NEVER have feminine hairstyles (buns, bobs, ponytails, chignons, long wavy hair)
     text = re.sub(
-        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,80}?)\b(?:(?:with\s+|and\s+)?(?:dark\s+|black\s+|brown\s+|wavy\s+|long\s+)*hair\s+(?:tied\s+)?in\s+an?\s+(?:sleek\s+|high\s+|elegant\s+)?(?:bun|ponytail|bob|braid|chignon)|tied in a (?:sleek\s+|high\s+)?(?:bun|ponytail)|in a (?:sleek\s+|high\s+)?(?:bun|ponytail|bob|braid)|sleek (?:bun|ponytail)|hair bun|in a bob|in a ponytail|chignon)\b",
+        r"\b(boy|man|male(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,80}?)\b(?:(?:with\s+|and\s+)?(?:long,?\s+)?(?:dark\s+|black\s+|brown\s+|auburn\s+|wavy\s+|long\s+)*hair\s+(?:tied\s+)?in\s+an?\s+(?:sleek\s+|high\s+|elegant\s+)?(?:bun|ponytail|bob|braid|chignon)|(?:with\s+|and\s+)long,?\s+(?:wavy\s+|flowing\s+)?(?:dark\s+|auburn\s+|brown\s+|black\s+)*hair|tied in a (?:sleek\s+|high\s+)?(?:bun|ponytail)|in a (?:sleek\s+|high\s+)?(?:bun|ponytail|bob|braid)|sleek (?:bun|ponytail)|hair bun|in a bob|in a ponytail|chignon)\b",
         r"\1\2with short textured dark hair and neat side-part",
         text,
         flags=re.IGNORECASE,
@@ -65,9 +65,9 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
         text,
         flags=re.IGNORECASE,
     )
-    # 3c. Ensure female characters NEVER have masculine haircuts (quiffs, buzz cuts, crew cuts)
+    # 3c. Ensure female characters NEVER have masculine haircuts or sideburns (quiffs, buzz cuts, crew cuts, sideburns)
     text = re.sub(
-        r"\b(girl|woman|female(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,60}?)\b(?:quiff hair|quiff|buzz-?cut|crew-?cut)\b",
+        r"\b(girl|woman|female(?:\s+teen|\s+student|\s+protagonist)?)\b([^,\.]{0,80}?)\b(?:(?:sporting\s+|with\s+)?short\s+textured\s+[^,\.]{0,30}?\bsideburns|with\s+clean-?cut\s+sideburns|quiff hair|quiff|buzz-?cut|crew-?cut)\b",
         r"\1\2with soft wavy hair resting over shoulders",
         text,
         flags=re.IGNORECASE,

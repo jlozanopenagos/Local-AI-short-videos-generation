@@ -207,15 +207,17 @@ def build_character_cast(
 
     sents = _split_sentences_safe(general_prompt)
 
-    HUMAN_WORDS = [
-        'student', 'boy', 'girl', 'protagonist', 'character', 'peer', 'companion', 'teen',
-        '14-year', '15-year', '16-year', '14-16', '15yo', '16yo', 'young man', 'young woman', 'chico', 'chica',
-        'hombre', 'mujer', 'muchacho', 'muchacha', 'char_1', 'char_2'
-    ]
+    HUMAN_WORD_PATTERN = re.compile(
+        r'\b(?:student|boy|girl|protagonist|peer|companion|teen|teenager|teenage|'
+        r'14-year|15-year|16-year|14-16|15yo|16yo|young man|young woman|male|female|'
+        r'chico|chica|hombre|mujer|muchacho|muchacha|char_1|char_2|character 1|character 2|'
+        r'primary character|secondary character)\b',
+        re.IGNORECASE,
+    )
     CLOTHING_WORDS = [
         'wears', 'wearing', 'dressed', 'attire', 'shoes', 'vest', 'jacket', 'shirt', 'pants',
         'chinos', 'jeans', 'apron', 'coat', 'suit', 'uniform', 'boots', 'sneakers', 'hoodie',
-        'sweater', 'outfit', 'costume', 'lleva', 'pantalones', 'falda', 'vestido'
+        'sweater', 'outfit', 'costume', 'blouse', 'gown', 'doublet', 'lleva', 'pantalones', 'falda', 'vestido'
     ]
 
     c1_sents: list[str] = []
@@ -223,14 +225,14 @@ def build_character_cast(
 
     C2_MARKERS = (
         'companion', 'peer', 'char_2', 'character 2', 'counterpart',
-        'on the right', 'to his right', 'to her right', 'second character',
+        'on the right', 'to his right', 'to her right', 'second character', 'secondary character',
         'beside him', 'beside her', 'next to him', 'next to her',
     )
 
     for idx, s in enumerate(sents):
         s_clean = _clean_character_clause(s)
         s_low = s_clean.lower()
-        if not any(h in s_low for h in HUMAN_WORDS):
+        if not HUMAN_WORD_PATTERN.search(s_low):
             continue
 
         if any(w in s_low for w in C2_MARKERS):
@@ -253,7 +255,10 @@ def build_character_cast(
     c1_text = ' '.join(c1_sents).strip()
     c2_text = ' '.join(c2_sents).strip()
 
-    # 2. Authoritative Gender Detection (for ROLEPLAY, align PERSON_ONE / PERSON_TWO with speakers_gender so solo shots match TTS voices!)
+    # 2. Authoritative Gender Detection
+    # If c1_text was extracted, score ONLY c1_text; if c2_text was extracted, score ONLY c2_text.
+    # Never fall back to scoring the entire general_prompt for c2 when c2_text is empty, otherwise
+    # c2 inherits c1's gender!
     search_target_c1 = c1_text or general_prompt
     c1_male_score = len(re.findall(
         r'\b(boy|male|guy|young man|man|chico|muchacho|hombre|he wears|he stands|his hair|his build)\b',
@@ -275,15 +280,14 @@ def build_character_cast(
         ).lower()
         p1_is_female = "f" in p1_raw or "girl" in p1_raw or "woman" in p1_raw
 
-    search_target_c2 = c2_text or general_prompt
     c2_male_score = len(re.findall(
         r'\b(boy|male|guy|young man|man|chico|muchacho|hombre|he wears|he stands|his hair|his build)\b',
-        search_target_c2.lower()
-    ))
+        c2_text.lower()
+    )) if c2_text else 0
     c2_female_score = len(re.findall(
         r'\b(girl|female|young woman|woman|lady|chica|muchacha|mujer|she wears|she stands|her hair|her build)\b',
-        search_target_c2.lower()
-    ))
+        c2_text.lower()
+    )) if c2_text else 0
 
     if c2_male_score > c2_female_score:
         p2_is_female = False
@@ -295,6 +299,16 @@ def build_character_cast(
             p2_is_female = "f" in p2_raw or "girl" in p2_raw or "woman" in p2_raw
         else:
             p2_is_female = not p1_is_female
+
+    # For ROLEPLAY, if speakers_gender explicitly specifies PERSON_ONE and PERSON_TWO genders,
+    # enforce them when c1_text or c2_text failed to isolate a single gender.
+    if video_type_upper in ("ROLEPLAY", "ROLE_PLAY"):
+        p1_sg = get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "").lower()
+        p2_sg = get_speaker_gender_safe(speakers_gender, "PERSON_TWO", "").lower()
+        if p1_sg and not c1_text:
+            p1_is_female = "f" in p1_sg or "girl" in p1_sg or "woman" in p1_sg
+        if p2_sg and not c2_text:
+            p2_is_female = "f" in p2_sg or "girl" in p2_sg or "woman" in p2_sg
 
     # If the General Prompt described two characters in the opposite order of speakers_gender
     # (e.g. boy first, girl second, while PERSON_ONE/Narrator is female), swap c1 and c2 so

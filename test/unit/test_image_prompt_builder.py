@@ -241,6 +241,42 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertIn("sapphire Tudor gown", cast.char1_desc)
         self.assertIn("emerald doublet", cast.char2_desc)
 
+    def test_character_cast_ignores_characterized_and_two_characters_staging_sentences(self):
+        from _C_image_generation.visual.common import build_character_cast
+
+        gp_fr01 = (
+            "A vibrant 2D cartoon illustration set in a Parisian bistro. "
+            "A dynamic diagonal trajectory is established across the edge of the table, separating the two characters. "
+            "On the left, a 14-16-year-old high-school girl with warm tan skin and dark wavy hair tied in an elegant ponytail wears a tailored linen shirt. "
+            "On the right, a 14-16-year-old high-school boy with fair peach skin and short textured chestnut-brown hair with clean-cut sideburns stands facing left."
+        )
+        cast = build_character_cast(
+            gp_fr01,
+            speakers_gender={"PERSON_ONE": "female", "PERSON_TWO": "male"},
+            video_type="ROLEPLAY",
+        )
+        self.assertTrue(cast.p1_is_female)
+        self.assertFalse(cast.p2_is_female)
+        self.assertEqual(cast.gender_word1, "girl")
+        self.assertEqual(cast.gender_word2, "boy")
+        self.assertIn("high-school girl", cast.char1_desc)
+        self.assertIn("high-school boy", cast.char2_desc)
+        self.assertNotIn("diagonal trajectory", cast.char1_desc)
+
+        gp_sr01 = (
+            "The setting is an opulent chic metropolitan haute-couture boutique, characterized by polished white marble flooring. "
+            "On the left side of the frame stands a 15-year-old high-school student girl with warm tan skin. "
+            "On the right side of the frame is a 15-year-old high-school student boy with fair peach skin."
+        )
+        cast_sr = build_character_cast(
+            gp_sr01,
+            speakers_gender={"PERSON_ONE": "female", "PERSON_TWO": "male"},
+            video_type="ROLEPLAY",
+        )
+        self.assertNotIn("characterized by", cast_sr.char1_desc)
+        self.assertIn("student girl", cast_sr.char1_desc)
+        self.assertIn("student boy", cast_sr.char2_desc)
+
 
 class TestGoldenScriptSnapshots(unittest.TestCase):
     @classmethod

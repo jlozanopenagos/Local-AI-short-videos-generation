@@ -136,13 +136,14 @@ def _extract_shared_story_context(
         )
     else:
         gender_word = p1_word
+        companion_word = p2_word
         gender_desc = f"high school student {gender_word}"
         gender_context = (
             f"MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (14-16 YEARS OLD):\n"
-            f"- PROTAGONIST: MUST visually appear as an expressive high school student {gender_word.upper()} (approx. 14-16 years old {gender_desc}, natural balanced teenage proportions, healthy youthful athletic build, NOT a child).\n"
+            f"- PROTAGONIST (Primary Character 1): MUST visually appear as an expressive high school student {gender_word.upper()} (approx. 14-16 years old {gender_desc}, natural balanced teenage proportions, healthy youthful athletic build, NOT a child).\n"
             f"- WARDROBE: The {gender_word} MUST wear an authentic costume or attire explicitly matching the thematic setting (e.g. theater stage costume/vest, chef uniform, studio apron, lab coat). Strictly ban generic casual clothes (plain t-shirts/hoodies)!\n"
-            f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! NEVER use generic words like 'two students' or 'friends'!\n"
-            f"CRITICAL RULE: Character MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban mature adult faces, wrinkles, childish proportions, and generic t-shirts!\n\n"
+            f"CRITICAL MULTI-CHARACTER RULE: If a secondary companion appears in a two-shot (such as setup), explicitly specify their individual sex and gender-accurate hairstyle (e.g. 'one teen {gender_word} and one companion teen {companion_word}', NEVER give a boy long feminine hair or a girl sideburns/quiff, and NEVER use generic words like 'two students' or 'friends')!\n"
+            f"CRITICAL RULE: Primary Protagonist MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban mature adult faces, wrinkles, childish proportions, and generic t-shirts!\n\n"
         )
 
     palette_context = _get_language_palette(language)
