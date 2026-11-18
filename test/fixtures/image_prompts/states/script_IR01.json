@@ -1,0 +1,97 @@
+{
+  "assets": {
+    "general_prompt": "Vibrant 2D cartoon narrative illustration in a stylized animation art style with bold outlines and rich interior depth. The setting is a sunlit modern study area within a cozy apartment, featuring a sleek focus work desk cluttered with open Italian language textbooks, a tall bookshelf filled with colorful academic books, and lush indoor botanical plants cascading from a shelf. Ambient lighting is warm and bright, casting soft, cinematic shadows. On the LEFT is an expressive 15-year-old high-school student girl with dark wavy hair tied in an elegant ponytail, wearing a stylish, deep teal oversized knitted sweater and tailored trousers, positioned near a comfortable conversation lounge. On the RIGHT is an energetic 15-year-old high-school student boy with short textured chestnut-brown hair and a clean-cut neckline, wearing a complementary forest green casual button-up shirt. The characters are standing side-by-side, their postures suggesting intense focus and shared preparation. Relevant graphic props include a stack of slightly crumpled study notes and a decorative framed quote about Italian idioms resting on the desk, emphasizing the theme of cultural preparation and overcoming exam anxiety. Large cartoon eyes with visible sclera and specular highlights dominate the expressive facial designs, conveying a mixture of nervous tension and optimistic determination. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Vibrant 2D cartoon narrative illustration in a stylized animation art style with bold outlines and rich interior depth. The setting is a sunlit modern study area within a cozy apartment, featuring a sleek focus work desk cluttered with open Italian language textbooks, a tall bookshelf filled with colorful academic books, and lush indoor botanical plants cascading from a shelf. Ambient lighting is warm and bright, casting soft, cinematic shadows. On the LEFT is an expressive 15-year-old high-school student girl with dark wavy hair tied in an elegant ponytail, wearing a stylish, deep teal oversized knitted sweater and tailored trousers, positioned near a comfortable conversation lounge. On the RIGHT is an energetic 15-year-old high-school student boy with short textured chestnut-brown hair and a clean-cut neckline, wearing a complementary forest green casual button-up shirt. The characters are standing side-by-side, their postures suggesting intense focus and shared preparation. Relevant graphic props include a stack of slightly crumpled study notes and a decorative framed quote about Italian idioms resting on the desk, emphasizing the theme of cultural preparation and overcoming exam anxiety. Large cartoon eyes with visible sclera and specular highlights dominate the expressive facial designs, conveying a mixture of nervous tension and optimistic determination. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention.",
+      "PERSON_ONE": "Expressive, animated, relatable conversational partner experiencing the scenario.",
+      "PERSON_TWO": "Knowledgeable, natural native speaker offering authentic cultural guidance."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "Italian",
+    "learning_objective": "To learn and understand the cultural significance and usage of the Italian expression 'in bocca al lupo'.",
+    "related_content": [
+      "Italian Idioms",
+      "Exam Anxiety",
+      "Cultural Expressions"
+    ],
+    "script": {
+      "dialogue_part_1": "PERSON_ONE (Ansioso): Non ce la faccio. Questa materia è un incubo e sto sudando freddo per l'orale.\nPERSON_TWO (Ottimista): Forza, in bocca al lupo! E guai a te se rispondi grazie!",
+      "dialogue_part_2": "PERSON_ONE (Confuso): Aspetta, 'in bocca al lupo'? Ma non è un augurio per la fortuna, è un invito a farsi male!\nPERSON_TWO (Scherzoso): No, è l'equivalente di 'good luck'. È un modo per dire che ti auguriamo il meglio, non per farti male.",
+      "dialogue_part_3": "PERSON_ONE (Soddisfatto): Ok, 'in bocca al lupo' è il nostro super-potere contro l'ansia d'esame.",
+      "dialogue_part_4": "PERSON_TWO (Rilassato): Esatto. Usa questa frase. Ti darà la carica giusta. Forza!",
+      "hook": "Due amici si preparano per l'esame più difficile della vita. La pressione è altissima, ma una frase italiana salva la giornata!",
+      "payoff": "Quando la pressione ti schiaccia, una piccola espressione culturale può trasformare il caos in coraggio. Usala con stile.\nTocca a te! Una frase. Un commento.",
+      "title": "Esame Finale Nervosismo Amicizia"
+    },
+    "speakers_gender": {
+      "Narrator": "male",
+      "PERSON_ONE": "female",
+      "PERSON_TWO": "male"
+    },
+    "speakers_voice": {
+      "Narrator": "italian_male_kokoro_golden_baritone.wav",
+      "PERSON_ONE": "italian_female_kokoro_golden_char1.wav",
+      "PERSON_TWO": "italian_male_kokoro_golden_char2.wav"
+    },
+    "subcategory": "Idioms and Expressions",
+    "target_expression": "In bocca al lupo",
+    "topic": "In bocca al lupo",
+    "video_type": "ROLEPLAY"
+  },
+  "id": "IR01",
+  "metadata": {
+    "DESCRIPTION": "Hai bisogno di una frase per superare l'ansia da esame? Scopri come usare \"in bocca al lupo\" non solo come augurio, ma come vero superpotere culturale. Questa espressione ti darà la carica giusta quando la pressione è altissima. Impara a usare le espressioni vere!",
+    "FILENAME": "italiano_espressioni-in-bocca-al-lupo-ansia-esame.mp4",
+    "HASHTAGS": "#Italiano #LearnItalian #IdiomiItaliani #EspressioniItaliane",
+    "LABEL": "Italian | Idiomatic Expressions | Exam Anxiety | Pragmatics",
+    "SHORT_DESCRIPTION": "La frase italiana che ti salva l'esame. Usa \"in bocca al lupo\" per trasformare l'ansia in coraggio. #Italiano #Idioms #Study",
+    "TAGS": "italiano, in bocca al lupo, espressioni italiane, ansia esame, come imparare l'italiano, idiomi italiani, studio italiano, lingua italiana, conversazione italiana, apprendimento italiano",
+    "TITLE": "Esame Finale Nervosismo Amicizia"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Curiosità & Ottimismo",
+    "EXPRESSION": "In bocca al lupo",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "italian",
+    "LEXICAL_FIELD": "Fortuna e sfide",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "Davanti all'aula d'esame universitario prima dell'orale decisivo: due studenti tesissimi ripassano gli appunti che tremano nelle mani. Uno fa un respiro profondo e l'amica gli stringe le spalle con energia: 'Forza, in bocca al lupo! E guai a te se rispondi grazie!'",
+    "SCENARIO": "Davanti all'aula d'esame universitario prima dell'orale decisivo: due studenti tesissimi ripassano gli appunti che tremano nelle mani. Uno fa un respiro profondo e l'amica gli stringe le spalle con energia: 'Forza, in bocca al lupo! E guai a te se rispondi grazie!'",
+    "SCRIPT_ID": "IR01",
+    "SPECIAL_TREATMENT": "idiomatic",
+    "SUBJECT": "Espressioni idiomatiche italiane",
+    "TARGET_EXPRESSION": "In bocca al lupo",
+    "TOPIC": "In bocca al lupo",
+    "TYPE": "roleplay",
+    "angle": "",
+    "context": "",
+    "emotional_trigger": "Curiosità & Ottimismo",
+    "expression": "In bocca al lupo",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "",
+    "language": "italian",
+    "lexical_field": "Fortuna e sfide",
+    "pillar": "",
+    "roleplay_scenario": "Davanti all'aula d'esame universitario prima dell'orale decisivo: due studenti tesissimi ripassano gli appunti che tremano nelle mani. Uno fa un respiro profondo e l'amica gli stringe le spalle con energia: 'Forza, in bocca al lupo! E guai a te se rispondi grazie!'",
+    "scenario": "Davanti all'aula d'esame universitario prima dell'orale decisivo: due studenti tesissimi ripassano gli appunti che tremano nelle mani. Uno fa un respiro profondo e l'amica gli stringe le spalle con energia: 'Forza, in bocca al lupo! E guai a te se rispondi grazie!'",
+    "script_id": "IR01",
+    "special_treatment": "idiomatic",
+    "subject": "Espressioni idiomatiche italiane",
+    "target_expression": "In bocca al lupo",
+    "topic": "In bocca al lupo",
+    "type": "roleplay"
+  },
+  "script_text": "{\n  \"title\": \"Esame Finale Nervosismo Amicizia\",\n  \"hook\": \"Due amici si preparano per l'esame più difficile della vita. La pressione è altissima, ma una frase italiana salva la giornata!\",\n  \"dialogue_part_1\": \"PERSON_ONE (Ansioso): Non ce la faccio. Questa materia è un incubo e sto sudando freddo per l'orale.\\nPERSON_TWO (Ottimista): Forza, in bocca al lupo! E guai a te se rispondi grazie!\",\n  \"dialogue_part_2\": \"PERSON_ONE (Confuso): Aspetta, 'in bocca al lupo'? Ma non è un augurio per la fortuna, è un invito a farsi male!\\nPERSON_TWO (Scherzoso): No, è l'equivalente di 'good luck'. È un modo per dire che ti auguriamo il meglio, non per farti male.\",\n  \"dialogue_part_3\": \"PERSON_ONE (Soddisfatto): Ok, 'in bocca al lupo' è il nostro super-potere contro l'ansia d'esame.\",\n  \"dialogue_part_4\": \"PERSON_TWO (Rilassato): Esatto. Usa questa frase. Ti darà la carica giusta. Forza!\",\n  \"payoff\": \"Quando la pressione ti schiaccia, una piccola espressione culturale può trasformare il caos in coraggio. Usala con stile.\\nTocca a te! Una frase. Un commento.\"\n}"
+}

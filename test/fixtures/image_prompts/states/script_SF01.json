@@ -1,0 +1,89 @@
+{
+  "assets": {
+    "general_prompt": "Medium shot, waist-up framing. Inside an ornate eighteenth-century Royal Spanish Academy library archives, an expressive teen boy scholar with short textured dark hair, wearing a sapphire-blue velvet vest over a ruffled cream linen shirt, points upward in sudden discovery while vocalizing dynamic musical voice intonation gestures. Beside him across an antique mahogany podium, an expressive teen girl with vibrant magenta hair in an elegant sapphire knit bodice holds a heavy leather-bound parchment folio, her large cartoon eyes widening in delighted realization. Towering walnut bookshelves lined with gilded tomes, arched Spanish courtyard windows with warm sunbeams, and a polished brass music tuning stand create deep environmental perspective under rich terracotta tones, warm amber glow, and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside an ornate eighteenth-century Royal Spanish Academy library archives, an expressive teen boy scholar with short textured dark hair, wearing a sapphire-blue velvet vest over a ruffled cream linen shirt, points upward in sudden discovery while vocalizing dynamic musical voice intonation gestures. Beside him across an antique mahogany podium, an expressive teen girl with vibrant magenta hair in an elegant sapphire knit bodice holds a heavy leather-bound parchment folio, her large cartoon eyes widening in delighted realization. Towering walnut bookshelves lined with gilded tomes, arched Spanish courtyard windows with warm sunbeams, and a polished brass music tuning stand create deep environmental perspective under rich terracotta tones, warm amber glow, and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Discoveries",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "Spanish",
+    "learning_objective": "Understand the historical and practical reason behind the inverted question mark in Spanish.",
+    "related_content": [
+      "Grammar Tips",
+      "Spanish History",
+      "Language Evolution"
+    ],
+    "script": {
+      "discovery": "A diferencia del inglés o el francés, una frase que afirma y una que pregunta pueden tener exactamente las mismas palabras en el mismo orden.\nEn oraciones largas, quien leía en voz alta no sabía cómo modular el tono hasta toparse con el final.",
+      "hook": "¿Sabías que el español es el único gran idioma del planeta que te avisa la entonación de una frase antes de que la leas?",
+      "payoff": "El signo de apertura fue la solución perfecta para preparar la voz.\n¿Sueles escribirlo en tus mensajes diarios o lo dejas olvidado? ¡Cuéntamelo en los comentarios!",
+      "setup": "Ese signo de interrogación invertido al inicio no nació por capricho. En mil setecientos cincuenta y cuatro la Real Academia Española recomendó usarlo por una razón práctica: el orden de las palabras en español es sumamente libre.",
+      "title": "Signo de Interrogación Invertido 1754"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "spanish_female_kokoro_golden_char2.wav"
+    },
+    "subcategory": "Word Origins & History",
+    "target_expression": "El signo de interrogación invertido se inventó en 1754",
+    "topic": "El signo de interrogación invertido se inventó en 1754",
+    "video_type": "FUN_FACTS"
+  },
+  "id": "SF01",
+  "metadata": {
+    "DESCRIPTION": "¿Sabías que el español es el único idioma del planeta que te avisa con un signo al revés antes de que empiece una pregunta? Descubre por qué la Real Academia Española lo instauró en 1754 para que la lectura en voz alta sea más fácil y cómo afecta la entonación de las oraciones largas. ¿Lo usas en tus mensajes diarios? ¡Cuéntanos en los comentarios!",
+    "FILENAME": "español-gramática-signo-de-interrogacion-invertido-short-context.mp4",
+    "HASHTAGS": "#AprenderEspañol #Gramática #FunFacts #Español #Idioma",
+    "LABEL": "Spanish | Language | Grammar | Pronunciation",
+    "SHORT_DESCRIPTION": "Descubre el secreto del signo de interrogación invertido en español, una regla de 1754 que cambia la forma en que leemos las frases largas.",
+    "TAGS": "español, signo de interrogación invertido, gramática española, aprender español, pronunciación, historia del idioma, regla gramatical, cómo leer en voz alta, práctica de español, vocabulario avanzado, español fácil",
+    "TITLE": "Signo de Interrogación Invertido 1754"
+  },
+  "prompt_params": {
+    "ANGLE": "El español es el único idioma en el mundo que te avisa con un signo al revés antes de que empiece una pregunta.",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Curiosidad & Fascinación",
+    "EXPRESSION": "El signo de interrogación invertido se inventó en 1754",
+    "FACT_DETAILS": "La Real Academia Española instauró los signos de interrogación (¿) y exclamación (¡) invertidos en 1754 para que los lectores en voz alta supieran con qué entonación empezar antes de llegar al final de las frases largas.",
+    "FORMAT": "ONE_BIG_CURIOSITY",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "El español es el único idioma en el mundo que te avisa con un signo al revés antes de que empiece una pregunta.",
+    "LANGUAGE": "spanish",
+    "LEXICAL_FIELD": "",
+    "PILLAR": "LANGUAGE_HISTORY",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "SF01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Language Discoveries",
+    "TARGET_EXPRESSION": "El signo de interrogación invertido se inventó en 1754",
+    "TOPIC": "El signo de interrogación invertido se inventó en 1754",
+    "TYPE": "fun_facts",
+    "angle": "El español es el único idioma en el mundo que te avisa con un signo al revés antes de que empiece una pregunta.",
+    "context": "",
+    "emotional_trigger": "Curiosidad & Fascinación",
+    "expression": "El signo de interrogación invertido se inventó en 1754",
+    "fact_details": "La Real Academia Española instauró los signos de interrogación (¿) y exclamación (¡) invertidos en 1754 para que los lectores en voz alta supieran con qué entonación empezar antes de llegar al final de las frases largas.",
+    "format": "ONE_BIG_CURIOSITY",
+    "game_archetype": "",
+    "hook_angle": "El español es el único idioma en el mundo que te avisa con un signo al revés antes de que empiece una pregunta.",
+    "language": "spanish",
+    "lexical_field": "",
+    "pillar": "LANGUAGE_HISTORY",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "SF01",
+    "special_treatment": "",
+    "subject": "Language Discoveries",
+    "target_expression": "El signo de interrogación invertido se inventó en 1754",
+    "topic": "El signo de interrogación invertido se inventó en 1754",
+    "type": "fun_facts"
+  },
+  "script_text": "{\n  \"title\": \"Signo de Interrogación Invertido 1754\",\n  \"hook\": \"¿Sabías que el español es el único gran idioma del planeta que te avisa la entonación de una frase antes de que la leas?\",\n  \"setup\": \"Ese signo de interrogación invertido al inicio no nació por capricho. En mil setecientos cincuenta y cuatro la Real Academia Española recomendó usarlo por una razón práctica: el orden de las palabras en español es sumamente libre.\",\n  \"discovery\": \"A diferencia del inglés o el francés, una frase que afirma y una que pregunta pueden tener exactamente las mismas palabras en el mismo orden.\\nEn oraciones largas, quien leía en voz alta no sabía cómo modular el tono hasta toparse con el final.\",\n  \"payoff\": \"El signo de apertura fue la solución perfecta para preparar la voz.\\n¿Sueles escribirlo en tus mensajes diarios o lo dejas olvidado? ¡Cuéntamelo en los comentarios!\"\n}"
+}

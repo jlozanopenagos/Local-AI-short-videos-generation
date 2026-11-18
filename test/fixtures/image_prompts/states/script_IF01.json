@@ -1,0 +1,83 @@
+{
+  "assets": {
+    "general_prompt": "Medium shot, waist-up framing. Inside a historic Florentine artisan letterpress and bookbinding printshop, a tall slender teen boy with short textured dark hair in a forest-green knit cardigan and tailored trousers smiles in sudden realization, holding up an antique carved wooden typesetting block. Beside him across a worn walnut printing workbench, an expressive teen girl peer with wavy auburn hair in a cream linen blouse counts on her fingers with wide, delighted cartoon eyes, admiring a display of classic metal type sorts. Heavy cast-iron printing presses, drawer cabinets filled with wooden typeface glyphs, hanging drying parchment sheets, and arched stone windows create rich environmental depth under Mediterranean blue shadows, warm sunlit gold illumination, and soft ambient cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside a historic Florentine artisan letterpress and bookbinding printshop, a tall slender teen boy with short textured dark hair in a forest-green knit cardigan and tailored trousers smiles in sudden realization, holding up an antique carved wooden typesetting block. Beside him across a worn walnut printing workbench, an expressive teen girl peer with wavy auburn hair in a cream linen blouse counts on her fingers with wide, delighted cartoon eyes, admiring a display of classic metal type sorts. Heavy cast-iron printing presses, drawer cabinets filled with wooden typeface glyphs, hanging drying parchment sheets, and arched stone windows create rich environmental depth under Mediterranean blue shadows, warm sunlit gold illumination, and soft ambient cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Discoveries",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "Italian",
+    "learning_objective": "To learn that the Italian alphabet has only 21 letters and understand the history of certain letters.",
+    "related_content": [
+      "Storia della lingua italiana",
+      "Differenze tra alfabeti europei",
+      "Curiosità linguistiche"
+    ],
+    "script": {
+      "discovery": "Eppure oggi le vediamo ovunque, soprattutto nelle parole prese in prestito da altre lingue come jeans, taxi o yogurt.\nLa lettera gei ha persino una storia speciale. Si chiamava I lunga e veniva usata regolarmente nella scrittura antica per indicare certi suoni dolci o doppi, prima di essere messa da parte nel secolo scorso.",
+      "hook": "Sapevi che il vero alfabeto italiano possiede solo ventuno lettere? Sono ben cinque in meno rispetto a quello inglese o francese.",
+      "payoff": "L'alfabeto italiano ha semplicemente scelto la via più lineare e pulita.\nQuale parola con queste lettere straniere usi più spesso ogni giorno? Condividi nei commenti!",
+      "setup": "Le lettere gei, cappa, doppia vu, ics e ipsilon non appartengono all'alfabeto italiano tradizionale. Non le troverai mai nelle parole italiane nate dall'evoluzione naturale del latino.",
+      "title": "Il Segreto delle 21 Lettere Italiane"
+    },
+    "subcategory": "Alphabet History",
+    "target_expression": "L'alfabeto italiano ha soltanto 21 lettere",
+    "topic": "L'alfabeto italiano ha soltanto 21 lettere",
+    "video_type": "FUN_FACTS"
+  },
+  "id": "IF01",
+  "metadata": {
+    "DESCRIPTION": "Sapevi che l'alfabeto italiano possiede solo ventuno lettere? Scopri il segreto di come l'italiano ha eliminato lettere come J, K, W e X, e perché queste eccezioni sono diventate parte del nostro vocabolario. La storia della lettera gei ti sorprenderà! Qual è la parola straniera che usi di più? Dimmelo nei commenti. #Italiano #CuriositàLinguistiche",
+    "FILENAME": "italiano-alfabeto-21-lettere-curiosita.mp4",
+    "HASHTAGS": "#Italiano #LearnItalian #LinguaItaliana #Curiosità #LanguageFacts",
+    "LABEL": "Italian | Language | Curiosity | Knowledge",
+    "SHORT_DESCRIPTION": "Solo 21 lettere nell'alfabeto italiano. Scopri quali lettere sono state eliminate e la storia delle lettere preziose. #ItalianLearning #FunFacts",
+    "TAGS": "italiano, alfabeto italiano, lettere italiane, curiosità lingue, imparare italiano, vocabolario, lingua italiana, lingua straniera, gei, j k w x y",
+    "TITLE": "Il Segreto delle 21 Lettere Italiane"
+  },
+  "prompt_params": {
+    "ANGLE": "L'italiano ha bandito 5 lettere dal suo alfabeto e gli italiani non ne hanno mai sentito la mancanza!",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Curiosità & Sorpresa",
+    "EXPRESSION": "L'alfabeto italiano ha soltanto 21 lettere",
+    "FACT_DETAILS": "L'alfabeto italiano standard ha soltanto 21 lettere autoctone. Le lettere J, K, W, X e Y non fanno parte dell'alfabeto nativo e si usano solo nei prestiti linguistici come 'jeans', 'kiwi' o 'weekend'.",
+    "FORMAT": "ONE_BIG_CURIOSITY",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "L'italiano ha bandito 5 lettere dal suo alfabeto e gli italiani non ne hanno mai sentito la mancanza!",
+    "LANGUAGE": "italian",
+    "LEXICAL_FIELD": "",
+    "PILLAR": "LANGUAGE_CURIOSITIES",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "IF01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Language Discoveries",
+    "TARGET_EXPRESSION": "L'alfabeto italiano ha soltanto 21 lettere",
+    "TOPIC": "L'alfabeto italiano ha soltanto 21 lettere",
+    "TYPE": "fun_facts",
+    "angle": "L'italiano ha bandito 5 lettere dal suo alfabeto e gli italiani non ne hanno mai sentito la mancanza!",
+    "context": "",
+    "emotional_trigger": "Curiosità & Sorpresa",
+    "expression": "L'alfabeto italiano ha soltanto 21 lettere",
+    "fact_details": "L'alfabeto italiano standard ha soltanto 21 lettere autoctone. Le lettere J, K, W, X e Y non fanno parte dell'alfabeto nativo e si usano solo nei prestiti linguistici come 'jeans', 'kiwi' o 'weekend'.",
+    "format": "ONE_BIG_CURIOSITY",
+    "game_archetype": "",
+    "hook_angle": "L'italiano ha bandito 5 lettere dal suo alfabeto e gli italiani non ne hanno mai sentito la mancanza!",
+    "language": "italian",
+    "lexical_field": "",
+    "pillar": "LANGUAGE_CURIOSITIES",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "IF01",
+    "special_treatment": "",
+    "subject": "Language Discoveries",
+    "target_expression": "L'alfabeto italiano ha soltanto 21 lettere",
+    "topic": "L'alfabeto italiano ha soltanto 21 lettere",
+    "type": "fun_facts"
+  },
+  "script_text": "{\n  \"title\": \"Il Segreto delle 21 Lettere Italiane\",\n  \"hook\": \"Sapevi che il vero alfabeto italiano possiede solo ventuno lettere? Sono ben cinque in meno rispetto a quello inglese o francese.\",\n  \"setup\": \"Le lettere gei, cappa, doppia vu, ics e ipsilon non appartengono all'alfabeto italiano tradizionale. Non le troverai mai nelle parole italiane nate dall'evoluzione naturale del latino.\",\n  \"discovery\": \"Eppure oggi le vediamo ovunque, soprattutto nelle parole prese in prestito da altre lingue come jeans, taxi o yogurt.\\nLa lettera gei ha persino una storia speciale. Si chiamava I lunga e veniva usata regolarmente nella scrittura antica per indicare certi suoni dolci o doppi, prima di essere messa da parte nel secolo scorso.\",\n  \"payoff\": \"L'alfabeto italiano ha semplicemente scelto la via più lineare e pulita.\\nQuale parola con queste lettere straniere usi più spesso ogni giorno? Condividi nei commenti!\"\n}"
+}

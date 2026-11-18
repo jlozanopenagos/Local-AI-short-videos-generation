@@ -1,0 +1,90 @@
+{
+  "assets": {
+    "general_prompt": "Medium shot, waist-up framing. Inside an enchanting Parisian artisan toy and clockwork atelier, a tall slender teen boy with short textured dark hair in an indigo linen shirt gazes with comedic shock at a wooden cafe table where a whimsical, mechanical white clockwork bunny rabbit sits proudly beside an untouched tea cup. Beside him, an expressive teen girl with wavy crimson hair in an emerald-green knit sweater bursts into delighted, radiant laughter, pointing at the clockmakers whimsical bunny prank. Carved wooden shelves lined with vintage brass clocks, whimsical marionettes, velvet drapery, and tall paned windows showing Parisian streetlights create rich environmental depth under warm amber glow, French blue tones, and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside an enchanting Parisian artisan toy and clockwork atelier, a tall slender teen boy with short textured dark hair in an indigo linen shirt gazes with comedic shock at a wooden cafe table where a whimsical, mechanical white clockwork bunny rabbit sits proudly beside an untouched tea cup. Beside him, an expressive teen girl with wavy crimson hair in an emerald-green knit sweater bursts into delighted, radiant laughter, pointing at the clockmakers whimsical bunny prank. Carved wooden shelves lined with vintage brass clocks, whimsical marionettes, velvet drapery, and tall paned windows showing Parisian streetlights create rich environmental depth under warm amber glow, French blue tones, and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Expressions idiomatiques",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "French",
+    "learning_objective": "Apprendre à utiliser l'expression 'poser un lapin' pour parler de quelqu'un qui ne vient pas à un rendez-vous de manière décontractée.",
+    "related_content": [
+      "Expressions de langage",
+      "Anglais vs Français",
+      "Langue de rue"
+    ],
+    "script": {
+      "discovery": "'Poser un lapin' est l'expression parfaite. Elle montre que tu es décontracté, pas juste fâché.",
+      "example": "Dis juste : 'Il a posé un lapin, c'est pas grave, on se cale un autre truc.'",
+      "hook": "Tu as un rendez-vous et ton pote n'arrive pas ? Arrête de dire 'il n'est pas venu' !",
+      "payoff": "À ton tour  -  utilise cette expression dans une phrase en commentaire !",
+      "setup": "La phrase est correcte, mais elle manque de punch. Les natifs utilisent des expressions plus cool pour parler de cette déception.",
+      "title": "Poser un Lapin Le Secret Français"
+    },
+    "speakers_gender": {
+      "Narrator": "male"
+    },
+    "speakers_voice": {
+      "Narrator": "french_male_kokoro_golden_baritone.wav"
+    },
+    "subcategory": "Rendez-vous et relations",
+    "target_expression": "Poser un lapin",
+    "topic": "Poser un lapin",
+    "video_type": "EXPRESSION"
+  },
+  "id": "FE01",
+  "metadata": {
+    "DESCRIPTION": "Tu as un rendez-vous et ton pote n'arrive pas ? Arrête de dire 'il n'est pas venu' ! Apprends à utiliser l'expression 'poser un lapin' pour paraître décontracté et éviter les malentendus. Découvrez pourquoi ce phrasé est bien plus percutant que la phrase classique. Utilise-la dans tes prochains messages et commente avec ta phrase préférée ! #LearnFrench #ExpressionsFrançaises #ParlerMieux #Idiomes",
+    "FILENAME": "french-expressions-poser-un-lapin-rendez-vous-context.mp4",
+    "HASHTAGS": "#LearnFrench #ExpressionsFrançaises #ParlerMieux #Idiomes #FrenchLearning",
+    "LABEL": "French | Expressions idiomatiques | Relations | Pragmatics",
+    "SHORT_DESCRIPTION": "Arrête de dire 'il n'est pas venu'. Utilise 'poser un lapin' pour être plus cool. Apprends cette expression essentielle pour tes rendez-vous. #FrenchTips #LangueFrançaise",
+    "TAGS": "french, poser un lapin, expressions idiomatiques, apprendre le français, langage français, relation, parler français, vocabulaire français, poser un lapin explication, idiomatique",
+    "TITLE": "Poser un Lapin Le Secret Français"
+  },
+  "prompt_params": {
+    "ANGLE": "Pourquoi laisser un lapin est devenu synonyme de faux bond",
+    "CONTEXT": "Ne pas venir à un rendez-vous convenu sans prévenir",
+    "EMOTIONAL_TRIGGER": "Surprise & Humour",
+    "EXPRESSION": "Poser un lapin",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "Pourquoi laisser un lapin est devenu synonyme de faux bond",
+    "LANGUAGE": "french",
+    "LEXICAL_FIELD": "Rendez-vous et relations",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "FE01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Expressions idiomatiques françaises",
+    "TARGET_EXPRESSION": "Poser un lapin",
+    "TOPIC": "Poser un lapin",
+    "TYPE": "expression",
+    "angle": "Pourquoi laisser un lapin est devenu synonyme de faux bond",
+    "context": "Ne pas venir à un rendez-vous convenu sans prévenir",
+    "emotional_trigger": "Surprise & Humour",
+    "expression": "Poser un lapin",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "Pourquoi laisser un lapin est devenu synonyme de faux bond",
+    "language": "french",
+    "lexical_field": "Rendez-vous et relations",
+    "pillar": "",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "FE01",
+    "special_treatment": "",
+    "subject": "Expressions idiomatiques françaises",
+    "target_expression": "Poser un lapin",
+    "topic": "Poser un lapin",
+    "type": "expression"
+  },
+  "script_text": "{\n  \"title\": \"Poser un Lapin Le Secret Français\",\n  \"hook\": \"Tu as un rendez-vous et ton pote n'arrive pas ? Arrête de dire 'il n'est pas venu' !\",\n  \"setup\": \"La phrase est correcte, mais elle manque de punch. Les natifs utilisent des expressions plus cool pour parler de cette déception.\",\n  \"discovery\": \"'Poser un lapin' est l'expression parfaite. Elle montre que tu es décontracté, pas juste fâché.\",\n  \"example\": \"Dis juste : 'Il a posé un lapin, c'est pas grave, on se cale un autre truc.'\",\n  \"payoff\": \"À ton tour  -  utilise cette expression dans une phrase en commentaire !\"\n}"
+}

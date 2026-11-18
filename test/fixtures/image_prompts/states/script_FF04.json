@@ -1,0 +1,89 @@
+{
+  "assets": {
+    "general_prompt": "Medium shot, waist-up framing. Inside an atmospheric stone alchemy tower lab, an expressive teen girl witch with dark wavy hair in an elegant ponytail, wearing an emerald-green hooded velvet robe, carefully measures sparkling potion drops from an ornate glass dropper into a bubbling cast-iron cauldron with a radiant smile of sudden clarity. Beside her, a teen boy magician peer with light brown hair, dressed in a rich burgundy embroidered vest over a rolled-sleeve tunic, stirs the glowing emerald brew with an ancient carved wooden ladle, his eyes wide in surprised amusement. Weathered stone arches, towering timber shelves cluttered with corked elixir vials, hanging dried magical herbs, and a glowing brass alembic create deep environmental depth under warm golden ambient glow, deep teal shadows, and vibrant magical luminescence. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside an atmospheric stone alchemy tower lab, an expressive teen girl witch with dark wavy hair in an elegant ponytail, wearing an emerald-green hooded velvet robe, carefully measures sparkling potion drops from an ornate glass dropper into a bubbling cast-iron cauldron with a radiant smile of sudden clarity. Beside her, a teen boy magician peer with light brown hair, dressed in a rich burgundy embroidered vest over a rolled-sleeve tunic, stirs the glowing emerald brew with an ancient carved wooden ladle, his eyes wide in surprised amusement. Weathered stone arches, towering timber shelves cluttered with corked elixir vials, hanging dried magical herbs, and a glowing brass alembic create deep environmental depth under warm golden ambient glow, deep teal shadows, and vibrant magical luminescence. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "French",
+    "learning_objective": "To understand the linguistic phenomenon where different words share the exact same pronunciation in French and learn the secret behind it.",
+    "related_content": [
+      "French pronunciation tips",
+      "French et anglais sound similarities",
+      "French grammar secrets"
+    ],
+    "script": {
+      "discovery": "Prononcez simplement le mot vert. Vous venez de dire au moins cinq mots complètement différents.\nIl y a le ver de terre. Le verre pour boire. La couleur vert. Le mot vers pour la direction. Et même le vers de poésie.\nCinq sens pour un son strictement identique.\nComment cela est possible ? Au fil du temps, les Français ont arrêté de prononcer les consonnes finales. Mais l'orthographe a conservé ces lettres muettes pour garder la trace des origines latines et faciliter la lecture.\nC'est ce qui permet d'inventer cette fameuse phrase.",
+      "hook": "Le français est sans doute la seule langue capable de créer ce piège auditif parfait.",
+      "payoff": "Un ver vert va vers un verre vert.\nPouvez-vous l'écrire sans regarder ? Prouvez-le en commentaire !",
+      "setup": "Vous avez déjà remarqué ce piège auditif de la langue française ?",
+      "title": "Quatre mots français avec le même son"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "french_female_kokoro_golden_char2.wav"
+    },
+    "subcategory": "Pronunciation Curiosities",
+    "target_expression": "4 mots français qui se prononcent exactement pareil",
+    "topic": "4 mots français qui se prononcent exactement pareil",
+    "video_type": "FUN_FACTS"
+  },
+  "id": "FF04",
+  "metadata": {
+    "DESCRIPTION": "Vous avez déjà remarqué ce piège auditif ? Découvrez 4 mots français comme ver, verre, vers et vert qui se prononcent exactement de la même manière (/vɛʁ/). C'est fascinant ! Apprenez à décoder ces nuances avec cette astuce linguistique. Quel mot vous surprend le plus ? Dites-le nous en commentaire ! #apprentissagefrançais #prononciation #faitscurieux",
+    "FILENAME": "french-prononciation-4-mots-exactement-pareils.mp4",
+    "HASHTAGS": "#french #learnfrench #prononciation #françaisfacile #languagelearning",
+    "LABEL": "French | Pronunciation | Phonetics | Listening Comprehension",
+    "SHORT_DESCRIPTION": "4 mots français qui se prononcent exactement pareil ! Découvrez le secret des consonnes finales muettes. #french #phonetics #learnfrench",
+    "TAGS": "french, français, prononciation française, apprendre le français, ver, verre, vers, vert, phonétique, français facile, mots français, apprendre le français, étranger en français",
+    "TITLE": "Quatre mots français avec le même son"
+  },
+  "prompt_params": {
+    "ANGLE": "4 mots français complètement différents qui se prononcent exactement de la même manière : comment font les natifs pour se comprendre ?",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Humour & Incrédulité",
+    "EXPRESSION": "4 mots français qui se prononcent exactement pareil",
+    "FACT_DETAILS": "Ver (l'animal), Verre (pour boire), Vers (en direction de ou poésie) et Vert (la couleur) se prononcent tous de façon 100% identique /vɛʁ/ malgré des étymologies et orthographes totalement différentes.",
+    "FORMAT": "3_FACTS",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "4 mots français complètement différents qui se prononcent exactement de la même manière : comment font les natifs pour se comprendre ?",
+    "LANGUAGE": "french",
+    "LEXICAL_FIELD": "",
+    "PILLAR": "PRONUNCIATION_CURIOSITIES",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "FF04",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Language Learning",
+    "TARGET_EXPRESSION": "4 mots français qui se prononcent exactement pareil",
+    "TOPIC": "4 mots français qui se prononcent exactement pareil",
+    "TYPE": "fun_facts",
+    "angle": "4 mots français complètement différents qui se prononcent exactement de la même manière : comment font les natifs pour se comprendre ?",
+    "context": "",
+    "emotional_trigger": "Humour & Incrédulité",
+    "expression": "4 mots français qui se prononcent exactement pareil",
+    "fact_details": "Ver (l'animal), Verre (pour boire), Vers (en direction de ou poésie) et Vert (la couleur) se prononcent tous de façon 100% identique /vɛʁ/ malgré des étymologies et orthographes totalement différentes.",
+    "format": "3_FACTS",
+    "game_archetype": "",
+    "hook_angle": "4 mots français complètement différents qui se prononcent exactement de la même manière : comment font les natifs pour se comprendre ?",
+    "language": "french",
+    "lexical_field": "",
+    "pillar": "PRONUNCIATION_CURIOSITIES",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "FF04",
+    "special_treatment": "",
+    "subject": "Language Learning",
+    "target_expression": "4 mots français qui se prononcent exactement pareil",
+    "topic": "4 mots français qui se prononcent exactement pareil",
+    "type": "fun_facts"
+  },
+  "script_text": "{\n  \"title\": \"Quatre mots français avec le même son\",\n  \"hook\": \"Le français est sans doute la seule langue capable de créer ce piège auditif parfait.\",\n  \"setup\": \"Vous avez déjà remarqué ce piège auditif de la langue française ?\",\n  \"discovery\": \"Prononcez simplement le mot vert. Vous venez de dire au moins cinq mots complètement différents.\\nIl y a le ver de terre. Le verre pour boire. La couleur vert. Le mot vers pour la direction. Et même le vers de poésie.\\nCinq sens pour un son strictement identique.\\nComment cela est possible ? Au fil du temps, les Français ont arrêté de prononcer les consonnes finales. Mais l'orthographe a conservé ces lettres muettes pour garder la trace des origines latines et faciliter la lecture.\\nC'est ce qui permet d'inventer cette fameuse phrase.\",\n  \"payoff\": \"Un ver vert va vers un verre vert.\\nPouvez-vous l'écrire sans regarder ? Prouvez-le en commentaire !\"\n}"
+}

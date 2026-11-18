@@ -1,0 +1,92 @@
+{
+  "assets": {
+    "general_prompt": "Vibrant, cinematic 2D cartoon narrative illustration style. The scene is a sunlit, expansive modern apartment living room seamlessly blending a creative study nook. Architectural details include a minimalist wooden study desk with a sleek monitor, a plush conversation lounge area, and overflowing bookshelves filled with colorful volumes. Indoor botanical plants hang from the ceiling, casting soft, warm cast shadows. The color palette is vibrant and saturated, featuring bright blues, warm yellows, and rich greens. Protagonist (Left): A tall, slender high-school boy (approx. 16), with short textured dark hair and clean tapered sides with a neat side-part. He wears a stylish, deep emerald green fitted linen shirt and dark charcoal trousers. Companion (Right): A female peer with long, flowing copper-red hair and bright, tailored lavender overalls worn over a white graphic tee. Staging & Props: The boy stands on the left, holding a large, ornate, gold-framed display case containing a ridiculously oversized, glowing, jewel-encrusted antique watch, visually representing something that costs a fortune. The companion stands on the right, pointing toward the display case with an expression of mock shock. Scattered around them are scattered receipts, high-end shopping bags, and a stylized, glowing digital clock emphasizing the concept of time/cost. The atmosphere is energetic and fun, with large cartoon eyes, visible sclera, and bright specular highlights throughout. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Vibrant, cinematic 2D cartoon narrative illustration style. The scene is a sunlit, expansive modern apartment living room seamlessly blending a creative study nook. Architectural details include a minimalist wooden study desk with a sleek monitor, a plush conversation lounge area, and overflowing bookshelves filled with colorful volumes. Indoor botanical plants hang from the ceiling, casting soft, warm cast shadows. The color palette is vibrant and saturated, featuring bright blues, warm yellows, and rich greens. Protagonist (Left): A tall, slender high-school boy (approx. 16), with short textured dark hair and clean tapered sides with a neat side-part. He wears a stylish, deep emerald green fitted linen shirt and dark charcoal trousers. Companion (Right): A female peer with long, flowing copper-red hair and bright, tailored lavender overalls worn over a white graphic tee. Staging & Props: The boy stands on the left, holding a large, ornate, gold-framed display case containing a ridiculously oversized, glowing, jewel-encrusted antique watch, visually representing something that costs a fortune. The companion stands on the right, pointing toward the display case with an expression of mock shock. Scattered around them are scattered receipts, high-end shopping bags, and a stylized, glowing digital clock emphasizing the concept of time/cost. The atmosphere is energetic and fun, with large cartoon eyes, visible sclera, and bright specular highlights throughout. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "chalkboard_exercise": "¿Qué significa realmente la popular frase costar un ojo de la cara?\nA: Exigir un gran esfuerzo físico.\nB: Ser extremadamente caro.\nC: Tomar demasiado tiempo.",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "game_archetype": "ODD_ONE_OUT",
+    "language": "Spanish",
+    "learning_objective": "To understand and correctly use the Spanish idiom 'costar un ojo de la cara' in context.",
+    "related_content": [
+      "Spanish Idioms for Money",
+      "Advanced Spanish Vocabulary",
+      "Costar un ojo de la cara vs. Costar mucho"
+    ],
+    "script": {
+      "answer": "¡La respuesta correcta es la B: Ser extremadamente caro!",
+      "challenge": "¿Qué significa realmente la popular frase costar un ojo de la cara? A: Exigir un gran esfuerzo físico.  B: Ser extremadamente caro.  C: Tomar demasiado tiempo.",
+      "explanation": "Se cuenta que el conquistador Diego de Almagro perdió un ojo en batalla y afirmó que defender sus intereses le costó literalmente un ojo de la cara.\n\n¿En tu país qué dirías que cuesta un ojo de la cara? ¡Cuéntamelo abajo!",
+      "hook": "¡Atención a este reto exprés! ¿Qué tan bueno es tu vocabulario en español?",
+      "pressure": "¡El reloj no perdona! Tres, dos, uno, ¡tiempo fuera!",
+      "title": "Costar Un Ojo De La Cara"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "spanish_female_kokoro_golden_mezzo.wav"
+    },
+    "subcategory": "Idioms and Slang",
+    "target_expression": "Costar un ojo de la cara",
+    "topic": "Costar un ojo de la cara",
+    "video_type": "GAME"
+  },
+  "id": "SG01",
+  "metadata": {
+    "DESCRIPTION": "Aprender modismos es divertido. ¿Sabes qué significa realmente 'costar un ojo de la cara'? En este reto exprés descubrir el significado de esta expresión popular sobre precios altos. ¡Practica tu vocabulario y mejora tu español! Cuéntame en los comentarios qué otra frase te gustaría aprender. #AprenderEspañol #VocabularioEspañol #IdiomsEnEspañol #CostarUnOjoDeLaCara",
+    "FILENAME": "spanish-modismos-costar-un-ojo-de-la-cara-game.mp4",
+    "HASHTAGS": "#AprenderEspañol #VocabularioEspañol #CostarUnOjoDeLaCara #IdiomsEnEspañol",
+    "LABEL": "Spanish | Modismos populares en español | Describir algo que tiene un precio excesivamente alto | Vocabulario",
+    "SHORT_DESCRIPTION": "Descubre qué significa 'costar un ojo de la cara' en este reto de vocabulario. ¡Practica y aprende! #SpanishLearning #Idioms",
+    "TAGS": "español, costar un ojo de la cara, modismos en español, vocabulario español, aprender español, frases en español, compras, expresiones populares, idioma español, aprender español fácil",
+    "TITLE": "Costar Un Ojo De La Cara"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "Describir algo que tiene un precio excesivamente alto",
+    "EMOTIONAL_TRIGGER": "Curiosity & Surprise",
+    "EXPRESSION": "Costar un ojo de la cara",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "ODD_ONE_OUT",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "spanish",
+    "LEXICAL_FIELD": "Compras y dinero",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "SG01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Modismos populares en español",
+    "TARGET_EXPRESSION": "Costar un ojo de la cara",
+    "TOPIC": "Costar un ojo de la cara",
+    "TYPE": "game",
+    "angle": "",
+    "context": "Describir algo que tiene un precio excesivamente alto",
+    "emotional_trigger": "Curiosity & Surprise",
+    "expression": "Costar un ojo de la cara",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "ODD_ONE_OUT",
+    "hook_angle": "",
+    "language": "spanish",
+    "lexical_field": "Compras y dinero",
+    "pillar": "",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "SG01",
+    "special_treatment": "",
+    "subject": "Modismos populares en español",
+    "target_expression": "Costar un ojo de la cara",
+    "topic": "Costar un ojo de la cara",
+    "type": "game"
+  },
+  "script_text": "{\n  \"title\": \"Costar Un Ojo De La Cara\",\n  \"hook\": \"¡Atención a este reto exprés! ¿Qué tan bueno es tu vocabulario en español?\",\n  \"challenge\": \"¿Qué significa realmente la popular frase costar un ojo de la cara? A: Exigir un gran esfuerzo físico.  B: Ser extremadamente caro.  C: Tomar demasiado tiempo.\",\n  \"pressure\": \"¡El reloj no perdona! Tres, dos, uno, ¡tiempo fuera!\",\n  \"answer\": \"¡La respuesta correcta es la B: Ser extremadamente caro!\",\n  \"explanation\": \"Se cuenta que el conquistador Diego de Almagro perdió un ojo en batalla y afirmó que defender sus intereses le costó literalmente un ojo de la cara.\\n\\n¿En tu país qué dirías que cuesta un ojo de la cara? ¡Cuéntamelo abajo!\"\n}"
+}
