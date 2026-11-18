@@ -221,152 +221,12 @@ def _build_user_context(
     p2_g = p2_word.upper()
 
     # ── Video-Type Specific Situational Directions ───────────────────────────
-    profile = get_visual_profile(video_type_upper)
+    profile = get_visual_profile(video_type_upper) or get_visual_profile("EXPRESSION")
     if profile is not None:
         text_rule = profile.build_single_scene_goal(scene_lower, p1_word, p2_word)
-    elif video_type_upper == "GAME":
-        if scene_lower == "hook":
-            text_rule = (
-                "SCENE GOAL — HOOK (THE FRONTAL DILEMMA):\n"
-                "1. CAMERA & STAGING: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo 16yo student protagonist has a natural healthy athletic build and is centered, weighing two choices with engaging personality (solo character, no companion in hook).\n"
-                "2. FOURTH-WALL GAZE: 100% DIRECT FOURTH-WALL EYE CONTACT WITH THE CAMERA LENS! The protagonist looks straight into the camera at the viewer, breaking the fourth wall to confront the audience with the quiz dilemma!\n"
-                "3. EXPRESSIVE ACTING: Lively animated dilemma face with an amused raised eyebrow, slight thinking dilemma smirk, head tilted inquisitively, and warm expressive cartoon eyes full of life and spark (NEVER wide bug eyes, NEVER unexpressive deadpan stare).\n"
-                "4. Relatable, lively real-life environment matching the locked anchor setting. Do NOT place them in a school, classroom, or generic cafe.\n"
-                "5. ZERO-TOLERANCE TEXT & SCREEN BAN: Do NOT depict chalkboards, whiteboards, screens, tablets, smartphones showing text/options, quiz cards, buzzers, podiums, or countdown timers. Focus 100% on the human character dilemma and authentic setting."
-            )
-        elif scene_lower == "answer":
-            text_rule = (
-                "SCENE GOAL — ANSWER (THE ASYMMETRICAL BREAKTHROUGH):\n"
-                "1. CAMERA & STAGING: Dynamic 3/4 asymmetrical medium action shot with forward kinetic momentum. The character breaks free from the dilemma with radiant eureka relief, joyful smile, and forward momentum in the authentic setting!\n"
-                "2. The character visibly displays confident triumph, a joyful smile, or a thumbs-up gesture, joyfully holding or gesturing toward the correct choice.\n"
-                "3. ZERO-TOLERANCE TEXT & SCREEN BAN: Do NOT depict success screens, monitors, scoreboards, chalkboards, or digital displays. Focus 100% on the human emotional celebration."
-            )
-        elif scene_lower == "explanation":
-            text_rule = (
-                "SCENE GOAL — EXPLANATION (REAL-WORLD APPLICATION):\n"
-                "1. CAMERA & STAGING: Real-world narrative medium-wide shot (35mm wide lens) showing native speakers naturally and smoothly using the target expression in the authentic real-world setting.\n"
-                "2. FOURTH-WALL GAZE: STRICTLY 0% EYE CONTACT WITH THE CAMERA! 100% in-scene narrative immersion (looking at the environment, peers, or task).\n"
-                "3. Natural body language, warm communicative atmosphere, and engaging social interaction demonstrating practical usage.\n"
-                "4. ZERO-TOLERANCE TEXT & SCREEN BAN: NO text, NO chalkboards, NO screens, NO tablets, NO signs anywhere in the image."
-            )
-        else:
-            text_rule = (
-                "SCENE GOAL — 2D CARTOON SCENE:\n"
-                "1. Illustrate the real-life situation cleanly and expressively in modern 2D cartoon animation style.\n"
-                "2. ZERO-TOLERANCE TEXT & SCREEN BAN: NO text, NO chalkboards, NO screens, NO UI. Focus 100% on characters, environment, and visual storytelling."
-            )
-
-    elif video_type_upper in ["FUN_FACTS", "FUNFACTS", "FUNFACT"]:
-        text_rule = (
-            "SCENE GOAL — FUN_FACTS (THE SCALE OF WONDER):\n"
-            "1. CAMERA & STAGING: Dramatic low-angle heroic 24mm wide shot looking up from low elevation. The 15yo student protagonist is framed in the lower third, tilting their head upward in jaw-dropped awe at an imposing, towering cultural anomaly, ancient clockwork, or historic marvel.\n"
-            "2. FOURTH-WALL GAZE: The character does NOT look at the camera; their eyes are locked upward on the central wonder/artifact in fascination.\n"
-            "3. LIGHTING: Volumetric lighting shafts or golden hour beams cutting through atmospheric haze, creating monumental scale contrast.\n"
-            "4. Visually depict the authentic historical era, cultural setting, or physical origin of the phrase or fact.\n"
-            "5. TEXT IS STRICTLY BANNED: NO words, letters, signs, chalkboards, or whiteboards."
-        )
-
-    elif video_type_upper == "ROLEPLAY":
-        shot_direction = ""
-        if scene_lower == "hook":
-            shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — SCENARIO THRESHOLD TWO-SHOT (35mm LENS): "
-                f"Dynamic 3/4 over-the-shoulder (OTS) diagonal shot crossing a physical threshold (archway, curtain edge, counter, or doorway). "
-                f"Both characters are visible in frame with explicit genders (PERSON_ONE as {p1_g}, PERSON_TWO as {p2_g}). "
-                f"STRICTLY ZERO FOURTH-WALL EYE CONTACT: Characters lock eyes exclusively with each other in pre-performance tension. "
-                f"Directional side-key lighting, dramatic chiaroscuro shadows across the authentic setting."
-            )
-        elif scene_lower in ["dialogue_part_1", "part_1"]:
-            shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — SOLO MEDIUM CLOSE-UP ON PERSON_ONE (85mm PORTRAIT LENS): "
-                f"Single-character solo medium close-up shot focused ENTIRELY on PERSON_ONE ({p1_g}). "
-                f"Dramatic key lighting, shallow depth of field with softly blurred background. "
-                f"Highlighting their intense facial acting, nervous or questioning body language, and opening dilemma. "
-                f"PERSON_TWO is strictly off-camera / NOT visible in this frame."
-            )
-        elif scene_lower in ["dialogue_part_2", "part_2"]:
-            shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — SOLO 180° REVERSE-ANGLE ON PERSON_TWO (85mm PORTRAIT LENS): "
-                f"Dramatic 180° reverse-angle camera switch! Single-character solo medium close-up focused ENTIRELY on PERSON_TWO ({p2_g}). "
-                f"Warm fill light, shallow depth of field. Highlighting their calm, confident, reassuring facial expression, "
-                f"smirking or gesturing smoothly as they mentor and articulate the explanation. "
-                f"PERSON_ONE is strictly off-camera / NOT visible in this frame."
-            )
-        elif scene_lower in ["dialogue_part_3", "part_3"]:
-            shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — 90° SIDE PROFILE / TOP-DOWN TWO-SHOT PROP INTERACTION (50mm LENS): "
-                f"Camera shifts 90° to a dynamic side profile or high-angle table overview! "
-                f"Both characters (one {p1_g} and one {p2_g}) are visible actively examining or interacting with an authentic physical prop "
-                f"(pointing to details, examining an item, interacting with objects on table/counter). "
-                f"This breaks the solo close-up sequence with collaborative environmental interaction."
-            )
-        elif scene_lower in ["dialogue_part_4", "part_4"]:
-            shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — SOLO WAIST-UP DYNAMIC ACTION ON PERSON_ONE (28mm/50mm LENS): "
-                f"Single-character solo waist-up dynamic action shot focused ENTIRELY on PERSON_ONE ({p1_g}). "
-                f"Completely different camera distance, body posture, and scale from the tight close-up in Part 1! "
-                f"Medium-wide framing capturing PERSON_ONE standing or gesturing with clarity and newfound confidence! "
-                f"PERSON_TWO is strictly off-camera / NOT visible in this frame."
-            )
-        elif scene_lower in ["payoff", "resolution"]:
-            shot_direction = (
-                f"\n6. CINEMATIC SHOT VARIATION — CELEBRATORY TRIUMPH TWO-SHOT (28mm WIDE CINEMATIC LENS): "
-                f"Dynamic celebratory two-shot in motion! Both characters (one {p1_g} and one {p2_g}) "
-                f"celebrate success with dynamic movement and dramatic stage backlighting (high-five, walking triumphantly into the event/stage together)."
-            )
-
-        text_rule = (
-            "SCENE GOAL — ROLEPLAY CONVERSATIONAL SCENARIO:\n"
-            "1. Visually represent the EXACT REAL-WORLD SCENARIO described in the script (e.g. bakery counter, airport baggage claim, taxi cab, restaurant table, train station, doctor's office). Do NOT place characters in a classroom or school UNLESS the scenario is explicitly a school setting.\n"
-            f"2. GENDER MATCHING & MULTI-CHARACTER RULE (CRITICAL): This is a two-person roleplay. You MUST explicitly describe the physical characters in the scene using the EXACT genders provided: PERSON_ONE is {p1_g} and PERSON_TWO is {p2_g}. If both characters appear in the image, NEVER use generic words like 'two teens' or 'the characters' without specifying their individual sex!\n"
-            "3. EMOTIONAL ACTING & FACIAL EXPRESSIONS (CRITICAL): Characters MUST visibly display the emotions of this scene in their facial expressions and body language (e.g. nervous anxiety, friendly open gesture, amused smile, shock). Characters must look emotionally alive!\n"
-            "4. TEXT IS STRICTLY BANNED: NO words, letters, signs, chalkboards, or screens."
-            + shot_direction
-        )
-
     else:
-        # Default / EXPRESSION (and Idioms, Vocabulary, Pronunciation)
-        base_rule = (
-            "SCENE GOAL — REAL-WORLD SITUATIONAL STORYTELLING:\n"
-            "1. AUTHENTIC SITUATION ONLY: Visually represent the ACTUAL REAL-WORLD SITUATION described in the script. Do NOT place characters in a classroom, school, or presentation studio.\n"
-            "2. REAL HUMAN CHARACTERS: Depict everyday characters experiencing the situation with genuine emotions, expressive faces, and natural body language.\n"
-            "3. TEXT IS STRICTLY BANNED: NO written text, letters, words, captions, logos, chalkboards, whiteboards, or screens anywhere in the image. Focus 100% on characters and environmental storytelling."
-        )
-
-        if scene_lower == "hook":
-            scene_specific = (
-                "\n4. HOOK (THE INSIDER GUIDE — LAYERED DEPTH):\n"
-                "CAMERA & COMPOSITION: Angled foreground-and-background depth composition with a 35mm cinematic lens (Rule of Thirds). "
-                "In the foreground left or right occupying 35-40% of the frame, the 15yo student protagonist turns 3/4 toward the viewer with an engaging, playful knowing smile and natural relaxed cartoon eyes, sharing an insider secret with friendly confidence (subtle amused smirk, lively spark in the eyes, NEVER bulging or wide bug eyes) breaking the fourth wall. "
-                "In the luminous midground and deep background (60%), the authentic story setting extends in rich perspective, showcasing the oversized thematic visual metaphor in atmospheric ambient lighting. "
-                "Zero text, zero speech bubbles, zero signs with words."
-            )
-        elif scene_lower == "setup":
-            scene_specific = (
-                "\n4. SETUP (SOCIAL CONTEXT & CONTRAST):\n"
-                "Depict the social friction, contrasting expectations, or conversational exchange between characters in a collaborative micro-zone. Two-shot or over-the-shoulder shot with expressive body language highlighting the misunderstanding, contrast, or tricky distinction."
-            )
-        elif scene_lower == "discovery":
-            scene_specific = (
-                "\n4. DISCOVERY (THE BREAKTHROUGH / TURNING POINT MOMENT):\n"
-                "Show the breakthrough moment of realization happening naturally at a demonstration workbench or discovery station! Medium action shot: a companion or friend introduces the key insight or native touch, sparking a radiant smile of sudden clarity, relief, or confident realization on the character's face."
-            )
-        elif scene_lower == "example":
-            scene_specific = (
-                "\n4. EXAMPLE (REAL-WORLD USAGE MOMENT IN FULL ACTION):\n"
-                "This scene visually captures the real-world example phrase in active motion! Dynamic wide or active motion shot showing the characters actively living out the specific example sentence in the story environment with believable, dynamic body language. Illustrate the specific physical verb/action from the narration!"
-            )
-        elif scene_lower == "payoff":
-            scene_specific = (
-                "\n4. PAYOFF (CONFIDENT REAL-WORLD RESOLUTION):\n"
-                "Show triumphant mastery, confident relief, or warm shared celebration in the celebration lounge or exit area. Medium close-up or celebratory shot: characters radiate success, comfort, and natural confidence."
-            )
-        else:
-            scene_specific = (
-                "\n4. VIBRANT NARRATIVE MOMENT: Illustrate the specific real-life action and emotion described in the scene text cleanly and expressively within the story setting."
-            )
-
-        text_rule = base_rule + scene_specific
+        from ..visual.types.expression.profile import ExpressionVisualProfile
+        text_rule = ExpressionVisualProfile().build_single_scene_goal(scene_lower, p1_word, p2_word)
 
     anti_rep_context = ""
     if existing_scene_prompts:
@@ -515,77 +375,12 @@ def _build_storyboard_context(
     scenes_block = "\n".join(formatted_scenes)
 
     video_type_upper = video_type.strip().upper()
-    profile = get_visual_profile(video_type_upper)
+    profile = get_visual_profile(video_type_upper) or get_visual_profile("EXPRESSION")
     if profile is not None:
         director_task = profile.build_storyboard_director_task(p1_word, p2_word)
-    elif video_type_upper == "ROLEPLAY":
-        p1_word = char_anchors.get("gender_word1") or ("girl" if char_anchors.get("p1_is_female") else "boy")
-        p2_word = char_anchors.get("gender_word2") or ("girl" if char_anchors.get("p2_is_female") else "boy")
-        p1 = p1_word.upper()
-        p2 = p2_word.upper()
-        director_task = (
-            f"DIRECTOR'S ROLEPLAY STORYBOARD TASK (6-BEAT CINEMATIC PROGRESSION):\n"
-            f"Transform this two-character roleplay dialogue into a dynamic, 6-scene visual storyboard between PERSON_ONE ({p1}) and PERSON_TWO ({p2}).\n\n"
-            f"CRITICAL DIRECTIVES FOR CINEMATIC COVERAGE & ZERO REPETITION (MANDATORY):\n"
-            f"To guarantee that no two images ever look like copies of each other, you MUST strictly follow this shot-by-shot coverage and camera matrix:\n\n"
-            f"1. SCENE-BY-SCENE SUBJECT & CAMERA MATRIX (STRICTLY ENFORCED):\n"
-            f"   - HOOK [ESTABLISHING TWO-SHOT (35mm LENS)]: Both characters in frame. Medium-wide 35mm establishing shot setting up the opening dilemma, spatial relationship, and environment. Both {p1_word} and {p2_word} are visible engaged in dialogue across the table, counter, or threshold. STRICTLY ZERO FOURTH-WALL EYE CONTACT.\n"
-            f"   - DIALOGUE_PART_1 [SOLO TIGHT CLOSE-UP ON PERSON_ONE (85mm LENS)]: ONLY PERSON_ONE ({p1_word}) is in frame. 85mm portrait lens, shallow depth of field, dramatic key lighting, chest-up tight framing. Expressive facial acting showing opening questioning or dilemma. PERSON_TWO is strictly off-camera!\n"
-            f"   - DIALOGUE_PART_2 [SOLO 180° REVERSE-ANGLE CLOSE-UP ON PERSON_TWO (85mm LENS)]: ONLY PERSON_TWO ({p2_word}) is in frame. 180° reverse-angle 85mm portrait lens, chest-up medium close-up, warm fill light. Focus entirely on PERSON_TWO's calm, reassuring expression as they mentor and explain. PERSON_ONE is strictly off-camera!\n"
-            f"   - DIALOGUE_PART_3 [90° SIDE PROFILE / TOP-DOWN TWO-SHOT PROP INTERACTION (50mm LENS)]: Both characters in frame! Camera shifts 90° to a dynamic side profile or high-angle table overview. Both {p1_word} and {p2_word} are visible actively examining or manipulating an authentic physical prop (menu, map, book, tool, coffee cup, document with cartoon doodles). NOT another solo close-up!\n"
-            f"   - DIALOGUE_PART_4 [SOLO WAIST-UP DYNAMIC ACTION ON PERSON_ONE (28mm/50mm LENS)]: ONLY PERSON_ONE ({p1_word}) is in frame. Completely different camera distance and physical stance from Part 1: waist-up medium-wide framing showing {p1_word} standing or gesturing dynamically with clarity and confidence. PERSON_TWO is strictly off-camera!\n"
-            f"   - PAYOFF [CELEBRATORY ACTION TWO-SHOT (28mm LENS)]: Both characters in dynamic motion. 28mm wide cinematic lens, dramatic backlighting, shared celebratory mastery.\n\n"
-            f"2. ZERO-AMBIGUITY CHARACTER DESCRIPTION & CONTINUITY:\n"
-            f"   - For solo shots (dialogue_part_1, dialogue_part_2, dialogue_part_4): Explicitly describe ONLY the single featured character with their locked traits. State: 'Single character solo shot. The other character is off-camera.'\n"
-            f"   - For two-shots (hook, dialogue_part_3, payoff): Explicitly specify the sex of EACH character (e.g. 'one 15-year-old teen {p1_word}' and 'one 15-year-old teen {p2_word}'). Strictly ban generic words like 'the characters'!\n\n"
-            f"3. LENGTH: Around 70-110 words per scene prompt.\n\n"
-            f"Return ONLY a valid JSON object mapping all 6 scene names in lowercase (hook, dialogue_part_1, dialogue_part_2, dialogue_part_3, dialogue_part_4, payoff) to their final prompt string."
-        )
-    elif video_type_upper == "GAME":
-        director_task = (
-            f"DIRECTOR'S GAME STORYBOARD TASK (FRONTAL DILEMMA TO ASYMMETRICAL TRIUMPH PROGRESSION):\n"
-            f"Transform this game quiz into a cohesive storyboard where each scene faithfully depicts the specific question, answer, and explanation with exact camera geometry:\n"
-            f"1. ARCHETYPE VISUAL GRAMMAR & SCENE MATRIX (MANDATORY):\n"
-            f"   - HOOK [THE FRONTAL DILEMMA]: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo 16yo student protagonist {p1_word} has a natural healthy athletic build and is centered, weighing two choices with engaging personality. FOURTH-WALL GAZE: 100% direct fourth-wall eye contact with the camera lens, confronting the viewer with the quiz dilemma! EXPRESSIVE ACTING: Lively animated dilemma face with an amused raised eyebrow, slight thinking dilemma smirk, head tilted inquisitively, and warm animated cartoon eyes (NEVER wide bug eyes, NEVER staring, NEVER unexpressive deadpan stare). Solo {p1_word} only (no companion in hook)!\n"
-            f"   - ANSWER [THE ASYMMETRICAL BREAKTHROUGH]: Dynamic 3/4 asymmetrical medium action shot with forward kinetic momentum! Protagonist {p1_word} breaks free from the dilemma with radiant relief, a triumphant eureka smile, and forward kinetic energy, joyfully celebrating the winning choice in the setting.\n"
-            f"   - EXPLANATION [REAL-WORLD IMMERSION]: Real-world narrative medium-wide shot (35mm wide lens) with deep spatial environment. Protagonist {p1_word} actively engages in the authentic cultural practice, ritual, or real-life application. FOURTH-WALL GAZE: STRICTLY 0% EYE CONTACT WITH THE CAMERA (100% in-scene narrative immersion).\n"
-            f"2. ZERO-TOLERANCE TEXT & SCREEN BAN: Do NOT depict chalkboards, whiteboards, screens, tablets, smartphones showing text/options, quiz cards, buzzers, podiums, or countdown timers. Completely ban all written words, letters, phrases, and quotes. If documents or papers appear, describe them strictly as containing abstract wavy cartoon doodle lines, 0% legible text. Focus 100% on the human character dilemma and authentic setting.\n"
-            f"3. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Character 1 protagonist MUST be a {p1_word.upper()}. Strictly ban generic words like 'two teens'.\n"
-            f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact 16-year-old high-school student {p1_word} demographic (tall slender proportions, mature teenage features, NOT a child), skin tone, eye color, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
-            f"5. LENGTH: Around 70-110 words per scene prompt.\n\n"
-            f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, answer, explanation) to its final prompt string."
-        )
-    elif video_type_upper in ["FUN_FACTS", "FUNFACTS", "FUNFACT"]:
-        director_task = (
-            f"DIRECTOR'S FUN FACTS STORYBOARD TASK (SCALE OF WONDER & DISCOVERY PROGRESSION):\n"
-            f"Transform this curiosity script into a visually stunning, narrative-faithful storyboard:\n"
-            f"1. ARCHETYPE VISUAL GRAMMAR & SCENE MATRIX (MANDATORY):\n"
-            f"   - HOOK [THE SCALE OF WONDER]: Dramatic low-angle heroic 24mm wide shot looking up from floor level. Protagonist {p1_word} in lower third looking upward in jaw-dropped awe at an imposing, towering cultural anomaly or historic marvel. Upward gaze, volumetric lighting shafts, monumental scale contrast.\n"
-            f"   - SETUP / DISCOVERY / FACTS: Collaborative inspection and dynamic reveal of the fascinating historical discovery in motion.\n"
-            f"   - PAYOFF: Mind-blown celebratory outro celebrating trivia mastery.\n"
-            f"2. ZERO-TOLERANCE TEXT BAN: Do NOT include words, quotes, letters, phrases, vocabulary words, or complete sentences in the visual prompt! If scrolls, books, parchment, signs, or artifacts are depicted, describe them strictly as containing 'abstract wavy cartoon scribble lines, graphic doodle curves, or decorative geometric diagrams representing text, completely devoid of legible alphabet letters, words, or typography'.\n"
-            f"3. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Character 1 protagonist MUST be a {p1_word.upper()}. Strictly ban generic words like 'two teens'.\n"
-            f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact 16-year-old high-school student {p1_word} demographic (tall slender proportions, mature teenage features, NOT a child), skin tone, eye color, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
-            f"5. LENGTH: Around 70-110 words per scene prompt.\n\n"
-            f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
-        )
     else:
-        director_task = (
-            f"DIRECTOR'S EXPRESSION STORYBOARD TASK (LAYERED DEPTH CHRONOLOGICAL 5-BEAT PROGRESSION):\n"
-            f"Create a cohesive 5-scene visual storyboard where EVERY scene faithfully visualizes the specific narrative beat and spoken script text of that scene in CHRONOLOGICAL ORDER:\n"
-            f"1. ARCHETYPE VISUAL GRAMMAR & SCENE MATRIX (MANDATORY):\n"
-            f"   - HOOK [THE INSIDER GUIDE]: 35mm angled foreground-and-background depth composition (Rule of Thirds). The 15yo student protagonist {p1_word} occupies the foreground left or right (35-40%), turned 3/4 toward the viewer with an engaging, playful knowing smile and warm animated cartoon eyes, sharing an insider secret with natural relaxed facial acting (subtle amused smirk, lively curious gaze, NEVER bulging eyes, NEVER staring rounded eyes) breaking the fourth wall. The luminous midground and deep background (60%) reveal the story setting and oversized thematic visual metaphor in rich atmospheric depth.\n"
-            f"   - SETUP [SOCIAL CONTRAST]: Two-shot profile angle across a table/counter demonstrating the conversational friction or literal misunderstanding spoken in this beat.\n"
-            f"   - DISCOVERY [EUREKA BREAKTHROUGH]: Medium action shot at a demonstration station. Wide joyful eyes, sudden breakthrough clarity, reacting directly to the native rule being explained.\n"
-            f"   - EXAMPLE [LIVING KINETIC MOTION]: ACTIVELY DEPICT THE EXACT EXAMPLE SENTENCE FROM THE SCRIPT IN DYNAMIC MOTION! Show the {p1_word} living out the specific action or situation described in the narration.\n"
-            f"   - PAYOFF [CONFIDENT RESOLUTION]: Triumphant chest-up celebratory mastery in the story environment.\n"
-            f"2. ZERO-DUPLICATE PROPS & REALISTIC ACTION: Give each scene distinct physical postures and unique focal objects. Strictly ban surreal fantasy magic effects.\n"
-            f"3. CAMERA SHOTS (WAIST-UP / CHEST-UP ONLY): Keep characters comfortably close to camera so their faces remain large and detailed.\n"
-            f"4. MULTI-CHARACTER GENDER SPECIFICATION: If more than 1 character is depicted, explicitly specify the sex of EACH character (e.g. 'one teen {p1_word} and one companion teen {p2_word}'). Strictly ban generic phrases like 'two teens'.\n"
-            f"5. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student {p1_word} demographic (15-16yo, tall slender proportions), skin tone, eye color, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
-            f"6. LENGTH: Around 70-110 words per scene prompt.\n\n"
-            f"Return ONLY a valid JSON object mapping each scene name in lowercase to its final prompt string."
-        )
+        from ..visual.types.expression.profile import ExpressionVisualProfile
+        director_task = ExpressionVisualProfile().build_storyboard_director_task(p1_word, p2_word)
 
     if general_prompt:
         story_setting_block = general_prompt_block
@@ -1111,38 +906,12 @@ class VisualPromptBuilder:
             )
 
         video_type_clean = (video_type or "EXPRESSION").strip().upper()
-        profile = get_visual_profile(video_type_clean)
+        profile = get_visual_profile(video_type_clean) or get_visual_profile("EXPRESSION")
         if profile is not None:
             format_staging_directive = profile.build_format_staging_directive()
-        elif video_type_clean == "GAME":
-            format_staging_directive = (
-                "5. FORMAT STAGING DIRECTIVE (GAME — FRONTAL DILEMMA & FOURTH-WALL EYE CONTACT):\n"
-                "   - Hook Scene: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo teen protagonist centered, making 100% direct fourth-wall eye contact into the camera lens with an expressive, animated dilemma expression.\n"
-                "   - Answer Scene: Dynamic 3/4 asymmetrical medium action shot with forward kinetic momentum, celebrating eureka victory.\n"
-                "   - Explanation Scene: Real-world narrative medium-wide shot (35mm lens) with deep spatial environment and 0% eye contact with camera (100% in-scene immersion).\n"
-                "   - Crisp cast shadows on the floorboards, high focus on the dilemma."
-            )
-        elif video_type_clean in ["FUN_FACTS", "FUNFACTS", "FUNFACT"]:
-            format_staging_directive = (
-                "5. FORMAT STAGING DIRECTIVE (FUN_FACTS — MONUMENTAL SCALE OF WONDER):\n"
-                "   - Establish a dramatic low-angle heroic perspective looking upward from low elevation.\n"
-                "   - The teen protagonist is positioned in the lower third of the frame, head tilted upward in awe at a towering, imposing cultural anomaly, ancient clockwork, or giant historic relic.\n"
-                "   - Volumetric lighting shafts or golden hour beams cutting through atmospheric haze, creating a striking scale contrast between the student and the wonder."
-            )
-        elif video_type_clean == "ROLEPLAY":
-            format_staging_directive = (
-                "5. FORMAT STAGING DIRECTIVE (ROLEPLAY — CINEMATIC THRESHOLD DIALOGUE):\n"
-                "   - Establish a dynamic diagonal trajectory across a physical boundary (doorframe, table edge, counter, or curtain line).\n"
-                "   - Characters are positioned across an active physical divide, engaged in close conversational drama. STRICTLY ZERO eye contact with camera (100% fourth-wall barrier).\n"
-                "   - Directional cinematic side-key lighting, dramatic chiaroscuro shadows across faces, authentic interpersonal narrative tension."
-            )
-        else:  # EXPRESSION
-            format_staging_directive = (
-                "5. FORMAT STAGING DIRECTIVE (EXPRESSION — LAYERED DEPTH INSIDER GUIDE):\n"
-                "   - Establish an angled foreground-and-background depth composition (35mm wide lens with layered Rule-of-Thirds depth planes).\n"
-                "   - The foreground zone (occupying 35-40% of the frame, left or right) is reserved for the expressive teen guide, while the luminous midground and background (60%) showcase the expansive storybook setting and the oversized thematic visual metaphor in atmospheric depth.\n"
-                "   - Warm atmospheric lighting with distinct depth separation between foreground and background."
-            )
+        else:
+            from ..visual.types.expression.profile import ExpressionVisualProfile
+            format_staging_directive = ExpressionVisualProfile().build_format_staging_directive()
 
         system_prompt = (
             "You are a professional visual director for language-learning animated YouTube Shorts.\n"

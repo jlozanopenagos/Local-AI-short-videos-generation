@@ -50,14 +50,14 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - `idiomatic`: Enforces the mandatory 4-part idiomatic arc ending with PERSON_ONE actively modeling the complete idiom in `DIALOGUE_PART_4`.
      - `phonetic`: Heteronym, stress-shift, or minimal pair contrast.
      - `false_friend`: Cross-language false cognate trap.
-   - **4-Image Visual Architecture across 4 Dialogue Parts (6 Assembly Beats)**:
-     - `hook` (Narrator, 15–20 words): Scenario Establishing Shot.
-     - `DIALOGUE_PART_1` (P1 & P2, 30–38 words): Premise & Trigger (auto punch-in cut from hook in assembly).
-     - `DIALOGUE_PART_2` (P1 & P2, 30–38 words): 180° Reverse OTS on Speaker 2.
-     - `DIALOGUE_PART_3` (P1 & P2, 30–38 words): Kinetic Interaction & Prop Demonstration Shot.
-     - `DIALOGUE_PART_4` (P1 & P2, 30–38 words): Breakthrough & Modeling (auto punch-in cut from payoff in assembly).
-     - `PAYOFF` (Narrator, 20–25 words): Celebratory Resolution Two-Shot + CTA.
-   - **Multi-Character Gender Specification**: Sex of EACH individual character MUST be explicitly specified in prompts (e.g. *"one youthful 15-year-old teen boy and one youthful 15-year-old companion teen girl"*). Dual-character state persistence via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}`.
+   - **6-Image Visual Architecture across 4 Dialogue Parts (6 ComfyUI Scene Renders)**:
+     - `hook` (Narrator, 15–20 words): Scenario Threshold Establishing Two-Shot (35mm lens, 0% fourth-wall eye contact).
+     - `DIALOGUE_PART_1` (P1 & P2, 30–38 words): Solo Tight Medium Close-Up on `PERSON_ONE` (85mm portrait lens, `PERSON_TWO` off-camera).
+     - `DIALOGUE_PART_2` (P1 & P2, 30–38 words): Solo 180° Reverse-Angle Medium Close-Up on `PERSON_TWO` (85mm portrait lens, `PERSON_ONE` off-camera).
+     - `DIALOGUE_PART_3` (P1 & P2, 30–38 words): 90° Side-Profile / High-Angle Two-Shot Prop Interaction (50mm lens, both characters).
+     - `DIALOGUE_PART_4` (P1 & P2, 30–38 words): Solo Waist-Up Dynamic Action Shot on `PERSON_ONE` (28mm/50mm lens, `PERSON_TWO` off-camera).
+     - `PAYOFF` (Narrator, 20–25 words): Celebratory Resolution Action Two-Shot (28mm wide lens) + CTA.
+   - **Multi-Character Gender Specification**: Sex of EACH individual character MUST be explicitly specified in prompts (e.g. *"one youthful 14-16-year-old teen boy and one youthful 14-16-year-old companion teen girl"*). Dual-character state persistence via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}`.
    - **Target Duration & Word Budget**: **60 to 80 seconds max** (strictly **145–180 spoken words** across all 6 spoken sections).
    - **Status**: **Fully functional and verified end-to-end**.
 
@@ -96,8 +96,8 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - **General Prompt as Single Source of Truth**: Character demographic anchors (`gender`, `skin_tone`, `eye_color`, `hair_style`, `wardrobe`) originate from `extract_or_build_character_anchors` and are locked into `content_metadata.general_prompt`. All downstream scene prompts inherit visual world anchors directly from this single authoritative truth, preventing contradictory descriptions or ethnicity drift across scenes.
      - **Case-Insensitive Speaker Gender Resolution (`get_speaker_gender_safe`)**: All modules query speaker genders using case-insensitive lookup with fuzzy fallback. This eliminates gender inversion bugs where TitleCase keys (`"Narrator"`, present in >1,038 state files) previously bypassed `.get("NARRATOR")` lookups and defaulted female characters to `"male"`.
      - **Locked Director Prompts**: Storyboard tasks for Game, Fun Facts, and Expression lock `{p1_word}` (`girl`/`boy`) in director tasks based on authoritative anchors.
-     - Single source of truth in `content_metadata.character_anchors` with locked gender, skin tone, eye color, hairstyle, and wardrobe.
-     - Strict demographic anchor: *16-year-old high-school teenager with natural balanced teenage proportions and healthy youthful athletic build (NOT a child, NOT a kid, NOT an adult)*.
+     - Single source of truth in `content_metadata.character_anchors` (and `assets.character_anchors`) via `CharacterCast` with locked gender, skin tone, eye color, hairstyle, and wardrobe.
+     - Strict demographic anchor: *14–16-year-old high-school teenager with natural balanced teenage proportions and healthy youthful athletic build (NOT a child, NOT a kid, NOT an adult)*.
      - **Mandatory Complexion & Eye Color Anchoring**: Explicit skin tone (e.g., *warm tan skin*, *fair peach skin*, *olive skin*) and eye color (e.g., *dark brown cartoon eyes*) must NEVER be omitted in general prompts or scene prompts. Without explicit skin tone anchors, dramatic framing shifts (such as 35mm foreground Hook close-ups vs. medium two-shots) trigger diffusion drift where the model hallucinates a completely different ethnicity or facial structure.
      - Elimination of emaciated/skinny silhouettes and unexpressive deadpan faces: purged `"tall slender proportions"`, `"Wes Anderson-style central balance"`, and `"frozen at a physical crossroads"`.
      - **Natural Facial Acting & Bug-Eye Eradication**: Purged `"conspiratorial glance"` and `"arched eyebrow"` triggers from prompt templates and storyboard directors, which previously caused diffusion models to render excessively open, rounded, or bulging bug-eyes. Replaced with *"engaging, playful knowing smile and natural animated cartoon eyes with relaxed facial acting"*.
@@ -129,7 +129,12 @@ The content strategy consists of four distinct formats queued from CSV files in 
    - **Purpose**: Umbrella category for short, entertaining, surprising language discoveries following **HOOK $\rightarrow$ SETUP $\rightarrow$ DISCOVERY $\rightarrow$ EXPLANATION $\rightarrow$ PAYOFF**.
    - **6 Authorized Formats**: Format A (3 Facts), Format B (One Big Curiosity), Format C (Challenge), Format D (Mystery), Format E (Comparison), Format F (Ranking/List).
    - **Target Language Localization**: All content in `*_READY_PROMPTS_FUN_FACTS.csv` (`TOPIC`, `FACT_DETAILS`, `HOOK_ANGLE`, `EMOTIONAL_TRIGGER`) is written directly in the target language (French, Spanish, Italian, English).
-   - **Calibrated Scene Count**: Generates **5 distinct thematic scene images** (`hook`, `setup`, `discovery`, `explanation`, `payoff`) via ComfyUI.
+   - **Calibrated Scene Count & 5-Beat Camera Grammar**: Generates **5 distinct thematic scene images** via ComfyUI:
+     - `hook` [THE SCALE OF WONDER]: Dramatic low-angle heroic 24mm wide shot looking upward in jaw-dropped awe (0% camera eye contact).
+     - `setup` [THE CURIOUS CLUE]: Medium 50mm eye-level investigative shot examining an authentic artifact or clue.
+     - `discovery` [THE HIDDEN MECHANISM REVEAL]: Dynamic 35mm 3/4 medium action shot revealing the mechanism/origin in motion.
+     - `explanation` [LIVING CULTURAL CONTEXT]: Medium-wide 35mm environmental immersion shot showing practical cultural context.
+     - `payoff` [MIND-BLOWN MASTERY]: Chest-up celebratory medium close-up (50mm lens) with warm rim lighting.
    - **Target Duration & Word Budget**: **40 to 60 seconds** (strictly **95–135 spoken words** across all sections).
    - **Status**: **Fully implemented, verified, and operational**.
 
@@ -139,10 +144,27 @@ The content strategy consists of four distinct formats queued from CSV files in 
 
 | Video Type | Timeline Scenes | ComfyUI Renders | Special Asset Handling |
 | :--- | :---: | :---: | :--- |
-| **EXPRESSION** | **5** | 5 | `hook`, `setup`, `discovery`, `example`, `payoff` (all generated via ComfyUI). |
-| **GAME** | **5** | **2** | • `hook` & `answer`: Rendered via ComfyUI.<br>• `challenge`: High-res native chalkboard on CPU via Pillow/FreeType (zero VRAM).<br>• `pressure`: Static Tito waiting image per language.<br>• `explanation`: Automatically copied from `answer.png`. |
-| **ROLEPLAY** | **6** | **4** | • `hook`, `dialogue_part_2`, `dialogue_part_3`, `payoff`: Rendered via ComfyUI.<br>• `dialogue_part_1` & `dialogue_part_4`: Dynamic 1.25x punch-in cuts in assembly from `hook` and `payoff`. |
-| **FUN_FACT** | **5** | 5 | `hook`, `setup`, `discovery`, `explanation`, `payoff` (all generated via ComfyUI). |
+| **EXPRESSION** | **5** | **5** | `hook`, `setup`, `discovery`, `example`, `payoff` (all 5 generated via ComfyUI). |
+| **GAME** | **5** | **3** | • `hook`, `answer`, `explanation`: Rendered via ComfyUI (3 distinct images).<br>• `challenge`: High-res native chalkboard on CPU via Pillow/FreeType (zero VRAM).<br>• `pressure`: Static Tito waiting image per language (`resolve_static_scene_path`, zero-copy). |
+| **ROLEPLAY** | **6** | **6** | `hook`, `dialogue_part_1`, `dialogue_part_2`, `dialogue_part_3`, `dialogue_part_4`, `payoff` (all 6 generated via ComfyUI following the 6-beat camera matrix). |
+| **FUN_FACTS** | **5** | **5** | `hook`, `setup`, `discovery`, `explanation`, `payoff` (all 5 generated via ComfyUI following the Scale-of-Wonder 5-beat camera matrix). |
+
+---
+
+## Stage C Modular Visual Prompt Architecture (`_C_image_generation/visual/`)
+
+Stage C separates shared visual rules, language data, and video-type camera profiles so editing one language or video type never leaks into others:
+
+| Layer / File | Responsibility ("Where to Change X") |
+| :--- | :--- |
+| `visual/common/style.py` | Shared 2D cartoon style pillars, base system prompts, and type-pure storyboard system prompt builder (`build_storyboard_system_prompt`). |
+| `visual/common/sanitizer.py` | Idempotent `sanitize_and_style_prompt`, text/quote scrubbing, 14–16yo teen demographic enforcement, and `present` heteronym gift-box exception. |
+| `visual/common/cast.py` | `CharacterCast` model, `get_speaker_gender_safe`, centralized default genders (`resolve_default_speakers_gender`), solo-format protection for `GAME`/`FUN_FACTS`, and `persist_character_anchors_in_state`. |
+| `visual/common/environment.py` | Anchor environment resolution engine (`resolve_anchor_environment`, `is_figurative_idiom`). |
+| `visual/languages/{english,french,spanish,italian}.py` | **Language-only data**: brand color palette mood, idiom detection markers, idiom metaphor environments, heteronyms, and `MULTILINGUAL_SEMANTIC_DOMAINS` (shared with `core/gemini_auditor.py`). Never contains camera angles or video-type rules. |
+| `visual/types/{expression,game,roleplay,fun_facts}/` | **Type-only rules & prompts**: `SceneSpec` contracts (`rules.py`), single-scene goals, scene progressions, storyboard director tasks (`prompts.py`), and `VisualProfile` class (`profile.py`). |
+| `visual/types/registry.py` | `get_visual_profile(...)` dispatcher (by type name, 1-letter code, or Script ID) + `IMAGE_PROMPT_ENGINE=legacy\|typed` rollback switch. |
+| `core/prompt_builder.py` | Public facade (`VisualPromptBuilder` + re-exports of all helper functions for backward compatibility). |
 
 ---
 
