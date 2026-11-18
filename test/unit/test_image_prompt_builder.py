@@ -40,6 +40,36 @@ class TestEnvironmentSnapshots(unittest.TestCase):
         self.assertEqual(H.capture_environment_cases(), _load("_environment.json"))
 
 
+class TestVisualProfileRegistry(unittest.TestCase):
+    def test_registry_resolves_names_codes_and_script_ids(self):
+        from _C_image_generation.visual.types import get_visual_profile
+
+        self.assertEqual(get_visual_profile("game").video_type, "game")
+        self.assertEqual(get_visual_profile("G").video_type, "game")
+        self.assertEqual(get_visual_profile("SG01").video_type, "game")
+        self.assertEqual(get_visual_profile("fun_facts").video_type, "fun_facts")
+        self.assertEqual(get_visual_profile("FUNFACTS").video_type, "fun_facts")
+        self.assertEqual(get_visual_profile("EF01").video_type, "fun_facts")
+        self.assertEqual(get_visual_profile("expression").video_type, "expression")
+        self.assertEqual(get_visual_profile("FE01").video_type, "expression")
+        self.assertEqual(get_visual_profile("roleplay").video_type, "roleplay")
+        self.assertEqual(get_visual_profile("IR01").video_type, "roleplay")
+        self.assertEqual(len(get_visual_profile("roleplay").get_comfy_scene_names()), 6)
+        self.assertEqual(len(get_visual_profile("game").get_comfy_scene_names()), 3)
+
+    def test_legacy_switch_disables_typed_profile(self):
+        import os
+        from unittest import mock
+        from _C_image_generation.visual.types import get_visual_profile
+
+        with mock.patch.dict(os.environ, {"IMAGE_PROMPT_ENGINE": "legacy"}):
+            self.assertIsNone(get_visual_profile("game"))
+            self.assertIsNone(get_visual_profile("roleplay"))
+        with mock.patch.dict(os.environ, {"IMAGE_PROMPT_ENGINE": "legacy:roleplay"}):
+            self.assertIsNone(get_visual_profile("ROLEPLAY"))
+            self.assertIsNotNone(get_visual_profile("GAME"))
+
+
 class TestGoldenScriptSnapshots(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
