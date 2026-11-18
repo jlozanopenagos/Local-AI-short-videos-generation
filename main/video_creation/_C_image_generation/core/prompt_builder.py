@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 from ..visual.common import (
     _VISUAL_DIRECTOR_SYSTEM_PROMPT,
     _STORYBOARD_DIRECTOR_SYSTEM_PROMPT,
+    build_storyboard_system_prompt,
     _get_language_palette,
     _parse_label,
     HETERONYM_DOMAINS,
@@ -44,6 +45,7 @@ from ..visual.common import (
     _clean_character_clause,
     extract_or_build_character_anchors,
     sanitize_and_style_prompt,
+    is_present_heteronym_topic,
     _extract_json_payload,
 )
 from ..visual.types import get_visual_profile
@@ -118,25 +120,25 @@ def _extract_shared_story_context(
     has_two = char_anchors.get("has_two_characters") in (True, "True") or video_type_upper == "ROLEPLAY"
 
     if has_two:
-        p1_desc = f"high school student {p1_word} (approx. 15-16 years old, tall slender build, stylish thematic attire)"
-        p2_desc = f"high school student {p2_word} (approx. 15-16 years old, tall slender build, stylish thematic attire)"
+        p1_desc = f"high school student {p1_word} (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, stylish thematic attire)"
+        p2_desc = f"high school student {p2_word} (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, stylish thematic attire)"
         gender_context = (
-            f"MANDATORY CHARACTER GENDERS & DEMOGRAPHIC (HIGH SCHOOL PROTAGONISTS — 15-16 YEARS OLD):\n"
+            f"MANDATORY CHARACTER GENDERS & DEMOGRAPHIC (HIGH SCHOOL PROTAGONISTS — 14-16 YEARS OLD):\n"
             f"- PERSON_ONE: {p1_word.upper()} (MUST visually appear as a {p1_desc})\n"
             f"- PERSON_TWO: {p2_word.upper()} (MUST visually appear as a {p2_desc})\n"
             f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! "
             f"NEVER use generic words like 'the two students', 'two friends', or 'the characters' without stating their individual sex (e.g. 'one high school student {p1_word} and one high school student {p2_word}').\n"
-            f"CRITICAL RULE: Characters are 15-16 year old high school students (tall slender proportions) dressed appropriately for this specific setting. Strictly ban generic plain t-shirts/hoodies, and strictly ban middle-aged/mature adult wrinkles!\n\n"
+            f"CRITICAL RULE: Characters are 14-16 year old high school students (natural balanced teenage proportions, NOT childish proportions) dressed appropriately for this specific setting. Strictly ban generic plain t-shirts/hoodies, and strictly ban middle-aged/mature adult wrinkles!\n\n"
         )
     else:
         gender_word = p1_word
         gender_desc = f"high school student {gender_word}"
         gender_context = (
-            f"MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (15-16 YEARS OLD):\n"
-            f"- PROTAGONIST: MUST visually appear as an expressive high school student {gender_word.upper()} (approx. 15-16 years old {gender_desc}, tall slender proportions).\n"
+            f"MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (14-16 YEARS OLD):\n"
+            f"- PROTAGONIST: MUST visually appear as an expressive high school student {gender_word.upper()} (approx. 14-16 years old {gender_desc}, natural balanced teenage proportions, healthy youthful athletic build, NOT a child).\n"
             f"- WARDROBE: The {gender_word} MUST wear an authentic costume or attire explicitly matching the thematic setting (e.g. theater stage costume/vest, chef uniform, studio apron, lab coat). Strictly ban generic casual clothes (plain t-shirts/hoodies)!\n"
             f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! NEVER use generic words like 'two students' or 'friends'!\n"
-            f"CRITICAL RULE: Character MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban mature adult faces, wrinkles, and generic t-shirts!\n\n"
+            f"CRITICAL RULE: Character MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban mature adult faces, wrinkles, childish proportions, and generic t-shirts!\n\n"
         )
 
     palette_context = _get_language_palette(language)
@@ -396,6 +398,19 @@ def _build_user_context(
             f"- MANDATORY THEMATIC WARDROBE: The character MUST wear clothing/costume that directly belongs to this setting ({anchor_environment}).\n\n"
         )
 
+    if profile is not None:
+        progression_block = profile.build_single_scene_progression_summary()
+    else:
+        progression_block = (
+            "DISTINCT SCENE PROGRESSION (CRITICAL — PREVENT IDENTICAL DUPLICATES):\n"
+            "While all scenes share the story world above, EACH scene must depict a UNIQUE narrative beat, distinct physical action, and varied camera shot:\n"
+            "- HOOK: Medium shot. Opening dilemma or curiosity with an intrigued or questioning expression.\n"
+            "- SETUP: Two-shot or over-the-shoulder shot. Conversational exchange or physical contrast.\n"
+            "- DISCOVERY: Medium action shot. Sudden breakthrough realization and physical gesture.\n"
+            "- EXAMPLE: Dynamic wide or active motion shot. Character actively demonstrating the specific phrase in motion.\n"
+            "- PAYOFF: Medium close-up or celebratory shot. Triumphant mastery, confident relief, warm accomplishment."
+        )
+
     return (
         f"INPUT\n\n"
         f"LANGUAGE: {language}\n\n"
@@ -408,7 +423,7 @@ def _build_user_context(
         f"LABEL: {label}\n\n"
         f"{ctx['palette_context']}\n\n"
         f"ANGLE: visual storytelling / authentic situation\n\n"
-        f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive high-school student protagonist (approx. 15-16 years old, tall slender build, stylish situation-appropriate attire, NO mature adults), vibrant but balanced colors, rich cinematic atmosphere\n\n"
+        f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive high-school student protagonist (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, stylish situation-appropriate attire, NO mature adults, NOT a child), vibrant but balanced colors, rich cinematic atmosphere\n\n"
         f"FULL SCRIPT TEXT FOR CONTEXT (THE STORY):\n{script_text}\n\n"
         f"---\n\n"
         f"{anchor_block}"
@@ -418,13 +433,7 @@ def _build_user_context(
         f"YOUR SPECIFIC TASK FOR THIS SCENE:\n"
         f"Illustrate this specific moment: SCENE [{scene_name.upper()}]:\n"
         f"SCENE TEXT: \"{scene_text}\"\n\n"
-        f"DISTINCT SCENE PROGRESSION (CRITICAL — PREVENT IDENTICAL DUPLICATES):\n"
-        f"While all scenes share the story world above, EACH scene must depict a UNIQUE narrative beat, distinct physical action, and varied camera shot:\n"
-        f"- HOOK: Medium shot. Opening dilemma or curiosity with an intrigued or questioning expression.\n"
-        f"- SETUP: Two-shot or over-the-shoulder shot. Conversational exchange or physical contrast.\n"
-        f"- DISCOVERY: Medium action shot. Sudden breakthrough realization and physical gesture.\n"
-        f"- EXAMPLE: Dynamic wide or active motion shot. Character actively demonstrating the specific phrase in motion.\n"
-        f"- PAYOFF: Medium close-up or celebratory shot. Triumphant mastery, confident relief, warm accomplishment.\n\n"
+        f"{progression_block}\n\n"
         f"{text_rule}\n\n"
         f"CONCISENESS: Keep the final visual prompt strictly under 75 words. Focus only on the most important visual elements (character, facial expression, physical action, authentic setting, cinematic lighting). Do not overcomplicate.\n\n"
         f"Generate the Z-Image-Turbo visual prompt for this scene now. Ensure visual style, environment, and character remain 100% consistent with the story while showing this distinct scene action."
@@ -490,7 +499,7 @@ def _build_storyboard_context(
             f"   - Character 1 (Protagonist): {char_anchors['char1_desc']}\n"
             f"   - Character 2 (Counterpart): {char_anchors['char2_desc']}\n"
             "Diffusion models generate EACH scene image independently with zero memory of other scenes! "
-            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat the featured character's exact demographic (15-16yo high-school student), "
+            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat the featured character's exact demographic (14-16yo high-school student, natural balanced teenage proportions, NOT a child), "
             "exact hair color, exact hairstyle, and exact wardrobe specified above. "
             "NEVER invent different clothing or different hairstyles across scenes!\n\n"
         )
@@ -785,7 +794,8 @@ class VisualPromptBuilder:
                 )
                 logger.debug("[%s] Prompt preview: %s…", script_id, visual_prompt[:120])
                 time.sleep(0.2)  # Slot cooldown
-                return sanitize_and_style_prompt(visual_prompt)
+                allow_gift_box = is_present_heteronym_topic(topic=topic, label=label)
+                return sanitize_and_style_prompt(visual_prompt, allow_gift_box=allow_gift_box)
 
             except Exception as exc:
                 last_error = exc
@@ -885,6 +895,13 @@ class VisualPromptBuilder:
             script_id, language, subject, situation,
         )
 
+        profile = get_visual_profile(video_type)
+        storyboard_system_prompt = (
+            build_storyboard_system_prompt(profile.build_storyboard_system_grammar())
+            if profile is not None
+            else _STORYBOARD_DIRECTOR_SYSTEM_PROMPT
+        )
+
         last_error = None
         storyboard_dict: dict[str, str] = {}
         for attempt in range(1, max_retries + 1):
@@ -895,7 +912,7 @@ class VisualPromptBuilder:
                 stream = self._client.chat.completions.create(
                     model=self._model,
                     messages=[
-                        {"role": "system", "content": _STORYBOARD_DIRECTOR_SYSTEM_PROMPT},
+                        {"role": "system", "content": storyboard_system_prompt},
                         {"role": "user",   "content": storyboard_context},
                     ],
                     max_tokens=3500,
@@ -989,6 +1006,7 @@ class VisualPromptBuilder:
         )
 
         final_prompts: dict[str, str] = {}
+        allow_gift_box = is_present_heteronym_topic(topic=topic, label=label)
         for sec_key, raw_prompt in storyboard_dict.items():
             prompt_str = raw_prompt.strip()
             # Only append continuity summary if prompt completely lacks character description
@@ -996,7 +1014,7 @@ class VisualPromptBuilder:
             if not has_character and anchors.get("continuity_summary"):
                 prompt_str = f"{prompt_str.rstrip('. ')}. {anchors['continuity_summary']}"
 
-            final_prompts[sec_key] = sanitize_and_style_prompt(prompt_str)
+            final_prompts[sec_key] = sanitize_and_style_prompt(prompt_str, allow_gift_box=allow_gift_box)
 
         return final_prompts
 
@@ -1057,11 +1075,11 @@ class VisualPromptBuilder:
 
             character_directive = (
                 f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, EYE COLOR, GENDER-ACCURATE HAIR & THEMATIC WARDROBE CONTINUITY):\n"
-                f"   - Character 1 (Left Position): An expressive 15-year-old high-school student {p1_word} (tall slender build) positioned on the LEFT side of the frame.\n"
+                f"   - Character 1 (Left Position): An expressive 14-16-year-old high-school student {p1_word} (natural balanced teenage proportions, healthy youthful athletic build, NOT a child) positioned on the LEFT side of the frame.\n"
                 f"     * Complexion & Eyes: Explicitly specify skin tone and eye color (e.g. 'warm tan skin, expressive dark brown cartoon eyes' or 'fair peach skin, lively green cartoon eyes')! NEVER omit skin tone!\n"
                 f"     * Hair: Explicitly specify hair color and hairstyle (e.g. '{c1_hair_example}')!\n"
                 f"     * Wardrobe: Explicitly specify authentic thematic costume garments and colors MATCHING THIS SPECIFIC SETTING ({anchor_environment}) — NEVER plain t-shirts/hoodies, and NEVER copy unrelated clothing!\n"
-                f"   - Character 2 (Right Position): An energetic 15-year-old high-school student {p2_word} (tall slender build) positioned on the RIGHT side of the frame.\n"
+                f"   - Character 2 (Right Position): An energetic 14-16-year-old high-school student {p2_word} (natural balanced teenage proportions, healthy youthful athletic build, NOT a child) positioned on the RIGHT side of the frame.\n"
                 f"     * Complexion & Eyes: Explicitly specify skin tone and eye color (e.g. 'fair peach skin, clear blue cartoon eyes' or 'warm olive skin, expressive dark hazel cartoon eyes')!\n"
                 f"     * Hair: Explicitly specify contrasting hair color and hairstyle (e.g. '{c2_hair_example}')!\n"
                 f"     * Wardrobe: Explicitly specify complementary authentic thematic costume garments and colors matching this setting!\n"
@@ -1073,7 +1091,7 @@ class VisualPromptBuilder:
         else:
             p_gend = get_speaker_gender_safe(speakers_gender, "NARRATOR", "") or get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "male")
             is_female = "f" in str(p_gend).lower() or "girl" in str(p_gend).lower()
-            gender_desc = "high-school student girl (approx. 15-16 years old, tall slender build)" if is_female else "high-school student boy (approx. 15-16 years old, tall slender build)"
+            gender_desc = "high-school student girl (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, NOT a child)" if is_female else "high-school student boy (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, NOT a child)"
             protagonist_hair = (
                 "dark wavy hair tied in an elegant ponytail or chic shoulder-length bob"
                 if is_female
@@ -1191,7 +1209,8 @@ class VisualPromptBuilder:
 
                 logger.info("[%s] General visual prompt generated (%d chars).", script_id, len(general_prompt))
                 time.sleep(0.2)
-                return sanitize_and_style_prompt(general_prompt)
+                allow_gift_box = is_present_heteronym_topic(topic=topic, label=label)
+                return sanitize_and_style_prompt(general_prompt, allow_gift_box=allow_gift_box)
 
             except Exception as exc:
                 last_error = exc

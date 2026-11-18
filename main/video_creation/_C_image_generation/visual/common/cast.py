@@ -231,7 +231,7 @@ def extract_or_build_character_anchors(
         anchor_is_female = bool(re.search(r'\b(girl|female|woman|chica|muchacha|mujer)\b', c1_desc_lower))
         # If anchors are consistent with the General Prompt's gender, use them
         if anchor_is_female == p1_is_female:
-            c2_desc = character_anchors.get("char2_desc") or (c2_text if c2_text else f"16-year-old high-school teenage {gender_word2} (tall slender proportions, mature teenage features, NOT a child)")
+            c2_desc = character_anchors.get("char2_desc") or (c2_text if c2_text else f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)")
             cont_summary = character_anchors.get("continuity_summary") or (
                 f"Character appearance continuity: Character 1 is a {c1_desc}; Character 2 is a {c2_desc}."
                 if has_two_characters else f"Character appearance continuity: The protagonist is a {c1_desc}."
@@ -261,7 +261,7 @@ def extract_or_build_character_anchors(
             return {
                 "has_two_characters": str(has_two_characters),
                 "char1_desc": parsed["char1_desc"],
-                "char2_desc": parsed.get("char2_desc", f"16-year-old high-school teenage {gender_word2} (tall slender proportions, mature teenage features, NOT a child)"),
+                "char2_desc": parsed.get("char2_desc", f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)"),
                 "char1_hair": parsed.get("char1_hair", ""),
                 "char2_hair": parsed.get("char2_hair", ""),
                 "char1_attire": parsed.get("char1_attire", ""),
@@ -291,12 +291,12 @@ def extract_or_build_character_anchors(
         char1_attire = attire_matches[0].strip() if attire_matches else "an authentic thematic costume matching this setting"
         if not p1_is_female:
             char1_attire = re.sub(r"\b(?:bodice|corset|kirtle|skirt|gown|dress)\b", "doublet and tailored trousers", char1_attire, flags=re.IGNORECASE)
-        char1_desc = f"16-year-old high-school teenage {gender_word1} (tall slender proportions, mature teenage features, NOT a child) with {char1_hair} wearing {char1_attire}"
+        char1_desc = f"14-16-year-old high-school teenage {gender_word1} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child) with {char1_hair} wearing {char1_attire}"
 
     if c2_text:
         char2_desc = c2_text
     else:
-        char2_desc = f"16-year-old high-school teenage {gender_word2} (tall slender proportions, mature teenage features, NOT a child)"
+        char2_desc = f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)"
 
     if has_two_characters:
         continuity_summary = (

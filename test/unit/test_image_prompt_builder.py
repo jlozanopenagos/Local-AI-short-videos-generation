@@ -30,9 +30,35 @@ class TestSanitizerSnapshots(unittest.TestCase):
         expected = _load("_sanitizer.json")
         self.assertEqual(H.capture_sanitizer(), expected)
 
-    # NOTE: the sanitizer is intentionally NOT asserted idempotent. Known quirk (plan Q11):
-    # a 2nd pass turns "NOT a child" into "NOT a teenager". Production applies it twice, so both
-    # the ONCE and TWICE outputs are locked in the snapshot above until Phase 3 decides the fix.
+    def test_sanitizer_is_idempotent(self):
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        for probe in H.SANITIZER_PROBES:
+            once = sanitize_and_style_prompt(probe)
+            self.assertEqual(sanitize_and_style_prompt(once), once, probe)
+
+    def test_sanitizer_preserves_14_to_16_teen_ages_and_upgrades_child_ages(self):
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        for age in ("14-year-old", "15-year-old", "16-year-old", "14-16-year-old"):
+            out = sanitize_and_style_prompt(f"A {age} high-school student boy in a bakery.")
+            self.assertIn(age, out)
+            self.assertIn("NOT a child", out)
+            self.assertNotIn("NOT a teenager", out)
+        child_out = sanitize_and_style_prompt("A 10-year-old kid at a desk.")
+        self.assertNotIn("10-year-old", child_out)
+        self.assertIn("15-year-old", child_out)
+
+    def test_gift_box_exception_only_for_present_heteronym(self):
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt, is_present_heteronym_topic
+
+        raw = "A student reveals an ornate ribbon-wrapped gift box on the banquet table."
+        scrubbed = sanitize_and_style_prompt(raw, allow_gift_box=False)
+        preserved = sanitize_and_style_prompt(raw, allow_gift_box=True)
+        self.assertNotIn("gift box", scrubbed.lower())
+        self.assertIn("gift box", preserved.lower())
+        self.assertTrue(is_present_heteronym_topic(topic="PREsent vs preSENT"))
+        self.assertFalse(is_present_heteronym_topic(topic="break a leg"))
 
 
 class TestEnvironmentSnapshots(unittest.TestCase):
@@ -68,6 +94,40 @@ class TestVisualProfileRegistry(unittest.TestCase):
         with mock.patch.dict(os.environ, {"IMAGE_PROMPT_ENGINE": "legacy:roleplay"}):
             self.assertIsNone(get_visual_profile("ROLEPLAY"))
             self.assertIsNotNone(get_visual_profile("GAME"))
+
+    def test_type_pure_storyboard_system_prompt_has_no_cross_type_leakage(self):
+        from _C_image_generation.visual.common import build_storyboard_system_prompt
+        from _C_image_generation.visual.types import get_visual_profile
+
+        type_headers = {
+            "game": "FOR GAME SHORTS",
+            "fun_facts": "FOR FUN_FACTS SHORTS",
+            "expression": "FOR EXPRESSION SHORTS",
+            "roleplay": "FOR ROLEPLAY SHORTS",
+        }
+        for vtype, expected_header in type_headers.items():
+            prof = get_visual_profile(vtype)
+            sys_prompt = build_storyboard_system_prompt(prof.build_storyboard_system_grammar())
+            self.assertIn(expected_header, sys_prompt)
+            for other_type, other_header in type_headers.items():
+                if other_type != vtype:
+                    self.assertNotIn(
+                        other_header,
+                        sys_prompt,
+                        f"{vtype} storyboard system prompt leaked {other_header}",
+                    )
+            self.assertNotIn("tall slender", sys_prompt.lower())
+
+    def test_fun_facts_has_complete_5_scene_camera_grammar(self):
+        from _C_image_generation.visual.types import get_visual_profile
+
+        prof = get_visual_profile("fun_facts")
+        task = prof.build_storyboard_director_task("girl", "boy")
+        for beat in ("HOOK [THE SCALE OF WONDER]", "SETUP [THE CURIOUS CLUE]", "DISCOVERY [THE HIDDEN MECHANISM REVEAL]", "EXPLANATION [LIVING CULTURAL CONTEXT]", "PAYOFF [MIND-BLOWN MASTERY]"):
+            self.assertIn(beat, task)
+        for scene_name in ("hook", "setup", "discovery", "explanation", "payoff"):
+            goal = prof.build_single_scene_goal(scene_name, "girl", "boy")
+            self.assertIn(scene_name.upper(), goal)
 
 
 class TestGoldenScriptSnapshots(unittest.TestCase):

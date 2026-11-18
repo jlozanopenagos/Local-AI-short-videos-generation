@@ -1,24 +1,42 @@
 """
 visual/common/sanitizer.py — Prompt sanitizer, text/quote scrubber, and 2D cartoon style enforcer.
+
+Phase 3 Upgrades:
+- Idempotent age/child scrubbing (Q11: preserves `NOT a child`, preserves `14-year-old`, `15-year-old`, `16-year-old`, `14-16-year-old` per Q3).
+- Gift-box exception (`allow_gift_box=True` or topic='present' per Q5).
 """
 from __future__ import annotations
 
 import re
 
 
-def sanitize_and_style_prompt(prompt: str) -> str:
+def is_present_heteronym_topic(topic: str = "", label: str = "") -> bool:
+    """Returns True when the script specifically teaches the English heteronym 'present' (PREsent vs preSENT)."""
+    combined = f"{topic} {label}".lower()
+    return bool(re.search(r"\bpresent\b", combined))
+
+
+def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
     """
     Sanitizes visual prompts and enforces strict 2D cartoon narrative illustration styling.
 
     1. Removes any interjections or quote words like 'aha', 'eureka', 'wow', 'oops'.
     2. Strips quotes around words (e.g. 'project', 'cake') which trigger text/OCR rendering in Qwen/Lumina.
     3. Guarantees that the prompt has explicit, high-priority 2D cartoon illustration tokens
-       and anti-photorealism directives.
+       and anti-photorealism directives, and is 100% idempotent when applied multiple times.
     """
     if not prompt or not isinstance(prompt, str):
         return ""
 
     text = prompt.strip()
+
+    # Strip existing appended style_mandate tail first so re-running sanitizer never corrupts negative exclusions
+    text = re.sub(
+        r"\.?\s*Clean modern 2D cartoon narrative illustration, stylized 2D animation art style.*?\(high-school student protagonist, thematic costume.*?\)\.?\s*$",
+        "",
+        text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
 
     # 1. Clean out interjections that cause diffusion models to paint letters onto the image
     text = re.sub(r"['\"]?\baha!?['\"]?", "sudden breakthrough clarity", text, flags=re.IGNORECASE)
@@ -93,14 +111,17 @@ def sanitize_and_style_prompt(prompt: str) -> str:
     text = re.sub(r"\bpronunciation\s+of\s+[^,\.]{1,50}", "subtle vocal delivery", text, flags=re.IGNORECASE)
     text = re.sub(r"\bsound\s+of\s+[A-Za-zÀ-ÿ0-9_\-]+", "vocal resonance", text, flags=re.IGNORECASE)
 
-    # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades (16yo, tall slender proportions, NOT a child)
+    # 4. Mandatory High School Student Demographic & Thematic Wardrobe Upgrades (14-16yo teenagers, NOT a child)
     text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 16-year-old high-school teenage boy", text, flags=re.IGNORECASE)
     text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a 16-year-old high-school teenage girl", text, flags=re.IGNORECASE)
     text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a 16-year-old high-school teenage protagonist", text, flags=re.IGNORECASE)
     text = re.sub(r"(?<!\bNO\s)(?<!\bmiddle-aged\s)(?<!\bolder\s)\b(adult|grown-?up)s?\b", "high-school teenagers", text, flags=re.IGNORECASE)
     text = re.sub(r"(?<!\bNO\s)\ban adult\b", "a high-school teenager", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:8|9|10|11|12|13|14|15)-year-old\b", "16-year-old", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:kid|child|children)\b", "teenager", text, flags=re.IGNORECASE)
+    # Q3: Teenagers are 14-16 years old; only upgrade younger child ages (8-13) to 14-16-year-old
+    text = re.sub(r"\b(?:8|9|10|11|12|13)-year-old\b", "15-year-old", text, flags=re.IGNORECASE)
+    # Q11: Do not corrupt negative exclusions like "NOT a child" or "NO young children"
+    text = re.sub(r"(?<!\bNOT\s)(?<!\bnot\s)(?<!\ba\sNOT\s)(?<!\bNO\s)(?<!\byoung\s)\b(?:kid|child|children)\b", "teenager", text)
+    text = re.sub(r"\bNOT a teenager\b", "NOT a child", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:wearing\s+)?normal clothing\b", "wearing thematically authentic scene costume", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:smart\s+)?casual attire\b", "thematic scene-specific wardrobe", text, flags=re.IGNORECASE)
     text = re.sub(r"\bcasual clothes\b", "thematic scene-specific costume", text, flags=re.IGNORECASE)
@@ -140,30 +161,31 @@ def sanitize_and_style_prompt(prompt: str) -> str:
         flags=re.IGNORECASE,
     )
 
-    # 4d. Scrub lazy repetitive gift box props from prompts (except when genuinely teaching 'present')
-    text = re.sub(
-        r"\b(?:a\s+)?(?:large,?\s+|giant\s+oversized,?\s+|vintage,?\s+|single\s+perfectly\s+wrapped\s+|stylized\s+graphic\s+prop\s+of\s+an?\s+|stylized\s+ornate\s+golden\s+)?ornate,?\s+(?:ribbon-wrapped\s+|golden\s+)?gift\s+box\b",
-        "an authentic thematic prop from the setting",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(
-        r"\b(?:a\s+)?(?:large,?\s+|small,?\s+|massive,?\s+)?(?:ornate,?\s+)?ribbon-wrapped\s+gift\s+box(?:es)?\b",
-        "an authentic setting prop",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(
-        r"\bstack\s+of\s+ornate,?\s+(?:ribbon-wrapped\s+)?gift\s+boxes\b",
-        "authentic setting props and tools",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # 4d. Scrub lazy repetitive gift box props from prompts (Q5: except when genuinely teaching 'present')
+    if not allow_gift_box:
+        text = re.sub(
+            r"\b(?:a\s+)?(?:large,?\s+|giant\s+oversized,?\s+|vintage,?\s+|single\s+perfectly\s+wrapped\s+|stylized\s+graphic\s+prop\s+of\s+an?\s+|stylized\s+ornate\s+golden\s+)?ornate,?\s+(?:ribbon-wrapped\s+|golden\s+)?gift\s+box\b",
+            "an authentic thematic prop from the setting",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\b(?:a\s+)?(?:large,?\s+|small,?\s+|massive,?\s+)?(?:ornate,?\s+)?ribbon-wrapped\s+gift\s+box(?:es)?\b",
+            "an authentic setting prop",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\bstack\s+of\s+ornate,?\s+(?:ribbon-wrapped\s+)?gift\s+boxes\b",
+            "authentic setting props and tools",
+            text,
+            flags=re.IGNORECASE,
+        )
 
     # 5. Mandatory 2D Cartoon Style Anchor with High School Proportions & Safe Exclusions
     style_mandate = (
         "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-        "vibrant flat colors, bold outlines, expressive high-school student character design (approx. 16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), "
+        "vibrant flat colors, bold outlines, expressive high-school student character design (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), "
         "expressive stylized cartoon eyes with natural lively shape and warm gaze, "
         "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
         "rich detailed environmental interior background with depth and warm atmospheric lighting. "

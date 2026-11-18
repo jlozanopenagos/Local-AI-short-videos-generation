@@ -6,6 +6,7 @@ from __future__ import annotations
 from .style import (
     _VISUAL_DIRECTOR_SYSTEM_PROMPT,
     _STORYBOARD_DIRECTOR_SYSTEM_PROMPT,
+    build_storyboard_system_prompt,
     _get_language_palette,
     _parse_label,
 )
@@ -24,12 +25,13 @@ from .cast import (
     _clean_character_clause,
     extract_or_build_character_anchors,
 )
-from .sanitizer import sanitize_and_style_prompt
+from .sanitizer import sanitize_and_style_prompt, is_present_heteronym_topic
 from .llm_stream import _extract_json_payload
 
 __all__ = [
     "_VISUAL_DIRECTOR_SYSTEM_PROMPT",
     "_STORYBOARD_DIRECTOR_SYSTEM_PROMPT",
+    "build_storyboard_system_prompt",
     "_get_language_palette",
     "_parse_label",
     "HETERONYM_DOMAINS",
@@ -44,5 +46,6 @@ __all__ = [
     "_clean_character_clause",
     "extract_or_build_character_anchors",
     "sanitize_and_style_prompt",
+    "is_present_heteronym_topic",
     "_extract_json_payload",
 ]

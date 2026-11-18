@@ -1,16 +1,31 @@
 """
-visual/types/game/prompts.py — Prompt builders for GAME single-scene goals and storyboard tasks.
+visual/types/game/prompts.py — Prompt builders for GAME single-scene goals, progressions, and storyboard tasks.
 """
 from __future__ import annotations
 
 from .rules import GAME_FORMAT_STAGING_DIRECTIVE
+
+GAME_STORYBOARD_SYSTEM_GRAMMAR = (
+    "     * FOR GAME SHORTS (SYMMETRICAL DILEMMA & TENSION PROGRESSION):\n"
+    "       - Hook [THE FRONTAL DILEMMA]: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. The solo 14-16yo student protagonist has natural balanced teenage proportions and a healthy youthful athletic build, caught in an active moment of clever curiosity and playful dilemma, weighing two choices with engaging personality and 100% direct fourth-wall eye contact. Lively expressive face with an amused raised eyebrow, slight thinking smile, head tilted curiously, and warm animated eyes full of life and spark (NEVER wide bug eyes, NEVER staring, NEVER unexpressive deadpan face).\n"
+    "       - Answer [THE EUREKA BREAKTHROUGH]: Dynamic 3/4 asymmetrical breakthrough moment! Protagonist radiates joyful relief, confident smile, and forward kinetic momentum in the authentic setting.\n"
+    "       - Explanation [REAL-WORLD IMMERSION]: Real-world narrative medium-wide shot (35mm lens) showing natural confident usage with 0% camera eye contact."
+)
+
+GAME_SINGLE_SCENE_PROGRESSION = (
+    "DISTINCT SCENE PROGRESSION FOR GAME SHORTS (CRITICAL — PREVENT IDENTICAL DUPLICATES):\n"
+    "While all scenes share the story world above, EACH scene must depict its unique GAME quiz beat and camera geometry:\n"
+    "- HOOK: Front-facing centered medium eye-level shot under spotlight. Solo protagonist making 100% direct fourth-wall eye contact, weighing two choices with playful curiosity.\n"
+    "- ANSWER: Dynamic 3/4 asymmetrical medium action shot with forward kinetic momentum. Triumphant eureka relief celebrating the winning choice.\n"
+    "- EXPLANATION: Real-world narrative medium-wide shot (35mm lens) with 0% camera eye contact. Practical real-life cultural immersion."
+)
 
 
 def build_game_single_scene_goal(scene_lower: str, p1_word: str = "boy", p2_word: str = "girl") -> str:
     if scene_lower == "hook":
         return (
             "SCENE GOAL — HOOK (THE FRONTAL DILEMMA):\n"
-            "1. CAMERA & STAGING: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo 16yo student protagonist has a natural healthy athletic build and is centered, weighing two choices with engaging personality (solo character, no companion in hook).\n"
+            "1. CAMERA & STAGING: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo 14-16yo student protagonist has natural balanced teenage proportions and a healthy youthful athletic build, centered and weighing two choices with engaging personality (solo character, no companion in hook).\n"
             "2. FOURTH-WALL GAZE: 100% DIRECT FOURTH-WALL EYE CONTACT WITH THE CAMERA LENS! The protagonist looks straight into the camera at the viewer, breaking the fourth wall to confront the audience with the quiz dilemma!\n"
             "3. EXPRESSIVE ACTING: Lively animated dilemma face with an amused raised eyebrow, slight thinking dilemma smirk, head tilted inquisitively, and warm expressive cartoon eyes full of life and spark (NEVER wide bug eyes, NEVER unexpressive deadpan stare).\n"
             "4. Relatable, lively real-life environment matching the locked anchor setting. Do NOT place them in a school, classroom, or generic cafe.\n"
@@ -44,12 +59,12 @@ def build_game_storyboard_task(p1_word: str, p2_word: str = "girl") -> str:
         f"DIRECTOR'S GAME STORYBOARD TASK (FRONTAL DILEMMA TO ASYMMETRICAL TRIUMPH PROGRESSION):\n"
         f"Transform this game quiz into a cohesive storyboard where each scene faithfully depicts the specific question, answer, and explanation with exact camera geometry:\n"
         f"1. ARCHETYPE VISUAL GRAMMAR & SCENE MATRIX (MANDATORY):\n"
-        f"   - HOOK [THE FRONTAL DILEMMA]: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo 16yo student protagonist {p1_word} has a natural healthy athletic build and is centered, weighing two choices with engaging personality. FOURTH-WALL GAZE: 100% direct fourth-wall eye contact with the camera lens, confronting the viewer with the quiz dilemma! EXPRESSIVE ACTING: Lively animated dilemma face with an amused raised eyebrow, slight thinking dilemma smirk, head tilted inquisitively, and warm animated cartoon eyes (NEVER wide bug eyes, NEVER staring, NEVER unexpressive deadpan stare). Solo {p1_word} only (no companion in hook)!\n"
+        f"   - HOOK [THE FRONTAL DILEMMA]: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo 14-16yo student protagonist {p1_word} has natural balanced teenage proportions and a healthy youthful athletic build and is centered, weighing two choices with engaging personality. FOURTH-WALL GAZE: 100% direct fourth-wall eye contact with the camera lens, confronting the viewer with the quiz dilemma! EXPRESSIVE ACTING: Lively animated dilemma face with an amused raised eyebrow, slight thinking dilemma smirk, head tilted inquisitively, and warm animated cartoon eyes (NEVER wide bug eyes, NEVER staring, NEVER unexpressive deadpan stare). Solo {p1_word} only (no companion in hook)!\n"
         f"   - ANSWER [THE ASYMMETRICAL BREAKTHROUGH]: Dynamic 3/4 asymmetrical medium action shot with forward kinetic momentum! Protagonist {p1_word} breaks free from the dilemma with radiant relief, a triumphant eureka smile, and forward kinetic energy, joyfully celebrating the winning choice in the setting.\n"
         f"   - EXPLANATION [REAL-WORLD IMMERSION]: Real-world narrative medium-wide shot (35mm wide lens) with deep spatial environment. Protagonist {p1_word} actively engages in the authentic cultural practice, ritual, or real-life application. FOURTH-WALL GAZE: STRICTLY 0% EYE CONTACT WITH THE CAMERA (100% in-scene narrative immersion).\n"
         f"2. ZERO-TOLERANCE TEXT & SCREEN BAN: Do NOT depict chalkboards, whiteboards, screens, tablets, smartphones showing text/options, quiz cards, buzzers, podiums, or countdown timers. Completely ban all written words, letters, phrases, and quotes. If documents or papers appear, describe them strictly as containing abstract wavy cartoon doodle lines, 0% legible text. Focus 100% on the human character dilemma and authentic setting.\n"
         f"3. ZERO-AMBIGUITY GENDER RULE: Explicitly specify the sex of every character depicted. Character 1 protagonist MUST be a {p1_word.upper()}. Strictly ban generic words like 'two teens'.\n"
-        f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact 16-year-old high-school student {p1_word} demographic (tall slender proportions, mature teenage features, NOT a child), skin tone, eye color, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+        f"4. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact 14-16-year-old high-school student {p1_word} demographic (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), skin tone, eye color, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
         f"5. LENGTH: Around 70-110 words per scene prompt.\n\n"
         f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, answer, explanation) to its final prompt string."
     )

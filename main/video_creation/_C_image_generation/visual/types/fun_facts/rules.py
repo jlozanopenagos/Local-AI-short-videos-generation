@@ -1,5 +1,6 @@
 """
 visual/types/fun_facts/rules.py — Shot grammar, scene contracts, and staging rules for FUN_FACTS shorts.
+Includes complete 5-scene camera grammar (Q8).
 """
 from __future__ import annotations
 
@@ -19,36 +20,36 @@ FUN_FACTS_SCENES = [
         name="setup",
         render_mode="comfy",
         cast_in_frame="solo",
-        lens_and_angle="Medium collaborative inspection framing",
+        lens_and_angle="Medium 50mm eye-level investigative shot at a study workbench or cultural display",
         gaze="none",
-        emotion_arc="Intrigue and investigative curiosity",
-        prop_rule="Inspecting artifacts/scrolls with abstract wavy cartoon scribble lines (0% text)",
+        emotion_arc="Intrigue, focused curiosity, examining the mysterious clue or origin",
+        prop_rule="Authentic historical artifact, mechanism, or parchment scroll with abstract wavy cartoon scribble lines (0% text)",
     ),
     SceneSpec(
         name="discovery",
         render_mode="comfy",
         cast_in_frame="solo",
-        lens_and_angle="Dynamic medium action reveal framing",
+        lens_and_angle="Dynamic 35mm 3/4 medium action shot revealing the mechanism or origin in motion",
         gaze="none",
-        emotion_arc="Fascinating historical/linguistic discovery in motion",
-        prop_rule="Revealing the physical origin or mechanism of the curiosity",
+        emotion_arc="Wide-eyed eureka fascination as the hidden cultural/linguistic connection is revealed",
+        prop_rule="Physical demonstration of the historical origin or mechanism in active motion",
     ),
     SceneSpec(
         name="explanation",
         render_mode="comfy",
         cast_in_frame="solo",
-        lens_and_angle="Medium-wide environmental immersion shot",
+        lens_and_angle="Medium-wide 35mm environmental immersion shot with rich architectural depth",
         gaze="none",
-        emotion_arc="Clear understanding of how the phenomenon works in context",
-        prop_rule="Authentic cultural or historical props in use",
+        emotion_arc="Confident, engaged appreciation of how the phenomenon or phrase lives in real culture",
+        prop_rule="Authentic cultural or historical props in practical real-world context",
     ),
     SceneSpec(
         name="payoff",
         render_mode="comfy",
         cast_in_frame="solo",
-        lens_and_angle="Medium close-up celebratory framing",
+        lens_and_angle="Chest-up celebratory medium close-up (50mm lens) with warm dramatic rim lighting",
         gaze="none",
-        emotion_arc="Mind-blown celebratory outro celebrating trivia mastery",
+        emotion_arc="Mind-blown celebratory delight and proud trivia mastery",
         prop_rule="Triumphant conclusion in the story world",
     ),
 ]

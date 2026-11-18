@@ -5,7 +5,7 @@ Mirrors the Stage A `BaseScriptEngine` architecture.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List
 
 
@@ -14,7 +14,7 @@ class SceneSpec:
     """Explicit contract for a single scene in a video format's visual timeline."""
     name: str
     render_mode: str = "comfy"          # "comfy" | "chalkboard" | "static"
-    cast_in_frame: str = "solo"         # "solo" | "p1" | "p2" | "both"
+    cast_in_frame: str = "solo"         # "solo" | "p1" | "p2" | "both" | "none"
     lens_and_angle: str = ""
     gaze: str = "none"                  # "fourth_wall" | "none" | "upward"
     emotion_arc: str = ""
@@ -44,6 +44,16 @@ class VisualProfile(ABC):
     @abstractmethod
     def build_single_scene_goal(self, scene_lower: str, p1_word: str, p2_word: str) -> str:
         """Builds the single-scene situational direction (`text_rule`) for `_build_user_context`."""
+        pass
+
+    @abstractmethod
+    def build_single_scene_progression_summary(self) -> str:
+        """Builds the type-specific `DISTINCT SCENE PROGRESSION` summary for `_build_user_context`."""
+        pass
+
+    @abstractmethod
+    def build_storyboard_system_grammar(self) -> str:
+        """Builds the type-pure Rule 5 (`ARCHETYPE VISUAL GRAMMAR & CAMERA FRAMING`) for the storyboard system prompt."""
         pass
 
     @abstractmethod

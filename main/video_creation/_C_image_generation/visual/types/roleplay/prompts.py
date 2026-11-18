@@ -1,9 +1,31 @@
 """
-visual/types/roleplay/prompts.py — Prompt builders for ROLEPLAY single-scene goals and storyboard tasks.
+visual/types/roleplay/prompts.py — Prompt builders for ROLEPLAY single-scene goals, progressions, and storyboard tasks.
+Locked to Q1 (6 ComfyUI renders) and Q3/Q4 (14-16yo natural balanced teenage proportions).
 """
 from __future__ import annotations
 
 from .rules import ROLEPLAY_FORMAT_STAGING_DIRECTIVE
+
+ROLEPLAY_STORYBOARD_SYSTEM_GRAMMAR = (
+    "     * FOR ROLEPLAY SHORTS (DYNAMIC 6-BEAT CINEMATIC DIALOGUE PROGRESSION):\n"
+    "       - Hook [SCENARIO THRESHOLD TWO-SHOT]: Medium-wide 35mm diagonal shot crossing a physical threshold (archway, curtain edge, counter). STRICTLY ZERO FOURTH-WALL EYE CONTACT. Characters interact exclusively with each other in situational tension.\n"
+    "       - Dialogue_Part_1 [SOLO TIGHT CLOSE-UP ON PERSON_ONE]: 85mm portrait lens, shallow depth of field, dramatic key lighting, expressive facial acting on PERSON_ONE showing dilemma or questioning (PERSON_TWO is strictly off-camera).\n"
+    "       - Dialogue_Part_2 [SOLO 180° REVERSE-ANGLE CLOSE-UP ON PERSON_TWO]: 85mm portrait lens, 180° reverse angle, warm fill light, calm reassuring mentorship and guidance on PERSON_TWO (PERSON_ONE is strictly off-camera).\n"
+    "       - Dialogue_Part_3 [90° SIDE PROFILE / TOP-DOWN TWO-SHOT PROP INTERACTION]: 50mm lens. The camera shifts 90° to a side-profile or high-angle table overview showing BOTH characters actively examining or manipulating an authentic physical prop from the setting. Breaks the solo close-up sequence with collaborative interaction.\n"
+    "       - Dialogue_Part_4 [SOLO WAIST-UP DYNAMIC ACTION ON PERSON_ONE]: 28mm/50mm lens. Distinct waist-up dynamic action framing (completely different camera distance and physical stance from the tight close-up in Part 1) capturing PERSON_ONE gesturing with clarity, confidence, and determination (PERSON_TWO is strictly off-camera).\n"
+    "       - Payoff [CELEBRATORY TWO-SHOT]: 28mm wide cinematic lens, dramatic backlighting, shared celebratory triumph in motion."
+)
+
+ROLEPLAY_SINGLE_SCENE_PROGRESSION = (
+    "DISTINCT SCENE PROGRESSION FOR ROLEPLAY SHORTS (CRITICAL — 6-BEAT CINEMATIC COVERAGE):\n"
+    "While all 6 scenes share the story world above, EACH scene must strictly follow its unique camera angle and subject coverage:\n"
+    "- HOOK: Medium-wide 35mm threshold two-shot (both characters, 0% camera eye contact).\n"
+    "- DIALOGUE_PART_1: Solo 85mm tight medium close-up on PERSON_ONE only (PERSON_TWO off-camera).\n"
+    "- DIALOGUE_PART_2: Solo 180° reverse-angle 85mm medium close-up on PERSON_TWO only (PERSON_ONE off-camera).\n"
+    "- DIALOGUE_PART_3: 90° side profile or top-down 50mm two-shot prop interaction (both characters).\n"
+    "- DIALOGUE_PART_4: Solo waist-up 28mm/50mm dynamic action shot on PERSON_ONE only (PERSON_TWO off-camera).\n"
+    "- PAYOFF: Celebratory 28mm wide action two-shot in motion (both characters)."
+)
 
 
 def build_roleplay_single_scene_goal(scene_lower: str, p1_word: str = "boy", p2_word: str = "girl") -> str:
@@ -84,7 +106,7 @@ def build_roleplay_storyboard_task(p1_word: str, p2_word: str) -> str:
         f"   - PAYOFF [CELEBRATORY ACTION TWO-SHOT (28mm LENS)]: Both characters in dynamic motion. 28mm wide cinematic lens, dramatic backlighting, shared celebratory mastery.\n\n"
         f"2. ZERO-AMBIGUITY CHARACTER DESCRIPTION & CONTINUITY:\n"
         f"   - For solo shots (dialogue_part_1, dialogue_part_2, dialogue_part_4): Explicitly describe ONLY the single featured character with their locked traits. State: 'Single character solo shot. The other character is off-camera.'\n"
-        f"   - For two-shots (hook, dialogue_part_3, payoff): Explicitly specify the sex of EACH character (e.g. 'one 15-year-old teen {p1_word}' and 'one 15-year-old teen {p2_word}'). Strictly ban generic words like 'the characters'!\n\n"
+        f"   - For two-shots (hook, dialogue_part_3, payoff): Explicitly specify the sex of EACH character (e.g. 'one 14-16-year-old teen {p1_word}' and 'one 14-16-year-old teen {p2_word}'). Strictly ban generic words like 'the characters'!\n\n"
         f"3. LENGTH: Around 70-110 words per scene prompt.\n\n"
         f"Return ONLY a valid JSON object mapping all 6 scene names in lowercase (hook, dialogue_part_1, dialogue_part_2, dialogue_part_3, dialogue_part_4, payoff) to their final prompt string."
     )
