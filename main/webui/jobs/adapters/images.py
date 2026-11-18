@@ -91,10 +91,11 @@ class ImagesAdapter(BaseStageAdapter):
                     continue
                 s_data = sm.get_script_state(script_id)
                 status = s_data.get("status", {})
-                if not force and status.get("image_generation") == "done":
+                if not (force or regenerate_prompts) and status.get("image_generation") == "done":
                     continue
+                existing_gp = (s_data.get("assets", {}).get("general_prompt") or "").strip()
                 existing_prompts = s_data.get("assets", {}).get("image_prompts", {})
-                if force or regenerate_prompts or not existing_prompts:
+                if force or regenerate_prompts or not existing_gp or not existing_prompts:
                     scripts_needing_prompts.append(script_id)
 
             if scripts_needing_prompts:
@@ -125,7 +126,7 @@ class ImagesAdapter(BaseStageAdapter):
                                 script_data=s_data,
                                 state_manager=sm,
                                 prompt_builder=prompt_builder,
-                                force=force,
+                                force=bool(force or regenerate_prompts),
                                 base_dir=BASE_DIR,
                             )
                             fresh_state = sm.get_script_state(s_id)

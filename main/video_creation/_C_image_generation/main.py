@@ -147,10 +147,18 @@ def ensure_image_prompts_for_script(
         or ""
     )
 
+    if force:
+        if isinstance(script_data.get("assets"), dict):
+            script_data["assets"].pop("character_anchors", None)
+        if isinstance(content_meta, dict):
+            content_meta.pop("character_anchors", None)
+            content_meta.pop("anchor_environment", None)
+
     general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
-    if general_prompt:
+    if general_prompt and not force:
         anchor_environment = general_prompt
     else:
+        ensure_llama_running()
         anchor_environment = resolve_anchor_environment(
             script_text=script_text,
             topic=topic,
