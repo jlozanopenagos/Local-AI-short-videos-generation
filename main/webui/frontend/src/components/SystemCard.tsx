@@ -60,7 +60,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
       <div
         className={`telemetry-chip ${openPopover ? 'active' : ''}`}
         onClick={() => setOpenPopover((prev) => !prev)}
-        title="Click to inspect ComfyUI and Gemma server details"
+        title="click to inspect ComfyUI and Gemma server details"
       >
         <span className={`status-dot ${comfyOnline ? 'online' : 'offline'}`} />
         <span>ComfyUI</span>
@@ -83,7 +83,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
       <div
         className={`telemetry-chip ${openPopover ? 'active' : ''}`}
         onClick={() => setOpenPopover((prev) => !prev)}
-        title="Click to inspect ComfyUI and Gemma server details"
+        title="click to inspect ComfyUI and Gemma server details"
       >
         <span className={`status-dot ${llmOnline ? 'online' : 'offline'}`} />
         <span>Gemma</span>
@@ -120,12 +120,12 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
 
             <div className="service-meta" style={{ marginBottom: '6px', fontSize: '12px' }}>
               <div className="meta-row">
-                <span>Port / PID:</span>
+                <span>port / PID:</span>
                 <span>{comfy?.port || 8188} / {comfy?.pid ?? '—'}</span>
               </div>
               <div className="meta-row">
-                <span>Active GPU:</span>
-                <span>{comfy?.active_gpu || 'Detecting...'}</span>
+                <span>active GPU:</span>
+                <span>{comfy?.active_gpu || 'detecting...'}</span>
               </div>
               <div className="meta-row">
                 <span>VRAM usage:</span>
@@ -146,7 +146,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                 />
               </div>
               <div className="meta-row" style={{ marginTop: '4px' }}>
-                <span>Queue:</span>
+                <span>queue:</span>
                 <span>{comfy?.queue_running ?? 0} running, {comfy?.queue_pending ?? 0} pending</span>
               </div>
             </div>
@@ -161,7 +161,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                     onClick={(e) => handleAction('comfyui', 'stop', e)}
                   >
                     <Square size={12} />
-                    <span>Stop</span>
+                    <span>stop</span>
                   </button>
                   <button
                     type="button"
@@ -170,7 +170,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                     onClick={(e) => handleAction('comfyui', 'restart', e)}
                   >
                     <RotateCw size={12} />
-                    <span>Restart</span>
+                    <span>restart</span>
                   </button>
                 </>
               ) : (
@@ -181,7 +181,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                   onClick={(e) => handleAction('comfyui', 'start', e)}
                 >
                   <Play size={12} />
-                  <span>Start ComfyUI</span>
+                  <span>start ComfyUI</span>
                 </button>
               )}
             </div>
@@ -201,20 +201,20 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
 
             <div className="service-meta" style={{ marginBottom: '6px', fontSize: '12px' }}>
               <div className="meta-row">
-                <span>Port / PID:</span>
+                <span>port / PID:</span>
                 <span>{llm?.port || 8080} / {llm?.pid ?? '—'}</span>
               </div>
               <div className="meta-row">
-                <span>Model:</span>
+                <span>model:</span>
                 <span>{llm?.model || 'Gemma-4-E2B'}</span>
               </div>
               <div className="meta-row">
                 <span>VRAM policy:</span>
-                <span className="icon-success">Auto on-demand</span>
+                <span className="icon-success">auto on-demand</span>
               </div>
               <div className="meta-row">
-                <span>Role:</span>
-                <span>Scripts & scene prompts</span>
+                <span>role:</span>
+                <span>scripts & scene prompts</span>
               </div>
             </div>
 
@@ -228,7 +228,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                     onClick={(e) => handleAction('llm', 'stop', e)}
                   >
                     <Square size={12} />
-                    <span>Stop</span>
+                    <span>stop</span>
                   </button>
                   <button
                     type="button"
@@ -237,7 +237,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                     onClick={(e) => handleAction('llm', 'restart', e)}
                   >
                     <RotateCw size={12} />
-                    <span>Restart</span>
+                    <span>restart</span>
                   </button>
                 </>
               ) : (
@@ -248,7 +248,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({ system, onRefresh }) => 
                   onClick={(e) => handleAction('llm', 'start', e)}
                 >
                   <Play size={12} />
-                  <span>Start Gemma server</span>
+                  <span>start Gemma server</span>
                 </button>
               )}
             </div>

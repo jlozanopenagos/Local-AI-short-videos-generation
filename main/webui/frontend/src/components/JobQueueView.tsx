@@ -97,52 +97,52 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
       case 'completed':
         return (
           <span className="stage-badge stage-done" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <CheckCircle size={12} /> Completed
+            <CheckCircle size={12} /> completed
           </span>
         )
       case 'running':
         return (
           <span className="stage-badge stage-pending" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <RefreshCw size={12} className="animate-spin" /> Running
+            <RefreshCw size={12} className="animate-spin" /> running
           </span>
         )
       case 'queued':
         return (
           <span className="stage-badge stage-missing" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Clock size={12} /> Queued
+            <Clock size={12} /> queued
           </span>
         )
       case 'cancelled':
         return (
           <span className="stage-badge stage-missing" style={{ color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Ban size={12} /> Cancelled
+            <Ban size={12} /> cancelled
           </span>
         )
       case 'failed':
       default:
         return (
           <span className="stage-badge" style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <AlertTriangle size={12} /> Failed
+            <AlertTriangle size={12} /> failed
           </span>
         )
     }
   }
 
   return (
-    <section style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '20px' }} aria-label="Job queue and worker console">
+    <section style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '20px' }} aria-label="job queue and worker console">
       {/* Jobs List */}
       <div className="card">
         <div className="card-title">
-          <span>Job queue ({jobs.length})</span>
+          <span>job queue ({jobs.length})</span>
           <button className="btn btn-outline btn-sm" onClick={onRefresh}>
             <RefreshCw size={13} />
-            <span>Refresh</span>
+            <span>refresh</span>
           </button>
         </div>
 
         {jobs.length === 0 ? (
           <div style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '30px' }}>
-            No jobs queued yet. Select a script from the catalog to start a job.
+            no jobs queued yet. select a script from the catalog to start a job.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -163,21 +163,28 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <strong style={{ fontSize: '14px', color: 'var(--text-main)' }}>
-                      #{job.job_id} — {job.stage.charAt(0).toUpperCase() + job.stage.slice(1).toLowerCase()}
-                    </strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '14px', color: 'var(--text-main)' }}>
+                        #{job.job_id} — {job.stage.toLowerCase()}
+                      </strong>
+                      {job.options?.scene ? (
+                        <span className="brand-badge" style={{ fontSize: '10.5px' }}>
+                          scene: {String(job.options.scene).replace(/_/g, ' ')}
+                        </span>
+                      ) : null}
+                    </div>
                     {renderStatusBadge(job.status)}
                   </div>
 
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                    Scripts: {job.script_ids.join(', ')}
+                    scripts: {job.script_ids.join(', ')}
                   </div>
 
                   {/* Progress Bar */}
                   {job.progress && job.progress.total > 0 && (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                        <span>Progress:</span>
+                        <span>progress:</span>
                         <span>{job.progress.current} / {job.progress.total}</span>
                       </div>
                       <div className="vram-bar">
@@ -203,7 +210,7 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
                         }}
                       >
                         <XCircle size={12} />
-                        <span>Cancel</span>
+                        <span>cancel</span>
                       </button>
                     </div>
                   )}
@@ -220,7 +227,7 @@ export const JobQueueView: React.FC<JobQueueViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Terminal size={18} className="icon-accent" />
             <span>
-              Live worker console {activeJob ? `(#${activeJob.job_id} · ${activeJob.stage.toLowerCase()})` : ''}
+              live worker console {activeJob ? `(#${activeJob.job_id} · ${activeJob.stage.toLowerCase()}${activeJob.options?.scene ? ` · scene: ${String(activeJob.options.scene).replace(/_/g, ' ')}` : ''})` : ''}
             </span>
           </div>
         </div>

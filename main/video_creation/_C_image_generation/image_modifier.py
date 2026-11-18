@@ -37,7 +37,7 @@ from config import (
     IMAGE_DEFAULT_STEPS, IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT,
     IMAGE_STALL_TIMEOUT,
     LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME, require_services,
-    GAME_IMAGES_DIR, get_script_output_dir, resolve_script_language
+    GAME_IMAGES_DIR, get_script_output_dir, resolve_script_language, resolve_static_scene_path
 )
 # pyrefly: ignore [missing-import]
 from core.cli_prompt import timed_input
@@ -668,15 +668,16 @@ def modify_group_interactive(
         print(f"[{idx}/{total_scenes}] Processing Scene: {sec.upper()}")
         print(f"{'─' * 60}")
 
-        # Specialized handling for GAME: PRESSURE (Static pre-made image)
+        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image — zero-copy)
         if video_type == "GAME" and sec.lower() == "pressure":
-            lang_key = resolve_script_language(script_data)
-            waiting_img = GAME_IMAGES_DIR / lang_key / f"{lang_key}_waiting.png"
-            if not waiting_img.exists():
-                waiting_img = GAME_IMAGES_DIR / "english" / "english_waiting.png"
-            if waiting_img.exists():
-                shutil.copy2(waiting_img, dest_image_path)
-                print(f"[OK] Copied static waiting image: {waiting_img.name} -> {dest_image_path.name}")
+            static_img = resolve_static_scene_path(
+                section_name=sec,
+                script_data=script_data,
+                video_type=video_type,
+                base_dir=base_dir,
+            )
+            if static_img and static_img.exists():
+                print(f"[OK] Section 'PRESSURE' resolved via centralized static asset: {static_img.name} (zero-copy skipped).")
                 continue
 
         # Specialized handling for GAME: CHALLENGE (High-Res Chalkboard Renderer)
@@ -1104,15 +1105,16 @@ def modify_scene_interactive(
             except (KeyboardInterrupt, EOFError):
                 pass
 
-        # Specialized handling for GAME: PRESSURE (Static pre-made image)
+        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image — zero-copy)
         if video_type == "GAME" and chosen_section.lower() == "pressure":
-            print("\n[GAME] 'pressure' uses a static pre-made waiting image.")
-            lang_key = resolve_script_language(script_data)
-            waiting_img = GAME_IMAGES_DIR / lang_key / f"{lang_key}_waiting.png"
-            if not waiting_img.exists():
-                waiting_img = GAME_IMAGES_DIR / "english" / "english_waiting.png"
-            shutil.copy2(waiting_img, dest_image_path)
-            print(f"[SUCCESS] Copied static waiting image: {waiting_img.name} -> {dest_image_path.name}\n")
+            print("\n[GAME] 'pressure' uses a centralized static waiting image (zero-copy).")
+            static_img = resolve_static_scene_path(
+                section_name=chosen_section,
+                script_data=script_data,
+                video_type=video_type,
+            )
+            if static_img and static_img.exists():
+                print(f"[SUCCESS] Verified central static image: {static_img.name} (no duplicate copy needed).\n")
             _update_state_assets(script_data, script_id, images_dir, valid_sections, state_manager)
             try:
                 another = input("Do you want to recreate another image in this script? [y/N]: ").strip().lower()

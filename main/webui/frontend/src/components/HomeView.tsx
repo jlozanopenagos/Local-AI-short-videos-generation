@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Cpu,
   Layers,
+  LayoutGrid,
   FileSpreadsheet,
   Terminal,
   CheckCircle2,
@@ -11,12 +12,12 @@ import {
   Film,
   Layers as LayersIcon
 } from 'lucide-react'
-import type { SystemStatus, ScriptFacets, ScriptSummary } from '../types'
+import type { SystemStatus, ScriptFacets, ScriptSummary, ActiveTab } from '../types'
 import { fetchScriptCatalog, fetchFacets } from '../api'
 
 interface HomeViewProps {
   system: SystemStatus | null
-  onNavigate: (tab: 'dashboard' | 'jobs' | 'sheets' | 'mass-creation') => void
+  onNavigate: (tab: ActiveTab) => void
   onSelectScript: (scriptId: string) => void
 }
 
@@ -68,7 +69,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <div className="home-hero-card">
         <div className="home-hero-badge">
           <Sparkles size={14} />
-          <span>Local AI video production workspace</span>
+          <span>local AI video production workspace</span>
         </div>
         <h1 className="home-hero-title">
           Shorts studio — automated video pipeline
@@ -83,15 +84,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="btn btn-primary"
             onClick={() => onNavigate('dashboard')}
           >
-            <span>Explore script catalog</span>
+            <span>explore script catalog</span>
             <ArrowRight size={15} />
+          </button>
+          <button
+            className="btn btn-outline"
+            onClick={() => onNavigate('bingo')}
+          >
+            <LayoutGrid size={15} />
+            <span>asset bingo matrix</span>
           </button>
           <button
             className="btn btn-outline"
             onClick={() => onNavigate('mass-creation')}
           >
             <LayersIcon size={15} />
-            <span>Mass asset creation</span>
+            <span>mass asset creation</span>
           </button>
           <button
             className="btn btn-outline"
@@ -111,7 +119,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <div className="home-kpi-content">
             <span className="home-kpi-value">{totalScripts.toLocaleString()}</span>
-            <span className="home-kpi-label">Total scripts indexed</span>
+            <span className="home-kpi-label">total scripts indexed</span>
           </div>
         </div>
 
@@ -121,7 +129,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <div className="home-kpi-content">
             <span className="home-kpi-value">{completedCount.toLocaleString()}</span>
-            <span className="home-kpi-label">Completed short videos</span>
+            <span className="home-kpi-label">completed short videos</span>
           </div>
         </div>
 
@@ -131,7 +139,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <div className="home-kpi-content">
             <span className="home-kpi-value">{readyAssemblyCount.toLocaleString()}</span>
-            <span className="home-kpi-label">Ready for video assembly</span>
+            <span className="home-kpi-label">ready for video assembly</span>
           </div>
         </div>
 
@@ -148,7 +156,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="home-kpi-content">
             <span className="home-kpi-value" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className={`status-dot ${comfyOnline ? 'online' : 'offline'}`} />
-              <span>{comfyOnline ? 'Online' : 'Offline'}</span>
+              <span>{comfyOnline ? 'online' : 'offline'}</span>
             </span>
             <span className="home-kpi-label">
               ComfyUI {comfyOnline ? ':8188' : ''} • Gemma {llmOnline ? ':8080' : 'standby'}
@@ -160,7 +168,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Core Workflow Cards Grid */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2 className="home-section-title">
-          <span>Production workflows</span>
+          <span>production workflows</span>
         </h2>
 
         <div className="home-workflow-grid">
@@ -170,30 +178,47 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="home-workflow-icon-wrap" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
                 <Cpu size={22} />
               </div>
-              <h3 className="home-workflow-heading">Script catalog</h3>
+              <h3 className="home-workflow-heading">script catalog</h3>
               <p className="home-workflow-desc">
                 Browse, search, and inspect 1,225+ scripts across English, Spanish, French, and Italian. Edit dialogues, chalkboard exercises, and scene prompts.
               </p>
             </div>
             <span className="home-workflow-arrow">
-              <span>Open catalog</span>
+              <span>open catalog</span>
               <ArrowRight size={14} />
             </span>
           </div>
 
-          {/* Card 2: Mass Asset Creation */}
+          {/* Card 2: Asset Bingo Matrix (New Visual Pipeline Tracker) */}
+          <div className="home-workflow-card" onClick={() => onNavigate('bingo')}>
+            <div className="home-workflow-top">
+              <div className="home-workflow-icon-wrap" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
+                <LayoutGrid size={22} />
+              </div>
+              <h3 className="home-workflow-heading">asset bingo matrix</h3>
+              <p className="home-workflow-desc">
+                High-density 5-color visual tracker. Monitor script, voice, images, thumbnail, and video assembly progression across all 1,225+ IDs.
+              </p>
+            </div>
+            <span className="home-workflow-arrow">
+              <span>open bingo matrix</span>
+              <ArrowRight size={14} />
+            </span>
+          </div>
+
+          {/* Card 3: Mass Asset Creation */}
           <div className="home-workflow-card" onClick={() => onNavigate('mass-creation')}>
             <div className="home-workflow-top">
               <div className="home-workflow-icon-wrap" style={{ background: 'var(--sand-subtle)', color: 'var(--sand)' }}>
                 <Layers size={22} />
               </div>
-              <h3 className="home-workflow-heading">Mass asset creation</h3>
+              <h3 className="home-workflow-heading">mass asset creation</h3>
               <p className="home-workflow-desc">
                 Batch render scene illustrations, Kokoro voice narration, title thumbnails, or game chalkboard typography across targeted script IDs.
               </p>
             </div>
             <span className="home-workflow-arrow">
-              <span>Start mass run</span>
+              <span>start mass run</span>
               <ArrowRight size={14} />
             </span>
           </div>
@@ -210,7 +235,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </p>
             </div>
             <span className="home-workflow-arrow">
-              <span>Synchronize sheets</span>
+              <span>synchronize sheets</span>
               <ArrowRight size={14} />
             </span>
           </div>
@@ -221,13 +246,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="home-workflow-icon-wrap" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
                 <Terminal size={22} />
               </div>
-              <h3 className="home-workflow-heading">Queue & console</h3>
+              <h3 className="home-workflow-heading">queue & console</h3>
               <p className="home-workflow-desc">
                 Monitor running worker processes, cancel active batch tasks, and stream real-time logging output from the pipeline execution engine.
               </p>
             </div>
             <span className="home-workflow-arrow">
-              <span>View console</span>
+              <span>view console</span>
               <ArrowRight size={14} />
             </span>
           </div>
@@ -239,25 +264,25 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>
-              Ready for assembly spotlight
+              ready for assembly spotlight
             </h3>
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-              Scripts that have both voice and scene images completed, ready for final video compilation.
+              scripts that have both voice and scene images completed, ready for final video compilation.
             </p>
           </div>
           <button className="btn btn-outline btn-sm" onClick={() => onNavigate('dashboard')}>
-            <span>View all in catalog</span>
+            <span>view all in catalog</span>
             <ArrowRight size={13} />
           </button>
         </div>
 
         {loading ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-            Loading studio spotlight...
+            loading studio spotlight...
           </div>
         ) : readyScripts.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-            No scripts currently waiting for assembly. All assembled or awaiting audio/images.
+            no scripts currently waiting for assembly. all assembled or awaiting audio/images.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -265,10 +290,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Topic / title</th>
-                  <th>Language / format</th>
-                  <th>Status</th>
-                  <th>Action</th>
+                  <th>topic / title</th>
+                  <th>language / format</th>
+                  <th>status</th>
+                  <th>action</th>
                 </tr>
               </thead>
               <tbody>

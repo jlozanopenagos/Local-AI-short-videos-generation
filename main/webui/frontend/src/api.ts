@@ -260,7 +260,7 @@ export async function redoSceneImage(
   scriptId: string,
   sceneType: string,
   options: { prompt?: string; seed?: number } = {}
-): Promise<{ status: string; message: string; image_file: string; script: ScriptDetail }> {
+): Promise<{ status: string; message: string; image_file: string; job_id?: string; script: ScriptDetail }> {
   const res = await fetch(`/api/scripts/${scriptId}/scenes/${encodeURIComponent(sceneType)}/redo-image`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -269,6 +269,49 @@ export async function redoSceneImage(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || `Failed to redo image for scene '${sceneType}' in script ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function redoAllScriptImages(
+  scriptId: string,
+  options: { general_prompt?: string; seed?: number } = {}
+): Promise<{ status: string; script_id: string; job_id: string; message: string; general_prompt: string }> {
+  const res = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}/redo-all-images`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to queue redo all images for script ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function uploadScriptToDrive(
+  scriptId: string
+): Promise<{ success: boolean; message: string; data: any }> {
+  const res = await fetch(`/api/drive/scripts/${encodeURIComponent(scriptId)}/upload`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to upload script ${scriptId} to Google Drive`)
+  }
+  return res.json()
+}
+
+export async function getDriveStatus(): Promise<{
+  configured: boolean
+  credentials_found: boolean
+  credentials_file?: string
+  root_folder_id: string
+  root_folder_url: string
+}> {
+  const res = await fetch('/api/drive/status')
+  if (!res.ok) {
+    throw new Error('Failed to fetch Google Drive status')
   }
   return res.json()
 }

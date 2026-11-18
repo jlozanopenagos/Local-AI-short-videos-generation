@@ -395,6 +395,52 @@ def resolve_opening_closure_paths(
 
     return opening_path, closure_path
 
+def resolve_static_scene_path(
+    section_name: str,
+    script_data: dict = None,
+    language: str = None,
+    video_type: str = None,
+    base_dir: Path = None,
+) -> Optional[Path]:
+    """
+    Dynamically resolves a static/shared image path (e.g. GAME 'pressure' Tito waiting card)
+    without copying or duplicating files into individual script directories.
+    Uses centralized configuration paths (GAME_IMAGES_DIR, OPENING_CLOSURE_DIR).
+    """
+    if not section_name:
+        return None
+    sec_lower = str(section_name).strip().lower()
+
+    # Resolve video type
+    vtype = str(video_type).lower().strip() if video_type else (resolve_script_video_type(script_data) if script_data else "expression")
+
+    # Resolve language key
+    lang_key = "english"
+    if language:
+        clean_lang = str(language).split("|")[0].strip().lower()
+        if "french" in clean_lang or "français" in clean_lang:
+            lang_key = "french"
+        elif "spanish" in clean_lang or "español" in clean_lang:
+            lang_key = "spanish"
+        elif "italian" in clean_lang or "italiano" in clean_lang:
+            lang_key = "italian"
+        else:
+            lang_key = "english"
+    elif script_data:
+        lang_key = resolve_script_language(script_data)
+
+    game_dir = (base_dir / "input" / "images" / "game_images") if base_dir else GAME_IMAGES_DIR
+
+    # GAME: PRESSURE -> Tito waiting image
+    if vtype == "game" and sec_lower == "pressure":
+        candidate = game_dir / lang_key / f"{lang_key}_waiting.png"
+        if not candidate.exists():
+            candidate = game_dir / "english" / "english_waiting.png"
+        if candidate.exists():
+            return candidate
+
+    return None
+
 def get_script_output_dir(script_id: str, language: str = None, base_dir: Path = None, video_type: str = None) -> Path:
     """
     Returns the language- and video-type-namespaced output directory for a script:

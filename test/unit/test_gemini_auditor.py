@@ -209,6 +209,60 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertEqual(anchors["char2_hair"], "copper-tinted bob")
         self.assertIn("Character appearance continuity", anchors["continuity_summary"])
 
+    def test_clean_gemini_output_replaces_raw_char_tokens(self):
+        """Verify _clean_gemini_output_with_anchors substitutes raw CHAR_1/CHAR_2 tokens."""
+        sample = (
+            "[CHARACTER_ANCHORS]\n"
+            "CHAR_1: 15-16yo high-school student boy | hair: raven waves | attire: navy blazer | shoes: oxfords\n"
+            "CHAR_2: 15-16yo high-school student girl | hair: auburn braid | attire: emerald knit vest | shoes: loafers\n"
+            "[/CHARACTER_ANCHORS]\n\n"
+            "Medium-wide establishing shot. Inside an atelier, CHAR_1 works at the drafting desk while CHAR_2 checks blueprints."
+        )
+        cleaned, anchors = _clean_gemini_output_with_anchors(sample)
+        self.assertNotIn("CHAR_1", cleaned)
+        self.assertNotIn("CHAR_2", cleaned)
+        self.assertIn("15-16yo high-school student boy with raven waves wearing navy blazer and oxfords", cleaned)
+        self.assertIn("15-16yo high-school student girl with auburn braid wearing emerald knit vest and loafers", cleaned)
+
+    @patch("core.gemini_auditor.requests.post")
+    def test_audit_general_prompt_game_format_is_solo(self, mock_post):
+        """Verify Game/Quiz prompt payload does not mandate a secondary companion (CHAR_2)."""
+        valid_core = (
+            "Medium-wide establishing eye-level shot. Inside an interactive puzzle laboratory, "
+            "a 16-year-old high-school student boy in a brass-buckled workshop apron works at a mahogany puzzle desk. "
+            "On the workbench, an antique hourglass timer and forged brass gears represent the challenge. "
+            "In the background, tall arched oak bookshelves and warm amber sconces cast deep navy directional cast shadows across the parquet floor."
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": valid_core}]},
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        script_data = {
+            "id": "IG09",
+            "content_metadata": {
+                "language": "Italian",
+                "video_type": "GAME",
+                "topic": "parenti vs genitori",
+                "speakers_gender": {"NARRATOR": "male"},
+            },
+            "script_text": "A Natale ci riuniamo a cena soltanto con i miei parenti a casa mia. Qual è l'errore?",
+        }
+        res = audit_general_prompt(script_data, api_key="FAKE_KEY")
+        self.assertTrue(mock_post.called)
+        payload_text = mock_post.call_args[1]["json"]["contents"][0]["parts"][0]["text"]
+        self.assertIn("CHAR_1", payload_text)
+        self.assertNotIn("CHAR_2", payload_text)
+        self.assertIn("PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student", payload_text)
+        self.assertIn("Medium-wide establishing eye-level shot", res)
+
 
 if __name__ == "__main__":
     unittest.main()

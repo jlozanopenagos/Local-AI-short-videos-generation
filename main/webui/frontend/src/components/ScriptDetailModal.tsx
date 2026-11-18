@@ -15,7 +15,10 @@ import {
   RefreshCw,
   Code,
   Edit3,
-  FileText
+  FileText,
+  Clock,
+  CloudUpload,
+  ExternalLink
 } from 'lucide-react'
 import type { ScriptDetail, JobStage } from '../types'
 import {
@@ -28,7 +31,9 @@ import {
   geminiAuditPrompt,
   fetchGeminiStatus,
   saveGeminiKey,
-  redoSceneImage
+  redoSceneImage,
+  redoAllScriptImages,
+  uploadScriptToDrive
 } from '../api'
 
 interface ScriptDetailModalProps {
@@ -36,6 +41,16 @@ interface ScriptDetailModalProps {
   onClose: () => void
   onJobStarted: (jobId: string) => void
 }
+
+const CAMERA_PERSPECTIVES = [
+  { label: '🎬 Wide Shot', value: 'Wide establishing eye-level shot.' },
+  { label: '🔍 Close-Up', value: 'Tight 85mm portrait lens chest-up medium close-up.' },
+  { label: '👤 Over-The-Shoulder', value: 'Dynamic 50mm Over-The-Shoulder (OTS) perspective.' },
+  { label: '📐 Low-Angle', value: 'Low-angle 85mm heroic medium close-up.' },
+  { label: '👁️ High-Angle', value: 'High-angle downward bird’s-eye perspective.' },
+  { label: '🔄 Reverse 180°', value: '180° reverse-angle 85mm portrait shot with warm fill light.' },
+  { label: '🏃 Dutch Angle', value: 'Dynamic tilted Dutch angle framing with energetic diagonal composition.' },
+]
 
 export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   scriptId,
@@ -80,8 +95,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
 
   // Scene image re-rendering state
   const [redoingSceneType, setRedoingSceneType] = useState<string | null>(null)
+  const [redoingAllImages, setRedoingAllImages] = useState(false)
   const [sceneImageStatus, setSceneImageStatus] = useState<{ scene: string; type: 'success' | 'error'; message: string } | null>(null)
   const [imgCacheBuster, setImgCacheBuster] = useState<number>(Date.now())
+
+  // Google Drive upload state
+  const [uploadingDrive, setUploadingDrive] = useState(false)
+  const [driveUploadStatus, setDriveUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // Escape key listener for image lightbox
   useEffect(() => {
@@ -318,8 +338,19 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     }
   }
 
+  const applyPerspectiveToScene = (sceneType: string, perspectiveText: string) => {
+    setEditScenePrompts((prev) => {
+      const existing = (prev[sceneType] ?? '').trim()
+      if (!existing) {
+        return { ...prev, [sceneType]: perspectiveText }
+      }
+      return { ...prev, [sceneType]: `${perspectiveText} ${existing}` }
+    })
+  }
+
   const handleSaveScenePrompt = async (sceneType: string) => {
     setSavingSceneType(sceneType)
+    setSceneImageStatus(null)
     try {
       const updated = await updateScript(scriptId, {
         image_prompts: {
@@ -328,8 +359,18 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
       })
       setDetail(updated)
       populateEditorState(updated)
+      setSceneImageStatus({
+        scene: sceneType,
+        type: 'success',
+        message: `✓ Specific prompt for '${sceneType}' saved to JSON state! (Other scenes and general prompt untouched)`,
+      })
+      setTimeout(() => setSceneImageStatus(null), 5000)
     } catch (err) {
-      alert(`Failed to save prompt for ${sceneType}: ${err instanceof Error ? err.message : String(err)}`)
+      setSceneImageStatus({
+        scene: sceneType,
+        type: 'error',
+        message: `Failed to save prompt for ${sceneType}: ${err instanceof Error ? err.message : String(err)}`,
+      })
     } finally {
       setSavingSceneType(null)
     }
@@ -432,32 +473,97 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     setSceneImageStatus(null)
     try {
       const promptToUse = editScenePrompts[sceneType] || undefined
-      const res = await redoSceneImage(detail.id, sceneType, { prompt: promptToUse })
-      if (res.script) {
-        setDetail(res.script)
-        populateEditorState(res.script)
-      } else {
-        const reloaded = await fetchScriptDetail(detail.id)
-        setDetail(reloaded)
-        populateEditorState(reloaded)
+      // Auto-save the specific prompt if modified so JSON state is persisted before generation
+      if (promptToUse) {
+        await updateScript(detail.id, {
+          image_prompts: {
+            [sceneType]: promptToUse,
+          },
+        })
       }
-      setImgCacheBuster(Date.now())
-      setSceneImageStatus({
-        scene: sceneType,
-        type: 'success',
-        message: `✓ Scene '${sceneType}' image regenerated with ComfyUI and updated!`,
-      })
+      const res = await redoSceneImage(detail.id, sceneType, { prompt: promptToUse })
+      if (res.job_id) {
+        onJobStarted(res.job_id)
+        setSceneImageStatus({
+          scene: sceneType,
+          type: 'success',
+          message: `✓ Scene '${sceneType}' image regeneration queued in Job Manager (#${res.job_id})! Track live in Queue tab or queue more scenes.`,
+        })
+      } else {
+        setSceneImageStatus({
+          scene: sceneType,
+          type: 'success',
+          message: `✓ Scene '${sceneType}' image regeneration initiated!`,
+        })
+      }
       setTimeout(() => {
         setSceneImageStatus(null)
-      }, 6000)
+      }, 8000)
     } catch (err) {
       setSceneImageStatus({
         scene: sceneType,
         type: 'error',
-        message: `Failed to redo image for '${sceneType}': ${err instanceof Error ? err.message : String(err)}`,
+        message: `Failed to queue image for '${sceneType}': ${err instanceof Error ? err.message : String(err)}`,
       })
     } finally {
       setRedoingSceneType(null)
+    }
+  }
+
+  const handleRedoAllImages = async () => {
+    if (!detail) return
+    setRedoingAllImages(true)
+    setGeneralPromptStatus(null)
+    try {
+      const res = await redoAllScriptImages(detail.id, {
+        general_prompt: editGeneralPrompt,
+      })
+      if (res.job_id) {
+        onJobStarted(res.job_id)
+      }
+      setGeneralPromptStatus({
+        type: 'success',
+        message: `✓ full image redo queued in job queue (#${res.job_id})! Llama will first regenerate all specific prompts to follow this general prompt, followed by ComfyUI rendering all scene images.`,
+      })
+      // Reload script detail to reflect pending stages and cleared images
+      const reloaded = await fetchScriptDetail(detail.id)
+      setDetail(reloaded)
+      populateEditorState(reloaded)
+      setImgCacheBuster(Date.now())
+
+      setTimeout(() => {
+        setGeneralPromptStatus(null)
+      }, 9000)
+    } catch (err) {
+      setGeneralPromptStatus({
+        type: 'error',
+        message: `failed to queue full image redo: ${err instanceof Error ? err.message : String(err)}`,
+      })
+    } finally {
+      setRedoingAllImages(false)
+    }
+  }
+
+  const handleUploadToDrive = async () => {
+    if (!detail) return
+    setUploadingDrive(true)
+    setDriveUploadStatus(null)
+    try {
+      const res = await uploadScriptToDrive(detail.id)
+      setDriveUploadStatus({
+        type: 'success',
+        message: `✓ uploaded to drive successfully! files placed in ${res.data.language}/${res.data.video_type}/${detail.id}/`,
+      })
+      const reloaded = await fetchScriptDetail(detail.id)
+      setDetail(reloaded)
+      populateEditorState(reloaded)
+    } catch (err) {
+      setDriveUploadStatus({
+        type: 'error',
+        message: `failed to upload to google drive: ${err instanceof Error ? err.message : String(err)}`,
+      })
+    } finally {
+      setUploadingDrive(false)
     }
   }
 
@@ -508,54 +614,116 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
               }}
             >
               <span style={{ fontSize: '13px', fontWeight: 600, marginRight: '4px' }}>
-                Run pipeline:
+                run pipeline:
               </span>
               <button
                 className={`btn btn-sm ${detail.stages.scripts === 'done' ? 'btn-outline' : 'btn-primary'}`}
                 disabled={triggeringStage !== null || generatingScript}
                 onClick={() => handleRunStage('scripts')}
-                title="Generate or redo script dialogues (Stage A)"
+                title="generate or redo script dialogues (stage A)"
               >
                 <FileText size={13} />
-                <span>Script {detail.stages.scripts === 'done' ? '✓' : ''}</span>
+                <span>script {detail.stages.scripts === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.voice === 'done' ? 'btn-outline' : 'btn-primary'}`}
                 disabled={triggeringStage !== null || generatingScript}
                 onClick={() => handleRunStage('voice')}
-                title="Generate voiceover narration (Stage B)"
+                title="generate voiceover narration (stage B)"
               >
                 <Mic size={13} />
-                <span>Voice {detail.stages.voice === 'done' ? '✓' : ''}</span>
+                <span>voice {detail.stages.voice === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.images === 'done' ? 'btn-outline' : 'btn-primary'}`}
                 disabled={triggeringStage !== null}
                 onClick={() => handleRunStage('images')}
-                title="Generate scene images (Stage C)"
+                title="generate scene images (stage C)"
               >
                 <ImageIcon size={13} />
-                <span>Images {detail.stages.images === 'done' ? '✓' : ''}</span>
+                <span>images {detail.stages.images === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.thumbnails === 'done' ? 'btn-outline' : 'btn-primary'}`}
                 disabled={triggeringStage !== null}
                 onClick={() => handleRunStage('thumbnails')}
-                title="Generate thumbnail card (Stage F)"
+                title="generate thumbnail card (stage F)"
               >
                 <Sparkles size={13} />
-                <span>Thumbnail {detail.stages.thumbnails === 'done' ? '✓' : ''}</span>
+                <span>thumbnail {detail.stages.thumbnails === 'done' ? '✓' : ''}</span>
               </button>
               <button
                 className={`btn btn-sm ${detail.stages.assembly === 'done' ? 'btn-outline' : 'btn-success'}`}
                 disabled={triggeringStage !== null}
                 onClick={() => handleRunStage('assembly')}
-                title="Assemble final short video (Stage G)"
+                title="assemble final short video (stage G)"
               >
                 <Film size={13} />
-                <span>Assemble video {detail.stages.assembly === 'done' ? '✓' : ''}</span>
+                <span>assemble video {detail.stages.assembly === 'done' ? '✓' : ''}</span>
               </button>
+
+              {/* Google Drive Upload Actions */}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {Boolean((detail.assets as any)?.drive_folder_url || (detail as any).drive_folder_url) && (
+                  <a
+                    href={(detail.assets as any)?.drive_folder_url || (detail as any).drive_folder_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-sm btn-outline"
+                    title="open script folder on google drive"
+                    style={{
+                      borderColor: '#10b981',
+                      color: '#10b981',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <ExternalLink size={13} />
+                    <span>view on drive</span>
+                  </a>
+                )}
+                {detail.stages.assembly === 'done' && (
+                  <button
+                    className="btn btn-sm"
+                    disabled={uploadingDrive}
+                    onClick={handleUploadToDrive}
+                    title="upload final video and thumbnail to google drive"
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 600,
+                      boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <CloudUpload size={13} className={uploadingDrive ? 'spin' : ''} />
+                    <span>
+                      {uploadingDrive
+                        ? 'uploading to drive...'
+                        : (detail.assets as any)?.drive_folder_url || (detail as any).drive_folder_url
+                        ? 're-upload to drive'
+                        : 'upload to drive'}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Google Drive Upload Status Alert */}
+            {driveUploadStatus && (
+              <div
+                className={`sheets-alert ${driveUploadStatus.type}`}
+                style={{ marginBottom: '16px', fontSize: '13px' }}
+              >
+                {driveUploadStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                <span>{driveUploadStatus.message}</span>
+              </div>
+            )}
 
             {/* Navigation Tabs */}
             <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
@@ -563,13 +731,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 className={`nav-btn ${activeTab === 'storyboard' ? 'active' : ''}`}
                 onClick={() => setActiveTab('storyboard')}
               >
-                Storyboard scenes ({(detail.scenes || []).length})
+                storyboard scenes ({(detail.scenes || []).length})
               </button>
               <button
                 className={`nav-btn ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => setActiveTab('overview')}
               >
-                Script & chalkboard
+                script & chalkboard
               </button>
               <button
                 className={`nav-btn ${activeTab === 'youtube' ? 'active' : ''}`}
@@ -581,7 +749,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 className={`nav-btn ${activeTab === 'media' ? 'active' : ''}`}
                 onClick={() => setActiveTab('media')}
               >
-                Media players
+                media players
               </button>
             </div>
 
@@ -605,7 +773,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Sparkles size={16} className="icon-accent" />
                       <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
-                        General scene anchor prompt
+                        general scene anchor prompt
                       </span>
                     </div>
                     <span
@@ -676,21 +844,21 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                       {editGeneralPrompt.length} characters
                       {editGeneralPrompt.trim() !== (detail.general_prompt || '').trim() && (
-                        <span style={{ color: '#f59e0b', marginLeft: '8px' }}>● Unsaved changes (new version)</span>
+                        <span style={{ color: '#f59e0b', marginLeft: '8px' }}>● unsaved changes (new version)</span>
                       )}
                     </span>
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
                         className="btn btn-sm btn-outline"
                         onClick={handleGeminiAudit}
-                        disabled={auditingGemini || savingGeneralPrompt}
-                        title="Audit and diversify general prompt with Gemini AI to eliminate repetition"
+                        disabled={auditingGemini || savingGeneralPrompt || redoingAllImages}
+                        title="audit and diversify general prompt with Gemini AI to eliminate repetition"
                         style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }}
                       >
                         <Sparkles size={13} className={auditingGemini ? 'spin' : ''} />
-                        <span>{auditingGemini ? 'Auditing with Gemini...' : '✨ Gemini Auditor'}</span>
+                        <span>{auditingGemini ? 'auditing with Gemini...' : '✨ gemini auditor'}</span>
                       </button>
                       <button
                         type="button"
@@ -700,11 +868,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                           setPendingCharacterAnchors(null)
                           setGeneralPromptStatus(null)
                         }}
-                        disabled={savingGeneralPrompt || auditingGemini}
-                        title="Revert to last saved general prompt"
+                        disabled={savingGeneralPrompt || auditingGemini || redoingAllImages}
+                        title="revert to last saved general prompt"
                       >
                         <RefreshCw size={13} />
-                        <span>Reset</span>
+                        <span>reset</span>
                       </button>
                       <button
                         type="button"
@@ -714,16 +882,33 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                             : 'btn-outline'
                         }`}
                         onClick={handleSaveGeneralPrompt}
-                        disabled={savingGeneralPrompt || auditingGemini}
+                        disabled={savingGeneralPrompt || auditingGemini || redoingAllImages}
                       >
                         <Save size={13} />
                         <span>
                           {savingGeneralPrompt
-                            ? 'Saving...'
+                            ? 'saving...'
                             : editGeneralPrompt.trim() !== (detail.general_prompt || '').trim()
-                            ? 'Save New Version (Sets Images Pending)'
-                            : 'Save General Prompt'}
+                            ? 'save new version (sets images pending)'
+                            : 'save general prompt'}
                         </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={handleRedoAllImages}
+                        disabled={redoingAllImages || savingGeneralPrompt || auditingGemini}
+                        title="save this general prompt, run Llama to regenerate all scene-specific prompts, and queue ComfyUI to render all images"
+                        style={{
+                          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                          color: '#ffffff',
+                          border: 'none',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 6px rgba(245, 158, 11, 0.35)',
+                        }}
+                      >
+                        <RefreshCw size={13} className={redoingAllImages ? 'spin' : ''} />
+                        <span>{redoingAllImages ? 'queueing redo...' : 'queue redo (all images)'}</span>
                       </button>
                     </div>
                   </div>
@@ -732,11 +917,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                 {/* Section header for scenes */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
-                    Scene Storyboard & Specific Prompts ({(detail.scenes || []).length})
+                    scene storyboard & specific prompts ({(detail.scenes || []).length})
                   </h3>
                   {detail.stages.images === 'pending' && (
                     <span style={{ fontSize: '12px', color: '#f59e0b' }}>
-                      Pending generation: Run <strong>Images (C)</strong> above to render
+                      pending generation: run <strong>images (stage C)</strong> above to render
                     </span>
                   )}
                 </div>
@@ -823,39 +1008,69 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                         ) : (
                           <div style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', padding: '8px' }}>
                             <ImageIcon size={22} style={{ margin: '0 auto 4px auto' }} />
-                            <div>Pending Render</div>
+                            <div>pending render</div>
                           </div>
                         )}
                       </div>
 
                       <div className="storyboard-body" style={{ width: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="brand-badge">{sc.label || sc.scene_type}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Scene {idx + 1}</span>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline"
-                              style={{
-                                fontSize: '11px',
-                                padding: '2px 8px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                borderColor: 'var(--accent)',
-                                color: 'var(--accent)',
-                              }}
-                              onClick={() => handleRedoSceneImage(sc.scene_type)}
-                              disabled={isRedoingThisScene || isSavingThisScene}
-                              title={`Redo image for ${sc.label || sc.scene_type} using ComfyUI with current prompt`}
-                            >
-                              <RefreshCw size={11} className={isRedoingThisScene ? 'spin' : ''} />
-                              <span>{isRedoingThisScene ? 'Rendering...' : 'Redo Image'}</span>
-                            </button>
+                            <span className="brand-badge">{sc.label || sc.scene_type}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>scene {idx + 1}</span>
+                            {sc.is_static && (
+                              <span
+                                className="brand-badge"
+                                style={{
+                                  fontSize: '10.5px',
+                                  background: 'rgba(56, 189, 248, 0.1)',
+                                  color: '#38bdf8',
+                                  borderColor: 'rgba(56, 189, 248, 0.3)',
+                                }}
+                              >
+                                static shared asset
+                              </span>
+                            )}
+                            {sc.is_virtual_cut && (
+                              <span
+                                className="brand-badge"
+                                style={{
+                                  fontSize: '10.5px',
+                                  background: 'rgba(168, 85, 247, 0.1)',
+                                  color: '#c084fc',
+                                  borderColor: 'rgba(168, 85, 247, 0.3)',
+                                }}
+                              >
+                                virtual punch-in cut (1.18x)
+                              </span>
+                            )}
                           </div>
+                          {!sc.is_static && !sc.is_virtual_cut && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline"
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '3px 10px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  borderColor: 'var(--accent)',
+                                  color: 'var(--accent)',
+                                }}
+                                onClick={() => handleRedoSceneImage(sc.scene_type)}
+                                disabled={isRedoingThisScene || isSavingThisScene}
+                                title={`queue generation for ${sc.label || sc.scene_type} in job queue tab`}
+                              >
+                                <Clock size={12} className={isRedoingThisScene ? 'spin' : ''} />
+                                <span>{isRedoingThisScene ? 'queuing...' : 'queue image redo'}</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', marginTop: '4px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', marginTop: '6px' }}>
                           "{sc.voice_line}"
                         </div>
 
@@ -877,10 +1092,10 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                           >
                             <div>
                               <div style={{ fontSize: '12px', fontWeight: 600, color: '#c084fc' }}>
-                                High-Resolution Game Chalkboard
+                                high-resolution game chalkboard
                               </div>
                               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Native typography rendered on empty chalkboard (zero ComfyUI/LLM needed).
+                                native typography rendered on empty chalkboard (zero ComfyUI/LLM needed).
                               </div>
                             </div>
                             <button
@@ -889,58 +1104,127 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                               onClick={handleRerenderChalkboard}
                               disabled={renderingChalkboard}
                               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                              title="Re-render high-resolution chalkboard image directly from current chalkboard text"
+                              title="re-render high-resolution chalkboard image directly from current chalkboard text"
                             >
                               <Layers size={13} />
-                              <span>{renderingChalkboard ? 'Rendering Chalkboard...' : 'Redo Chalkboard Image'}</span>
+                              <span>{renderingChalkboard ? 'rendering chalkboard...' : 'redo chalkboard image'}</span>
                             </button>
                           </div>
                         )}
 
-                        <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px', marginTop: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                              {isGameScript && isChallengeScene ? 'Chalkboard Scene Note:' : 'ComfyUI Scene Prompt:'}
-                            </span>
-                            {!isChallengeScene && promptModified && (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-primary"
-                                style={{ fontSize: '11px', padding: '2px 8px' }}
-                                onClick={() => handleSaveScenePrompt(sc.scene_type)}
-                                disabled={isSavingThisScene}
-                              >
-                                <Save size={11} />
-                                <span>{isSavingThisScene ? 'Saving...' : 'Save Prompt'}</span>
-                              </button>
+                        <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', marginTop: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                {sc.is_static
+                                  ? 'static shared scene:'
+                                  : sc.is_virtual_cut
+                                  ? 'virtual cut scene note:'
+                                  : isGameScript && isChallengeScene
+                                  ? 'chalkboard scene note:'
+                                  : 'scene specific prompt:'}
+                              </span>
+                              {!isChallengeScene && !sc.is_static && !sc.is_virtual_cut && (
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-card)', padding: '2px 7px', borderRadius: '4px', border: '1px solid var(--border)' }}>
+                                  independent · does not affect other scenes
+                                </span>
+                              )}
+                              {promptModified && !sc.is_static && !sc.is_virtual_cut && (
+                                <span className="brand-badge" style={{ fontSize: '10.5px', background: 'var(--warning-bg)', color: 'var(--warning)', borderColor: 'var(--warning-border)' }}>
+                                  ● unsaved changes
+                                </span>
+                              )}
+                            </div>
+
+                            {!isChallengeScene && !sc.is_static && !sc.is_virtual_cut && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {promptModified && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline"
+                                    style={{ fontSize: '11px', padding: '3px 8px' }}
+                                    onClick={() => {
+                                      setEditScenePrompts((prev) => ({
+                                        ...prev,
+                                        [sc.scene_type]: sc.prompt || '',
+                                      }))
+                                    }}
+                                    title="discard unsaved changes for this scene"
+                                  >
+                                    <span>discard</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`btn btn-sm ${promptModified ? 'btn-primary' : 'btn-outline'}`}
+                                  style={{ fontSize: '11px', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  onClick={() => handleSaveScenePrompt(sc.scene_type)}
+                                  disabled={isSavingThisScene}
+                                  title="save this scene specific prompt to JSON state (does not affect general prompt or other scenes)"
+                                >
+                                  <Save size={12} />
+                                  <span>{isSavingThisScene ? 'saving...' : 'save specific prompt'}</span>
+                                </button>
+                              </div>
                             )}
                           </div>
-                          {isGameScript && isChallengeScene ? (
+
+                          {sc.is_static ? (
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
-                              Scene 2 Challenge is rendered directly as high-resolution chalkboard typography from the <strong>Script & Chalkboard</strong> tab exercise text. ComfyUI prompt does not apply to this scene.
+                              this scene uses the centralized Tito waiting card (input/images/game_images). Loaded dynamically at assembly with zero physical duplication in script folders.
+                            </div>
+                          ) : sc.is_virtual_cut ? (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                              this scene uses a dynamic 1.18x virtual punch-in cut from <strong>{sc.scene_type === 'dialogue_part_1' ? 'hook' : 'payoff'}</strong> during video assembly. No duplicate image is generated, preserving unique character coverage.
+                            </div>
+                          ) : isGameScript && isChallengeScene ? (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                              scene 2 challenge is rendered directly as high-resolution chalkboard typography from the <strong>script & chalkboard</strong> tab exercise text. ComfyUI prompt does not apply to this scene.
                             </div>
                           ) : (
-                            <textarea
-                              rows={3}
-                              className="search-input"
-                              style={{
-                                width: '100%',
-                                fontSize: '12px',
-                                fontStyle: 'italic',
-                                lineHeight: '1.4',
-                                resize: 'vertical',
-                              }}
-                              value={currentPrompt}
-                              onChange={(e) => {
-                                const val = e.target.value
-                                setEditScenePrompts((prev) => ({ ...prev, [sc.scene_type]: val }))
-                              }}
-                              placeholder={
-                                detail.stages.images === 'pending'
-                                  ? "Pending: The LLM will automatically generate this prompt when you run Images (C)..."
-                                  : "Enter scene-specific illustration prompt..."
-                              }
-                            />
+                            <>
+                              <textarea
+                                rows={4}
+                                className="search-input mono-font"
+                                style={{
+                                  width: '100%',
+                                  fontSize: '12px',
+                                  lineHeight: '1.45',
+                                  resize: 'vertical',
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  fontFamily: 'monospace',
+                                }}
+                                value={currentPrompt}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setEditScenePrompts((prev) => ({ ...prev, [sc.scene_type]: val }))
+                                }}
+                                placeholder={
+                                  detail.stages.images === 'pending'
+                                    ? "Pending: The LLM will automatically generate this prompt when you run Images (C)..."
+                                    : "Enter scene-specific illustration prompt..."
+                                }
+                              />
+
+                              {/* Camera & Visual Perspective Helper Chips */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                  Angle Presets:
+                                </span>
+                                {CAMERA_PERSPECTIVES.map((p) => (
+                                  <button
+                                    key={p.label}
+                                    type="button"
+                                    className="perspective-chip"
+                                    onClick={() => applyPerspectiveToScene(sc.scene_type, p.value)}
+                                    title={`Prepend framing angle: "${p.value}"`}
+                                  >
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1045,11 +1329,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                         value={editGameArchetype}
                         onChange={(e) => setEditGameArchetype(e.target.value)}
                       >
-                        <option value="FALSE_FRIEND_TRAP">🎭 False Friend Trap (Falsos Amigos / Faux-amis) — 3-4 options</option>
-                        <option value="ODD_ONE_OUT">🔍 Odd One Out (El Intruso / L'Intrus) — 3-4 options</option>
-                        <option value="SPOT_THE_MISTAKE">⚠️ Spot the Mistake (Encuentra el Error) — 3-4 options</option>
-                        <option value="MINIMAL_PAIR_SHOWDOWN">🎙️ Minimal Pair / Stress Showdown (Heteronyms) — 2-3 options</option>
-                        <option value="FILL_IN_THE_BLANK_SPEEDRUN">⚡ Fill-in-the-Blank Speedrun (Rellena el Hueco) — 3-4 options</option>
+                        <option value="FALSE_FRIEND_TRAP">🎭 false friend trap (falsos amigos / faux-amis) — 3-4 options</option>
+                        <option value="ODD_ONE_OUT">🔍 odd one out (el intruso / l'intrus) — 3-4 options</option>
+                        <option value="SPOT_THE_MISTAKE">⚠️ spot the mistake (encuentra el error) — 3-4 options</option>
+                        <option value="MINIMAL_PAIR_SHOWDOWN">🎙️ minimal pair / stress showdown (heteronyms) — 2-3 options</option>
+                        <option value="FILL_IN_THE_BLANK_SPEEDRUN">⚡ fill-in-the-blank speedrun (rellena el hueco) — 3-4 options</option>
                       </select>
                       <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px' }}>
                         {editGameArchetype === 'FALSE_FRIEND_TRAP' && 'Highlights deceptive literal translation traps with native contrasts.'}
@@ -1222,13 +1506,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   <>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>YouTube Video Title:</strong>
+                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>YouTube video title:</strong>
                         <button
                           className="copy-btn"
                           onClick={() => copyToClipboard(detail.youtube_metadata?.title || '', 'title')}
                         >
                           {copiedKey === 'title' ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
-                          <span>{copiedKey === 'title' ? 'Copied' : 'Copy'}</span>
+                          <span>{copiedKey === 'title' ? 'copied' : 'copy'}</span>
                         </button>
                       </div>
                       <input
@@ -1242,13 +1526,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
 
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Description:</strong>
+                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>description:</strong>
                         <button
                           className="copy-btn"
                           onClick={() => copyToClipboard(detail.youtube_metadata?.description || '', 'desc')}
                         >
                           {copiedKey === 'desc' ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
-                          <span>{copiedKey === 'desc' ? 'Copied' : 'Copy'}</span>
+                          <span>{copiedKey === 'desc' ? 'copied' : 'copy'}</span>
                         </button>
                       </div>
                       <textarea
@@ -1262,13 +1546,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
 
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Tags (comma-separated):</strong>
+                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>tags (comma-separated):</strong>
                         <button
                           className="copy-btn"
                           onClick={() => copyToClipboard(detail.youtube_metadata?.tags || '', 'tags')}
                         >
                           {copiedKey === 'tags' ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
-                          <span>{copiedKey === 'tags' ? 'Copied' : 'Copy'}</span>
+                          <span>{copiedKey === 'tags' ? 'copied' : 'copy'}</span>
                         </button>
                       </div>
                       <input
@@ -1282,13 +1566,13 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
 
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Hashtags:</strong>
+                        <strong style={{ fontSize: '13px', color: 'var(--text-muted)' }}>hashtags:</strong>
                         <button
                           className="copy-btn"
                           onClick={() => copyToClipboard(detail.youtube_metadata?.hashtags || '', 'hashtags')}
                         >
                           {copiedKey === 'hashtags' ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
-                          <span>{copiedKey === 'hashtags' ? 'Copied' : 'Copy'}</span>
+                          <span>{copiedKey === 'hashtags' ? 'copied' : 'copy'}</span>
                         </button>
                       </div>
                       <input
@@ -1301,7 +1585,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                     </div>
                   </>
                 ) : (
-                  <div style={{ color: 'var(--text-muted)' }}>No YouTube metadata found for this script.</div>
+                  <div style={{ color: 'var(--text-muted)' }}>no YouTube metadata found for this script.</div>
                 )}
               </div>
             )}
@@ -1311,23 +1595,23 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {detail.assets?.audio ? (
                   <div>
-                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Master Voice Audio</h4>
+                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>master voice audio</h4>
                     <audio controls style={{ width: '100%' }} src={getMediaUrl(detail.assets.audio)} />
                   </div>
                 ) : (
-                  <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No voice generated yet.</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>no voice generated yet.</div>
                 )}
 
                 {detail.assets?.video && (
                   <div>
-                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Final Short Video</h4>
+                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>final short video</h4>
                     <video controls style={{ maxWidth: '320px', borderRadius: '8px', border: '1px solid var(--border)' }} src={getMediaUrl(detail.assets.video)} />
                   </div>
                 )}
 
                 {detail.assets?.thumbnail && (
                   <div>
-                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Chalkboard Thumbnail</h4>
+                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>chalkboard thumbnail</h4>
                     <img
                       src={`${getMediaUrl(detail.assets.thumbnail)}${getMediaUrl(detail.assets.thumbnail).includes('?') ? '&' : '?'}t=${imgCacheBuster}`}
                       alt="Thumbnail"
@@ -1414,9 +1698,10 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       }}
                       disabled={redoingSceneType === enlargedImage.sceneType}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                      title="queue image regeneration in job manager"
                     >
-                      <RefreshCw size={12} className={redoingSceneType === enlargedImage.sceneType ? 'spin' : ''} />
-                      <span>{redoingSceneType === enlargedImage.sceneType ? 'Generating...' : 'Redo Image'}</span>
+                      <Clock size={12} className={redoingSceneType === enlargedImage.sceneType ? 'spin' : ''} />
+                      <span>{redoingSceneType === enlargedImage.sceneType ? 'queuing...' : 'queue image redo'}</span>
                     </button>
                   )}
                   <button
@@ -1436,7 +1721,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       cursor: 'pointer',
                       fontSize: '18px',
                     }}
-                    title="Close preview (Esc)"
+                    title="close preview (esc)"
                   >
                     ✕
                   </button>
@@ -1491,7 +1776,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <Sparkles size={18} style={{ color: '#8b5cf6' }} />
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Enter Gemini API Key</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>enter Gemini API key</h3>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
                 Your key will be securely saved locally in your private <code>main/.env</code> file (which is strictly gitignored) so it is never pushed to GitHub.
@@ -1499,7 +1784,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
               <input
                 type="password"
                 className="form-control"
-                placeholder="Paste your Gemini API key (AIzaSy...)"
+                placeholder="paste your Gemini API key (AIzaSy...)"
                 value={geminiKeyInput}
                 onChange={(e) => setGeminiKeyInput(e.target.value)}
                 style={{

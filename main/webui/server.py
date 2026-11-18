@@ -19,7 +19,7 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from webui.settings import STATIC_DIR, WEBUI_DEV_MODE
-from webui.routers import system, scripts, media, jobs, sheets
+from webui.routers import system, scripts, media, jobs, sheets, drive
 
 
 def create_app() -> FastAPI:
@@ -60,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(jobs.ws_router)
     app.include_router(sheets.router)
+    app.include_router(drive.router)
 
     # Pre-warm script cache on startup in background
     @app.on_event("startup")

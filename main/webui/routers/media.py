@@ -22,13 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from config.settings import OUTPUT_DIR, GAME_IMAGES_DIR
+from config.settings import OUTPUT_DIR, GAME_IMAGES_DIR, OPENING_CLOSURE_DIR
 
 router = APIRouter(prefix="/api/media", tags=["Media"])
 
 ALLOWED_ROOTS = [OUTPUT_DIR.resolve()]
 if GAME_IMAGES_DIR.exists():
     ALLOWED_ROOTS.append(GAME_IMAGES_DIR.resolve())
+if OPENING_CLOSURE_DIR.exists():
+    ALLOWED_ROOTS.append(OPENING_CLOSURE_DIR.resolve())
 
 
 def _resolve_safe_path(requested_path: str) -> Path:

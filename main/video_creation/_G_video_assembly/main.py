@@ -326,7 +326,8 @@ def process_script(
             script_id, timings_path, image_dir, audio_path, ass_path, final_video_path, 
             bgm_path=bgm_path, watermark_path=watermark_path,
             opening_path=opening_path, closure_path=closure_path,
-            video_type=vtype
+            video_type=vtype,
+            script_data=script_data,
         )
         
         if success:

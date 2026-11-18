@@ -222,47 +222,43 @@ def get_video_type_directive(video_type: str) -> str:
     vt = (video_type or "EXPRESSION").upper().strip()
     if vt in ("GAME", "QUIZ"):
         return (
-            "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena & Symmetrical Dilemma)\n"
-            "- Core Visual Objective: High-stakes interactive dilemma, puzzle challenge, or competitive test of wits.\n"
-            "- Camera Framing: Front-facing, symmetrical medium eye-level shot (Wes Anderson-style central balance).\n"
-            "- Staging & Spatial Depth: The teen protagonist is centrally positioned under an intense dramatic overhead spotlight beam, frozen at an organic physical crossroads between two contrasting pathways/doorways, or holding two conflicting physical objects in hesitation.\n"
-            "- Fourth-Wall Gaze: The protagonist makes 100% DIRECT FOURTH-WALL EYE CONTACT into the camera with wide, puzzled eyes, directly engaging the viewer in the dilemma!\n"
-            "- Setting Mood: Playful competitive focus, suspenseful countdown tension, active problem-solving.\n"
-            "- Mandatory Challenge Props: Concrete non-text objects representing the trap or choice (e.g. an hourglass timer, keys, tools). STRICT BAN ON TEXT: NO flashcards, NO answer placards, NO scorecards, NO writing.\n"
-            "- Poses & Expressions: High-energy concentration, dilemma gestures, frozen hesitation."
+            "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena & Staged Dilemma-to-Triumph)\n"
+            "- Core World Objective: Dynamic interactive challenge setting where the protagonist tackles a puzzle or linguistic dilemma.\n"
+            "- Setting & Stage Setup: Establish an authentic thematic arena or workspace (e.g. workshop, studio, kitchen, lab) equipped for hands-on tasks.\n"
+            "- Protagonist & Ensemble: Solo teen high-school student protagonist (NEVER include a second character unless explicitly specified in script dialogue).\n"
+            "- Setting Mood: Energetic concentration, suspenseful countdown tension, active problem-solving.\n"
+            "- Mandatory Challenge Props: Concrete non-text objects representing choices or tasks (e.g. an hourglass timer, physical tools, authentic materials). STRICT BAN ON TEXT: NO placards, NO scorecards, NO writing.\n"
+            "- World Anchor Directive: Define the stage architecture, lighting, and protagonist character design. Do NOT generate transient facial expressions (smirks, winks) or fourth-wall gaze commands."
         )
     elif vt in ("ROLEPLAY", "ROLE_PLAY"):
         return (
             "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Cinematic Threshold Dialogue)\n"
-            "- Core Visual Objective: Character-driven emotional exchange, comedic misunderstanding, or interpersonal debate.\n"
-            "- Camera Framing: Dynamic 3/4 diagonal profile or over-the-shoulder framing across a physical boundary.\n"
-            "- Staging & Spatial Depth: Establish a dynamic diagonal trajectory across a physical boundary (doorframe, table edge, counter, or curtain line) with characters engaged in close conversational drama.\n"
-            "- Fourth-Wall Gaze: STRICT 0% EYE CONTACT WITH THE VIEWER! 100% in-scene peer-to-peer interaction. Characters look at each other or the shared prop, NEVER at the camera.\n"
-            "- Setting Mood: Close interpersonal shared space emphasizing conversational proxemics across a table or counter.\n"
-            "- Mandatory Conversational Foil Props: A concrete physical object causing or anchoring the discussion (e.g. tools, utensils, garments, blueprints, or physical items being compared).\n"
-            "- Poses & Expressions: Expressive conversational acting contrast (one character animatedly arguing or explaining with expressive hand gestures, while the counterpart reacts with skepticism, curiosity, or sudden realization)."
+            "- Core World Objective: Authentic conversational environment designed for interpersonal drama, debate, or collaborative discovery.\n"
+            "- Setting & Stage Setup: A shared, culturally grounded space (e.g. artisan atelier, kitchen island, study lounge, store counter) with natural physical depth.\n"
+            "- Characters & Dynamic: Two distinct high-school students (PERSON_ONE and PERSON_TWO) with complementary thematic wardrobe matching the location.\n"
+            "- Setting Mood: Relatable interpersonal connection, engaging conversational atmosphere.\n"
+            "- Mandatory Conversational Foil Props: Authentic physical objects anchoring their interaction (e.g. tools, utensils, garments, blueprints, culinary ingredients).\n"
+            "- World Anchor Directive: Define the spatial relationship, environment, and both character designs. Do NOT dictate transient facial expressions or momentary speech gestures."
         )
     elif vt in ("FUN_FACTS", "FACTS"):
         return (
             "VIDEO TYPE ARCHETYPE: FUN FACTS (Curiosity & Monumental Scale of Wonder)\n"
-            "- Core Visual Objective: Documentary exploration, historical curiosity, or surprising cultural revelation.\n"
-            "- Camera Framing: Dramatic low-angle heroic perspective looking upward from low ground elevation.\n"
-            "- Staging & Spatial Depth: The teen protagonist is positioned in the lower third of the frame, head tilted upward in awe at a towering, imposing cultural anomaly, ancient clockwork, or giant historic relic.\n"
-            "- Fourth-Wall Gaze: Characters gaze UPWARD with fascinated awe towards the focal discovery (NOT staring forward into the camera).\n"
-            "- Setting Mood: Wonder, exploratory depth, intrigue, and cultural mystery.\n"
-            "- Mandatory Discovery Props: Concrete items of investigation (e.g. magnifying glass, vintage maps, open reference encyclopedias, antique cultural artifacts).\n"
-            "- Poses & Expressions: Fascinated discovery, pointing out an unexpected detail, shared wonder."
+            "- Core World Objective: Atmospheric documentary environment evoking discovery, history, and cultural wonder.\n"
+            "- Setting & Stage Setup: Richly detailed space with vertical scale and architectural depth (e.g. historic observatory, archive hall, grand museum gallery, artisan workshop).\n"
+            "- Protagonist & Ensemble: Solo teen high-school student explorer immersed in the environment.\n"
+            "- Setting Mood: Wonder, intellectual curiosity, awe, and mystery.\n"
+            "- Mandatory Discovery Props: Concrete objects of investigation (e.g. antique instruments, vintage maps, architectural models, reference scrolls).\n"
+            "- World Anchor Directive: Define the physical environment, atmospheric depth, and protagonist character design."
         )
     else:  # EXPRESSION (default)
         return (
             "VIDEO TYPE ARCHETYPE: EXPRESSION (Everyday Cultural Observation & Layered Depth)\n"
-            "- Core Visual Objective: Natural, authentic demonstration of an idiom or cultural phrase in everyday real-world life.\n"
-            "- Camera Framing: 35mm angled foreground-to-background depth composition (Rule of Thirds).\n"
-            "- Staging & Spatial Depth: The teen student protagonist occupies the foreground left or right (35-40%), while the narrative action unfolds in the midground/background (60% depth) like a living diorama.\n"
-            "- Fourth-Wall Gaze: Conspiratorial guide — the foreground protagonist turns 3/4 toward the viewer with an expressive, knowing glance (arched eyebrow, subtle smirk), while the background subject is immersed in the scene (looking away from camera).\n"
-            "- Setting Mood: Relatable everyday social observation, relaxed conversational rhythm, warmth.\n"
-            "- Mandatory Natural Props: Everyday carry items grounding the moment (e.g. espresso cups, shopping bags, rolled newspaper, bicycle, umbrella).\n"
-            "- Poses & Expressions: Natural social observation, relaxed gestures, everyday conversational warmth."
+            "- Core World Objective: Natural, authentic slice-of-life environment demonstrating cultural phrases and idioms in everyday life.\n"
+            "- Setting & Stage Setup: A vibrant, culturally authentic everyday setting with layered foreground and background depth (e.g. artisan boutique, sunlit courtyard, terrace, design atelier).\n"
+            "- Protagonist & Ensemble: Solo teen high-school student protagonist living out the cultural scenario (unless dialogue requires a peer).\n"
+            "- Setting Mood: Relatable everyday social observation, warm conversational rhythm, authentic cultural charm.\n"
+            "- Mandatory Natural Props: Everyday authentic items grounding the scene (e.g. espresso cups, shopping baskets, bicycle, art supplies, notebooks).\n"
+            "- World Anchor Directive: Define the environmental stage, lighting, and protagonist character design."
         )
 
 
@@ -355,6 +351,15 @@ def _clean_gemini_output_with_anchors(raw_text: str) -> Tuple[str, Dict[str, str
 
     # 2. Extract structured [CHARACTER_ANCHORS] block if present
     text, anchors = extract_character_anchors_from_output(text)
+
+    # Safety Net: Replace any raw CHAR_1 / CHAR_2 tokens in the narrative scene with full prose descriptions
+    if anchors:
+        if "char1_desc" in anchors:
+            text = re.sub(r'\bCHAR_1\b', anchors['char1_desc'], text)
+            text = re.sub(r'\bCharacter 1\b', anchors['char1_desc'], text)
+        if "char2_desc" in anchors:
+            text = re.sub(r'\bCHAR_2\b', anchors['char2_desc'], text)
+            text = re.sub(r'\bCharacter 2\b', anchors['char2_desc'], text)
 
     # 3. Strip conversational prefixes
     prefix_pattern = (
@@ -525,16 +530,48 @@ def audit_general_prompt(
     detected_domain, domain_guidance = detect_script_domain(script_data)
     video_type_directive = get_video_type_directive(video_type)
 
-    # Determine gender words for characters
+    # Determine gender words for characters (Priority: explicit user draft in existing_gp > speakers_gender)
     c1_gender = "boy"
     c2_gender = "girl"
-    if isinstance(speakers_gender, dict):
-        p1 = str(speakers_gender.get("PERSON_ONE") or speakers_gender.get("NARRATOR") or "").lower()
-        p2 = str(speakers_gender.get("PERSON_TWO") or "").lower()
-        if "f" in p1 or "girl" in p1 or "woman" in p1:
+
+    gp_has_explicit_gender = False
+    if existing_gp:
+        gp_low = existing_gp.lower()
+        gp_male_score = len(re.findall(r'\b(boy|male|guy|young man|man|chico|muchacho|hombre|he wears|he stands|his hair|his build)\b', gp_low))
+        gp_female_score = len(re.findall(r'\b(girl|female|young woman|woman|lady|chica|muchacha|mujer|she wears|she stands|her hair|her build)\b', gp_low))
+        if gp_male_score > gp_female_score:
+            c1_gender = "boy"
+            gp_has_explicit_gender = True
+        elif gp_female_score > gp_male_score:
             c1_gender = "girl"
-        if "m" in p2 or "boy" in p2 or "man" in p2:
+            gp_has_explicit_gender = True
+
+    if not gp_has_explicit_gender and isinstance(speakers_gender, dict) and speakers_gender:
+        p1_raw = ""
+        for k, v in speakers_gender.items():
+            if k.lower() in ("person_one", "narrator", "narratrice"):
+                p1_raw = str(v).lower()
+                break
+        if any(w in p1_raw for w in ("f", "girl", "woman", "female", "chica", "mujer")):
+            c1_gender = "girl"
+        elif any(w in p1_raw for w in ("m", "boy", "man", "male", "chico", "hombre")):
+            c1_gender = "boy"
+
+    # Determine character 2 gender
+    if isinstance(speakers_gender, dict) and speakers_gender:
+        p2_raw = ""
+        for k, v in speakers_gender.items():
+            if k.lower() in ("person_two",):
+                p2_raw = str(v).lower()
+                break
+        if any(w in p2_raw for w in ("f", "girl", "woman", "female", "chica", "mujer")):
+            c2_gender = "girl"
+        elif any(w in p2_raw for w in ("m", "boy", "man", "male", "chico", "hombre")):
             c2_gender = "boy"
+        else:
+            c2_gender = "girl" if c1_gender == "boy" else "boy"
+    else:
+        c2_gender = "girl" if c1_gender == "boy" else "boy"
 
     # Dynamic creative lenses focusing on cinematographic perspectives (no hardcoded shops)
     creative_lenses = [
@@ -547,16 +584,40 @@ def audit_general_prompt(
     chosen_lens = random.choice(creative_lenses)
     run_seed = random.randint(100000, 999999)
 
-    # Detect camera framing opener tailored to video type archetype
+    # Master story world camera framing opener tailored to video type archetype
     vt_clean = video_type.upper().strip()
-    if vt_clean in ("GAME", "QUIZ"):
-        camera_opener = "Front-facing symmetrical medium eye-level shot."
+    if vt_clean in ("ROLEPLAY", "ROLE_PLAY"):
+        camera_opener = "Medium-wide establishing two-shot across a physical threshold."
     elif vt_clean in ("FUN_FACTS", "FACTS"):
-        camera_opener = "Dramatic low-angle heroic shot looking upward from low ground elevation."
-    elif vt_clean in ("ROLEPLAY", "ROLE_PLAY"):
-        camera_opener = "Dynamic diagonal 3/4 medium two-shot across a physical threshold."
-    else:  # EXPRESSION
-        camera_opener = "Angled 35mm foreground-to-background depth shot."
+        camera_opener = "Medium-wide establishing shot with dramatic architectural depth."
+    else:  # GAME, EXPRESSION, etc.
+        camera_opener = "Medium-wide establishing eye-level shot."
+
+    has_two_characters = (
+        vt_clean in ("ROLEPLAY", "ROLE_PLAY")
+        or bool(isinstance(speakers_gender, dict) and "PERSON_TWO" in speakers_gender and speakers_gender.get("PERSON_TWO"))
+    )
+
+    if has_two_characters:
+        part_a_template = (
+            "[CHARACTER_ANCHORS]\n"
+            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            f"CHAR_2: 15-16yo high-school student {c2_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            "[/CHARACTER_ANCHORS]"
+        )
+        char_mandate = (
+            f"3. CHARACTER 1 (Subject): Full inline prose description of the 15-16yo student {c1_gender} incorporating their hair, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
+            f"4. CHARACTER 2 (Counterpart): Full inline prose description of the 15-16yo student {c2_gender} incorporating their hair, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
+        )
+    else:
+        part_a_template = (
+            "[CHARACTER_ANCHORS]\n"
+            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            "[/CHARACTER_ANCHORS]"
+        )
+        char_mandate = (
+            f"3. PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student {c1_gender} incorporating their hair, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). DO NOT include a second character or companion in this solo scene.\n"
+        )
 
     previous_contrast = ""
     if existing_gp:
@@ -565,6 +626,12 @@ def audit_general_prompt(
             f"\"{existing_gp}\"\n"
             "MANDATE: Invent a COMPLETELY DIFFERENT physical setting, atmosphere, and props from the draft above.\n\n"
         )
+
+    placeholder_rule = (
+        "NEVER output placeholder tokens like 'CHAR_1' or 'CHAR_2' in Part B!"
+        if has_two_characters
+        else "NEVER output placeholder tokens like 'CHAR_1' in Part B!"
+    )
 
     # Build prompt enforcing Context Domain, Video Type Archetype, Character Anchors, and 7-part Narrative Scene
     prompt_text = (
@@ -585,22 +652,21 @@ def audit_general_prompt(
         "==================================================\n"
         "Generate your response in EXACTLY two parts:\n\n"
         "PART A: STRUCTURED CHARACTER ANCHORS (mandatory [CHARACTER_ANCHORS] tags)\n"
-        "Define locked physical character traits to maintain 100% visual identity continuity:\n"
-        "[CHARACTER_ANCHORS]\n"
-        f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment> | shoes: <explicit footwear>\n"
-        f"CHAR_2: 15-16yo high-school student {c2_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment> | shoes: <explicit footwear>\n"
-        "[/CHARACTER_ANCHORS]\n\n"
+        "Define locked physical character traits to maintain 100% visual identity continuity across scenes:\n"
+        f"{part_a_template}\n\n"
         "PART B: MASTER NARRATIVE SCENE (PARTS 1 TO 7 ONLY)\n"
-        "Follow this exact 7-part narrative structure in a single cohesive, richly detailed paragraph (~110-145 words):\n"
+        "Follow this exact narrative structure in a single cohesive, richly detailed paragraph (~110-145 words):\n"
         f"1. CAMERA SHOT & FRAMING: Open with '{camera_opener}' to guarantee lens perspective.\n"
         "2. THEMATIC SCENE CONTEXT: Ground the physical setting authentically in the SEMANTIC DOMAIN and VIDEO TYPE ARCHETYPE above. "
         "⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are generic modern coffee shops, plain empty classrooms, pottery/ceramic workshops, rooftop greenhouses, and random flea markets. Ground the setting authentically in the dialogue domain.\n"
-        f"3. CHARACTER 1 (Subject): Integrate CHAR_1 using the exact hair, wardrobe, and shoes defined in Part A, with expressive cartoon facial acting (large clear cartoon eyes, visible white sclera, specular pupil highlights).\n"
-        "4. CHARACTER 2 (Counterpart): Integrate CHAR_2 in an active complementary pose matching their Part A definition.\n"
-        "5. MIDGROUND ANCHOR PROPS: Concrete physical objects on the table/counter between characters matching the video type archetype.\n"
+        f"{char_mandate}"
+        "5. MIDGROUND ANCHOR PROPS: Concrete physical objects on the table/counter/space matching the video type archetype.\n"
         "6. ARCHITECTURAL BACKGROUND: Cultural and architectural textures providing regional depth.\n"
         "7. CINEMATIC LIGHTING & SHADOWS: Warm/cool color contrast (e.g. amber sunbeams casting slate-blue directional cast shadows across the floor).\n\n"
-        "OUTPUT RULE: Return ONLY Part A and Part B. Zero conversational filler, zero quotes, zero markdown commentary outside the block."
+        "IMPORTANT RULES:\n"
+        f"- In Part B, you must write out FULL prose descriptions of characters. {placeholder_rule}\n"
+        "- Describe the STATIC master world environment only. DO NOT generate momentary scene-specific facial acting (e.g. no smirks, raised eyebrows, winks) or fourth-wall gaze commands here, as individual scenes will direct actions.\n"
+        "- Return ONLY Part A and Part B. Zero conversational filler, zero quotes, zero markdown commentary outside the block."
     )
 
     payload = {

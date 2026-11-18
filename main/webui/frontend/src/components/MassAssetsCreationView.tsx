@@ -14,7 +14,8 @@ import {
   Filter,
   ExternalLink,
   FileText,
-  Video
+  Video,
+  CloudUpload
 } from 'lucide-react'
 import type { JobStage, SystemStatus, ValidatedScriptId, ScriptCatalogResponse } from '../types'
 import { createJob, validateScriptIds, fetchScriptCatalog } from '../api'
@@ -117,6 +118,16 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   const gameIds = useMemo(() => validIds.filter(isGameId), [validIds, isGameId])
   const nonGameIds = useMemo(() => validIds.filter((id) => !isGameId(id)), [validIds, isGameId])
 
+  // Drive upload readiness (both video and thumbnail are mandatory)
+  const driveReadyIds = useMemo(
+    () => validatedItems.filter((item) => item.exists && item.can_upload_drive).map((item) => item.id),
+    [validatedItems]
+  )
+  const driveNotReadyItems = useMemo(
+    () => validatedItems.filter((item) => item.exists && !item.can_upload_drive),
+    [validatedItems]
+  )
+
   // Remove an individual ID
   const handleRemoveId = (idToRemove: string) => {
     const updated = rawIdInput
@@ -145,7 +156,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   }
 
   // Quick preset loader from catalog by stage
-  const handleLoadFromCatalog = async (filterKey: 'voice' | 'images' | 'thumbnails' | 'assembly') => {
+  const handleLoadFromCatalog = async (filterKey: 'voice' | 'images' | 'thumbnails' | 'assembly' | 'drive') => {
     setIsValidating(true)
     setErrorMessage(null)
     try {
@@ -156,17 +167,24 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             ? 'missing_images'
             : filterKey === 'assembly'
               ? 'ready_for_assembly'
-              : 'all'
+              : filterKey === 'drive'
+                ? 'complete'
+                : 'all'
 
       const data: ScriptCatalogResponse = await fetchScriptCatalog({
         pageSize: 100,
         stageFilter,
       })
 
-      const loadedIds = data.items.map((s) => s.id)
+      const loadedIds = data.items
+        .filter((s) => (filterKey === 'drive' ? s.has_video && s.has_thumbnail : true))
+        .map((s) => s.id)
+
       if (!loadedIds.length) {
         setErrorMessage(
-          filterKey === 'assembly'
+          filterKey === 'drive'
+            ? 'No scripts found in catalog with both completed final video and thumbnail.'
+            : filterKey === 'assembly'
             ? 'No scripts currently ready for video assembly (voice and images must be completed first).'
             : `No scripts found with pending ${filterKey}.`
         )
@@ -229,11 +247,19 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
 
   // Launch Mass Asset Job
   const handleLaunch = async () => {
-    const targetIds = targetStage === 'chalkboard' ? gameIds : validIds
+    const targetIds =
+      targetStage === 'chalkboard'
+        ? gameIds
+        : targetStage === 'drive_upload'
+        ? driveReadyIds
+        : validIds
+
     if (!targetIds.length) {
       setErrorMessage(
         targetStage === 'chalkboard'
           ? 'Please provide at least one valid Game script ID (e.g. EG01, FG01, SG01, IG01) for chalkboard creation.'
+          : targetStage === 'drive_upload'
+          ? 'None of the provided script IDs are ready for Google Drive upload. Both the final assembled video and thumbnail must exist on disk.'
           : 'Please provide at least one valid script ID.'
       )
       return
@@ -284,8 +310,8 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
       {/* STEP 1: Select Asset Target */}
       <div className="mass-step-card">
         <div className="step-badge-row">
-          <span className="step-number">Step 1</span>
-          <span className="step-heading">Choose asset type to create</span>
+          <span className="step-number">step 1</span>
+          <span className="step-heading">choose asset type to create</span>
         </div>
 
         <div className="asset-cards-grid">
@@ -298,12 +324,12 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <FileText size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Script dialogues</div>
+              <div className="option-title">script dialogues</div>
               <div className="option-desc">
                 Modular domain engines generating spoken script dialogues, timing, and chalkboard text.
               </div>
             </div>
-            <div className="option-stage-pill">Stage A</div>
+            <div className="option-stage-pill">stage A</div>
           </div>
 
           {/* Option B: Images */}
@@ -315,12 +341,12 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <ImageIcon size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Scene images</div>
+              <div className="option-title">scene images</div>
               <div className="option-desc">
                 Cartoon narrative illustrations generated through ComfyUI for all scenes in each script.
               </div>
             </div>
-            <div className="option-stage-pill">Stage C</div>
+            <div className="option-stage-pill">stage C</div>
           </div>
 
           {/* Option C: Voice */}
@@ -332,12 +358,12 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Mic size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Voice files (audio)</div>
+              <div className="option-title">voice files (audio)</div>
               <div className="option-desc">
                 Multi-character spoken dialogue and narration synthesized via Kokoro / ComfyUI.
               </div>
             </div>
-            <div className="option-stage-pill">Stage B</div>
+            <div className="option-stage-pill">stage B</div>
           </div>
 
           {/* Option D: Thumbnails */}
@@ -349,12 +375,12 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Sparkles size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Thumbnail image</div>
+              <div className="option-title">thumbnail image</div>
               <div className="option-desc">
                 High-contrast vertical title card thumbnails (1080x1920) for YouTube Shorts.
               </div>
             </div>
-            <div className="option-stage-pill">Stage F</div>
+            <div className="option-stage-pill">stage F</div>
           </div>
 
           {/* Option E: Chalkboard Images (Game) */}
@@ -366,12 +392,12 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Layers size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Chalkboard images</div>
+              <div className="option-title">chalkboard images</div>
               <div className="option-desc">
                 High-resolution native chalk typography on empty chalkboard for Game quiz scenes (instant, no ComfyUI/LLM).
               </div>
             </div>
-            <div className="option-stage-pill" style={{ background: 'var(--sand-subtle)', color: 'var(--sand)', border: '1px solid var(--sand-border)' }}>Game only</div>
+            <div className="option-stage-pill" style={{ background: 'var(--sand-subtle)', color: 'var(--sand)', border: '1px solid var(--sand-border)' }}>game only</div>
           </div>
 
           {/* Option F: Video Assembly */}
@@ -383,12 +409,29 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               <Video size={24} />
             </div>
             <div className="option-content">
-              <div className="option-title">Video assembly</div>
+              <div className="option-title">video assembly</div>
               <div className="option-desc">
                 Full vertical YouTube Shorts (master voice audio, scene visuals, ASS subtitles, bank music, and opening/closure cards).
               </div>
             </div>
-            <div className="option-stage-pill" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)' }}>Stage G</div>
+            <div className="option-stage-pill" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)' }}>stage G</div>
+          </div>
+
+          {/* Option G: Google Drive Upload */}
+          <div
+            className={`asset-option-card ${targetStage === 'drive_upload' ? 'selected' : ''}`}
+            onClick={() => setTargetStage('drive_upload')}
+          >
+            <div className="option-icon-box" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              <CloudUpload size={24} />
+            </div>
+            <div className="option-content">
+              <div className="option-title">google drive upload</div>
+              <div className="option-desc">
+                Batch upload completed final videos (&lt;ID&gt;.mp4) and thumbnails (&lt;ID&gt;_thumbnail.png) directly into your Google Drive hierarchy. Both assets are strictly mandatory.
+              </div>
+            </div>
+            <div className="option-stage-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>cloud export</div>
           </div>
         </div>
       </div>
@@ -397,8 +440,8 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
       <div className="mass-step-card">
         <div className="step-header-with-actions">
           <div className="step-badge-row">
-            <span className="step-number">Step 2</span>
-            <span className="step-heading">Collect script IDs</span>
+            <span className="step-number">step 2</span>
+            <span className="step-heading">collect script IDs</span>
           </div>
 
           <div className="mode-tabs">
@@ -481,7 +524,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           <div className="input-method-box presets-box">
             <div className="presets-label">
               <Filter size={16} />
-              <span>Quick scenario presets:</span>
+              <span>quick scenario presets:</span>
             </div>
             <div className="presets-buttons-row">
               <button
@@ -490,7 +533,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 disabled={isValidating}
               >
                 <ImageIcon size={14} />
-                <span>All pending scene images</span>
+                <span>all pending scene images</span>
               </button>
               <button
                 className="btn btn-outline btn-sm"
@@ -498,7 +541,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 disabled={isValidating}
               >
                 <Mic size={14} />
-                <span>All pending voice tracks</span>
+                <span>all pending voice tracks</span>
               </button>
               <button
                 className="btn btn-outline btn-sm"
@@ -506,7 +549,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 disabled={isValidating}
               >
                 <Sparkles size={14} />
-                <span>All pending thumbnails</span>
+                <span>all pending thumbnails</span>
               </button>
               <button
                 className="btn btn-outline btn-sm"
@@ -515,7 +558,16 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 style={{ borderColor: 'rgba(59, 130, 246, 0.5)', color: '#3b82f6' }}
               >
                 <Video size={14} />
-                <span>Ready for video assembly</span>
+                <span>ready for video assembly</span>
+              </button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => handleLoadFromCatalog('drive')}
+                disabled={isValidating}
+                style={{ borderColor: 'rgba(16, 185, 129, 0.5)', color: '#10b981' }}
+              >
+                <CloudUpload size={14} />
+                <span>ready for drive upload (video + thumb)</span>
               </button>
               <button
                 className="btn btn-outline btn-sm"
@@ -526,13 +578,13 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                     const data: ScriptCatalogResponse = await fetchScriptCatalog({ pageSize: 100, stageFilter: 'all' })
                     const gIds = data.items.filter((s) => isGameId(s.id)).map((s) => s.id)
                     if (!gIds.length) {
-                      setErrorMessage('No Game scripts found in catalog.')
+                      setErrorMessage('no Game scripts found in catalog.')
                       return
                     }
                     setRawIdInput(gIds.join(', '))
                     handleValidate(gIds)
                   } catch (err) {
-                    setErrorMessage(`Failed to query catalog: ${err instanceof Error ? err.message : String(err)}`)
+                    setErrorMessage(`failed to query catalog: ${err instanceof Error ? err.message : String(err)}`)
                   } finally {
                     setIsValidating(false)
                   }
@@ -540,7 +592,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 disabled={isValidating}
               >
                 <Layers size={14} />
-                <span>All Game scripts (G-series)</span>
+                <span>all game scripts (G-series)</span>
               </button>
             </div>
           </div>
@@ -575,20 +627,74 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           </div>
         )}
 
+        {/* Drive Upload Stage: Missing Video or Thumbnail Warning Banner */}
+        {targetStage === 'drive_upload' && driveNotReadyItems.length > 0 && (
+          <div
+            className="sheets-alert error"
+            style={{ margin: '14px 0 8px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} />
+              <span>
+                Google Drive upload strictly requires both final video and thumbnail. {driveNotReadyItems.length} script(s) are not ready yet:{' '}
+                <strong>
+                  {driveNotReadyItems.slice(0, 5).map((i) => {
+                    const missing = !i.has_video && !i.has_thumbnail ? 'video & thumb' : !i.has_video ? 'video' : 'thumb'
+                    return `${i.id} (${missing} missing)`
+                  }).join(', ')}
+                  {driveNotReadyItems.length > 5 ? '...' : ''}
+                </strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.3)', color: 'var(--text-main)' }}
+              onClick={() => {
+                const readySet = new Set(driveReadyIds)
+                const updated = rawIdInput
+                  .split(/[\s,;\n\r\t]+/)
+                  .filter((id) => readySet.has(id.trim().toUpperCase()))
+                  .join(', ')
+                setRawIdInput(updated)
+              }}
+            >
+              Keep only ready scripts ({driveReadyIds.length})
+            </button>
+          </div>
+        )}
+
         {/* Validated ID Chips Container */}
         {validatedItems.length > 0 && (
           <div className="chips-container-wrapper">
             <div className="chips-header">
               <div className="chips-counts">
-                <span className="count-badge valid">
-                  <CheckCircle2 size={14} />
-                  {validIds.length} valid
-                </span>
-                {invalidItems.length > 0 && (
-                  <span className="count-badge invalid">
-                    <AlertTriangle size={14} />
-                    {invalidItems.length} not found
-                  </span>
+                {targetStage === 'drive_upload' ? (
+                  <>
+                    <span className="count-badge valid" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                      <CheckCircle2 size={14} />
+                      {driveReadyIds.length} ready to upload
+                    </span>
+                    {driveNotReadyItems.length > 0 && (
+                      <span className="count-badge invalid">
+                        <AlertTriangle size={14} />
+                        {driveNotReadyItems.length} missing video/thumb
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="count-badge valid">
+                      <CheckCircle2 size={14} />
+                      {validIds.length} valid
+                    </span>
+                    {invalidItems.length > 0 && (
+                      <span className="count-badge invalid">
+                        <AlertTriangle size={14} />
+                        {invalidItems.length} not found
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -625,6 +731,29 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                     </span>
                   )}
 
+                  {item.exists && targetStage === 'drive_upload' && (
+                    <span
+                      className="chip-meta-tag"
+                      style={{
+                        background: item.can_upload_drive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: item.can_upload_drive ? '#10b981' : '#ef4444',
+                        borderColor: item.can_upload_drive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+                        borderWidth: '1px',
+                        borderStyle: 'solid',
+                        fontWeight: 600,
+                        fontSize: '10px',
+                      }}
+                    >
+                      {item.can_upload_drive
+                        ? (item.drive_uploaded ? 'drive ✓' : 'ready')
+                        : (!item.has_video && !item.has_thumbnail
+                            ? 'no video/thumb'
+                            : !item.has_video
+                            ? 'no video'
+                            : 'no thumb')}
+                    </span>
+                  )}
+
                   <button
                     className="chip-remove-btn"
                     onClick={() => handleRemoveId(item.id)}
@@ -642,8 +771,8 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
       {/* STEP 3: Execution Settings & Launch */}
       <div className="mass-step-card">
         <div className="step-badge-row">
-          <span className="step-number">Step 3</span>
-          <span className="step-heading">Execution & force overwrite</span>
+          <span className="step-number">step 3</span>
+          <span className="step-heading">execution & force overwrite</span>
         </div>
 
         <div className="settings-content">
@@ -654,9 +783,9 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               onChange={(e) => setForceRegenerate(e.target.checked)}
             />
             <span className="checkbox-text">
-              <strong>Force regeneration even if marked as "done" in state JSON</strong>
+              <strong>force regeneration even if marked as "done" in state JSON</strong>
               <span className="checkbox-hint">
-                Re-creates and overwrites existing asset files for all targeted IDs, resetting downstream status.
+                re-creates and overwrites existing asset files for all targeted IDs, resetting downstream status.
               </span>
             </span>
           </label>
@@ -666,7 +795,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <div className="sheets-alert error">
               <AlertTriangle size={18} />
               <span>
-                <strong>ComfyUI is currently offline.</strong> Please start ComfyUI using the toggle in the top navbar
+                <strong>ComfyUI is currently offline.</strong> please start ComfyUI using the toggle in the top navbar
                 before launching generation for {targetStage}.
               </span>
             </div>
@@ -674,21 +803,50 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
 
           <div className="launch-action-row">
             <button
-              className="btn btn-primary btn-lg"
-              disabled={(targetStage === 'chalkboard' ? gameIds.length === 0 : validIds.length === 0) || isSubmitting}
+              className={`btn btn-lg ${targetStage === 'drive_upload' ? '' : 'btn-primary'}`}
+              style={
+                targetStage === 'drive_upload'
+                  ? {
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 600,
+                      boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
+                    }
+                  : undefined
+              }
+              disabled={
+                (targetStage === 'chalkboard'
+                  ? gameIds.length === 0
+                  : targetStage === 'drive_upload'
+                  ? driveReadyIds.length === 0
+                  : validIds.length === 0) || isSubmitting
+              }
               onClick={handleLaunch}
             >
-              <Play size={18} />
+              {targetStage === 'drive_upload' ? (
+                <CloudUpload size={18} />
+              ) : (
+                <Play size={18} />
+              )}
               <span>
                 {isSubmitting
-                  ? 'Dispatching job...'
+                  ? 'dispatching job...'
                   : targetStage === 'chalkboard'
-                    ? `Launch chalkboard creation (${gameIds.length} Game scripts)`
-                    : `Launch mass generation (${validIds.length} scripts)`}
+                    ? `launch chalkboard creation (${gameIds.length} Game scripts)`
+                    : targetStage === 'drive_upload'
+                    ? `launch mass drive upload (${driveReadyIds.length} scripts)`
+                    : `launch mass generation (${validIds.length} scripts)`}
               </span>
             </button>
             <span className="launch-hint">
-              Target: <strong style={{ textTransform: 'capitalize' }}>{targetStage}</strong> • {targetStage === 'chalkboard' ? gameIds.length : validIds.length} script(s) queued
+              target: <strong>{targetStage}</strong> •{' '}
+              {targetStage === 'chalkboard'
+                ? gameIds.length
+                : targetStage === 'drive_upload'
+                ? driveReadyIds.length
+                : validIds.length}{' '}
+              script(s) queued
             </span>
           </div>
         </div>

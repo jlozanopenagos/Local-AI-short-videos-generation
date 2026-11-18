@@ -51,6 +51,7 @@ from .settings import (
     resolve_script_language,
     resolve_script_video_type,
     resolve_opening_closure_paths,
+    resolve_static_scene_path,
     get_script_output_dir,
 )
 
@@ -104,6 +105,7 @@ __all__ = [
     "resolve_script_language",
     "resolve_script_video_type",
     "resolve_opening_closure_paths",
+    "resolve_static_scene_path",
     "get_script_output_dir",
     "check_comfy_connection",
     "check_llm_connection",

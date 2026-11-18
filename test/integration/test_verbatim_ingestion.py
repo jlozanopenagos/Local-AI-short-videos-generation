@@ -110,12 +110,17 @@ class TestVerbatimScriptParsing(unittest.TestCase):
         parsed = try_direct_script_parse(script, "ROLEPLAY")
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["hook"], "Backstage chaos! A nervous actor is losing their mind over a forgotten line.")
-        self.assertIn("PERSON_ONE (Panicked)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_ONE (Baffled)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
-        self.assertEqual(parsed["PAYOFF"], "When the lights go up, knowing the right words turns panic into power.")
+        p1 = parsed.get("dialogue_part_1") or parsed.get("DIALOGUE_PART_1")
+        p2 = parsed.get("dialogue_part_2") or parsed.get("DIALOGUE_PART_2")
+        p3 = parsed.get("dialogue_part_3") or parsed.get("DIALOGUE_PART_3")
+        p4 = parsed.get("dialogue_part_4") or parsed.get("DIALOGUE_PART_4")
+        payoff = parsed.get("payoff") or parsed.get("PAYOFF")
+        self.assertIn("PERSON_ONE (Panicked)", p1)
+        self.assertIn("PERSON_TWO (Calm)", p1)
+        self.assertIn("PERSON_ONE (Baffled)", p2)
+        self.assertIn("PERSON_ONE (Relieved)", p3)
+        self.assertIn("PERSON_ONE (Determined)", p4)
+        self.assertEqual(payoff, "When the lights go up, knowing the right words turns panic into power.")
 
     def test_roleplay_user_case1_standard_unlabeled_narrator(self):
         script = (
@@ -133,16 +138,21 @@ class TestVerbatimScriptParsing(unittest.TestCase):
         parsed = try_direct_script_parse(script, "ROLEPLAY")
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["hook"], "Backstage chaos! A nervous actor is losing their mind over a forgotten line just thirty seconds before the show starts.")
-        self.assertIn("PERSON_ONE (Panicked)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_ONE (Baffled)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_TWO (Smirking)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_TWO (Chuckling)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
-        self.assertIn("PERSON_TWO (Encouraging)", parsed["DIALOGUE_PART_4"])
+        p1 = parsed.get("dialogue_part_1") or parsed.get("DIALOGUE_PART_1")
+        p2 = parsed.get("dialogue_part_2") or parsed.get("DIALOGUE_PART_2")
+        p3 = parsed.get("dialogue_part_3") or parsed.get("DIALOGUE_PART_3")
+        p4 = parsed.get("dialogue_part_4") or parsed.get("DIALOGUE_PART_4")
+        payoff = parsed.get("payoff") or parsed.get("PAYOFF")
+        self.assertIn("PERSON_ONE (Panicked)", p1)
+        self.assertIn("PERSON_TWO (Calm)", p1)
+        self.assertIn("PERSON_ONE (Baffled)", p2)
+        self.assertIn("PERSON_TWO (Smirking)", p2)
+        self.assertIn("PERSON_ONE (Relieved)", p3)
+        self.assertIn("PERSON_TWO (Chuckling)", p3)
+        self.assertIn("PERSON_ONE (Determined)", p4)
+        self.assertIn("PERSON_TWO (Encouraging)", p4)
         self.assertEqual(
-            parsed["PAYOFF"],
+            payoff,
             "When the lights go up, knowing the right words can turn pure panic into pure performance energy. Speak with confidence and own the moment. What would you say instead? Drop your version below!"
         )
 
@@ -163,21 +173,26 @@ class TestVerbatimScriptParsing(unittest.TestCase):
             "Are you making this common pronunciation mistake at work? Let us look at the confusing word permit."
         )
         self.assertFalse(parsed["hook"].lower().startswith("narrator"))
+        payoff = parsed.get("payoff") or parsed.get("PAYOFF")
         self.assertEqual(
-            parsed["PAYOFF"],
+            payoff,
             "Master this syllable stress rule to sound completely natural in your next office meeting. Subscribe for more daily English pronunciation tips!"
         )
-        self.assertFalse(parsed["PAYOFF"].lower().startswith("narrator"))
+        self.assertFalse(payoff.lower().startswith("narrator"))
 
-        self.assertIn("PERSON_ONE (Confident)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_TWO (Helpful)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_ONE (Confused)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_4"])
+        p1 = parsed.get("dialogue_part_1") or parsed.get("DIALOGUE_PART_1")
+        p2 = parsed.get("dialogue_part_2") or parsed.get("DIALOGUE_PART_2")
+        p3 = parsed.get("dialogue_part_3") or parsed.get("DIALOGUE_PART_3")
+        p4 = parsed.get("dialogue_part_4") or parsed.get("DIALOGUE_PART_4")
+        self.assertIn("PERSON_ONE (Confident)", p1)
+        self.assertIn("PERSON_TWO (Helpful)", p1)
+        self.assertIn("PERSON_ONE (Confused)", p2)
+        self.assertIn("PERSON_TWO (Calm)", p3)
+        self.assertIn("PERSON_ONE (Relieved)", p4)
 
-        self.assertNotEqual(parsed["DIALOGUE_PART_3"], parsed["DIALOGUE_PART_4"])
-        self.assertNotIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
-        self.assertNotIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_4"])
+        self.assertNotEqual(p3, p4)
+        self.assertNotIn("PERSON_ONE (Relieved)", p3)
+        self.assertNotIn("PERSON_TWO (Calm)", p4)
 
     def test_find_available_ready_scripts_csvs(self):
         """Verify find_available_ready_scripts_csvs finds and prioritizes ready_scripts_to_work_with CSVs."""

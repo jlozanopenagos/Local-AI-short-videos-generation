@@ -318,9 +318,9 @@ class TestWebUIApi(unittest.TestCase):
 
     @patch("webui.routers.scripts._get_state_manager")
     @patch("webui.routers.scripts.ensure_llama_stopped")
-    @patch("video_creation._C_image_generation.core.comfy_client.ImageComfyClient")
-    def test_redo_scene_image_endpoint_success(self, mock_client_cls, mock_stop_llama, mock_get_sm):
-        """Verify POST /api/scripts/{id}/scenes/{scene_type}/redo-image regenerates single scene with ComfyUI."""
+    @patch("webui.jobs.manager.JobManager.enqueue_job")
+    def test_redo_scene_image_endpoint_success(self, mock_enqueue, mock_stop_llama, mock_get_sm):
+        """Verify POST /api/scripts/{id}/scenes/{scene_type}/redo-image enqueues single scene redo job."""
         mock_sm = MagicMock()
         mock_sm.script_exists.return_value = True
 
@@ -341,8 +341,9 @@ class TestWebUIApi(unittest.TestCase):
         mock_sm.get_script_state.return_value = state_doc
         mock_get_sm.return_value = mock_sm
 
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
+        fake_job = MagicMock()
+        fake_job.job_id = "JOB12345"
+        mock_enqueue.return_value = fake_job
 
         resp = self.client.post(
             "/api/scripts/IE07/scenes/hook/redo-image",
@@ -350,35 +351,13 @@ class TestWebUIApi(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["status"], "queued")
+        self.assertEqual(data["job_id"], "JOB12345")
         self.assertIn("hook", data["message"])
         self.assertIn("script_IE07_hook.png", data["image_file"])
 
-        # Verify ComfyUI generate_image was called
-        mock_client.generate_image.assert_called_once()
-        self.assertTrue(mock_sm.save_script_state.called)
-
-    @patch("webui.routers.scripts._get_state_manager")
-    @patch("webui.routers.scripts.ensure_llama_stopped")
-    @patch("video_creation._C_image_generation.core.comfy_client.ImageComfyClient")
-    def test_redo_scene_image_comfy_offline(self, mock_client_cls, mock_stop_llama, mock_get_sm):
-        """Verify POST /api/scripts/{id}/scenes/{scene_type}/redo-image returns 503 when ComfyUI is offline."""
-        mock_sm = MagicMock()
-        mock_sm.script_exists.return_value = True
-        mock_sm.get_script_state.return_value = {
-            "id": "IE07",
-            "assets": {"image_prompts": {"hook": "Rome cafe"}},
-        }
-        mock_get_sm.return_value = mock_sm
-
-        mock_client = MagicMock()
-        mock_client.check_connection.side_effect = ConnectionError("ComfyUI offline")
-        mock_client_cls.return_value = mock_client
-
-        resp = self.client.post("/api/scripts/IE07/scenes/hook/redo-image", json={})
-        self.assertEqual(resp.status_code, 503)
-        self.assertIn("offline or unreachable", resp.json()["detail"])
-
+        # Verify job enqueue was called
+        mock_enqueue.assert_called_once()
     @patch("webui.routers.scripts._get_state_manager")
     def test_redo_scene_image_missing_prompt(self, mock_get_sm):
         """Verify 400 error when scene has no prompt in state and none passed in request."""
@@ -393,4 +372,95 @@ class TestWebUIApi(unittest.TestCase):
         resp = self.client.post("/api/scripts/IE07/scenes/hook/redo-image", json={"prompt": ""})
         self.assertEqual(resp.status_code, 400)
         self.assertIn("No prompt available", resp.json()["detail"])
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("webui.routers.scripts.ensure_llama_stopped")
+    @patch("webui.jobs.manager.JobManager.enqueue_job")
+    def test_redo_all_images_endpoint_success(self, mock_enqueue, mock_stop_llama, mock_get_sm):
+        """Verify POST /api/scripts/{id}/redo-all-images saves new general prompt, resets stages, and queues job."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "FE06",
+            "content_metadata": {"language": "french", "video_type": "expression", "topic": "C'est la vie"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "done",
+                "video_assembly": "done",
+            },
+            "assets": {
+                "image_dir": "D:/test/images",
+                "images": ["D:/test/images/script_FE06_hook.png", "D:/test/images/script_FE06_explanation.png"],
+                "image_prompts": {
+                    "hook": "Old hook prompt",
+                    "explanation": "Old explanation prompt",
+                },
+                "general_prompt": "Old general prompt",
+            },
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        fake_job = MagicMock()
+        fake_job.job_id = "JOB99999"
+        mock_enqueue.return_value = fake_job
+
+        resp = self.client.post(
+            "/api/scripts/FE06/redo-all-images",
+            json={"general_prompt": "Brand new French bistro with atmospheric warm lighting"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "queued")
+        self.assertEqual(data["job_id"], "JOB99999")
+        self.assertEqual(data["script_id"], "FE06")
+
+        # Verify state was saved with reset stages and cleared prompts
+        mock_sm.save_script_state.assert_called_once()
+        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_id, "FE06")
+        self.assertEqual(saved_data["assets"]["general_prompt"], "Brand new French bistro with atmospheric warm lighting")
+        self.assertEqual(saved_data["assets"]["image_prompts"], {})
+        self.assertEqual(saved_data["status"]["image_generation"], "pending")
+        self.assertEqual(saved_data["status"]["video_assembly"], "pending")
+
+        # Verify enqueue was called with force=True and regenerate_prompts=True
+        mock_enqueue.assert_called_once()
+        job_req = mock_enqueue.call_args[0][0]
+        self.assertEqual(job_req.stage.value, "images")
+        self.assertEqual(job_req.script_ids, ["FE06"])
+        self.assertEqual(job_req.options["force"], True)
+        self.assertEqual(job_req.options["regenerate_prompts"], True)
+
+    def test_drive_status_endpoint(self):
+        """Verify GET /api/drive/status returns drive configuration."""
+        resp = self.client.get("/api/drive/status")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("configured", data)
+        self.assertIn("root_folder_id", data)
+        self.assertEqual(data["root_folder_id"], "15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z")
+
+    @patch("webui.routers.drive.upload_script_to_drive")
+    @patch("webui.routers.drive.StateManager")
+    def test_upload_single_script_endpoint(self, mock_sm_cls, mock_upload):
+        """Verify POST /api/drive/scripts/{id}/upload invokes upload_script_to_drive."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm_cls.return_value = mock_sm
+
+        mock_upload.return_value = {
+            "script_id": "EE01",
+            "folder_url": "https://drive.google.com/drive/folders/ABCDEF",
+            "video": {"name": "EE01.mp4", "id": "111"},
+            "thumbnail": {"name": "EE01_thumbnail.png", "id": "222"},
+        }
+
+        resp = self.client.post("/api/drive/scripts/EE01/upload")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["folder_url"], "https://drive.google.com/drive/folders/ABCDEF")
 

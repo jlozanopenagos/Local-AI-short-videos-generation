@@ -108,7 +108,7 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
         {isCompleted && (
           <button className="btn btn-outline btn-sm" onClick={handleReset}>
             <RefreshCw size={14} />
-            <span>Reset status</span>
+            <span>reset status</span>
           </button>
         )}
       </div>
@@ -123,14 +123,14 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
       {isFailed && (
         <div className="sheets-alert error">
           <AlertTriangle size={18} />
-          <span>Synchronization failed: {syncStatus?.error || 'Unknown error occurred during sync.'}</span>
+          <span>synchronization failed: {syncStatus?.error || 'unknown error occurred during sync.'}</span>
         </div>
       )}
 
       {/* Control Panel Card */}
       <div className="sheets-control-card">
         <div className="control-options">
-          <label className="checkbox-label" title="Deletes all CSVs in input/csv/script_to_change/ before fetching">
+          <label className="checkbox-label" title="deletes all CSVs in input/csv/script_to_change/ before fetching">
             <input
               type="checkbox"
               checked={cleanCache}
@@ -138,9 +138,9 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
               disabled={isRunning}
             />
             <span className="checkbox-text">
-              <strong>Purge cached CSVs in <code>script_to_change/</code> before fetch</strong>
+              <strong>purge cached CSVs in <code>script_to_change/</code> before fetch</strong>
               <span className="checkbox-hint">
-                (Recommended: deletes stale CSV files so Google Sheets changes are cleanly refreshed at every run)
+                (recommended: deletes stale CSV files so Google Sheets changes are cleanly refreshed at every run)
               </span>
             </span>
           </label>
@@ -153,17 +153,17 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
             onClick={() => handleStartSync(true)}
           >
             <RefreshCw size={18} className={isRunning ? 'spin' : ''} />
-            <span>{isRunning ? 'Synchronizing with Google Sheets...' : 'Fetch & update all JSON states'}</span>
+            <span>{isRunning ? 'synchronizing with Google Sheets...' : 'fetch & update all JSON states'}</span>
           </button>
 
           <button
             className="btn btn-outline"
             disabled={isRunning}
             onClick={() => handleStartSync(false)}
-            title="Fetches and checks differences without modifying local JSON states"
+            title="fetches and checks differences without modifying local JSON states"
           >
             <Info size={16} />
-            <span>Audit / preview only</span>
+            <span>audit / preview only</span>
           </button>
         </div>
 
@@ -193,16 +193,16 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
           <div className="stat-card">
             <div className="stat-label">
               <Trash2 size={16} className="icon-warning" />
-              <span>Purged CSVs</span>
+              <span>purged CSVs</span>
             </div>
             <div className="stat-val">{result.purged_csvs?.length || 0}</div>
-            <div className="stat-sub">Stale files cleaned</div>
+            <div className="stat-sub">stale files cleaned</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-label">
               <FileSpreadsheet size={16} className="icon-accent" />
-              <span>Sheets fetched</span>
+              <span>sheets fetched</span>
             </div>
             <div className="stat-val">{result.fetched_files?.length || 0}</div>
             <div className="stat-sub">{result.total_fetched || 0} scripts with corrections</div>
@@ -211,28 +211,28 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
           <div className="stat-card">
             <div className="stat-label">
               <Sparkles size={16} className="icon-sand" />
-              <span>Changes detected</span>
+              <span>changes detected</span>
             </div>
             <div className="stat-val">{result.changed_count || 0}</div>
-            <div className="stat-sub">Differs from local state</div>
+            <div className="stat-sub">differs from local state</div>
           </div>
 
           <div className="stat-card highlight">
             <div className="stat-label">
               <CheckCircle2 size={16} className="icon-success" />
-              <span>States updated</span>
+              <span>states updated</span>
             </div>
             <div className="stat-val icon-success">{result.updated_count || 0}</div>
-            <div className="stat-sub">Downstream stages reset</div>
+            <div className="stat-sub">downstream stages reset</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-label">
               <CheckCircle2 size={16} className="icon-muted" />
-              <span>Already in sync</span>
+              <span>already in sync</span>
             </div>
             <div className="stat-val">{result.identical_count || 0}</div>
-            <div className="stat-sub">No modifications needed</div>
+            <div className="stat-sub">no modifications needed</div>
           </div>
         </div>
       )}
@@ -241,9 +241,9 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
       {result && result.updated_records && result.updated_records.length > 0 && (
         <div className="sheets-section">
           <div className="section-header">
-            <h2>Detected & updated scripts ({result.updated_records.length})</h2>
+            <h2>detected & updated scripts ({result.updated_records.length})</h2>
             <span className="section-badge">
-              {result.updated_count > 0 ? `${result.updated_count} states overwritten` : 'Audit mode'}
+              {result.updated_count > 0 ? `${result.updated_count} states overwritten` : 'audit mode'}
             </span>
           </div>
 
@@ -290,7 +290,7 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
                     <div className="diff-preview-container">
                       <div className="diff-header">
                         <FileText size={14} />
-                        <span>Changes preview (diff)</span>
+                        <span>changes preview (diff)</span>
                       </div>
                       <pre className="diff-code">{rec.diff_preview}</pre>
                     </div>
@@ -308,7 +308,7 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
           <CheckCircle2 size={20} className="icon-success" />
           <div>
             <strong>100% synchronized</strong>
-            <p>All scripts in your local JSON states are already completely in sync with Google Sheets.</p>
+            <p>all scripts in your local JSON states are already completely in sync with Google Sheets.</p>
           </div>
         </div>
       )}
@@ -318,8 +318,8 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
         <div className="terminal-header">
           <div className="terminal-title">
             <Terminal size={16} />
-            <span>Execution console</span>
-            {isRunning && <span className="running-tag">Running</span>}
+            <span>execution console</span>
+            {isRunning && <span className="running-tag">running</span>}
           </div>
           <div className="terminal-actions">
             <label className="autoscroll-toggle">
@@ -328,7 +328,7 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
                 checked={autoScrollLogs}
                 onChange={(e) => setAutoScrollLogs(e.target.checked)}
               />
-              <span>Auto-scroll</span>
+              <span>auto-scroll</span>
             </label>
           </div>
         </div>

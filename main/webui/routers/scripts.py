@@ -24,6 +24,7 @@ if str(BASE_DIR) not in sys.path:
 from core.state_manager import StateManager
 from core.expression_db import is_expression_done, get_all_done_expression_ids
 from video_creation._C_image_generation.main import ensure_llama_stopped
+from config import resolve_static_scene_path
 
 router = APIRouter(prefix="/api/scripts", tags=["Scripts"])
 
@@ -130,13 +131,22 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
             voice_line = str(script_obj[matched_key]).strip()
             prompt = prompts_lower.get(key.lower(), "")
 
-            # Match image file by naming convention or index
+            # Match image file by naming convention
             img_file = None
             for fpath in img_list:
                 fname = Path(fpath).name.lower()
                 if key.lower() in fname:
                     img_file = fpath
                     break
+
+            # Centralized static scene asset resolution (e.g. GAME: pressure uses central Tito waiting image)
+            is_static_scene = False
+            if not img_file:
+                static_cand = resolve_static_scene_path(section_name=key, script_data=state_data)
+                if static_cand and static_cand.exists():
+                    img_file = str(static_cand)
+                    is_static_scene = True
+
             if not img_file and idx - 1 < len(img_list):
                 img_file = img_list[idx - 1]
 
@@ -146,6 +156,7 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
                 "voice_line": voice_line,
                 "image_file": img_file,
                 "prompt": prompt,
+                "is_static": is_static_scene,
             })
 
         if scenes:
@@ -240,6 +251,7 @@ def _build_script_summary(
         "images": _normalize_stage(status.get("image_generation", "done" if has_images else "missing")),
         "thumbnails": _normalize_stage(status.get("thumbnail_generation", "done" if has_thumb else "missing")),
         "assembly": _normalize_stage(status.get("video_assembly", "done" if has_video else "missing")),
+        "drive": _normalize_stage(status.get("drive_upload", "missing")),
     }
 
     speakers_gender = meta.get("speakers_gender") or {}
@@ -296,6 +308,8 @@ def _build_script_summary(
         "has_images": stages["images"] == "done",
         "has_video": stages["assembly"] == "done",
         "has_thumbnail": stages["thumbnails"] == "done",
+        "has_drive": stages["drive"] == "done",
+        "drive_folder_url": assets.get("drive_folder_url"),
         "is_ready_for_assembly": stages["voice"] == "done" and stages["images"] == "done" and stages["assembly"] != "done",
         "is_db_done": is_done_flag,
     }
@@ -669,16 +683,23 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
             state_data["content_metadata"]["anchor_environment"] = new_gp
             state_data["status"]["image_generation"] = "pending"
             state_data["assets"]["image_prompts"] = {}
+            if payload.character_anchors is None:
+                state_data["assets"].pop("character_anchors", None)
+                if isinstance(state_data.get("content_metadata"), dict):
+                    state_data["content_metadata"].pop("character_anchors", None)
 
     if payload.character_anchors is not None:
         state_data["assets"]["character_anchors"] = payload.character_anchors
+        if isinstance(state_data.get("content_metadata"), dict):
+            state_data["content_metadata"]["character_anchors"] = payload.character_anchors
 
     # 5. Update specific scene prompts (only if general prompt did not just invalidate them)
     if payload.image_prompts is not None and not general_prompt_changed:
         if "image_prompts" not in state_data["assets"] or not isinstance(state_data["assets"]["image_prompts"], dict):
             state_data["assets"]["image_prompts"] = {}
         for sec_k, sec_prompt in payload.image_prompts.items():
-            state_data["assets"]["image_prompts"][sec_k] = sec_prompt
+            sec_clean = str(sec_k).strip().lower()
+            state_data["assets"]["image_prompts"][sec_clean] = str(sec_prompt).strip()
 
     # Save to disk
     sm.save_script_state(canonical_id, state_data)
@@ -984,17 +1005,30 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
                 or "Unknown"
             )
 
+            # Check actual physical asset files for Google Drive upload readiness
+            from connectivity.drive_sync.sync_service import resolve_script_assets
+            video_path, thumb_path = resolve_script_assets(state, base_dir=BASE_DIR)
+            has_vid = bool(video_path and video_path.exists())
+            has_thumb = bool(thumb_path and thumb_path.exists())
+            can_upload = has_vid and has_thumb
+
             results.append({
                 "id": sid,
                 "exists": True,
                 "language": _normalize_language(lang),
                 "type": str(vtype).lower(),
                 "stages": {
+                    "scripts": "done" if state.get("script_text") or content_meta.get("script") else "missing",
                     "voice": _normalize_stage(status.get("voice_generation")),
                     "images": _normalize_stage(status.get("image_generation")),
                     "thumbnails": _normalize_stage(status.get("thumbnail_generation")),
                     "assembly": _normalize_stage(status.get("video_assembly")),
+                    "drive": _normalize_stage(status.get("drive_upload")),
                 },
+                "has_video": has_vid,
+                "has_thumbnail": has_thumb,
+                "can_upload_drive": can_upload,
+                "drive_uploaded": status.get("drive_upload") == "done",
             })
             valid_count += 1
         else:
@@ -1004,6 +1038,10 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
                 "language": None,
                 "type": None,
                 "stages": {},
+                "has_video": False,
+                "has_thumbnail": False,
+                "can_upload_drive": False,
+                "drive_uploaded": False,
             })
             invalid_count += 1
 
@@ -1087,64 +1125,107 @@ def redo_scene_image_endpoint(
     out_dir.mkdir(parents=True, exist_ok=True)
     dest_path = out_dir / f"script_{canonical_id}_{sec_lower}.png"
 
-    # 4. Connect to ComfyUI and generate
-    if not IMAGE_WORKFLOW_PATH.exists():
-        raise HTTPException(status_code=500, detail=f"Workflow template missing: {IMAGE_WORKFLOW_PATH}")
-
-    try:
-        comfy_client = ImageComfyClient(
-            api_url=COMFY_API_URL,
-            workflow_path=IMAGE_WORKFLOW_PATH,
-            poll_timeout=3600,
-            poll_interval=2,
-        )
-        comfy_client.check_connection()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=f"ComfyUI is offline or unreachable at {COMFY_API_URL}: {exc}. Please verify ComfyUI is running."
-        )
-
-    styled_prompt = sanitize_and_style_prompt(str(prompt).strip())
     seed = payload.seed if (payload and payload.seed is not None) else random.randint(1, 10**15)
 
-    try:
-        comfy_client.generate_image(
-            prompt_text=styled_prompt,
-            filename_prefix=f"Z-Image/script_{canonical_id}_{sec_lower}",
-            dest_path=dest_path,
-            seed=seed,
-            steps=IMAGE_DEFAULT_STEPS,
-            width=IMAGE_DEFAULT_WIDTH,
-            height=IMAGE_DEFAULT_HEIGHT,
-            stall_timeout=IMAGE_STALL_TIMEOUT,
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"ComfyUI image generation failed: {exc}")
+    # 4. Enqueue Asynchronous Single-Scene Generation in JobManager
+    from webui.jobs.manager import get_job_manager
+    from webui.jobs.models import JobCreateRequest, JobStage
 
-    # 5. Update state assets
-    assets = state_data.setdefault("assets", {})
-    image_prompts = assets.setdefault("image_prompts", {})
-    image_prompts[sec_lower] = str(prompt).strip()
-    assets["image_dir"] = str(out_dir)
+    job_mgr = get_job_manager()
+    job = job_mgr.enqueue_job(JobCreateRequest(
+        stage=JobStage.IMAGES,
+        script_ids=[canonical_id],
+        options={
+            "scene": sec_lower,
+            "prompt": str(prompt).strip(),
+            "seed": seed,
+            "force": True,
+        }
+    ))
 
-    img_list = assets.get("images")
-    if not isinstance(img_list, list):
-        img_list = []
-    dest_str = str(dest_path)
-    if dest_str not in img_list:
-        img_list.append(dest_str)
-    assets["images"] = img_list
+    return {
+        "status": "queued",
+        "job_id": job.job_id,
+        "message": f"Scene '{scene_type}' regeneration queued in Job Manager (#{job.job_id}). Track live in the Queue tab.",
+        "image_file": str(dest_path),
+        "seed": seed,
+        "script": get_script(canonical_id),
+    }
+
+
+class RedoAllImagesRequest(BaseModel):
+    general_prompt: Optional[str] = None
+    seed: Optional[int] = None
+
+
+@router.post("/{script_id}/redo-all-images")
+def redo_all_images_endpoint(
+    script_id: str,
+    payload: Optional[RedoAllImagesRequest] = None,
+) -> Dict[str, Any]:
+    """
+    Queues a full regeneration of all scene illustrations for a script.
+    Saves any updated general_prompt into state, clears old scene prompts,
+    and enqueues a Stage C (IMAGES) job with force=True and regenerate_prompts=True.
+
+    Job Execution Flow:
+    1. Phase 1: Starts Llama -> runs ensure_image_prompts_for_script(force=True) to produce
+       new scene-specific prompts adhering to the new general prompt -> saves to state -> shuts down Llama.
+    2. Phase 2: Starts ComfyUI batch queue -> generates all scene images with the fresh prompts.
+    """
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+
+    # 1. If general prompt was provided (or changed), update state
+    if payload and payload.general_prompt and payload.general_prompt.strip():
+        new_gp = payload.general_prompt.strip()
+        state_data.setdefault("assets", {})["general_prompt"] = new_gp
+        state_data.setdefault("content_metadata", {})["anchor_environment"] = new_gp
+        state_data.setdefault("status", {})["image_generation"] = "pending"
+        state_data["assets"]["image_prompts"] = {}
+        state_data.setdefault("status", {})["video_assembly"] = "pending"
+
+    # 2. Clear old generated images from disk
+    image_dir_str = state_data.get("assets", {}).get("image_dir")
+    if image_dir_str:
+        p = Path(image_dir_str)
+        if p.exists() and p.is_dir():
+            for old_img in p.glob(f"script_{canonical_id}_*.png"):
+                try:
+                    old_img.unlink()
+                except Exception:
+                    pass
 
     # Save state & update cache
     sm.save_script_state(canonical_id, state_data)
     _update_cached_script(canonical_id, state_data)
 
+    # 3. Enqueue Asynchronous Full-Script Generation in JobManager
+    from webui.jobs.manager import get_job_manager
+    from webui.jobs.models import JobCreateRequest, JobStage
+
+    seed = payload.seed if (payload and payload.seed is not None and payload.seed > 0) else None
+
+    job_mgr = get_job_manager()
+    job = job_mgr.enqueue_job(JobCreateRequest(
+        stage=JobStage.IMAGES,
+        script_ids=[canonical_id],
+        options={
+            "force": True,
+            "regenerate_prompts": True,
+            "seed": seed,
+        }
+    ))
+
     return {
-        "status": "success",
-        "message": f"Scene '{scene_type}' regenerated successfully for {canonical_id}",
-        "image_file": dest_str,
-        "seed": seed,
+        "status": "queued",
+        "job_id": job.job_id,
+        "script_id": canonical_id,
+        "message": f"Full redo for '{canonical_id}' queued in Job Manager (#{job.job_id})! Llama will generate new specific prompts from the general prompt, followed by ComfyUI image creation.",
         "script": get_script(canonical_id),
     }
 

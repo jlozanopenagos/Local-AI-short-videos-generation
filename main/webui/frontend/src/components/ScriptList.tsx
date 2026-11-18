@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  FileText
+  FileText,
+  CloudUpload
 } from 'lucide-react'
 import type { ScriptSummary, ScriptFacets, StageState, JobStage } from '../types'
 import { fetchScriptCatalog, createJob, refreshScriptCache, toggleScriptStage } from '../api'
@@ -257,17 +258,17 @@ export const ScriptList: React.FC<ScriptListProps> = ({
   const isPageAllSelected = scripts.length > 0 && scripts.every((s) => selectedIds.has(s.script_id))
 
   return (
-    <section className="card" style={{ position: 'relative' }} aria-label="Script catalog">
+    <section className="card" style={{ position: 'relative' }} aria-label="script catalog">
       {/* Title & Actions */}
       <div className="card-title">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span>Script catalog ({totalCount.toLocaleString()} total)</span>
+          <span>script catalog ({totalCount.toLocaleString()} total)</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button className="btn btn-outline btn-sm" onClick={handleRefresh} disabled={loading} title="Re-scan state files">
+          <button className="btn btn-outline btn-sm" onClick={handleRefresh} disabled={loading} title="re-scan state files">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span>Refresh index</span>
+            <span>refresh index</span>
           </button>
         </div>
       </div>
@@ -280,11 +281,11 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             type="text"
             className="search-input"
             style={{ width: '100%', paddingRight: '52px' }}
-            placeholder="Search by ID (e.g. EE01), topic, title, or scenario..."
+            placeholder="search by ID (e.g. EE01), topic, title, or scenario..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            aria-label="Search scripts by ID, topic, or title"
+            aria-label="search scripts by ID, topic, or title"
           />
           {searchInput ? (
             <button
@@ -307,7 +308,7 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                 display: 'flex',
                 alignItems: 'center',
               }}
-              title="Clear search"
+              title="clear search"
             >
               <X size={14} />
             </button>
@@ -324,9 +325,9 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             setSelectedLang(e.target.value)
             setPage(1)
           }}
-          aria-label="Filter by language"
+          aria-label="filter by language"
         >
-          <option value="all">All languages ({facets?.total ?? totalCount})</option>
+          <option value="all">all languages ({facets?.total ?? totalCount})</option>
           {(facets?.languages || []).map((l) => (
             <option key={l.name} value={l.name}>
               {l.name} ({l.count})
@@ -342,12 +343,12 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             setSelectedType(e.target.value)
             setPage(1)
           }}
-          aria-label="Filter by video format"
+          aria-label="filter by video format"
         >
-          <option value="all">All formats</option>
+          <option value="all">all formats</option>
           {(facets?.types || []).map((t) => (
             <option key={t.name} value={t.name}>
-              {formatVideoTypeLabel(t.name)} ({t.count})
+              {formatVideoTypeLabel(t.name).toLowerCase()} ({t.count})
             </option>
           ))}
         </select>
@@ -360,27 +361,27 @@ export const ScriptList: React.FC<ScriptListProps> = ({
             setStageFilter(e.target.value)
             setPage(1)
           }}
-          aria-label="Filter by pipeline stage status"
+          aria-label="filter by pipeline stage status"
         >
-          <option value="all">All statuses</option>
+          <option value="all">all statuses</option>
           <option value="missing_voice">
-            Missing voice ({facets?.stage_counts?.missing_voice ?? 0})
+            missing voice ({facets?.stage_counts?.missing_voice ?? 0})
           </option>
           <option value="missing_images">
-            Missing images ({facets?.stage_counts?.missing_images ?? 0})
+            missing images ({facets?.stage_counts?.missing_images ?? 0})
           </option>
           <option value="ready_for_assembly">
-            Ready for assembly ({facets?.stage_counts?.ready_for_assembly ?? 0})
+            ready for assembly ({facets?.stage_counts?.ready_for_assembly ?? 0})
           </option>
           <option value="complete">
-            Complete ({facets?.stage_counts?.complete ?? 0})
+            complete ({facets?.stage_counts?.complete ?? 0})
           </option>
         </select>
 
         {/* Select All on Page Button */}
         <button className="btn btn-outline btn-sm" onClick={toggleSelectPage}>
           {isPageAllSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-          <span>{isPageAllSelected ? 'Deselect page' : 'Select page'}</span>
+          <span>{isPageAllSelected ? 'deselect page' : 'select page'}</span>
         </button>
       </div>
 
@@ -388,11 +389,11 @@ export const ScriptList: React.FC<ScriptListProps> = ({
       {loading && scripts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
           <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px auto' }} />
-          <div>Scanning script library...</div>
+          <div>scanning script library...</div>
         </div>
       ) : scripts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-          No scripts matching current filters. Try adjusting your search or filters.
+          no scripts matching current filters. try adjusting your search or filters.
         </div>
       ) : (
         /* Dense Table View */
@@ -406,15 +407,15 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                     checked={isPageAllSelected}
                     onChange={toggleSelectPage}
                     style={{ cursor: 'pointer' }}
-                    aria-label="Select all scripts on this page"
+                    aria-label="select all scripts on this page"
                   />
                 </th>
                 <th>ID</th>
-                <th>Topic / title</th>
-                <th>Language / format</th>
-                <th>Character</th>
-                <th>Pipeline stages</th>
-                <th>Action</th>
+                <th>topic / title</th>
+                <th>language / format</th>
+                <th>character</th>
+                <th>pipeline stages</th>
+                <th>action</th>
               </tr>
             </thead>
             <tbody>
@@ -461,6 +462,15 @@ export const ScriptList: React.FC<ScriptListProps> = ({
                         {renderClickableBadge(s.script_id, 'voice', 'Voice', stages.voice)}
                         {renderClickableBadge(s.script_id, 'thumbnails', 'Thumb', stages.thumbnails)}
                         {renderClickableBadge(s.script_id, 'assembly', 'Video', stages.assembly)}
+                        {stages.drive === 'done' && (
+                          <span
+                            className="stage-badge stage-done"
+                            title="uploaded to google drive"
+                            style={{ borderColor: '#10b981', color: '#10b981' }}
+                          >
+                            drive ✓
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -557,57 +567,76 @@ export const ScriptList: React.FC<ScriptListProps> = ({
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('scripts')}
-              title="Generate or redo scripts for selected items"
+              title="generate or redo scripts for selected items"
             >
               <FileText size={13} />
-              <span>Script</span>
+              <span>script</span>
             </button>
 
             <button
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('voice')}
-              title="Generate voiceovers for selected scripts"
+              title="generate voiceovers for selected scripts"
             >
               <Mic size={13} />
-              <span>Voice</span>
+              <span>voice</span>
             </button>
 
             <button
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('images')}
-              title="Generate scene images for selected scripts"
+              title="generate scene images for selected scripts"
             >
               <ImageIcon size={13} />
-              <span>Images</span>
+              <span>images</span>
             </button>
 
             <button
               className="btn btn-outline btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('thumbnails')}
-              title="Generate thumbnails for selected scripts"
+              title="generate thumbnails for selected scripts"
             >
               <Sparkles size={13} />
-              <span>Thumbnails</span>
+              <span>thumbnails</span>
             </button>
 
             <button
               className="btn btn-primary btn-sm"
               disabled={batchActionLoading !== null}
               onClick={() => handleBatchRun('assembly')}
-              title="Assemble final short videos for selected scripts"
+              title="assemble final short videos for selected scripts"
             >
               <Film size={13} />
-              <span>Assemble video</span>
+              <span>assemble video</span>
+            </button>
+
+            <button
+              className="btn btn-sm"
+              disabled={batchActionLoading !== null}
+              onClick={() => handleBatchRun('drive_upload')}
+              title="upload completed videos and thumbnails to google drive"
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <CloudUpload size={13} />
+              <span>upload to drive</span>
             </button>
           </div>
 
           <button
             className="btn btn-outline btn-sm"
             onClick={clearSelection}
-            title="Clear selection"
+            title="clear selection"
             style={{ padding: '4px 6px' }}
           >
             <X size={14} />

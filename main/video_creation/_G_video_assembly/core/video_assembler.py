@@ -2,9 +2,10 @@
 import ffmpeg
 import json
 from pathlib import Path
+from config import resolve_static_scene_path
 
 class VideoAssembler:
-    def assemble(self, script_id: str, timings_path: Path, image_dir: Path, audio_path: Path, ass_path: Path, output_path: Path, bgm_path: Path = None, watermark_path: Path = None, opening_path: Path = None, closure_path: Path = None, video_type: str = ""):
+    def assemble(self, script_id: str, timings_path: Path, image_dir: Path, audio_path: Path, ass_path: Path, output_path: Path, bgm_path: Path = None, watermark_path: Path = None, opening_path: Path = None, closure_path: Path = None, video_type: str = "", script_data: dict = None, language: str = None):
         if opening_path:
             opening_path = Path(opening_path)
         if closure_path:
@@ -37,6 +38,18 @@ class VideoAssembler:
                 if (image_dir / img_name_alt).exists():
                     img_path = image_dir / img_name_alt
 
+            # Centralized static asset fallback (e.g. GAME: pressure uses central Tito waiting image)
+            if not img_path.exists():
+                static_candidate = resolve_static_scene_path(
+                    section_name=sec_lower,
+                    script_data=script_data,
+                    language=language,
+                    video_type=video_type,
+                )
+                if static_candidate and static_candidate.exists():
+                    img_path = static_candidate
+                    print(f"Notice: Section '{section}' using centralized static asset '{img_path.name}'.")
+
             # Companion fallback (e.g. 4-image roleplay: dialogue_part_1 uses hook with punch-in cut)
             if not img_path.exists() and sec_lower in COMPANION_FALLBACKS:
                 for fallback_sec in COMPANION_FALLBACKS[sec_lower]:
@@ -57,10 +70,11 @@ class VideoAssembler:
             print("Error: No images found to assemble video.")
             return False
 
-        # Consolidate consecutive identical companion images to prevent zoom pops/resets
+        # Consolidate consecutive identical companion images to prevent zoom pops/resets.
+        # Only consolidate if both path and punch_in state match (punch-in cuts create intentional framing transitions).
         consolidated_sections = []
         for sec in available_sections:
-            if consolidated_sections and consolidated_sections[-1]["path"] == sec["path"]:
+            if consolidated_sections and consolidated_sections[-1]["path"] == sec["path"] and consolidated_sections[-1].get("punch_in") == sec.get("punch_in"):
                 continue
             consolidated_sections.append(sec)
 

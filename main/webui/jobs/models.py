@@ -19,6 +19,7 @@ class JobStage(str, Enum):
     ASSEMBLY = "assembly"
     THUMBNAILS = "thumbnails"
     CHALKBOARD = "chalkboard"
+    DRIVE_UPLOAD = "drive_upload"
 
 
 class JobStatus(str, Enum):

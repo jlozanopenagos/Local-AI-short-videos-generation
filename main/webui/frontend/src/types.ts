@@ -27,6 +27,8 @@ export interface SystemStatus {
   }
 }
 
+export type ActiveTab = 'home' | 'dashboard' | 'bingo' | 'jobs' | 'sheets' | 'mass-creation'
+
 export type StageState = 'done' | 'pending' | 'missing'
 
 export interface ScriptStages {
@@ -35,6 +37,7 @@ export interface ScriptStages {
   images: StageState
   thumbnails: StageState
   assembly: StageState
+  drive?: StageState
 }
 
 export interface ScriptAssets {
@@ -65,6 +68,8 @@ export interface ScriptSummary {
   has_images: boolean
   has_video: boolean
   has_thumbnail: boolean
+  has_drive?: boolean
+  drive_folder_url?: string
   is_ready_for_assembly: boolean
 }
 
@@ -101,6 +106,8 @@ export interface SceneDetail {
   voice_line: string
   image_file: string | null
   prompt?: string
+  is_static?: boolean
+  is_virtual_cut?: boolean
 }
 
 export interface YouTubeMetadata {
@@ -144,7 +151,7 @@ export interface ScriptUpdatePayload {
   game_archetype?: string
 }
 
-export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly' | 'chalkboard'
+export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly' | 'chalkboard' | 'drive_upload'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface JobProgress {
@@ -159,6 +166,7 @@ export interface Job {
   stage: JobStage
   status: JobStatus
   script_ids: string[]
+  options?: Record<string, any>
   progress: JobProgress
   logs: string[]
   error?: string | null
@@ -209,11 +217,17 @@ export interface ValidatedScriptId {
   language?: string | null
   type?: string | null
   stages?: {
+    scripts?: string
     voice?: string
     images?: string
     thumbnails?: string
     assembly?: string
+    drive?: string
   }
+  has_video?: boolean
+  has_thumbnail?: boolean
+  can_upload_drive?: boolean
+  drive_uploaded?: boolean
 }
 
 export interface ValidateIdsResponse {

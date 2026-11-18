@@ -28,7 +28,7 @@ from config import (
     COMFY_API_URL, COMFY_INPUT_DIR, BASE_DIR, GAME_IMAGES_DIR,
     IMAGE_WORKFLOW_PATH, IMAGE_DEFAULT_STEPS, IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT,
     IMAGE_STALL_TIMEOUT, LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME, require_services,
-    get_script_output_dir
+    get_script_output_dir, resolve_static_scene_path
 )
 # pyrefly: ignore [missing-import]
 from state_manager import StateManager, resolve_lang_and_type
@@ -48,7 +48,12 @@ from core.expression_db import is_expression_done
 # pyrefly: ignore[missing-import]
 from core.llama_manager import ensure_llama_running, ensure_llama_stopped
 from _C_image_generation.core.comfy_client import ImageComfyClient
-from _C_image_generation.core.prompt_builder import VisualPromptBuilder, resolve_anchor_environment, sanitize_and_style_prompt
+from _C_image_generation.core.prompt_builder import (
+    VisualPromptBuilder,
+    resolve_anchor_environment,
+    sanitize_and_style_prompt,
+    get_speaker_gender_safe,
+)
 from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
 from _B_voice_generation.core.script_parser import parse_sections
 
@@ -84,8 +89,8 @@ def ensure_image_prompts_for_script(
         speakers_gender = {}
 
     if video_type == "ROLEPLAY":
-        p1_g = speakers_gender.get("PERSON_ONE", "male")
-        p2_g = speakers_gender.get("PERSON_TWO", "female")
+        p1_g = get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "male")
+        p2_g = get_speaker_gender_safe(speakers_gender, "PERSON_TWO", "female")
         speakers_gender["PERSON_ONE"] = p1_g
         speakers_gender["PERSON_TWO"] = p2_g
         if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
@@ -363,28 +368,20 @@ def process_script(
             logger.info("[%s] Image for %s already exists: %s — skipping.", script_id, section_name, dest_path.name)
             continue
 
-        # Specialized handling for GAME: PRESSURE (Static pre-made image)
+        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image — zero-copy)
         if video_type == "GAME" and section_name.lower() == "pressure":
-            lang_lower = label.split("|")[0].strip().lower()
-            if "french" in lang_lower or "français" in lang_lower:
-                lang_key = "french"
-            elif "spanish" in lang_lower or "español" in lang_lower:
-                lang_key = "spanish"
-            elif "italian" in lang_lower or "italiano" in lang_lower:
-                lang_key = "italian"
-            else:
-                lang_key = "english"
-
-            waiting_img = GAME_IMAGES_DIR / lang_key / f"{lang_key}_waiting.png"
-            if not waiting_img.exists():
-                waiting_img = GAME_IMAGES_DIR / "english" / "english_waiting.png"
-
-            if waiting_img.exists():
-                shutil.copy2(waiting_img, dest_path)
-                print(f"[OK] Copied static waiting image: {waiting_img.name} -> {dest_path.name}")
+            static_img = resolve_static_scene_path(
+                section_name=section_name,
+                script_data=script_data,
+                language=label,
+                video_type=video_type,
+                base_dir=base_dir,
+            )
+            if static_img and static_img.exists():
+                print(f"[OK] Section 'PRESSURE' resolved via centralized static asset: {static_img.name} (zero-copy skipped).")
                 continue
             else:
-                logger.warning(f"Could not find waiting image at {waiting_img}, falling back to generation.")
+                logger.warning(f"Could not find static waiting image for {script_id}, falling back to generation.")
 
         # Specialized handling for GAME: CHALLENGE (Native high-resolution chalk typography on empty_chalkboard.png)
         if video_type == "GAME" and section_name.lower() == "challenge":

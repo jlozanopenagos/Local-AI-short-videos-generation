@@ -254,22 +254,23 @@ body {
 
 .nav-links {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .nav-btn {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
-  padding: 6px 14px;
+  padding: 6px 11px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13.5px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .nav-btn:hover {
@@ -2095,4 +2096,785 @@ body {
   flex-direction: column;
   gap: 14px;
   box-shadow: var(--shadow-sm);
+}
+
+/* ==========================================================================
+   Asset Bingo Matrix View
+   ========================================================================== */
+
+.bingo-matrix-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
+/* Header Card */
+.bingo-header-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+
+.bingo-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bingo-title-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: rgba(36, 138, 82, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(36, 138, 82, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bingo-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bingo-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.bingo-subtitle {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.bingo-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bingo-select-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.bingo-select {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+}
+
+.bingo-select option {
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+
+.bingo-refresh-btn {
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.bingo-refresh-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+.bingo-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Language & Format Filter Controls */
+.bingo-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.bingo-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bingo-picker-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+
+.bingo-pill-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.bingo-pill-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.bingo-pill-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-card-hover);
+}
+
+.bingo-pill-btn.active {
+  background: var(--bg-card);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* Metrics & Progress Section */
+.bingo-metrics-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.bingo-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bingo-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 120px;
+}
+
+.bingo-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text-muted);
+}
+
+.bingo-stat-num-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.bingo-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+}
+
+.bingo-stat-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.bingo-stat-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bingo-stat-divider {
+  width: 1px;
+  height: 38px;
+  background: var(--border);
+}
+
+/* 5-Color Segmented Multi-Bar */
+.bingo-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bingo-progress-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.bingo-progress-title {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.bingo-progress-summary {
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.bingo-multibar {
+  height: 10px;
+  width: 100%;
+  background: var(--bg-main);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  border: 1px solid var(--border);
+}
+
+.bingo-bar-segment {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.bingo-bar-green {
+  background: #10b981;
+}
+
+.bingo-bar-orange {
+  background: #fb923c;
+}
+
+.bingo-bar-yellow {
+  background: #facc15;
+}
+
+.bingo-bar-red {
+  background: #f43f5e;
+}
+
+.bingo-bar-grey {
+  background: rgba(150, 150, 150, 0.35);
+}
+
+/* Filter Row & Search */
+.bingo-filter-search-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bingo-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.bingo-filter-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.bingo-filter-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-hover);
+}
+
+.bingo-filter-btn.active {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.bingo-filter-btn.active.green {
+  border-color: #10b981;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.bingo-filter-btn.active.orange {
+  border-color: #fb923c;
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+}
+
+.bingo-filter-btn.active.yellow {
+  border-color: #facc15;
+  color: #eab308;
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.bingo-filter-btn.active.red {
+  border-color: #f43f5e;
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.bingo-filter-btn.active.grey {
+  border-color: var(--text-muted);
+  color: var(--text-main);
+}
+
+/* Dots */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-green {
+  background: #10b981;
+}
+
+.dot-orange {
+  background: #fb923c;
+}
+
+.dot-yellow {
+  background: #facc15;
+}
+
+.dot-red {
+  background: #f43f5e;
+}
+
+.dot-grey {
+  background: rgba(150, 150, 150, 0.6);
+}
+
+/* Search Box */
+.bingo-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  min-width: 260px;
+  transition: border-color 0.15s ease;
+}
+
+.bingo-search-box:focus-within {
+  border-color: var(--accent);
+}
+
+.bingo-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.bingo-search-input {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+
+/* Quick Inspection Card */
+.bingo-inspector-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: var(--shadow-md);
+  border-left: 4px solid var(--accent);
+  animation: slideDown 0.18s ease-out;
+}
+
+.bingo-inspector-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bingo-inspector-badge {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 8px 14px;
+  border-radius: 8px;
+  letter-spacing: 0.5px;
+}
+
+.bingo-inspector-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bingo-inspector-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bingo-inspector-topic {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.bingo-stage-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.2px;
+}
+
+.stage-green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.stage-orange {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.stage-yellow {
+  background: rgba(250, 204, 21, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(250, 204, 21, 0.3);
+}
+
+.stage-red {
+  background: rgba(244, 63, 94, 0.15);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.stage-grey {
+  background: rgba(150, 150, 150, 0.15);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.bingo-inspector-assets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.asset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+}
+
+.asset-chip.done {
+  color: var(--success);
+  border-color: rgba(36, 138, 82, 0.35);
+  background: rgba(36, 138, 82, 0.08);
+}
+
+.asset-chip.missing {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.bingo-inspector-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Grid Wrapper & States */
+.bingo-grid-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bingo-loading-state,
+.bingo-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 10px;
+  color: var(--text-muted);
+}
+
+.bingo-loading-text,
+.bingo-empty-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.bingo-loading-sub,
+.bingo-empty-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* The Bingo Grid */
+.bingo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px;
+  padding-bottom: 20px;
+}
+
+/* Individual Bingo Tile: Displays ID CODE ONLY */
+.bingo-tile {
+  position: relative;
+  height: 42px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.bingo-tile:hover {
+  transform: translateY(-2px) scale(1.04);
+  z-index: 5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.bingo-tile.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  transform: translateY(-2px) scale(1.05);
+  z-index: 6;
+}
+
+.bingo-tile-id {
+  pointer-events: none;
+}
+
+.bingo-tile-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+/* Status Color Palette (5 States) */
+.status-green {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.48);
+  color: #10b981;
+}
+
+.status-green:hover {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: #10b981;
+}
+
+.status-orange {
+  background: rgba(251, 146, 60, 0.18);
+  border: 1px solid rgba(251, 146, 60, 0.48);
+  color: #fb923c;
+}
+
+.status-orange:hover {
+  background: rgba(251, 146, 60, 0.28);
+  border-color: #fb923c;
+}
+
+.status-yellow {
+  background: rgba(250, 204, 21, 0.18);
+  border: 1px solid rgba(250, 204, 21, 0.48);
+  color: #eab308;
+}
+
+.status-yellow:hover {
+  background: rgba(250, 204, 21, 0.28);
+  border-color: #facc15;
+}
+
+.status-red {
+  background: rgba(244, 63, 94, 0.18);
+  border: 1px solid rgba(244, 63, 94, 0.48);
+  color: #f43f5e;
+}
+
+.status-red:hover {
+  background: rgba(244, 63, 94, 0.28);
+  border-color: #f43f5e;
+}
+
+.status-grey {
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.status-grey:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  color: var(--text-main);
+}
+
+/* Footer Legend */
+.bingo-legend-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bingo-legend-items {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bingo-legend-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Perspective & Camera Angle Helper Chips */
+.perspective-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 3px 9px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.perspective-chip:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.perspective-chip:active {
+  transform: translateY(0);
 }

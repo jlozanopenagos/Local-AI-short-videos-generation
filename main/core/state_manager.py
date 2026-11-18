@@ -71,7 +71,9 @@ def resolve_lang_and_type(script_id: str, state: Optional[Dict[str, Any]] = None
 
 
 class StateManager:
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Optional[Path] = None):
+        if base_dir is None:
+            base_dir = Path(__file__).resolve().parent.parent
         self.state_dir = base_dir / "state"
         self.state_dir.mkdir(parents=True, exist_ok=True)
         
@@ -183,3 +185,9 @@ class StateManager:
                 except Exception:
                     continue
         return scripts
+
+    # Compatibility aliases
+    load_script_state = get_script_state
+
+    def load_all_script_states(self) -> Dict[str, Dict[str, Any]]:
+        return {s.get("id") or s.get("script_id"): s for s in self.get_all_scripts()}

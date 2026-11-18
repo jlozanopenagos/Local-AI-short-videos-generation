@@ -5,6 +5,7 @@ webui/jobs/adapters/images.py — Stage C (Scene Image Generation) adapter.
 from __future__ import annotations
 
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -57,7 +58,9 @@ class ImagesAdapter(BaseStageAdapter):
     ) -> Dict[str, Any]:
         sm = StateManager(base_dir=BASE_DIR)
         force = options.get("force", False)
-        seed = int(options.get("seed", 0))
+        regenerate_prompts = options.get("regenerate_prompts", False)
+        raw_seed = options.get("seed")
+        seed = int(raw_seed) if (raw_seed is not None and int(raw_seed) > 0) else None
 
         total = len(script_ids)
         success_count = 0
@@ -72,76 +75,83 @@ class ImagesAdapter(BaseStageAdapter):
             request_timeout=llm_timeout,
         )
 
+        single_scene = options.get("scene") or options.get("scene_type")
+        custom_prompt = options.get("prompt")
+
         # =========================================================================
         # PHASE 1: BATCH PROMPT GENERATION (Initialize LLM ONCE for all scripts)
         # =========================================================================
         scripts_needing_prompts = []
-        for script_id in script_ids:
-            if not sm.script_exists(script_id):
-                continue
-            s_data = sm.get_script_state(script_id)
-            status = s_data.get("status", {})
-            if not force and status.get("image_generation") == "done":
-                continue
-            existing_prompts = s_data.get("assets", {}).get("image_prompts", {})
-            if force or not existing_prompts:
-                scripts_needing_prompts.append(script_id)
-
-        if scripts_needing_prompts:
-            emit_log(
-                f"[Phase 1/2] Pre-generating storyboard visual prompts for "
-                f"{len(scripts_needing_prompts)} script(s) with single LLM session..."
-            )
-            ensure_llama_running()
-            max_prompt_attempts = int(options.get("max_prompt_attempts", 3))
-
-            for p_idx, s_id in enumerate(scripts_needing_prompts, start=1):
-                if check_cancelled():
-                    emit_log(f"Job cancelled by user at prompt generation for '{s_id}'.")
-                    break
-                emit_log(f"  [{p_idx}/{len(scripts_needing_prompts)}] Crafting visual prompts for '{s_id}'...")
-                s_data = sm.get_script_state(s_id)
-                prompt_ok = False
-                last_prompt_err = ""
-
-                for attempt in range(1, max_prompt_attempts + 1):
-                    if check_cancelled():
-                        emit_log(f"Job cancelled by user during prompt generation for '{s_id}'.")
-                        break
-                    try:
-                        if attempt > 1:
-                            emit_log(f"  [{s_id}] Retrying prompt generation (attempt {attempt}/{max_prompt_attempts})...")
-                        ensure_image_prompts_for_script(
-                            script_data=s_data,
-                            state_manager=sm,
-                            prompt_builder=prompt_builder,
-                            force=force,
-                            base_dir=BASE_DIR,
-                        )
-                        fresh_state = sm.get_script_state(s_id)
-                        fresh_prompts = fresh_state.get("assets", {}).get("image_prompts", {})
-                        if not fresh_prompts:
-                            raise ValueError(f"[{s_id}] No image prompts were saved in state.")
-
-                        emit_log(f"  [{s_id}] ✓ Storyboard prompts saved.")
-                        prompt_ok = True
-                        break
-                    except Exception as exc:
-                        last_prompt_err = str(exc)
-                        emit_log(f"  [{s_id}] Warning generating storyboard prompts (attempt {attempt}/{max_prompt_attempts}): {last_prompt_err}")
-                        if attempt < max_prompt_attempts and not check_cancelled():
-                            time.sleep(2.0)
-
-                if not prompt_ok and not check_cancelled():
-                    emit_log(f"  [{s_id}] ERROR: Storyboard prompt generation failed after {max_prompt_attempts} attempts: {last_prompt_err}")
-                    prompt_failed_ids.add(s_id)
-                    failed_ids.append(s_id)
-
-            emit_log("[GPU Handoff] Stopping LLM server once to release ~2.0 GB VRAM for ComfyUI...")
+        if single_scene:
+            emit_log(f"Single scene redo requested for '{single_scene}'. Skipping LLM batch prompt generation.")
             ensure_llama_stopped()
         else:
-            emit_log("All scripts have complete visual prompts. Ensuring LLM is stopped for ComfyUI...")
-            ensure_llama_stopped()
+            for script_id in script_ids:
+                if not sm.script_exists(script_id):
+                    continue
+                s_data = sm.get_script_state(script_id)
+                status = s_data.get("status", {})
+                if not force and status.get("image_generation") == "done":
+                    continue
+                existing_prompts = s_data.get("assets", {}).get("image_prompts", {})
+                if force or regenerate_prompts or not existing_prompts:
+                    scripts_needing_prompts.append(script_id)
+
+            if scripts_needing_prompts:
+                emit_log(
+                    f"[Phase 1/2] Pre-generating storyboard visual prompts for "
+                    f"{len(scripts_needing_prompts)} script(s) with single LLM session..."
+                )
+                ensure_llama_running()
+                max_prompt_attempts = int(options.get("max_prompt_attempts", 3))
+
+                for p_idx, s_id in enumerate(scripts_needing_prompts, start=1):
+                    if check_cancelled():
+                        emit_log(f"Job cancelled by user at prompt generation for '{s_id}'.")
+                        break
+                    emit_log(f"  [{p_idx}/{len(scripts_needing_prompts)}] Crafting visual prompts for '{s_id}'...")
+                    s_data = sm.get_script_state(s_id)
+                    prompt_ok = False
+                    last_prompt_err = ""
+
+                    for attempt in range(1, max_prompt_attempts + 1):
+                        if check_cancelled():
+                            emit_log(f"Job cancelled by user during prompt generation for '{s_id}'.")
+                            break
+                        try:
+                            if attempt > 1:
+                                emit_log(f"  [{s_id}] Retrying prompt generation (attempt {attempt}/{max_prompt_attempts})...")
+                            ensure_image_prompts_for_script(
+                                script_data=s_data,
+                                state_manager=sm,
+                                prompt_builder=prompt_builder,
+                                force=force,
+                                base_dir=BASE_DIR,
+                            )
+                            fresh_state = sm.get_script_state(s_id)
+                            fresh_prompts = fresh_state.get("assets", {}).get("image_prompts", {})
+                            if not fresh_prompts:
+                                raise ValueError(f"[{s_id}] No image prompts were saved in state.")
+
+                            emit_log(f"  [{s_id}] ✓ Storyboard prompts saved.")
+                            prompt_ok = True
+                            break
+                        except Exception as exc:
+                            last_prompt_err = str(exc)
+                            emit_log(f"  [{s_id}] Warning generating storyboard prompts (attempt {attempt}/{max_prompt_attempts}): {last_prompt_err}")
+                            if attempt < max_prompt_attempts and not check_cancelled():
+                                time.sleep(2.0)
+
+                    if not prompt_ok and not check_cancelled():
+                        emit_log(f"  [{s_id}] ERROR: Storyboard prompt generation failed after {max_prompt_attempts} attempts: {last_prompt_err}")
+                        prompt_failed_ids.add(s_id)
+                        failed_ids.append(s_id)
+
+                emit_log("[GPU Handoff] Stopping LLM server once to release ~2.0 GB VRAM for ComfyUI...")
+                ensure_llama_stopped()
+            else:
+                emit_log("All scripts have complete visual prompts. Ensuring LLM is stopped for ComfyUI...")
+                ensure_llama_stopped()
 
         if check_cancelled():
             return {
@@ -185,6 +195,83 @@ class ImagesAdapter(BaseStageAdapter):
 
                 script_data = sm.get_script_state(script_id)
                 status = script_data.get("status", {})
+
+                # Single scene execution branch
+                if single_scene:
+                    sec_lower = str(single_scene).strip().lower()
+                    prompt_to_use = custom_prompt
+                    if not prompt_to_use:
+                        prompts_map = script_data.get("assets", {}).get("image_prompts") or {}
+                        visual_prompts = script_data.get("visual_prompts") or {}
+                        prompt_to_use = (
+                            prompts_map.get(sec_lower)
+                            or prompts_map.get(single_scene)
+                            or visual_prompts.get(sec_lower)
+                            or visual_prompts.get(single_scene)
+                        )
+
+                    if not prompt_to_use or not str(prompt_to_use).strip():
+                        err = f"No prompt found for scene '{single_scene}' in script '{script_id}'."
+                        emit_log(f"[{script_id}] ERROR: {err}")
+                        failed_ids.append(script_id)
+                        continue
+
+                    from config.settings import (
+                        IMAGE_DEFAULT_STEPS,
+                        IMAGE_DEFAULT_WIDTH,
+                        IMAGE_DEFAULT_HEIGHT,
+                        IMAGE_STALL_TIMEOUT,
+                        get_script_output_dir,
+                    )
+                    from core.state_manager import resolve_lang_and_type
+                    from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+                    lang, _ = resolve_lang_and_type(script_id, script_data)
+                    out_dir = get_script_output_dir(script_id, language=lang, base_dir=BASE_DIR) / "images"
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    dest_path = out_dir / f"script_{script_id}_{sec_lower}.png"
+
+                    styled_prompt = sanitize_and_style_prompt(str(prompt_to_use).strip())
+                    img_seed = seed if seed > 0 else random.randint(1, 10**15)
+
+                    emit_log(f"[{script_id}] Rendering scene '{sec_lower}' illustration in ComfyUI (seed: {img_seed})...")
+                    t0 = time.time()
+                    try:
+                        comfy_client.generate_image(
+                            prompt_text=styled_prompt,
+                            filename_prefix=f"Z-Image/script_{script_id}_{sec_lower}",
+                            dest_path=dest_path,
+                            seed=img_seed,
+                            steps=IMAGE_DEFAULT_STEPS,
+                            width=IMAGE_DEFAULT_WIDTH,
+                            height=IMAGE_DEFAULT_HEIGHT,
+                            stall_timeout=IMAGE_STALL_TIMEOUT,
+                        )
+                        dur = time.time() - t0
+                        emit_log(f"[{script_id}] ✓ Scene '{sec_lower}' rendered successfully in {dur:.1f}s -> {dest_path.name}")
+
+                        # Update script state & in-memory cache
+                        assets = script_data.setdefault("assets", {})
+                        img_prompts = assets.setdefault("image_prompts", {})
+                        img_prompts[sec_lower] = str(prompt_to_use).strip()
+                        assets["image_dir"] = str(out_dir)
+                        img_list = assets.get("images")
+                        if not isinstance(img_list, list):
+                            img_list = []
+                        dest_str = str(dest_path)
+                        if dest_str not in img_list:
+                            img_list.append(dest_str)
+                        assets["images"] = img_list
+
+                        sm.save_script_state(script_id, script_data)
+                        from webui.routers.scripts import _update_cached_script
+                        _update_cached_script(script_id, script_data)
+                        success_count += 1
+                    except Exception as exc:
+                        emit_log(f"[{script_id}] ERROR generating scene '{sec_lower}': {exc}")
+                        failed_ids.append(script_id)
+                    continue
+
                 if not force and status.get("image_generation") == "done":
                     emit_log(f"[{script_id}] Images already generated — skipping.")
                     success_count += 1

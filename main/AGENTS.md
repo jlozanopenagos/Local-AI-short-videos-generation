@@ -93,11 +93,26 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - Any parchment, scroll, book, or paper must be described with abstract wavy cartoon doodle lines and geometric diagrams, completely devoid of legible text, words, or letters.
      - sanitize_and_style_prompt scrubs all quoted words and speech phrases, reinforcing negative constraints: NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography, NO young children, NO elementary kids, NO childish proportions.
    - **Character Appearance Continuity & Demographic Lock**:
-     - Single source of truth in content_metadata.character_anchors with locked gender, hairstyle, and wardrobe.
-     - Strict demographic anchor: *16-year-old high-school teenager with tall, slender young-adult proportions (NOT a child, NOT a kid, NOT an adult)*.
+     - **General Prompt as Single Source of Truth**: Character demographic anchors (`gender`, `skin_tone`, `eye_color`, `hair_style`, `wardrobe`) originate from `extract_or_build_character_anchors` and are locked into `content_metadata.general_prompt`. All downstream scene prompts inherit visual world anchors directly from this single authoritative truth, preventing contradictory descriptions or ethnicity drift across scenes.
+     - **Case-Insensitive Speaker Gender Resolution (`get_speaker_gender_safe`)**: All modules query speaker genders using case-insensitive lookup with fuzzy fallback. This eliminates gender inversion bugs where TitleCase keys (`"Narrator"`, present in >1,038 state files) previously bypassed `.get("NARRATOR")` lookups and defaulted female characters to `"male"`.
+     - **Locked Director Prompts**: Storyboard tasks for Game, Fun Facts, and Expression lock `{p1_word}` (`girl`/`boy`) in director tasks based on authoritative anchors.
+     - Single source of truth in `content_metadata.character_anchors` with locked gender, skin tone, eye color, hairstyle, and wardrobe.
+     - Strict demographic anchor: *16-year-old high-school teenager with natural balanced teenage proportions and healthy youthful athletic build (NOT a child, NOT a kid, NOT an adult)*.
+     - **Mandatory Complexion & Eye Color Anchoring**: Explicit skin tone (e.g., *warm tan skin*, *fair peach skin*, *olive skin*) and eye color (e.g., *dark brown cartoon eyes*) must NEVER be omitted in general prompts or scene prompts. Without explicit skin tone anchors, dramatic framing shifts (such as 35mm foreground Hook close-ups vs. medium two-shots) trigger diffusion drift where the model hallucinates a completely different ethnicity or facial structure.
+     - Elimination of emaciated/skinny silhouettes and unexpressive deadpan faces: purged `"tall slender proportions"`, `"Wes Anderson-style central balance"`, and `"frozen at a physical crossroads"`.
+     - **Natural Facial Acting & Bug-Eye Eradication**: Purged `"conspiratorial glance"` and `"arched eyebrow"` triggers from prompt templates and storyboard directors, which previously caused diffusion models to render excessively open, rounded, or bulging bug-eyes. Replaced with *"engaging, playful knowing smile and natural animated cartoon eyes with relaxed facial acting"*.
+     - Fortified negative prompt shield: `NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions`.
      - Gender-attire integrity: male characters are barred from feminine garments (bodices, corsets, kirtles, skirts, dresses).
      - Elimination of conflicting double prompt injections (no duplicate or contradictory character descriptions within the same prompt).
-
+   - **Zero-Copy Static Shared Asset Architecture**:
+     - **Elimination of Duplicate Asset Copies**: Static pre-made assets that never vary across scripts of the same language and video type (e.g. Tito waiting image `pressure.png` for GAME shorts, opening branding cards, closure cards, watermark) are NEVER physically copied into individual script output folders (`D:\AI\output\video_assets\...`).
+     - **On-Demand Dynamic Resolution (`resolve_static_scene_path`)**: `config/settings.py` dynamically resolves the canonical asset from `input/images/game_images/` or `input/images/openning_closure_images/` based on script language, video type, and dialect without hardcoded paths.
+     - **Decoupled Creation & Assembly**: `_C_image_generation/main.py` and `image_modifier.py` verify central asset existence and skip file duplication, while `_G_video_assembly/core/video_assembler.py` automatically links the central asset directly into the FFmpeg render timeline.
+   - **Anti-Cliché Prop & Fallback Trope Mandate (Strict Gift Box Ban)**:
+     - **Banned Fallback Props**: Strictly prohibited using generic ribbon-wrapped gift boxes, mystery parcels, or birthday boxes as a fallback metaphor across all video types (Game, Roleplay, Expression, Fun Facts). Gift boxes are exclusively permitted for the English heteronym `present` (PREsent vs preSENT).
+     - **Context-Grounded Physical Props**: Characters must interact with authentic physical objects matching the scenario environment (travel luggage/tickets for trips, cookware/platters for culinary buffets, tools/blueprints for design, tuning forks/phonetics mirrors for speech, measuring trays/counting tokens for quantities).
+     - **Refined Idiom Detection**: `is_figurative_idiom()` no longer triggers on the generic substring `"expression"`, ensuring standard grammar/vocabulary scripts are not falsely categorized as figurative idioms.
+     - **Universal Sanitization Interceptor**: `sanitize_and_style_prompt()` automatically scrubs legacy gift box phrases into setting-authentic props.
    - **Strict Separation of Challenge and Pressure**:
      - `challenge`: Exclusively contains the test scenario and candidate options (`A: ...  B: ...`).
      - `pressure`: Exclusively contains countdown lines, time limits, and urgency prompts (*"Which one is it? A or B? Your answer is coming!"*, *"Tic-tac !"*, *"Il tempo scorre!"*). Pressure lines must **never** be placed inside `challenge`.
@@ -171,7 +186,12 @@ The project features a full **Model-View-Controller (MVC)** WebUI providing an i
    - **System Health Cards**: Live monitoring of ComfyUI and Llama-server processes, GPU VRAM allocation, PIDs, and one-click start/stop controls.
    - **Stage Metrics**: Real-time asset completion counts across all 6 pipeline stages.
    - **Filterable Script Catalog**: Instant filtering by Language (English, French, Italian, Spanish), Video Format (Expression, Game, Roleplay, Fun Facts), and Pipeline Status (Pending, Done, In Progress). Searchable by expression or ID.
+   - **Bingo Matrix View (`BingoMatrixView.tsx`)**: High-level visual matrix providing an at-a-glance status grid across all 16 language/format combinations (e.g. EE, EG, ER, EF, FE, FG, FR, etc.).
    - **Script Detail Modal (`ScriptDetailModal.tsx`)**: Inspects script narrative sections, master audio playback with interactive waveform, scene illustrations, thumbnail preview, and YouTube SEO metadata (Title, Description, Tags, Hashtags).
+     - *Single-Scene Image Redo*: Clickable redo button per scene card in the storyboard tab enqueues an isolated scene generation job to Job Manager using the active scene-specific prompt.
+     - *Full Image Set Redo from General Prompt*: "queue redo (all images)" button persists user-edited general prompt, clears stale scene prompts and disk PNGs, and queues a sequential two-phase job: Llama boots up first to regenerate all scene-specific prompts aligned to the new general prompt, persists them to state, and stops to release VRAM; ComfyUI then starts and renders all scene images.
+     - *Direct Google Drive Upload*: "upload to google drive" button verifies video & thumbnail existence, uploads both to the appropriate Google Drive subfolder, and provides live feedback.
+     - *Zero-Copy Static Asset Architecture*: Reusable assets (e.g. GAME Tito `pressure` waiting cards, opening and closure cards) are dynamically resolved via `resolve_static_scene_path` without copying duplicate PNGs into script asset folders.
 2. **Job Queue / Execution Console (`/jobs`)**:
    - Asynchronous background job queue (`webui/jobs/manager.py`) executing batch jobs across pipeline stages.
    - Live terminal log stream (Server-Sent Events) with pause, resume, and cancel buttons.
@@ -182,11 +202,12 @@ The project features a full **Model-View-Controller (MVC)** WebUI providing an i
    - **Step 3/4 (Audit & Diff)**: Audits differences against local State JSONs using GAME-aware comparison logic that eliminates false positives from option formatting.
    - **Step 4/4 (Apply & Reset)**: Applies script modifications into State JSONs, cleans GAME challenges, resets downstream stages (`voice`, `images`, `thumbnails`, `assembly`) to `pending`, and refreshes review CSVs.
 4. **Mass Assets Creation (`/mass-creation`)**:
-   - Mass generation of **Scene Images** (Stage C), **Voice Files** (Stage B), or **Thumbnail Images** (Stage F) for arbitrary lists of script IDs across all languages and video formats.
+   - Mass generation of **Scene Images** (Stage C), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), or **Google Drive Upload** for arbitrary lists of script IDs across all languages and video formats.
    - **3 ID Collection Modes**:
      - *Manual Input*: Comma/space/line-separated IDs with debounced real-time validation via `POST /api/scripts/validate-ids`.
      - *CSV Drag & Drop*: Upload CSV/TXT files to automatically extract and validate target script IDs.
-     - *Preset Catalogs*: One-click buttons to load "All Pending Images", "All Pending Voice", or "All Pending Thumbnails".
+     - *Preset Catalogs*: One-click buttons to load "All Pending Images", "All Pending Voice", "All Pending Thumbnails", or "Load Ready Videos".
+   - **Mass Drive Upload Mode**: Pre-flight audit via `POST /api/drive/check-readiness` displays real-time readiness status for each script ID (both `_final.mp4` and `thumbnail.png` present). Once validated, `POST /api/drive/mass-upload` enqueues a batch job through `DriveAdapter` with live progress tracking in the Job Manager.
    - **Interactive Validated Script Grid**: Clickable chips showing format, language, and current asset status, with quick-remove buttons and one-click inspection via `ScriptDetailModal`.
    - **Forced Re-generation**: Toggle (`force: true` default) ensuring assets are re-rendered and overwritten even if the state JSON marks them as `done`.
    - **Pre-flight Service Checks**: Displays warnings if ComfyUI is offline when images or thumbnails are selected.
@@ -228,6 +249,33 @@ The `connectivity/` package coordinates Google Sheets data exchanges:
 5. **Feature 3 (`reconcile_scripts.py`)**: Reconciles local scripts against Google Sheets order into `scripts_to_post/`.
 6. **Feature 4 (`post_scripts.py`)**: Safely publishes scripts to Google Sheets (preserves Column D in 3-column mode).
 7. **Feature 5 (`scan_ready_scripts.py`)**: Scans Google Sheets for rows where Column E (`script_ready`) is checked and Column G (`video_ready`) is unchecked, exporting daily batch CSVs.
+
+---
+
+## Google Drive Export & Cloud Synchronization Suite
+
+The `main/connectivity/drive_sync/` module and `main/connectivity/sync_drive.py` CLI coordinate secure, automated asset delivery to Google Drive:
+
+1. **Authentication Architecture (`auth.py`)**:
+   - Primary: OAuth 2.0 User Flow using Google API client credentials (`.credentials/google_drive_credentials.json`). Interactive browser sign-in on first run with tokens automatically persisted and refreshed via `.credentials/drive_token.json`.
+   - Fallback: Google Cloud Service Account authentication via service account key JSON.
+2. **Directory & Routing Structure (`folder_manager.py`)**:
+   - Resolves or creates a root folder (default `youtube_shorts_ready` configured via `GOOGLE_DRIVE_FOLDER_NAME` in `.env`).
+   - Automatically maintains hierarchical subdirectories by language (`english`, `french`, `spanish`, `italian`) and format (`expression`, `game`, `roleplay`, `fun_facts`).
+3. **Atomic Asset Packaging & Integrity (`uploader.py`)**:
+   - Requires both the final video (`<script_id>_final.mp4`) and thumbnail (`thumbnail.png`).
+   - Sets standard MIME types (`video/mp4`, `image/png`), checks file sizes, and skips files already present in the target folder with identical names to avoid redundant transfers.
+4. **WebUI Integration & Execution**:
+   - `GET /api/drive/status`: Reports Google Drive service connection state and authentication mode.
+   - `POST /api/drive/check-readiness`: Audits a list of script IDs and returns whether both video and thumbnail exist on disk.
+   - `POST /api/drive/upload/{script_id}`: Single-script synchronous upload from `ScriptDetailModal`.
+   - `POST /api/drive/mass-upload`: Batch asynchronous upload executed through `DriveAdapter` in `main/webui/jobs/adapters/drive.py`, reporting real-time progress via SSE.
+5. **Standalone CLI (`sync_drive.py`)**:
+   ```powershell
+   py main/connectivity/sync_drive.py --all
+   py main/connectivity/sync_drive.py --script-id EE01
+   py main/connectivity/sync_drive.py --language spanish --type game
+   ```
 
 ---
 
@@ -273,10 +321,15 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 | `main/tools/llama.py` | CLI supervisor tool for manual control of llama-server (`start`, `stop`, `status`, `logs`). |
 | `main/tools/comfy.py` | Headless ComfyUI background supervisor (`start`, `stop`, `status`, `logs`). |
 | `main/tools/check_script_changes.py` | CLI auditor & synchronizer between Google Sheets Column D CSVs and local State JSONs. |
+| `main/connectivity/sync_drive.py` | Standalone CLI for uploading finalized video bundles to Google Drive. |
+| `main/connectivity/drive_sync/` | Google Drive client suite: OAuth2/Service Account auth, hierarchical folder routing, uploader. |
+| `main/webui/routers/drive.py` | FastAPI router for Drive status, readiness audits, single upload, and mass upload dispatch. |
+| `main/webui/jobs/adapters/drive.py` | Background Job Manager adapter for batch Google Drive uploads. |
+| `main/webui/frontend/src/components/BingoMatrixView.tsx` | Visual matrix tracker across all 16 language/format combinations. |
 | `main/video_creation/_A_video_scripts/script_modifier.py` | Script modifier supporting direct parsing, LLM structuring, and automatic `clean_game_challenge()` enforcement. |
 | `main/video_creation/_A_video_scripts/prompts/game_rules.py` | Authoritative GAME prompt rules enforcing clean option formatting, no stress giveaways, and separation of challenge and pressure. |
 | `main/connectivity/` | Google Sheets integration suite (Apps Script Web App client, fetcher, reconciler, poster, scanner). |
-| `test/run_tests.py` | Test runner for automated unit, integration, contract, and WebUI API tests (358 tests passing 100%). |
+| `test/run_tests.py` | Test runner for automated unit, integration, contract, WebUI, and Drive tests (370 tests passing 100%). |
 
 ---
 

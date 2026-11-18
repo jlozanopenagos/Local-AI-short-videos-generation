@@ -35,6 +35,7 @@ from webui.jobs.adapters.voice import VoiceAdapter
 from webui.jobs.adapters.images import ImagesAdapter
 from webui.jobs.adapters.assembly import AssemblyAdapter
 from webui.jobs.adapters.chalkboard import ChalkboardAdapter
+from webui.jobs.adapters.drive import DriveAdapter
 
 logger = logging.getLogger("webui.jobs")
 
@@ -122,6 +123,7 @@ class JobManager:
             JobStage.THUMBNAILS: ThumbnailsAdapter(),
             JobStage.ASSEMBLY: AssemblyAdapter(),
             JobStage.CHALKBOARD: ChalkboardAdapter(),
+            JobStage.DRIVE_UPLOAD: DriveAdapter(),
         }
 
         # Start background worker daemon

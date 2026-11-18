@@ -6,10 +6,9 @@ import { ScriptDetailModal } from './components/ScriptDetailModal'
 import { JobQueueView } from './components/JobQueueView'
 import { GoogleSheetsSyncView } from './components/GoogleSheetsSyncView'
 import { MassAssetsCreationView } from './components/MassAssetsCreationView'
-import type { SystemStatus, Job } from './types'
+import { BingoMatrixView } from './components/BingoMatrixView'
+import type { SystemStatus, Job, ActiveTab } from './types'
 import { fetchSystemStatus, fetchJobs } from './api'
-
-type ActiveTab = 'home' | 'dashboard' | 'jobs' | 'sheets' | 'mass-creation'
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home')
@@ -94,6 +93,7 @@ export function App() {
     const tabTitles: Record<ActiveTab, string> = {
       home: 'Shorts studio — Home',
       dashboard: 'Shorts studio — Script catalog',
+      bingo: 'Shorts studio — Asset Bingo matrix',
       jobs: 'Shorts studio — Queue & console',
       sheets: 'Shorts studio — Google Sheets sync',
       'mass-creation': 'Shorts studio — Mass asset creation',
@@ -141,6 +141,12 @@ export function App() {
               onSelectScript={(id) => setSelectedScriptId(id)}
               onJobStarted={handleJobStarted}
             />
+          </div>
+        )}
+
+        {activeTab === 'bingo' && (
+          <div>
+            <BingoMatrixView onSelectScript={(id) => setSelectedScriptId(id)} />
           </div>
         )}
 
