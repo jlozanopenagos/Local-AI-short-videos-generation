@@ -32,6 +32,7 @@ _NODE_SAVE_IMAGE      = "9"   # SaveImage (filename_prefix lives here)
 _NODE_LATENT_IMAGE    = "13"  # EmptySD3LatentImage (width/height live here)
 
 DEFAULT_NEGATIVE_PROMPT = (
+    "colored irises, blue eyes, green eyes, glowing eyes, hazel eyes, "
     "dot eyes, bead eyes, button eyes, minimalist face, featureless face, blank eyes, simple stick face, "
     "flat corporate vector, corporate memphis, solid color background, blank background, plain background, "
     "white void, empty backdrop, isolated character, flat background, photorealistic, photograph, 3d render, "

@@ -91,6 +91,14 @@ class TestSanitizerSnapshots(unittest.TestCase):
         self.assertNotIn("giant k and n", floating_out.lower())
         self.assertNotIn("individual letters", floating_out.lower())
 
+        # 4. Scrubs colored eyes (blue, emerald green, hazel, brown) into simple black cartoon eyes
+        eyes_out = sanitize_and_style_prompt(
+            "A 15-year-old girl with warm tan skin and bright emerald green cartoon eyes talks to a 15-year-old boy with fair peach skin and clear blue cartoon eyes."
+        )
+        self.assertNotIn("emerald green", eyes_out.lower())
+        self.assertNotIn("clear blue cartoon eyes", eyes_out.lower())
+        self.assertIn("simple black cartoon eyes", eyes_out.lower())
+
 
 class TestEnvironmentSnapshots(unittest.TestCase):
     def test_environment_resolution_unchanged(self):

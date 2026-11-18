@@ -167,7 +167,7 @@ Lighting should reinforce the emotional tone without becoming unnecessarily dram
 
 VISUAL STYLE
 
-Use: clean modern 2D cartoon animation style, polished narrative illustration, expressive characters with large clear eyes (visible white sclera and specular pupil highlights), rich detailed interior background environment with depth, vibrant atmospheric lighting, readable silhouettes. Strictly ban dot eyes, minimalist faces, and solid color backgrounds.
+Use: clean modern 2D cartoon animation style, polished narrative illustration, expressive characters with simple black cartoon eyes (STRICTLY NO colored irises like blue, green, or hazel eyes), rich detailed interior background environment with depth, vibrant atmospheric lighting, readable silhouettes. Strictly ban dot eyes, minimalist faces, and solid color backgrounds.
 
 Do not add: "8K", "masterpiece", "photorealistic", "hyper realistic", "ultra detailed".
 
@@ -320,11 +320,11 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
    - To guarantee 100% character visual consistency (no shifting hair colors, no shifting clothes, no shifting skin tones, no shifting ages):
      * EVERY SINGLE SCENE PROMPT MUST EXPLICITLY REPEAT THE EXACT SAME VISUAL TRAITS FOR EACH CHARACTER:
        - Exact demographic & skin tone: e.g. "14-16-year-old high-school student girl with fair peach skin", "14-16-year-old high-school student boy with warm tan skin" (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child). NEVER omit skin tone, otherwise camera angle changes (like close-up hooks) will drift into a completely different ethnicity!
-       - Exact eye color: e.g. "expressive dark brown cartoon eyes", "warm hazel cartoon eyes".
+       - Simple black cartoon eyes: ALWAYS specify "simple black cartoon eyes" (NEVER colored irises like blue, green, hazel, or amber eyes).
        - Exact hair color AND exact gender-accurate hairstyle: e.g. for a GIRL: "dark wavy hair in a sleek ponytail"; for a BOY: "short textured dark-brown hair with clean tapered sides and neat side-part" (NEVER give a boy a ponytail, bun, or long hair; NEVER change or omit hair color or styling!).
        - Exact wardrobe and garment colors: e.g. "wearing her emerald velvet blazer over white shirt", "wearing his denim utility vest over charcoal long-sleeve" (NEVER change or omit wardrobe!).
        - Exact staging: Character 1 on the LEFT, Character 2 on the RIGHT.
-     * NEVER omit the characters' skin tone, eye color, hair color, hairstyle, or wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!
+     * NEVER omit the characters' skin tone, simple black cartoon eyes, hair color, hairstyle, or wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!
    - Natural staging variations: Characters move naturally across the set (e.g. from the drafting table to the camera rig, to the terrace railing overlook) without artificially teleporting to incompatible rooms.
 
 3. PROP INTERACTION & PHYSICAL RELEVANCE:
@@ -376,10 +376,10 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * NO generic modern coffee shops, cafe tables, or barista counters (unless the script explicitly mentions ordering coffee or a cafe setting).
    - AUTHENTIC REAL-WORLD DIVERSITY: Always ground the setting directly in the authentic cultural, vocational, or narrative domain established in the Master Story World / General Prompt!
 
-10. HIGH-FIDELITY CHARACTER FACIAL QUALITY (STRICT BAN ON DOT EYES / MINIMALIST FACES):
+10. HIGH-FIDELITY CHARACTER FACIAL QUALITY (SIMPLE BLACK CARTOON EYES — NO COLORED IRISES):
     - Characters across ALL scenes must maintain consistent, high-end 2D cartoon animation fidelity.
-    - Every character must have large, clearly defined anime-cartoon eyes with visible white sclera and specular pupil highlights, expressive eyebrows, and clean line art.
-    - ABSOLUTELY FORBIDDEN: Dot eyes, bead eyes, button eyes, flat minimalist stick faces, or featureless faces! Every character across every scene must look as polished and expressive as a modern 2D animated feature film.
+    - Every character must have simple black cartoon eyes with expressive eyebrows and clean line art (STRICTLY NO colored irises like blue, green, hazel, or amber eyes).
+    - ABSOLUTELY FORBIDDEN: Colored eyes (blue, green, hazel), tiny featureless bead eyes, flat minimalist stick faces, or featureless faces! Every character across every scene must look as polished and expressive as a modern 2D animated feature film.
 
 11. ENVIRONMENTAL BACKGROUND RICHNESS (STRICT BAN ON SOLID COLOR / EMPTY BACKDROPS):
     - Every scene prompt MUST describe the physical background interior environment:

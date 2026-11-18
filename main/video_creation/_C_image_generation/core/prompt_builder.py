@@ -886,13 +886,13 @@ class VisualPromptBuilder:
             )
 
             character_directive = (
-                f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, EYE COLOR, GENDER-ACCURATE HAIR & THEMATIC WARDROBE CONTINUITY):\n"
+                f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, GENDER-ACCURATE HAIR & THEMATIC WARDROBE CONTINUITY):\n"
                 f"   - Character 1 (Left Position): An expressive 14-16-year-old high-school student {p1_word} (natural balanced teenage proportions, healthy youthful athletic build, NOT a child) positioned on the LEFT side of the frame.\n"
-                f"     * Complexion & Eyes: Explicitly specify skin tone and eye color (e.g. 'warm tan skin, expressive dark brown cartoon eyes' or 'fair peach skin, lively green cartoon eyes')! NEVER omit skin tone!\n"
+                f"     * Complexion & Eyes: Explicitly specify skin tone and simple black cartoon eyes (e.g. 'warm tan skin and simple black cartoon eyes' or 'fair peach skin and simple black cartoon eyes')! NEVER use colored eyes (NO blue, green, hazel, or amber eyes) and NEVER omit skin tone!\n"
                 f"     * Hair: Explicitly specify hair color and hairstyle (e.g. '{c1_hair_example}')!\n"
                 f"     * Wardrobe: Explicitly specify authentic thematic costume garments and colors MATCHING THIS SPECIFIC SETTING ({anchor_environment}) — NEVER plain t-shirts/hoodies, and NEVER copy unrelated clothing!\n"
                 f"   - Character 2 (Right Position): An energetic 14-16-year-old high-school student {p2_word} (natural balanced teenage proportions, healthy youthful athletic build, NOT a child) positioned on the RIGHT side of the frame.\n"
-                f"     * Complexion & Eyes: Explicitly specify skin tone and eye color (e.g. 'fair peach skin, clear blue cartoon eyes' or 'warm olive skin, expressive dark hazel cartoon eyes')!\n"
+                f"     * Complexion & Eyes: Explicitly specify skin tone and simple black cartoon eyes (e.g. 'fair peach skin and simple black cartoon eyes' or 'warm olive skin and simple black cartoon eyes')! NEVER use colored eyes (NO blue, green, hazel, or amber eyes)!\n"
                 f"     * Hair: Explicitly specify contrasting hair color and hairstyle (e.g. '{c2_hair_example}')!\n"
                 f"     * Wardrobe: Explicitly specify complementary authentic thematic costume garments and colors matching this setting!\n"
                 f"   CRITICAL GENDER-ACCURATE HAIRSTYLE RULE:\n"
@@ -919,8 +919,8 @@ class VisualPromptBuilder:
                     "   - Staging & Companion Rule: If a secondary character or peer is genuinely needed by the story, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, skin tone, hair color, and distinct thematic costumes (NEVER plain t-shirts/hoodies)!"
                 )
             character_directive = (
-                f"2. Protagonist (MANDATORY EXACT SKIN TONE, EYE COLOR, HAIR & WARDROBE CONTINUITY):\n"
-                f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), eye color (e.g. 'dark brown cartoon eyes'), hair color and hairstyle (e.g. '{protagonist_hair}'), and an authentic thematic costume/wardrobe explicitly matching this setting (describe specific colors and garment types — NEVER plain generic t-shirts/hoodies).\n"
+                f"2. Protagonist (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, HAIR & WARDROBE CONTINUITY):\n"
+                f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), simple black cartoon eyes (STRICTLY NO colored eyes like blue, green, or hazel), hair color and hairstyle (e.g. '{protagonist_hair}'), and an authentic thematic costume/wardrobe explicitly matching this setting (describe specific colors and garment types — NEVER plain generic t-shirts/hoodies).\n"
                 f"{companion_rule}"
             )
 
@@ -947,7 +947,7 @@ class VisualPromptBuilder:
             "for 'proJECT vs PROject', camera tripods, clapperboard, and megaphone on the film shoot set; for travel/visiting, vintage luggage, train timetables, and architectural maps).\n"
             "   STRICT BAN ON GENERIC PROP CLICHÉS: NEVER use generic ribbon-wrapped gift boxes, mystery boxes, or present parcels unless the topic literally and explicitly discusses gifts or birthdays.\n"
             "4. Atmosphere & Style: Vibrant color palette, rich cinematic lighting, clean modern 2D cartoon narrative illustration, "
-            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, large cartoon eyes with visible sclera and specular highlights, rich interior depth.\n"
+            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, simple black cartoon eyes (NO colored irises like blue or green), rich interior depth.\n"
             f"{format_staging_directive}\n"
             "6. STATIC STAGE SETUP ONLY (NO MOMENTARY DIALOGUE ACTIONS):\n"
             "   Describe the physical stage, setting props, and characters standing ready on set in their thematic costumes and positions matching the format staging above.\n"

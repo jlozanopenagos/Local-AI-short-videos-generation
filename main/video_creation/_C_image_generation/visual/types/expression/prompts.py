@@ -83,7 +83,7 @@ def build_expression_storyboard_task(p1_word: str, p2_word: str = "girl") -> str
         f"2. ZERO-DUPLICATE PROPS & REALISTIC ACTION: Give each scene distinct physical postures and unique focal objects. Strictly ban surreal fantasy magic effects.\n"
         f"3. CAMERA SHOTS (WAIST-UP / CHEST-UP / MEDIUM-WIDE): Keep characters comfortably close to camera so their faces and eyes remain large and detailed (never distant tiny figures).\n"
         f"4. MULTI-CHARACTER GENDER SPECIFICATION: If more than 1 character is depicted, explicitly specify the sex of EACH character (e.g. 'one teen {p1_word} and one companion teen {p2_word}'). Strictly ban generic phrases like 'two teens'.\n"
-        f"5. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student {p1_word} demographic (14-16yo, natural balanced teenage proportions, healthy youthful athletic build, NOT a child), skin tone, eye color, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
+        f"5. MANDATORY CHARACTER CONTINUITY: In EVERY scene prompt, repeat the exact high school student {p1_word} demographic (14-16yo, natural balanced teenage proportions, healthy youthful athletic build, NOT a child), skin tone, simple black cartoon eyes, hair color, hairstyle, and wardrobe established in the General Prompt.\n"
         f"6. LENGTH: Around 70-110 words per scene prompt.\n\n"
         f"Return ONLY a valid JSON object mapping each scene name in lowercase (hook, setup, discovery, example, payoff) to its final prompt string."
     )

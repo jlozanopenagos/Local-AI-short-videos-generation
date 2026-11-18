@@ -165,6 +165,14 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
     text = re.sub(r"\btall slender proportions\b", "natural balanced teenage proportions", text, flags=re.IGNORECASE)
     text = re.sub(r"\btall slender build\b", "natural healthy athletic build", text, flags=re.IGNORECASE)
 
+    # 4b2. Enforce simple black 2D cartoon eyes (scrub colored irises like blue, green, emerald, hazel, amber, brown eyes)
+    text = re.sub(
+        r"\b(?:(?:bright|lively|clear|expressive|warm|dark|deep|light|vibrant|sparkling|piercing|large|big)\s*,?\s*)*(?:emerald(?:\s+green)?|green|blue|sky-?blue|ice-?blue|hazel|amber|golden|brown|dark-?brown|chestnut|grey|gray|turquoise|violet)\s+(?:(?:animated|stylized|2d)\s+)*(?:cartoon\s+)?eyes\b",
+        "simple black cartoon eyes",
+        text,
+        flags=re.IGNORECASE,
+    )
+
     # 4c. Scrub conspiratorial glance / arched eyebrow triggers that cause weird rounded bug-eyes
     text = re.sub(
         r"\b(?:with\s+an?\s+)?expressive,?\s+conspiratorial\s+glance\s*(?:\([^)]*\)|and\s+an?\s+arched\s+eyebrow)?",
@@ -216,12 +224,12 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False) -> str:
     style_mandate = (
         "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
         "vibrant flat colors, bold outlines, expressive high-school student character design (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), "
-        "expressive stylized cartoon eyes with natural lively shape and warm gaze, "
+        "simple black 2D cartoon eyes with natural lively shape and warm gaze, "
         "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
         "rich detailed environmental interior background with depth and warm atmospheric lighting. "
         "(high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, "
         "NO young children, NO elementary kids, NO childish proportions, "
-        "NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
+        "NO generic casual t-shirts, NO plain hoodies, NO colored irises, NO blue eyes, NO green eyes, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
         "NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions, "
         "NO 3D render, NO photorealism, NO photograph, NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography, NO watermark)."
     )

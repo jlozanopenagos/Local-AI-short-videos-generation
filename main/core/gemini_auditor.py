@@ -49,7 +49,7 @@ POSITIVE_STYLE_PILLAR = (
     "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
     "vibrant flat colors, bold outlines, expressive high-school student character design "
     "(approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), "
-    "expressive stylized cartoon eyes with natural lively shape and warm gaze, "
+    "simple black 2D cartoon eyes with natural lively shape and warm gaze, "
     "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
     "rich detailed environmental interior background with depth and warm atmospheric lighting."
 )
@@ -57,7 +57,7 @@ POSITIVE_STYLE_PILLAR = (
 NEGATIVE_PROMPT_SHIELD = (
     "(high-school student protagonist, thematic costume, thematic setting visible, explicit footwear on feet, NO bare feet, "
     "NO mature adult wrinkles, NO elderly, NO young children, NO elementary kids, NO childish proportions, "
-    "NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
+    "NO generic casual t-shirts, NO plain hoodies, NO colored irises, NO blue eyes, NO green eyes, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
     "NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, "
     "NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions, "
     "NO 3D, NO 3D render, NO photorealism, NO realism, NO photograph, NO text, NO words, NO letters, NO quotes, "
