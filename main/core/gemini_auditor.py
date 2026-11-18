@@ -47,15 +47,21 @@ FALLBACK_MODELS = [
 
 POSITIVE_STYLE_PILLAR = (
     "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-    "vibrant flat colors, bold outlines, expressive character design with large clear cartoon eyes, "
-    "visible white sclera and specular pupil highlights, rich detailed environmental interior background "
-    "with depth and warm atmospheric lighting."
+    "vibrant flat colors, bold outlines, expressive high-school student character design "
+    "(approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), "
+    "expressive stylized cartoon eyes with natural lively shape and warm gaze, "
+    "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
+    "rich detailed environmental interior background with depth and warm atmospheric lighting."
 )
 
 NEGATIVE_PROMPT_SHIELD = (
-    "(thematic setting visible, explicit footwear on feet, NO bare feet, NO dot eyes, "
-    "NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text, "
-    "NO speech bubbles, NO floating symbols, NO young children, NO elementary kids, NO childish proportions)"
+    "(high-school student protagonist, thematic costume, thematic setting visible, explicit footwear on feet, NO bare feet, "
+    "NO mature adult wrinkles, NO elderly, NO young children, NO elementary kids, NO childish proportions, "
+    "NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
+    "NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, "
+    "NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions, "
+    "NO 3D, NO 3D render, NO photorealism, NO realism, NO photograph, NO text, NO words, NO letters, NO quotes, "
+    "NO signs with text, NO speech bubbles, NO floating symbols, NO subtitles, NO typography, NO watermark)"
 )
 
 
@@ -69,16 +75,36 @@ def detect_script_domain(script_data: Dict[str, Any]) -> Tuple[str, str]:
     metadata = script_data.get("metadata") or {}
 
     raw_topic = str(
-        content_meta.get("topic")
+        prompt_params.get("EXPRESSION")
+        or prompt_params.get("TOPIC")
         or prompt_params.get("ROLEPLAY_SCENARIO")
+        or content_meta.get("topic")
         or content_meta.get("target_expression")
         or metadata.get("TITLE")
         or ""
     )
-    scenario = str(content_meta.get("story_scenario") or prompt_params.get("ROLEPLAY_SCENARIO") or "")
-    lexical = str(content_meta.get("lexical_field") or prompt_params.get("LEXICAL_FIELD") or "")
+    scenario = str(
+        content_meta.get("roleplay_scenario")
+        or content_meta.get("story_scenario")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or prompt_params.get("CONTEXT")
+        or content_meta.get("learning_objective")
+        or ""
+    )
+    lexical = str(
+        prompt_params.get("LEXICAL_FIELD")
+        or content_meta.get("lexical_field")
+        or content_meta.get("subcategory")
+        or content_meta.get("category")
+        or ""
+    )
     raw_script = str(script_data.get("script_text") or "")
-    lang = str(content_meta.get("language") or metadata.get("LABEL") or "English").title()
+    lang = str(
+        content_meta.get("language")
+        or prompt_params.get("TARGET_LANGUAGE")
+        or metadata.get("LABEL")
+        or "English"
+    ).title()
 
     combined = f"{raw_topic} {scenario} {lexical} {raw_script}".lower()
 
@@ -233,7 +259,7 @@ def _strip_redundant_tails(text: str) -> str:
     """Removes any accidental duplicate style tags or negative shields if Gemini echoed them."""
     cleaned = text.strip()
     # Strip trailing parenthetical negative shields
-    cleaned = re.sub(r'\(thematic setting visible[^)]*\)', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'\((?:high-school student protagonist|thematic setting visible)[^)]*\)', '', cleaned, flags=re.IGNORECASE).strip()
     # Strip any trailing "Clean modern 2D cartoon narrative illustration..."
     cleaned = re.sub(
         r'Clean modern 2D cartoon narrative illustration.*$',
@@ -348,22 +374,46 @@ def audit_general_prompt(
     prompt_params = script_data.get("prompt_params", {})
     metadata = script_data.get("metadata", {})
 
-    language = content_meta.get("language") or metadata.get("LABEL") or "English"
-    video_type = (content_meta.get("video_type") or prompt_params.get("VIDEO_TYPE") or "EXPRESSION").upper()
+    language = (
+        content_meta.get("language")
+        or prompt_params.get("TARGET_LANGUAGE")
+        or metadata.get("LABEL")
+        or "English"
+    )
+    video_type = (
+        content_meta.get("video_type")
+        or prompt_params.get("VIDEO_TYPE")
+        or metadata.get("VIDEO_TYPE")
+        or "EXPRESSION"
+    ).upper()
     topic = (
-        content_meta.get("topic")
+        prompt_params.get("EXPRESSION")
+        or prompt_params.get("TOPIC")
         or prompt_params.get("ROLEPLAY_SCENARIO")
+        or content_meta.get("topic")
         or content_meta.get("target_expression")
         or metadata.get("TITLE")
         or ""
     )
 
+    from video_creation._C_image_generation.visual.common.cast import (
+        persist_character_anchors_in_state,
+        resolve_default_speakers_gender,
+    )
+    from video_creation._C_image_generation.visual.common.sanitizer import (
+        is_present_heteronym_topic,
+        sanitize_and_style_prompt,
+    )
+
     # Format speakers/gender description
-    speakers_gender = content_meta.get("speakers_gender", {})
-    if isinstance(speakers_gender, dict) and speakers_gender:
-        gender_desc = ", ".join(f"{k}: {v}" for k, v in speakers_gender.items())
-    else:
-        gender_desc = "one 15-16yo high-school student boy, one 15-16yo high-school student girl"
+    raw_speakers_gender = content_meta.get("speakers_gender", {})
+    if not isinstance(raw_speakers_gender, dict):
+        raw_speakers_gender = {}
+    speakers_gender = (
+        resolve_default_speakers_gender(raw_speakers_gender, video_type=video_type)
+        if raw_speakers_gender or video_type == "ROLEPLAY"
+        else {}
+    )
 
     # Compact script text
     raw_script = script_data.get("script_text", "")
@@ -378,38 +428,38 @@ def audit_general_prompt(
     detected_domain, domain_guidance = detect_script_domain(script_data)
     video_type_directive = get_video_type_directive(video_type)
 
-    # Determine gender words for characters (Priority: explicit user draft in existing_gp > speakers_gender)
+    # Determine gender words for characters (Priority: explicit speakers_gender > single-character draft in existing_gp)
     c1_gender = "boy"
     c2_gender = "girl"
 
-    gp_has_explicit_gender = False
-    if existing_gp:
+    has_explicit_p1 = False
+    if isinstance(raw_speakers_gender, dict) and raw_speakers_gender:
+        p1_raw = ""
+        for k, v in raw_speakers_gender.items():
+            if k.lower() in ("person_one", "person_1", "narrator", "narratrice", "host", "speaker"):
+                p1_raw = str(v).lower()
+                break
+        if any(w in p1_raw for w in ("f", "girl", "woman", "female", "chica", "mujer")):
+            c1_gender = "girl"
+            has_explicit_p1 = True
+        elif any(w in p1_raw for w in ("m", "boy", "man", "male", "chico", "hombre")):
+            c1_gender = "boy"
+            has_explicit_p1 = True
+
+    if not has_explicit_p1 and existing_gp:
         gp_low = existing_gp.lower()
         gp_male_score = len(re.findall(r'\b(boy|male|guy|young man|man|chico|muchacho|hombre|he wears|he stands|his hair|his build)\b', gp_low))
         gp_female_score = len(re.findall(r'\b(girl|female|young woman|woman|lady|chica|muchacha|mujer|she wears|she stands|her hair|her build)\b', gp_low))
         if gp_male_score > gp_female_score:
             c1_gender = "boy"
-            gp_has_explicit_gender = True
         elif gp_female_score > gp_male_score:
             c1_gender = "girl"
-            gp_has_explicit_gender = True
-
-    if not gp_has_explicit_gender and isinstance(speakers_gender, dict) and speakers_gender:
-        p1_raw = ""
-        for k, v in speakers_gender.items():
-            if k.lower() in ("person_one", "narrator", "narratrice"):
-                p1_raw = str(v).lower()
-                break
-        if any(w in p1_raw for w in ("f", "girl", "woman", "female", "chica", "mujer")):
-            c1_gender = "girl"
-        elif any(w in p1_raw for w in ("m", "boy", "man", "male", "chico", "hombre")):
-            c1_gender = "boy"
 
     # Determine character 2 gender
     if isinstance(speakers_gender, dict) and speakers_gender:
         p2_raw = ""
         for k, v in speakers_gender.items():
-            if k.lower() in ("person_two",):
+            if k.lower() in ("person_two", "person_2"):
                 p2_raw = str(v).lower()
                 break
         if any(w in p2_raw for w in ("f", "girl", "woman", "female", "chica", "mujer")):
@@ -443,30 +493,36 @@ def audit_general_prompt(
         else "Medium-wide establishing eye-level shot."
     )
 
-    has_two_characters = (
+    is_solo_format = vt_clean in ("GAME", "FUN_FACTS", "FUNFACTS")
+    has_two_characters = not is_solo_format and (
         (profile.has_two_characters_default if profile is not None else vt_clean in ("ROLEPLAY", "ROLE_PLAY"))
-        or bool(isinstance(speakers_gender, dict) and "PERSON_TWO" in speakers_gender and speakers_gender.get("PERSON_TWO"))
+        or bool(isinstance(raw_speakers_gender, dict) and "PERSON_TWO" in raw_speakers_gender and raw_speakers_gender.get("PERSON_TWO"))
     )
+
+    def _hair_guidance(g: str) -> str:
+        if g == "girl":
+            return "feminine hairstyle (e.g. shoulder-length bob, high ponytail, soft wavy hair over shoulders, braids — NO sideburns or buzz cuts)"
+        return "masculine hairstyle (e.g. short textured hair with neat side-part, tapered sides, tousled short curls — NO buns, ponytails, braids, or long hair)"
 
     if has_two_characters:
         part_a_template = (
             "[CHARACTER_ANCHORS]\n"
-            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
-            f"CHAR_2: 15-16yo high-school student {c2_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            f"CHAR_2: 15-16yo high-school student {c2_gender} | hair: <explicit hair color and {_hair_guidance(c2_gender)}> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
             "[/CHARACTER_ANCHORS]"
         )
         char_mandate = (
-            f"3. CHARACTER 1 (Subject): Full inline prose description of the 15-16yo student {c1_gender} incorporating their hair, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
-            f"4. CHARACTER 2 (Counterpart): Full inline prose description of the 15-16yo student {c2_gender} incorporating their hair, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
+            f"3. CHARACTER 1 (Subject on the LEFT): Start with 'On the LEFT,' followed by a full inline prose description of the 15-16yo student {c1_gender} incorporating their {_hair_guidance(c1_gender)}, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
+            f"4. CHARACTER 2 (Counterpart on the RIGHT): Start with 'On the RIGHT,' followed by a full inline prose description of the 15-16yo student {c2_gender} incorporating their {_hair_guidance(c2_gender)}, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
         )
     else:
         part_a_template = (
             "[CHARACTER_ANCHORS]\n"
-            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and cut/style> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
             "[/CHARACTER_ANCHORS]"
         )
         char_mandate = (
-            f"3. PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student {c1_gender} incorporating their hair, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). DO NOT include a second character or companion in this solo scene.\n"
+            f"3. PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student {c1_gender} incorporating their {_hair_guidance(c1_gender)}, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). SOLO PROTAGONIST MANDATE: DO NOT include a second character or companion in this solo scene.\n"
         )
 
     previous_contrast = ""
@@ -574,13 +630,6 @@ def audit_general_prompt(
 
                     raw_generated = parts[0]["text"]
                     cleaned_core, parsed_anchors = _clean_gemini_output_with_anchors(raw_generated)
-                    if parsed_anchors and isinstance(script_data, dict):
-                        if "assets" not in script_data or not isinstance(script_data["assets"], dict):
-                            script_data["assets"] = {}
-                        script_data["assets"]["character_anchors"] = parsed_anchors
-                        if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
-                            script_data["content_metadata"] = {}
-                        script_data["content_metadata"]["character_anchors"] = parsed_anchors
 
                     # Automated Result Checker
                     is_valid, reason = validate_gemini_core_prompt(cleaned_core, finish_reason)
@@ -598,11 +647,28 @@ def audit_general_prompt(
                         else:
                             raise ValueError(f"Gemini output failed validation after {max_validation_attempts} attempts: {reason}")
 
-                    # Strip any accidental duplicate style or negative tags
+                    # Strip any accidental duplicate style or negative tags and run Stage C sanitizer
                     stripped_core = _strip_redundant_tails(cleaned_core)
+                    allow_gift = is_present_heteronym_topic(topic=str(topic), label=str(language))
+                    sanitized_core = _strip_redundant_tails(
+                        sanitize_and_style_prompt(stripped_core, allow_gift_box=allow_gift)
+                    )
 
                     # Stitch complete 9-part Master Story World prompt
-                    final_prompt = f"{stripped_core}. {POSITIVE_STYLE_PILLAR} {NEGATIVE_PROMPT_SHIELD}"
+                    final_prompt = f"{sanitized_core}. {POSITIVE_STYLE_PILLAR} {NEGATIVE_PROMPT_SHIELD}"
+
+                    if isinstance(script_data, dict):
+                        cast = persist_character_anchors_in_state(
+                            script_data=script_data,
+                            general_prompt=final_prompt,
+                            speakers_gender=speakers_gender,
+                            video_type=vt_clean,
+                        )
+                        if parsed_anchors:
+                            cast_dict = cast if isinstance(cast, dict) else cast.to_dict()
+                            merged_anchors = {**cast_dict, **parsed_anchors}
+                            script_data.setdefault("assets", {})["character_anchors"] = merged_anchors
+                            script_data.setdefault("content_metadata", {})["character_anchors"] = merged_anchors
 
                     logger.info(
                         "[%s] Successfully audited and stitched 9-part prompt with Gemini (%d chars).",

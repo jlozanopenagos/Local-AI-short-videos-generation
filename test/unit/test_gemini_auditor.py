@@ -263,6 +263,64 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertIn("PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student", payload_text)
         self.assertIn("Medium-wide establishing eye-level shot", res)
 
+    @patch("core.gemini_auditor.requests.post")
+    def test_audit_general_prompt_sanitizes_output_and_persists_full_character_cast(self, mock_post):
+        """Verify Gemini output runs through Stage C sanitizer and persists complete CharacterCast anchors."""
+        raw_gemini = (
+            "[CHARACTER_ANCHORS]\n"
+            "CHAR_1: 15-16yo high-school student girl | hair: soft shoulder-length bob | attire: tailored cream blazer and trousers | shoes: leather loafers\n"
+            "CHAR_2: 15-16yo high-school student boy | hair: short chestnut hair with neat side-part | attire: navy varsity jacket and chinos | shoes: suede sneakers\n"
+            "[/CHARACTER_ANCHORS]\n\n"
+            "Medium-wide 35mm two-character shot with a subtle diagonal angle. "
+            "Inside an opulent haute-couture boutique with polished marble flooring, "
+            "On the LEFT, a 15-year-old high-school student girl with a soft shoulder-length bob wears a tailored cream blazer, trousers, and leather loafers. "
+            "On the RIGHT, a 15-year-old high-school student boy with short chestnut hair and neat side-part wears a navy varsity jacket, chinos, and suede sneakers. "
+            "Between them on the counter rests an ornate, ribbon-wrapped gift box alongside oversized, stylized word-cards and phonetic symbols. "
+            "In the background, velvet curtains and warm amber chandeliers cast slate-blue directional cast shadows across the floor."
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": raw_gemini}]},
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        script_data = {
+            "id": "SR01",
+            "prompt_params": {
+                "EXPRESSION": "Costar un ojo de la cara",
+                "VIDEO_TYPE": "ROLEPLAY",
+                "TARGET_LANGUAGE": "Spanish",
+            },
+            "content_metadata": {
+                "language": "Spanish",
+                "video_type": "ROLEPLAY",
+                "speakers_gender": {"PERSON_ONE": "female", "PERSON_TWO": "male"},
+            },
+            "script_text": "PERSON_ONE: ¡Qué caro!\nPERSON_TWO: Cuesta un ojo de la cara.",
+        }
+        res = audit_general_prompt(script_data, api_key="FAKE_KEY")
+        # Gift box and floating word-cards/phonetic symbols must be scrubbed by Stage C sanitizer
+        self.assertNotIn("gift box", res.lower())
+        self.assertNotIn("word-cards", res.lower())
+        self.assertNotIn("phonetic symbols", res.lower())
+        self.assertIn("NOT a child", res)
+
+        # Complete CharacterCast + structured anchor fields must be persisted in state
+        anchors = script_data["assets"]["character_anchors"]
+        self.assertTrue(anchors["has_two_characters"])
+        self.assertTrue(anchors["p1_is_female"])
+        self.assertFalse(anchors["p2_is_female"])
+        self.assertEqual(anchors["gender_word1"], "girl")
+        self.assertEqual(anchors["gender_word2"], "boy")
+        self.assertEqual(anchors["char1_hair"], "soft shoulder-length bob")
+        self.assertEqual(anchors["char2_hair"], "short chestnut hair with neat side-part")
+
 
 if __name__ == "__main__":
     unittest.main()
