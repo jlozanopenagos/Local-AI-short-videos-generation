@@ -109,11 +109,125 @@ def premerge_whisper_words(whisper_words: List[Dict]) -> List[Dict]:
     return merged
 
 
+_IPA_WORD_REPLACEMENTS: List[Tuple[str, str]] = [
+    (r"/[^/\s]*rek[^/\s]*/", "record"),
+    (r"/[^/\s]*k[ɔoƆ]ː?[^/\s]*/", "record"),
+    (r"/[^/\s]*pr[ɛe]z[^/\s]*/", "present"),
+    (r"/[^/\s]*dʒ[ɛe]kt[^/\s]*/", "project"),
+    (r"/[^/\s]*m[ɪiꞮ]t[^/\s]*/", "permit"),
+    (r"/[^/\s]*tr[æa]kt[^/\s]*/", "contract"),
+    (r"/[^/\s]*kriːs[^/\s]*/", "increase"),
+]
+
+_PHONETIC_RESPELLING_MAP: Dict[str, str] = {
+    "rek-erd": "record",
+    "ri-kord": "record",
+    "ri-cord": "record",
+    "re-cord": "record",
+    "prez-ent": "present",
+    "pri-zent": "present",
+    "pre-sent": "present",
+    "prah-jekt": "project",
+    "pruh-jekt": "project",
+    "pro-ject": "project",
+    "pur-mit": "permit",
+    "per-mit": "permit",
+    "ahb-jekt": "object",
+    "ub-jekt": "object",
+    "ob-ject": "object",
+    "kahn-trakt": "contract",
+    "kuhn-trakt": "contract",
+    "con-tract": "contract",
+    "kahn-test": "contest",
+    "kuhn-test": "contest",
+    "con-test": "contest",
+    "kahn-dukt": "conduct",
+    "kuhn-dukt": "conduct",
+    "con-duct": "conduct",
+    "kahn-flikt": "conflict",
+    "kuhn-flikt": "conflict",
+    "con-flict": "conflict",
+    "dez-ert": "desert",
+    "di-zert": "desert",
+    "de-sert": "desert",
+    "des-sert": "dessert",
+    "reb-el": "rebel",
+    "ri-bel": "rebel",
+    "re-bel": "rebel",
+    "suhs-pekt": "suspect",
+    "suh-spekt": "suspect",
+    "sus-pect": "suspect",
+    "in-krees": "increase",
+    "in-crease": "increase",
+    "dee-krees": "decrease",
+    "di-krees": "decrease",
+    "de-crease": "decrease",
+    "im-port": "import",
+    "ex-port": "export",
+    "pro-test": "protest",
+    "ac-cept": "accept",
+    "ex-cept": "except",
+    "uh-fect": "affect",
+    "af-fect": "affect",
+    "ef-fect": "effect",
+    "lay-ter": "later",
+    "lat-ter": "latter",
+    "prin-ci-pul": "principal",
+    "prin-ci-pal": "principal",
+    "com-pluh-ment": "compliment",
+    "weh-ther": "weather",
+    "ad-vice": "advice",
+    "ad-vise": "advise",
+    "a-nnée": "année",
+    "an-née": "année",
+}
+
+_PHONETIC_RESPELLING_RE = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in sorted(_PHONETIC_RESPELLING_MAP, key=len, reverse=True)) + r")\b",
+    flags=re.IGNORECASE,
+)
+
+
+def normalize_pronunciation_for_subtitles(text: str) -> str:
+    """
+    Replaces raw IPA transcriptions (e.g. /ˈrek.ɚd/, /rɪˈkɔːrd/), phonetic respellings
+    (e.g. uh-FECT, COM-pluh-ment, WEH-ther, LAY-ter), and syllable-hyphenated stress words
+    (e.g. PRO-ject, DE-crease, des-SERT) with clean standard dictionary spelling for subtitles.
+    """
+    if not text:
+        return text
+
+    for pattern, replacement in _IPA_WORD_REPLACEMENTS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+    # Strip any remaining raw IPA slash notation
+    text = re.sub(r"/[ˈˌɚɪɔːɛæʊəθðʃʒŋꞮƆa-zA-Z.'-]{2,}/", "", text)
+
+    # Replace explicit phonetic respellings and syllable-hyphenated stress words
+    text = _PHONETIC_RESPELLING_RE.sub(
+        lambda m: _PHONETIC_RESPELLING_MAP[m.group(0).lower()],
+        text,
+    )
+
+    # Collapse any hyphenated stress-capitalized heteronym (e.g. RE-cord -> record)
+    def _dehyphenate_stress_word(m: re.Match) -> str:
+        word = m.group(0)
+        collapsed = word.replace("-", "")
+        if collapsed.lower() in KNOWN_HETERONYMS:
+            return collapsed.lower()
+        return word
+
+    text = re.sub(r"\b[A-Za-z]+-[A-Za-z]+\b", _dehyphenate_stress_word, text)
+    return text
+
+
 def clean_spoken_text(text: str) -> str:
     """
     Strips parentheticals, explicit speaker labels (PERSON_ONE, Narrator, etc.), formatting asterisks,
-    while carefully preserving spoken conversational cues that contain colons (e.g. 'Dis juste :', 'Por ejemplo :').
+    and normalizes IPA / phonetic respellings into clean standard words while carefully preserving
+    spoken conversational cues that contain colons (e.g. 'Dis juste :', 'Por ejemplo :').
     """
+    text = normalize_pronunciation_for_subtitles(text)
     # Strip parentheticals like (smiling), (Panicked), or (Agent)
     text = re.sub(r"\([^)]+\)", "", text)
     # Strip bold speaker tags (e.g. **PERSON_ONE:** or **Narrator:**)
@@ -413,14 +527,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             start_str = format_time(w["start"])
             end_str = format_time(w["end"])
 
-            raw_word = w.get("word", "")
-            clean_hw = re.sub(r"[^\w-]", "", raw_word)
+            raw_word = normalize_pronunciation_for_subtitles(w.get("word", "")).strip()
+            if not raw_word:
+                continue
 
-            # Preserve educational syllable stress casing if matched; otherwise Hormozi all-caps
-            if clean_hw and is_stress_heteronym_word(clean_hw):
-                text = clean_hw
-            else:
-                text = raw_word.upper()
+            # Always render clean, uniform all-caps dictionary words (never IPA symbols, phonetic respellings, or mixed-case stress caps)
+            text = raw_word.upper()
 
             # 5 is center-center alignment
             line = f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{text}\n"

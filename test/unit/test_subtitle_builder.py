@@ -61,8 +61,8 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.assertIn("0:01:05.25", content)
         self.assertIn("0:01:06.50", content)
 
-    def test_build_ass_preserves_heteronym_stress_casing(self):
-        """Verify that educational heteronym words preserve their syllable stress casing."""
+    def test_build_ass_normalizes_stress_ipa_and_phonetic_respellings_to_clean_subtitles(self):
+        """Verify that IPA symbols, phonetic respellings, and stress-capitalized heteronyms render as clean standard all-caps words."""
         words = [
             {"word": "Feel", "start": 0.0, "end": 0.2},
             {"word": "the", "start": 0.2, "end": 0.3},
@@ -81,19 +81,27 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.builder.build_ass(words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
 
-        # Standard words are upper-cased for Hormozi short visual punch
-        self.assertIn("FEEL", content)
-        self.assertIn("NOUN", content)
-        self.assertIn("VERB", content)
-
-        # Crucial educational heteronyms preserve their exact syllable stress casing
-        self.assertIn("PREsent", content)
-        self.assertIn("preSENT", content)
-        # Ensure they were not crushed into flat all-caps PRESENT
         dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
         texts = [l.split(",")[-1] for l in dialogue_lines]
-        self.assertEqual(texts[4], "PREsent")
-        self.assertEqual(texts[9], "preSENT")
+        self.assertEqual(texts[4], "PRESENT")
+        self.assertEqual(texts[9], "PRESENT.")
+
+        # Also verify raw IPA (/ˈrek.ɚd/, /rɪˈkɔːrd/) and phonetic respellings (COM-pluh-ment, WEH-ther, uh-FECT, PRO-ject)
+        ipa_words = [
+            {"word": "record", "start": 0.0, "end": 0.3},
+            {"word": "record", "start": 0.3, "end": 0.6},
+            {"word": "compliment", "start": 0.6, "end": 0.9},
+            {"word": "weather", "start": 0.9, "end": 1.2},
+            {"word": "affect", "start": 1.2, "end": 1.5},
+            {"word": "project", "start": 1.5, "end": 1.8},
+        ]
+        ipa_script_data = {
+            "script_text": "/ˈrek.ɚd/ /rɪˈkɔːrd/ COM-pluh-ment WEH-ther uh-FECT PRO-ject"
+        }
+        self.builder.build_ass(ipa_words, self.out_path, script_data=ipa_script_data)
+        ipa_content = self.out_path.read_text(encoding="utf-8")
+        ipa_texts = [l.split(",")[-1] for l in ipa_content.splitlines() if l.startswith("Dialogue:")]
+        self.assertEqual(ipa_texts, ["RECORD", "RECORD", "COMPLIMENT", "WEATHER", "AFFECT", "PROJECT"])
 
     def test_build_ass_homophone_forced_alignment(self):
         """Verify that homophones confused by Whisper (e.g. French ver/verre/vert/vers) are restored to exact script spelling."""

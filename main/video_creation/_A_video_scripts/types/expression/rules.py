@@ -36,6 +36,14 @@ STRICTLY FORBIDDEN TAKEAWAYS & INFOMERCIAL LANGUAGE (DO NOT USE):
 ❌ Standalone CTA: PAYOFF MUST start with a specific, punchy human observation (15–20 words) about the scene or absurdity just described, THEN finish with the mandatory CTA line. Never CTA alone.
 
 -----------------------------
+CLEAN ORTHOGRAPHY MANDATE (NO IPA OR PHONETIC RESPELLINGS FOR SUBTITLES)
+-----------------------------
+- Every word in the script becomes an on-screen subtitle and TTS input.
+- STRICTLY FORBIDDEN: Never write IPA phonetic symbols or slashes (e.g. NEVER write `/ˈrek.ɚd/` or `/rɪˈkɔːrd/`).
+- STRICTLY FORBIDDEN: Never write phonetic respellings or hyphenated syllable breakdowns that try to imitate pronunciation (e.g. NEVER write `WEH-ther`, `COM-pluh-ment`, `LAY-ter`, `uh-FECT`, `PRO-ject`, `DE-crease`, `REK-erd`).
+- Always write clean, standard dictionary spelling (e.g. `record`, `present`, `project`, `affect`, `effect`, `weather`, `compliment`, `later`). Explain syllable stress or vowel contrast verbally (e.g. "stress the first syllable for the noun record, and the second syllable for the verb record").
+
+-----------------------------
 PRACTICAL USAGE IS ALWAYS THE CORE GOAL
 -----------------------------
 - Etymology, origin stories, and acoustic secrets are HOOKS and SETUPS — NOT the end goal.
