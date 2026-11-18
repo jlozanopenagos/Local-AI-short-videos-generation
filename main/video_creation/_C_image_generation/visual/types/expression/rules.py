@@ -59,3 +59,13 @@ EXPRESSION_FORMAT_STAGING_DIRECTIVE = (
     "   - The foreground zone (occupying 35-40% of the frame, left or right) is reserved for the expressive teen guide, while the luminous midground and background (60%) showcase the expansive storybook setting and the oversized thematic visual metaphor in atmospheric depth.\n"
     "   - Warm atmospheric lighting with distinct depth separation between foreground and background."
 )
+
+EXPRESSION_ARCHETYPE_DIRECTIVE = (
+    "VIDEO TYPE ARCHETYPE: EXPRESSION (Everyday Cultural Observation & Layered Depth)\n"
+    "- Core World Objective: Natural, authentic slice-of-life environment demonstrating cultural phrases and idioms in everyday life.\n"
+    "- Setting & Stage Setup: A vibrant, culturally authentic everyday setting with layered foreground and background depth (e.g. artisan boutique, sunlit courtyard, terrace, design atelier).\n"
+    "- Protagonist & Ensemble: Solo teen high-school student protagonist living out the cultural scenario (unless dialogue requires a peer).\n"
+    "- Setting Mood: Relatable everyday social observation, warm conversational rhythm, authentic cultural charm.\n"
+    "- Mandatory Natural Props: Everyday authentic items grounding the scene (e.g. espresso cups, shopping baskets, bicycle, art supplies, notebooks).\n"
+    "- World Anchor Directive: Define the environmental stage, lighting, and protagonist character design."
+)

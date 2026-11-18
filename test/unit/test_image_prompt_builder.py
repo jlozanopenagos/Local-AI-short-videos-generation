@@ -31,6 +31,7 @@ class TestSanitizerSnapshots(unittest.TestCase):
         self.assertEqual(H.capture_sanitizer(), expected)
 
     def test_sanitizer_is_idempotent(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
 
         for probe in H.SANITIZER_PROBES:
@@ -38,6 +39,7 @@ class TestSanitizerSnapshots(unittest.TestCase):
             self.assertEqual(sanitize_and_style_prompt(once), once, probe)
 
     def test_sanitizer_preserves_14_to_16_teen_ages_and_upgrades_child_ages(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
 
         for age in ("14-year-old", "15-year-old", "16-year-old", "14-16-year-old"):
@@ -50,6 +52,7 @@ class TestSanitizerSnapshots(unittest.TestCase):
         self.assertIn("15-year-old", child_out)
 
     def test_gift_box_exception_only_for_present_heteronym(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt, is_present_heteronym_topic
 
         raw = "A student reveals an ornate ribbon-wrapped gift box on the banquet table."
@@ -68,6 +71,7 @@ class TestEnvironmentSnapshots(unittest.TestCase):
 
 class TestVisualProfileRegistry(unittest.TestCase):
     def test_registry_resolves_names_codes_and_script_ids(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.types import get_visual_profile
 
         self.assertEqual(get_visual_profile("game").video_type, "game")
@@ -86,6 +90,7 @@ class TestVisualProfileRegistry(unittest.TestCase):
     def test_legacy_switch_disables_typed_profile(self):
         import os
         from unittest import mock
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.types import get_visual_profile
 
         with mock.patch.dict(os.environ, {"IMAGE_PROMPT_ENGINE": "legacy"}):
@@ -96,7 +101,9 @@ class TestVisualProfileRegistry(unittest.TestCase):
             self.assertIsNotNone(get_visual_profile("GAME"))
 
     def test_type_pure_storyboard_system_prompt_has_no_cross_type_leakage(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.common import build_storyboard_system_prompt
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.types import get_visual_profile
 
         type_headers = {
@@ -119,6 +126,7 @@ class TestVisualProfileRegistry(unittest.TestCase):
             self.assertNotIn("tall slender", sys_prompt.lower())
 
     def test_fun_facts_has_complete_5_scene_camera_grammar(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.types import get_visual_profile
 
         prof = get_visual_profile("fun_facts")
@@ -132,6 +140,7 @@ class TestVisualProfileRegistry(unittest.TestCase):
 
 class TestLanguageVisualLayer(unittest.TestCase):
     def test_language_registry_resolves_names_labels_and_script_ids(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.languages import get_language_profile
 
         self.assertEqual(get_language_profile("English").language, "english")
@@ -146,6 +155,7 @@ class TestLanguageVisualLayer(unittest.TestCase):
         self.assertEqual(get_language_profile("EE01").language, "english")
 
     def test_language_profiles_do_not_contain_camera_angle_or_video_type_directives(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.languages import ALL_LANGUAGE_PROFILES
 
         forbidden = ("85mm", "24mm", "fourth-wall", "roleplay", "dialogue_part", "chalkboard")
@@ -153,6 +163,15 @@ class TestLanguageVisualLayer(unittest.TestCase):
             blob = f"{prof.palette_mood} {prof.cultural_cue}".lower()
             for term in forbidden:
                 self.assertNotIn(term, blob, f"Language profile {prof.language} leaked type/camera term '{term}'")
+
+    def test_both_general_prompt_producers_read_from_visual_profile(self):
+        from core.gemini_auditor import get_video_type_directive
+        from _C_image_generation.visual.types import get_visual_profile
+
+        for vtype in ("game", "fun_facts", "expression", "roleplay"):
+            prof = get_visual_profile(vtype)
+            self.assertEqual(get_video_type_directive(vtype), prof.build_general_prompt_archetype_directive())
+            self.assertTrue(prof.general_prompt_camera_opener.endswith("."))
 
 
 class TestGoldenScriptSnapshots(unittest.TestCase):

@@ -69,3 +69,13 @@ ROLEPLAY_FORMAT_STAGING_DIRECTIVE = (
     "   - Characters are positioned across an active physical divide, engaged in close conversational drama. STRICTLY ZERO eye contact with camera (100% fourth-wall barrier).\n"
     "   - Directional cinematic side-key lighting, dramatic chiaroscuro shadows across faces, authentic interpersonal narrative tension."
 )
+
+ROLEPLAY_ARCHETYPE_DIRECTIVE = (
+    "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Cinematic Threshold Dialogue)\n"
+    "- Core World Objective: Authentic conversational environment designed for interpersonal drama, debate, or collaborative discovery.\n"
+    "- Setting & Stage Setup: A shared, culturally grounded space (e.g. artisan atelier, kitchen island, study lounge, store counter) with natural physical depth.\n"
+    "- Characters & Dynamic: Two distinct high-school students (PERSON_ONE and PERSON_TWO) with complementary thematic wardrobe matching the location.\n"
+    "- Setting Mood: Relatable interpersonal connection, engaging conversational atmosphere.\n"
+    "- Mandatory Conversational Foil Props: Authentic physical objects anchoring their interaction (e.g. tools, utensils, garments, blueprints, culinary ingredients).\n"
+    "- World Anchor Directive: Define the spatial relationship, environment, and both character designs. Do NOT dictate transient facial expressions or momentary speech gestures."
+)

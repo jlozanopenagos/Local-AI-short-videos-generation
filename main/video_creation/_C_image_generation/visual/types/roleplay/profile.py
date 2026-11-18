@@ -4,7 +4,7 @@ visual/types/roleplay/profile.py — RoleplayVisualProfile implementation.
 from __future__ import annotations
 
 from ..base import VisualProfile
-from .rules import ROLEPLAY_SCENES
+from .rules import ROLEPLAY_SCENES, ROLEPLAY_ARCHETYPE_DIRECTIVE
 from .prompts import (
     ROLEPLAY_STORYBOARD_SYSTEM_GRAMMAR,
     ROLEPLAY_SINGLE_SCENE_PROGRESSION,
@@ -20,7 +20,11 @@ class RoleplayVisualProfile(VisualProfile):
     aliases = ["role_play"]
     has_two_characters_default = True
     voiceover_isolated = False
+    general_prompt_camera_opener = "Medium-wide establishing two-shot across a physical threshold."
     scenes = ROLEPLAY_SCENES
+
+    def build_general_prompt_archetype_directive(self) -> str:
+        return ROLEPLAY_ARCHETYPE_DIRECTIVE
 
     def build_single_scene_goal(self, scene_lower: str, p1_word: str, p2_word: str) -> str:
         return build_roleplay_single_scene_goal(scene_lower, p1_word, p2_word)

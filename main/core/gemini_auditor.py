@@ -100,50 +100,14 @@ def detect_script_domain(script_data: Dict[str, Any]) -> Tuple[str, str]:
 def get_video_type_directive(video_type: str) -> str:
     """
     Returns specialized visual storytelling directives tailored to the video type.
-    Ensures that an Expression, Game, Roleplay, and Fun Facts Short sharing the same
-    expression receive distinctly different scene archetypes, props, and moods.
+    Delegates directly to the canonical `VisualProfile` in `visual/types/`.
     """
-    vt = (video_type or "EXPRESSION").upper().strip()
-    if vt in ("GAME", "QUIZ"):
-        return (
-            "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena & Staged Dilemma-to-Triumph)\n"
-            "- Core World Objective: Dynamic interactive challenge setting where the protagonist tackles a puzzle or linguistic dilemma.\n"
-            "- Setting & Stage Setup: Establish an authentic thematic arena or workspace (e.g. workshop, studio, kitchen, lab) equipped for hands-on tasks.\n"
-            "- Protagonist & Ensemble: Solo teen high-school student protagonist (NEVER include a second character unless explicitly specified in script dialogue).\n"
-            "- Setting Mood: Energetic concentration, suspenseful countdown tension, active problem-solving.\n"
-            "- Mandatory Challenge Props: Concrete non-text objects representing choices or tasks (e.g. an hourglass timer, physical tools, authentic materials). STRICT BAN ON TEXT: NO placards, NO scorecards, NO writing.\n"
-            "- World Anchor Directive: Define the stage architecture, lighting, and protagonist character design. Do NOT generate transient facial expressions (smirks, winks) or fourth-wall gaze commands."
-        )
-    elif vt in ("ROLEPLAY", "ROLE_PLAY"):
-        return (
-            "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Cinematic Threshold Dialogue)\n"
-            "- Core World Objective: Authentic conversational environment designed for interpersonal drama, debate, or collaborative discovery.\n"
-            "- Setting & Stage Setup: A shared, culturally grounded space (e.g. artisan atelier, kitchen island, study lounge, store counter) with natural physical depth.\n"
-            "- Characters & Dynamic: Two distinct high-school students (PERSON_ONE and PERSON_TWO) with complementary thematic wardrobe matching the location.\n"
-            "- Setting Mood: Relatable interpersonal connection, engaging conversational atmosphere.\n"
-            "- Mandatory Conversational Foil Props: Authentic physical objects anchoring their interaction (e.g. tools, utensils, garments, blueprints, culinary ingredients).\n"
-            "- World Anchor Directive: Define the spatial relationship, environment, and both character designs. Do NOT dictate transient facial expressions or momentary speech gestures."
-        )
-    elif vt in ("FUN_FACTS", "FACTS"):
-        return (
-            "VIDEO TYPE ARCHETYPE: FUN FACTS (Curiosity & Monumental Scale of Wonder)\n"
-            "- Core World Objective: Atmospheric documentary environment evoking discovery, history, and cultural wonder.\n"
-            "- Setting & Stage Setup: Richly detailed space with vertical scale and architectural depth (e.g. historic observatory, archive hall, grand museum gallery, artisan workshop).\n"
-            "- Protagonist & Ensemble: Solo teen high-school student explorer immersed in the environment.\n"
-            "- Setting Mood: Wonder, intellectual curiosity, awe, and mystery.\n"
-            "- Mandatory Discovery Props: Concrete objects of investigation (e.g. antique instruments, vintage maps, architectural models, reference scrolls).\n"
-            "- World Anchor Directive: Define the physical environment, atmospheric depth, and protagonist character design."
-        )
-    else:  # EXPRESSION (default)
-        return (
-            "VIDEO TYPE ARCHETYPE: EXPRESSION (Everyday Cultural Observation & Layered Depth)\n"
-            "- Core World Objective: Natural, authentic slice-of-life environment demonstrating cultural phrases and idioms in everyday life.\n"
-            "- Setting & Stage Setup: A vibrant, culturally authentic everyday setting with layered foreground and background depth (e.g. artisan boutique, sunlit courtyard, terrace, design atelier).\n"
-            "- Protagonist & Ensemble: Solo teen high-school student protagonist living out the cultural scenario (unless dialogue requires a peer).\n"
-            "- Setting Mood: Relatable everyday social observation, warm conversational rhythm, authentic cultural charm.\n"
-            "- Mandatory Natural Props: Everyday authentic items grounding the scene (e.g. espresso cups, shopping baskets, bicycle, art supplies, notebooks).\n"
-            "- World Anchor Directive: Define the environmental stage, lighting, and protagonist character design."
-        )
+    from video_creation._C_image_generation.visual.types import get_visual_profile
+
+    prof = get_visual_profile(video_type or "EXPRESSION") or get_visual_profile("EXPRESSION")
+    if prof is not None:
+        return prof.build_general_prompt_archetype_directive()
+    return ""
 
 
 def _parse_character_line(line: str) -> Dict[str, str]:
@@ -468,17 +432,19 @@ def audit_general_prompt(
     chosen_lens = random.choice(creative_lenses)
     run_seed = random.randint(100000, 999999)
 
-    # Master story world camera framing opener tailored to video type archetype
+    # Master story world camera framing opener & cast policy tailored to video type profile
     vt_clean = video_type.upper().strip()
-    if vt_clean in ("ROLEPLAY", "ROLE_PLAY"):
-        camera_opener = "Medium-wide establishing two-shot across a physical threshold."
-    elif vt_clean in ("FUN_FACTS", "FACTS"):
-        camera_opener = "Medium-wide establishing shot with dramatic architectural depth."
-    else:  # GAME, EXPRESSION, etc.
-        camera_opener = "Medium-wide establishing eye-level shot."
+    from video_creation._C_image_generation.visual.types import get_visual_profile
+
+    profile = get_visual_profile(vt_clean) or get_visual_profile("EXPRESSION")
+    camera_opener = (
+        profile.general_prompt_camera_opener
+        if profile is not None
+        else "Medium-wide establishing eye-level shot."
+    )
 
     has_two_characters = (
-        vt_clean in ("ROLEPLAY", "ROLE_PLAY")
+        (profile.has_two_characters_default if profile is not None else vt_clean in ("ROLEPLAY", "ROLE_PLAY"))
         or bool(isinstance(speakers_gender, dict) and "PERSON_TWO" in speakers_gender and speakers_gender.get("PERSON_TWO"))
     )
 

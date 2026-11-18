@@ -33,6 +33,7 @@ class VisualProfile(ABC):
     aliases: List[str] = []
     has_two_characters_default: bool = False
     voiceover_isolated: bool = True
+    general_prompt_camera_opener: str = "Medium-wide establishing eye-level shot."
     scenes: List[SceneSpec] = []
 
     def get_scene_map(self) -> Dict[str, SceneSpec]:
@@ -40,6 +41,11 @@ class VisualProfile(ABC):
 
     def get_comfy_scene_names(self) -> List[str]:
         return [s.name.lower() for s in self.scenes if s.render_mode == "comfy"]
+
+    @abstractmethod
+    def build_general_prompt_archetype_directive(self) -> str:
+        """Builds the VIDEO TYPE ARCHETYPE directive used by Gemini/General Prompt auditors."""
+        pass
 
     @abstractmethod
     def build_single_scene_goal(self, scene_lower: str, p1_word: str, p2_word: str) -> str:

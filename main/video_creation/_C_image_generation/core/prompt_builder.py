@@ -1050,8 +1050,10 @@ class VisualPromptBuilder:
                 video_type=video_type,
             )
 
+        video_type_clean = (video_type or "EXPRESSION").strip().upper()
+        profile = get_visual_profile(video_type_clean)
         has_two_characters = (
-            video_type.upper() == "ROLEPLAY"
+            (profile.has_two_characters_default if profile is not None else video_type_clean == "ROLEPLAY")
             or bool(speakers_gender and any("two" in str(k).lower() for k in speakers_gender))
         )
         if has_two_characters:

@@ -60,3 +60,13 @@ FUN_FACTS_FORMAT_STAGING_DIRECTIVE = (
     "   - The teen protagonist is positioned in the lower third of the frame, head tilted upward in awe at a towering, imposing cultural anomaly, ancient clockwork, or giant historic relic.\n"
     "   - Volumetric lighting shafts or golden hour beams cutting through atmospheric haze, creating a striking scale contrast between the student and the wonder."
 )
+
+FUN_FACTS_ARCHETYPE_DIRECTIVE = (
+    "VIDEO TYPE ARCHETYPE: FUN FACTS (Curiosity & Monumental Scale of Wonder)\n"
+    "- Core World Objective: Atmospheric documentary environment evoking discovery, history, and cultural wonder.\n"
+    "- Setting & Stage Setup: Richly detailed space with vertical scale and architectural depth (e.g. historic observatory, archive hall, grand museum gallery, artisan workshop).\n"
+    "- Protagonist & Ensemble: Solo teen high-school student explorer immersed in the environment.\n"
+    "- Setting Mood: Wonder, intellectual curiosity, awe, and mystery.\n"
+    "- Mandatory Discovery Props: Concrete objects of investigation (e.g. antique instruments, vintage maps, architectural models, reference scrolls).\n"
+    "- World Anchor Directive: Define the physical environment, atmospheric depth, and protagonist character design."
+)
