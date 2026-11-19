@@ -168,6 +168,22 @@ Stage C separates shared visual rules, language data, and video-type camera prof
 
 ---
 
+## Stage G Modular Video Assembly Architecture (`_G_video_assembly/assembly/`)
+
+Stage G isolates editing rules by video type (`expression`, `game`, `roleplay`, `fun_facts`) with neutral per-language hooks, driven from `core/video_assembler.py`, `core/subtitle_builder.py`, and `_G_video_assembly/main.py`:
+
+| Layer / File | Responsibility ("Where to Change X") |
+| :--- | :--- |
+| `assembly/common/easing.py` | `MotionSpec` + `build_zoompan_expressions` (`cosine`, `ease_in`, `ease_out`, `linear` zoom/pan curves). |
+| `assembly/common/transitions.py` | `TransitionSpec`, frame-accurate `compute_clip_render_durations`, and `chain_clips_with_xfade` (smooth FFmpeg `xfade` at every cut with zero A/V drift). |
+| `assembly/common/audio_mix.py` | `AudioMixSpec`, `AudioEnvelopeSegment`, and `build_bgm_volume_expr` (per-type BGM volume bed, section boosts/dips, and closure swell). |
+| `assembly/common/subtitles.py` | `SubtitleStyleSpec`, `render_ass_header`, and `format_ass_dialogue_line` (Lower-Middle safe-zone `Alignment=2`, pop-in animation, speaker/highlight ASS styles). |
+| `assembly/languages/{english,french,spanish,italian}.py` | Optional per-language overrides (`font_override`, `margin_v_offset`, `bgm_volume_scale`) resolved via `get_assembly_language_profile(...)`. |
+| `assembly/types/{expression,game,roleplay,fun_facts}/profile.py` | Per-type editing signatures: `EXPRESSION` push-in/lateral pan/pull-back; `GAME` accelerating `pressure` zoom, steady `challenge` chalkboard, `answer` dip; `ROLEPLAY` 180-deg counter-pans & speaker-colored captions (`PersonOne` Gold / `PersonTwo` Sky-Cyan); `FUN_FACTS` vertical crane tilt-up `hook` & numeric Gold highlights. |
+| `assembly/types/registry.py` | `get_assembly_profile(...)` dispatcher + `VIDEO_ASSEMBLY_ENGINE=legacy\|typed\|legacy:<type>` rollback switch. |
+
+---
+
 ## WebUI MVC Application Architecture
 
 The project features a full **Model-View-Controller (MVC)** WebUI providing an intuitive graphical interface for all pipeline workflows, real-time background execution, and asset management.

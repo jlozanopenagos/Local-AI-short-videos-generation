@@ -4,6 +4,15 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+try:
+    from ..assembly.common.subtitles import format_ass_dialogue_line, render_ass_header
+    from ..assembly.languages import get_assembly_language_profile
+    from ..assembly.types import get_assembly_profile
+except (ImportError, ValueError):
+    from assembly.common.subtitles import format_ass_dialogue_line, render_ass_header  # type: ignore[no-redef]
+    from assembly.languages import get_assembly_language_profile  # type: ignore[no-redef]
+    from assembly.types import get_assembly_profile  # type: ignore[no-redef]
+
 KNOWN_HETERONYMS = {
     "record", "present", "project", "permit", "object",
     "contract", "conduct", "desert", "increase", "decrease",
@@ -284,18 +293,86 @@ def tokenize_script_text(text: str) -> List[str]:
     return [t for t in tokens if re.search(r"[\w]", t)]
 
 
+_SPEAKER_MARKER_RE = re.compile(
+    r"(?:"
+    r"(?:\*\*\s*)?\b(PERSON_ONE|PERSON_1|PERSON_TWO|PERSON_2|Narrator|Host|Speaker)\b(?:\s*\([^)]*\))?\s*(?:\*\*\s*)?:"
+    r"|\[\s*(PERSON_ONE|PERSON_1|PERSON_TWO|PERSON_2|Narrator)\s*\](?:\s*\([^)]*\))?\s*:?"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+
+def _canonical_speaker_name(raw_tag: str) -> str:
+    low = (raw_tag or "").strip().lower()
+    if low in ("person_one", "person_1"):
+        return "PERSON_ONE"
+    if low in ("person_two", "person_2"):
+        return "PERSON_TWO"
+    return "NARRATOR"
+
+
+def tokenize_script_with_speakers(
+    text: str,
+    default_speaker: str = "NARRATOR",
+) -> List[Tuple[str, str]]:
+    """
+    Splits spoken script text into `(token, canonical_speaker)` pairs so multi-speaker
+    ROLEPLAY dialogue beats retain per-word speaker attribution (`PERSON_ONE`, `PERSON_TWO`, `NARRATOR`).
+    """
+    if not text:
+        return []
+
+    matches = list(_SPEAKER_MARKER_RE.finditer(text))
+    if not matches:
+        return [(tok, default_speaker) for tok in tokenize_script_text(text)]
+
+    result: List[Tuple[str, str]] = []
+    current_speaker = default_speaker
+    cursor = 0
+    for m in matches:
+        segment = text[cursor:m.start()]
+        if segment.strip():
+            for tok in tokenize_script_text(segment):
+                result.append((tok, current_speaker))
+        raw_tag = m.group(1) or m.group(2) or ""
+        current_speaker = _canonical_speaker_name(raw_tag)
+        cursor = m.end()
+
+    tail = text[cursor:]
+    if tail.strip():
+        for tok in tokenize_script_text(tail):
+            result.append((tok, current_speaker))
+
+    return result
+
+
 def align_tokens_to_whisper(
     script_tokens: List[str],
     whisper_words: List[Dict],
     default_start: float = 0.0,
     default_end: float = 30.0,
+    token_speakers: Optional[List[str]] = None,
+    section_name: str = "",
+    token_sections: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Aligns ground-truth script tokens against Whisper detected word timestamps using SequenceMatcher.
-    Guarantees script spelling and homophone fidelity while preserving Whisper's acoustic timestamps.
+    Guarantees script spelling and homophone fidelity while preserving Whisper's acoustic timestamps,
+    and attaches optional speaker/section metadata for typed ASS styling.
     """
     if not script_tokens:
         return []
+
+    def _make_entry(s_idx: int, word: str, start: float, end: float) -> Dict:
+        entry: Dict = {"word": word, "start": start, "end": end}
+        if token_speakers and 0 <= s_idx < len(token_speakers):
+            entry["speaker"] = token_speakers[s_idx]
+        if token_sections and 0 <= s_idx < len(token_sections):
+            if token_sections[s_idx]:
+                entry["section"] = token_sections[s_idx]
+        elif section_name:
+            entry["section"] = section_name
+        return entry
 
     # Pre-merge Whisper contractions, elisions, and hyphens for robust 1:1 token correspondence
     whisper_words = premerge_whisper_words(whisper_words)
@@ -303,11 +380,15 @@ def align_tokens_to_whisper(
     if not whisper_words:
         duration = max(1.0, default_end - default_start)
         step = duration / max(1, len(script_tokens))
-        return [{
-            "word": tok,
-            "start": round(default_start + i * step, 2),
-            "end": round(default_start + (i + 1) * step, 2)
-        } for i, tok in enumerate(script_tokens)]
+        return [
+            _make_entry(
+                i,
+                tok,
+                round(default_start + i * step, 2),
+                round(default_start + (i + 1) * step, 2),
+            )
+            for i, tok in enumerate(script_tokens)
+        ]
 
     s_keys = [clean_token(tok) for tok in script_tokens]
     w_keys = [clean_token(w.get("word", "")) for w in whisper_words]
@@ -318,11 +399,14 @@ def align_tokens_to_whisper(
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
             for s_idx, w_idx in zip(range(i1, i2), range(j1, j2)):
-                aligned.append({
-                    "word": script_tokens[s_idx],
-                    "start": whisper_words[w_idx]["start"],
-                    "end": whisper_words[w_idx]["end"]
-                })
+                aligned.append(
+                    _make_entry(
+                        s_idx,
+                        script_tokens[s_idx],
+                        whisper_words[w_idx]["start"],
+                        whisper_words[w_idx]["end"],
+                    )
+                )
         elif tag == "replace":
             s_slice = script_tokens[i1:i2]
             w_slice = whisper_words[j1:j2]
@@ -335,22 +419,23 @@ def align_tokens_to_whisper(
             for idx, sw in enumerate(s_slice):
                 w_s = t_start + idx * step
                 w_e = t_start + (idx + 1) * step
-                aligned.append({
-                    "word": sw,
-                    "start": round(w_s, 2),
-                    "end": round(w_e, 2)
-                })
+                aligned.append(
+                    _make_entry(i1 + idx, sw, round(w_s, 2), round(w_e, 2))
+                )
         elif tag == "delete":
             prev_end = aligned[-1]["end"] if aligned else (whisper_words[0]["start"] if whisper_words else default_start)
             remaining_tokens = script_tokens[i1:i2]
             available_time = max(0.1, default_end - prev_end) if default_end > prev_end else 0.25 * len(remaining_tokens)
             step = min(0.25, available_time / max(1, len(remaining_tokens)))
             for idx, sw in enumerate(remaining_tokens):
-                aligned.append({
-                    "word": sw,
-                    "start": round(prev_end, 2),
-                    "end": round(prev_end + step, 2)
-                })
+                aligned.append(
+                    _make_entry(
+                        i1 + idx,
+                        sw,
+                        round(prev_end, 2),
+                        round(prev_end + step, 2),
+                    )
+                )
                 prev_end += step
         elif tag == "insert":
             # Extra hallucinations in Whisper are skipped
@@ -391,7 +476,8 @@ def align_script_data_to_whisper(
 ) -> List[Dict]:
     """
     Extracts ground-truth text from script_data and aligns it to Whisper word timestamps.
-    Leverages section-level boundaries from timings_data when available.
+    Leverages section-level boundaries from timings_data when available, while preserving
+    per-token speaker and section attribution.
     """
     if not script_data:
         return whisper_words
@@ -407,8 +493,10 @@ def align_script_data_to_whisper(
                 except Exception:
                     script_dict = None
             if not script_dict:
-                tokens = tokenize_script_text(raw_s)
-                return align_tokens_to_whisper(tokens, whisper_words)
+                pairs = tokenize_script_with_speakers(raw_s)
+                tokens = [t for t, _ in pairs]
+                speakers = [s for _, s in pairs]
+                return align_tokens_to_whisper(tokens, whisper_words, token_speakers=speakers)
 
     if not isinstance(script_dict, dict) or not script_dict:
         return whisper_words
@@ -420,7 +508,9 @@ def align_script_data_to_whisper(
     if timings_data and any(k in timings_data for k in script_sections):
         all_aligned = []
         for sec_name, sec_text in script_sections.items():
-            sec_tokens = tokenize_script_text(sec_text)
+            pairs = tokenize_script_with_speakers(sec_text)
+            sec_tokens = [t for t, _ in pairs]
+            sec_speakers = [s for _, s in pairs]
             if not sec_tokens:
                 continue
 
@@ -440,14 +530,76 @@ def align_script_data_to_whisper(
                 sec_tokens,
                 sec_w_words,
                 default_start=t_start,
-                default_end=t_end if t_end > t_start else t_start + len(sec_tokens) * 0.3
+                default_end=t_end if t_end > t_start else t_start + len(sec_tokens) * 0.3,
+                token_speakers=sec_speakers,
+                section_name=sec_name,
             )
             all_aligned.extend(aligned_sec)
         return all_aligned
     else:
-        full_text = " ".join(script_sections.values())
-        tokens = tokenize_script_text(full_text)
-        return align_tokens_to_whisper(tokens, whisper_words)
+        tokens: List[str] = []
+        speakers: List[str] = []
+        sections: List[str] = []
+        for sec_name, sec_text in script_sections.items():
+            for tok, spk in tokenize_script_with_speakers(sec_text):
+                tokens.append(tok)
+                speakers.append(spk)
+                sections.append(sec_name)
+        return align_tokens_to_whisper(
+            tokens,
+            whisper_words,
+            token_speakers=speakers,
+            token_sections=sections,
+        )
+
+
+def _infer_video_type(script_data: Optional[Dict], explicit: str = "") -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    if isinstance(script_data, dict):
+        cm = script_data.get("content_metadata") or {}
+        pp = script_data.get("prompt_params") or {}
+        md = script_data.get("metadata") or {}
+        for cand in (
+            cm.get("video_type"),
+            pp.get("VIDEO_TYPE"),
+            pp.get("type"),
+            md.get("VIDEO_TYPE"),
+        ):
+            if cand and str(cand).strip():
+                return str(cand).strip()
+        sid = str(script_data.get("id") or "").strip().upper()
+        if re.match(r"^[EFSI]_?[EGRF]\d{2,}$", sid):
+            return sid
+        script_obj = cm.get("script")
+        if isinstance(script_obj, dict):
+            keys = {str(k).strip().lower() for k in script_obj}
+            if any(k.startswith("dialogue_part") for k in keys):
+                return "roleplay"
+            if "challenge" in keys or "pressure" in keys:
+                return "game"
+            if "explanation" in keys and "example" not in keys:
+                return "fun_facts"
+    return "expression"
+
+
+def _infer_language(script_data: Optional[Dict], explicit: str = "") -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    if isinstance(script_data, dict):
+        cm = script_data.get("content_metadata") or {}
+        pp = script_data.get("prompt_params") or {}
+        md = script_data.get("metadata") or {}
+        for cand in (
+            cm.get("language"),
+            pp.get("TARGET_LANGUAGE"),
+            pp.get("language"),
+            md.get("LABEL"),
+            script_data.get("id"),
+        ):
+            if cand and str(cand).strip():
+                return str(cand).strip()
+    return "english"
 
 
 class SubtitleBuilder:
@@ -460,11 +612,27 @@ class SubtitleBuilder:
         suppress_windows: Optional[List[Tuple[float, float]]] = None,
         script_data: Optional[Dict] = None,
         timings_data: Optional[Dict] = None,
+        video_type: str = "",
+        language: str = "",
     ) -> Path:
-        # Generate ASS with dynamic word-by-word style
-        # Hormozi style: One/two words on screen at a time, large font, center screen.
+        """Builds an ASS animated word-by-word subtitle file driven by the active `AssemblyProfile`."""
+        resolved_vtype = _infer_video_type(script_data, video_type)
+        resolved_lang = _infer_language(script_data, language)
+        profile = get_assembly_profile(resolved_vtype)
+        lang_profile = get_assembly_language_profile(resolved_lang)
 
-        ass_header = f"""[Script Info]
+        if profile is not None:
+            style_spec = profile.get_subtitle_style()
+            ass_header = render_ass_header(
+                style_spec,
+                video_width=video_width,
+                video_height=video_height,
+                margin_v_offset=lang_profile.margin_v_offset,
+                font_override=lang_profile.font_override,
+            )
+        else:
+            style_spec = None
+            ass_header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {video_width}
 PlayResY: {video_height}
@@ -534,8 +702,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             # Always render clean, uniform all-caps dictionary words (never IPA symbols, phonetic respellings, or mixed-case stress caps)
             text = raw_word.upper()
 
-            # 5 is center-center alignment
-            line = f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{text}\n"
+            if profile is not None and style_spec is not None:
+                style_name = profile.select_subtitle_style_name(
+                    text,
+                    section=w.get("section", ""),
+                    speaker=w.get("speaker", ""),
+                )
+                line = format_ass_dialogue_line(start_str, end_str, text, style_name, style_spec)
+            else:
+                line = f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{text}\n"
             lines.append(line)
 
         with output_path.open("w", encoding="utf-8") as f:

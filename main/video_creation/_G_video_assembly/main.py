@@ -28,6 +28,8 @@ try:
     from _G_video_assembly.core.subtitle_builder import SubtitleBuilder
     # pyrefly: ignore [missing-import]
     from _G_video_assembly.core.video_assembler import VideoAssembler
+    # pyrefly: ignore [missing-import]
+    from _G_video_assembly.assembly.types import get_assembly_profile
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
     from core.transcriber import Transcriber
@@ -35,6 +37,8 @@ except (ImportError, ModuleNotFoundError):
     from core.subtitle_builder import SubtitleBuilder
     # pyrefly: ignore [missing-import]
     from core.video_assembler import VideoAssembler
+    # pyrefly: ignore [missing-import]
+    from assembly.types import get_assembly_profile
 
 
 def resolve_bank_music(script_data: dict, script_output_dir: Path, base_dir: Path = BASE_DIR) -> Optional[Path]:
@@ -257,11 +261,14 @@ def process_script(
             
             # 2. Build Subtitles
             suppress_windows = []
-            video_type = (
-                script_data.get("content_metadata", {}).get("video_type")
-                or script_data.get("prompt_params", {}).get("VIDEO_TYPE")
-                or metadata.get("VIDEO_TYPE", "")
-            ).upper()
+            resolved_lang = resolve_script_language(script_data)
+            vtype = resolve_script_video_type(script_data)
+            assembly_profile = get_assembly_profile(vtype or script_id)
+            suppressed_secs = (
+                assembly_profile.get_suppress_subtitle_sections()
+                if assembly_profile is not None
+                else ({"challenge"} if vtype == "game" else set())
+            )
 
             timings_data = None
             if timings_path.exists():
@@ -272,20 +279,24 @@ def process_script(
                 except Exception as e:
                     print(f"[{script_id}] Warning reading timings map: {e}")
 
-            if video_type == "GAME" and timings_data and "challenge" in timings_data:
-                ch_start = timings_data["challenge"].get("start", 0.0)
-                ch_end = timings_data["challenge"].get("end", 0.0)
-                suppress_windows.append((ch_start, ch_end))
-                print(f"[{script_id}] Subtitles suppressed during CHALLENGE section ({ch_start}s - {ch_end}s)")
+            if suppressed_secs and timings_data:
+                for sec_name in sorted(suppressed_secs):
+                    if sec_name in timings_data:
+                        ch_start = timings_data[sec_name].get("start", 0.0)
+                        ch_end = timings_data[sec_name].get("end", 0.0)
+                        suppress_windows.append((ch_start, ch_end))
+                        print(f"[{script_id}] Subtitles suppressed during {sec_name.upper()} section ({ch_start}s - {ch_end}s)")
 
             builder.build_ass(
-                words, 
-                ass_path, 
-                VIDEO_WIDTH, 
-                VIDEO_HEIGHT, 
-                suppress_windows=suppress_windows, 
+                words,
+                ass_path,
+                VIDEO_WIDTH,
+                VIDEO_HEIGHT,
+                suppress_windows=suppress_windows,
                 script_data=script_data,
-                timings_data=timings_data
+                timings_data=timings_data,
+                video_type=vtype,
+                language=resolved_lang,
             )
             print(f"Generated subtitles at {ass_path.name}")
         
@@ -320,14 +331,16 @@ def process_script(
         if assembler is None:
             assembler = VideoAssembler()
 
+        resolved_lang = resolve_script_language(script_data)
         vtype = resolve_script_video_type(script_data)
         final_video_path = script_output_dir / f"script_{script_id}_final.mp4"
         success = assembler.assemble(
-            script_id, timings_path, image_dir, audio_path, ass_path, final_video_path, 
+            script_id, timings_path, image_dir, audio_path, ass_path, final_video_path,
             bgm_path=bgm_path, watermark_path=watermark_path,
             opening_path=opening_path, closure_path=closure_path,
             video_type=vtype,
             script_data=script_data,
+            language=resolved_lang,
         )
         
         if success:

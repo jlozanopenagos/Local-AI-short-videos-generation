@@ -1,12 +1,36 @@
 """
 test_layer/unit/test_subtitle_builder.py — Unit tests for ASS dynamic animated subtitle generation.
 """
+import os
+import re
 import unittest
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 # pyrefly: ignore [missing-import]
-from video_creation._G_video_assembly.core.subtitle_builder import SubtitleBuilder
+from video_creation._G_video_assembly.core.subtitle_builder import (
+    SubtitleBuilder,
+    tokenize_script_with_speakers,
+)
+
+
+def _extract_dialogue_events(content: str):
+    """Returns list of `(style_name, raw_text, plain_text)` from ASS `Dialogue:` lines."""
+    events = []
+    for line in content.splitlines():
+        if line.startswith("Dialogue:"):
+            parts = line.split(",", 9)
+            if len(parts) == 10:
+                style_name = parts[3].strip()
+                raw_text = parts[9].rstrip("\r\n")
+                plain_text = re.sub(r"\{[^}]*\}", "", raw_text)
+                events.append((style_name, raw_text, plain_text))
+    return events
+
+
+def _extract_dialogue_texts(content: str):
+    return [plain for _, _, plain in _extract_dialogue_events(content)]
 
 
 class TestSubtitleBuilder(unittest.TestCase):
@@ -82,7 +106,8 @@ class TestSubtitleBuilder(unittest.TestCase):
         content = self.out_path.read_text(encoding="utf-8")
 
         dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        self.assertEqual(len(dialogue_lines), 10)
+        texts = _extract_dialogue_texts(content)
         self.assertEqual(texts[4], "PRESENT")
         self.assertEqual(texts[9], "PRESENT.")
 
@@ -100,7 +125,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(ipa_words, self.out_path, script_data=ipa_script_data)
         ipa_content = self.out_path.read_text(encoding="utf-8")
-        ipa_texts = [l.split(",")[-1] for l in ipa_content.splitlines() if l.startswith("Dialogue:")]
+        ipa_texts = _extract_dialogue_texts(ipa_content)
         self.assertEqual(ipa_texts, ["RECORD", "RECORD", "COMPLIMENT", "WEATHER", "AFFECT", "PROJECT"])
 
     def test_build_ass_homophone_forced_alignment(self):
@@ -125,8 +150,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         # Verify that all 4 homophones are restored to their distinct script spellings
         self.assertEqual(texts, ["UN", "VER", "VERT", "VA", "VERS", "UN", "VERRE", "VERT."])
@@ -152,14 +176,13 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         # Should match golden script words, capitalized for Hormozi style
         self.assertEqual(texts, ["SAPEVI", "IL", "ALFABETO", "LETTERA", "GEI", "JEANS"])
 
-    def test_build_ass_strips_roleplay_speaker_labels(self):
-        """Verify that speaker labels like PERSON_ONE (Panicked): and PERSON_TWO: are stripped from subtitles."""
+    def test_build_ass_strips_roleplay_speaker_labels_and_color_codes_speakers(self):
+        """Verify speaker labels are stripped AND mapped to PersonOne (Gold) vs PersonTwo (Sky-Cyan) styles."""
         whisper_words = [
             {"word": "I", "start": 1.0, "end": 1.2},
             {"word": "forgot", "start": 1.2, "end": 1.5},
@@ -167,20 +190,34 @@ class TestSubtitleBuilder(unittest.TestCase):
         ]
         script_data = {
             "content_metadata": {
+                "video_type": "ROLEPLAY",
                 "script": {
-                    "dialogue_part_1": "PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax"
-                }
+                    "hook": "Listen now",
+                    "dialogue_part_1": "PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax",
+                },
             }
         }
-        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        timings_data = {
+            "hook": {"start": 0.0, "end": 0.9},
+            "dialogue_part_1": {"start": 0.9, "end": 2.5},
+        }
+        # First check speaker-aware tokenization directly
+        pairs = tokenize_script_with_speakers("PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax")
+        self.assertEqual(pairs, [("I", "PERSON_ONE"), ("forgot", "PERSON_ONE"), ("Relax", "PERSON_TWO")])
+
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data, timings_data=timings_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        events = _extract_dialogue_events(content)
+        texts = [plain for _, _, plain in events]
         self.assertNotIn("PERSON_ONE:", texts)
         self.assertNotIn("PERSON_TWO:", texts)
         self.assertNotIn("PANICKED", texts)
         self.assertNotIn("CALM", texts)
-        self.assertEqual(texts, ["I", "FORGOT", "RELAX"])
+        self.assertEqual(texts, ["LISTEN", "NOW", "I", "FORGOT", "RELAX"])
+        self.assertEqual(events[0][0], "Narrator")
+        self.assertEqual(events[2][0], "PersonOne")
+        self.assertEqual(events[3][0], "PersonOne")
+        self.assertEqual(events[4][0], "PersonTwo")
 
     def test_build_ass_french_conversational_colon_and_elision(self):
         """Verify that conversational colons (e.g. 'Dis juste :') are preserved and French elisions are aligned."""
@@ -212,8 +249,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         self.assertIn("DIS", texts)
         self.assertIn("JUSTE:", texts)
@@ -240,8 +276,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         self.assertNotIn("TOUR-UTILISE", texts)
         self.assertIn("TOUR", texts)
@@ -268,12 +303,59 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         self.assertIn("L'AMICO", texts)
         self.assertIn("È", texts)
         self.assertIn("C'È", texts)
+
+    def test_build_ass_safe_zone_pop_in_and_type_styles(self):
+        """Verify Lower-Middle safe zone Alignment=2, kinetic pop-in tags, FUN_FACTS Highlight, and GAME Explanation style."""
+        # 1. FUN_FACTS: crisp white Default + Gold Highlight for numeric tokens
+        ff_script = {
+            "id": "IF01",
+            "content_metadata": {
+                "video_type": "FUN_FACTS",
+                "script": {"hook": "Solo 21 lettere"},
+            },
+        }
+        self.builder.build_ass(
+            [{"word": "Solo", "start": 0.0, "end": 0.3}, {"word": "21", "start": 0.3, "end": 0.6}, {"word": "lettere", "start": 0.6, "end": 1.0}],
+            self.out_path,
+            script_data=ff_script,
+        )
+        ff_content = self.out_path.read_text(encoding="utf-8")
+        self.assertIn("Style: Default,Arial,60,&H00FFFFFF,", ff_content)
+        self.assertIn("Style: Highlight,Arial,60,&H0000FFFF,", ff_content)
+        self.assertIn(",2,20,20,250,1", ff_content)
+        ff_events = _extract_dialogue_events(ff_content)
+        self.assertEqual(ff_events[0][0], "Default")
+        self.assertEqual(ff_events[1][0], "Highlight")
+        self.assertIn(r"\fscx88\fscy88\t(0,65,\fscx100\fscy100)", ff_events[1][1])
+
+        # 2. GAME: Gold in answer, crisp White Explanation style in explanation section
+        game_script = {
+            "id": "SG01",
+            "content_metadata": {
+                "video_type": "GAME",
+                "script": {"answer": "Opcion A", "explanation": "Significa caro"},
+            },
+        }
+        game_timings = {
+            "answer": {"start": 0.0, "end": 1.0},
+            "explanation": {"start": 1.0, "end": 2.0},
+        }
+        self.builder.build_ass([], self.out_path, script_data=game_script, timings_data=game_timings)
+        game_content = self.out_path.read_text(encoding="utf-8")
+        game_events = _extract_dialogue_events(game_content)
+        self.assertEqual([e[0] for e in game_events], ["Default", "Default", "Explanation", "Explanation"])
+
+        # 3. Legacy rollback toggle restores Alignment=5 and MarginV=150
+        with mock.patch.dict(os.environ, {"VIDEO_ASSEMBLY_ENGINE": "legacy"}):
+            self.builder.build_ass([{"word": "Legacy", "start": 0.0, "end": 0.5}], self.out_path)
+            legacy_content = self.out_path.read_text(encoding="utf-8")
+            self.assertIn(",5,10,10,150,1", legacy_content)
+            self.assertNotIn(r"\fscx", legacy_content)
 
 
 if __name__ == "__main__":
