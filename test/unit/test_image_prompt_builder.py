@@ -38,18 +38,110 @@ class TestSanitizerSnapshots(unittest.TestCase):
             once = sanitize_and_style_prompt(probe)
             self.assertEqual(sanitize_and_style_prompt(once), once, probe)
 
-    def test_sanitizer_preserves_14_to_16_teen_ages_and_upgrades_child_ages(self):
+    def test_sanitizer_preserves_late_teen_ages_and_upgrades_younger_ages(self):
         # pyrefly: ignore[missing-import]
         from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
 
-        for age in ("14-year-old", "15-year-old", "16-year-old", "14-16-year-old"):
+        forbidden_negative_leaks = (
+            "not a child",
+            "no young children",
+            "no elementary kids",
+            "no childish proportions",
+            "no bulging eyes",
+            "no deadpan",
+        )
+        for age in ("16-year-old", "17-year-old", "18-year-old"):
             out = sanitize_and_style_prompt(f"A {age} high-school student boy in a bakery.")
             self.assertIn(age, out)
-            self.assertIn("NOT a child", out)
+            self.assertIn("1:7", out)
             self.assertNotIn("NOT a teenager", out)
-        child_out = sanitize_and_style_prompt("A 10-year-old kid at a desk.")
-        self.assertNotIn("10-year-old", child_out)
-        self.assertIn("15-year-old", child_out)
+            out_lower = out.lower()
+            for leaked in forbidden_negative_leaks:
+                self.assertNotIn(leaked, out_lower)
+
+        for young_age in ("10-year-old kid", "14-year-old", "15-year-old", "14-16-year-old", "fourteen-year-old", "14-16yo"):
+            young_out = sanitize_and_style_prompt(f"A {young_age} at a bookshop counter.")
+            self.assertNotIn(young_age, young_out)
+            self.assertIn("17-year-old", young_out)
+            self.assertIn("1:7", young_out)
+
+    def test_sanitizer_upgrades_legacy_negative_tails_idempotently(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        legacy_prompt = (
+            "Single character solo shot. One 16-year-old high-school student girl with warm tan skin, "
+            "mature teenage features (NOT a child). "
+            "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
+            "vibrant flat colors, bold outlines, expressive high-school student character design "
+            "(approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child). "
+            "(high-school student protagonist, stylish venue wardrobe, NO young children, NO elementary kids, NO bulging eyes, NO deadpan blank face)."
+        )
+        once = sanitize_and_style_prompt(legacy_prompt)
+        twice = sanitize_and_style_prompt(once)
+        self.assertEqual(once, twice)
+        self.assertIn("1:7", once)
+        self.assertIn("17-year-old", once)
+        self.assertIn("pure text-free visual illustration", once)
+        once_lower = once.lower()
+        for leaked in ("not a child", "no young children", "no elementary kids", "no bulging eyes", "no deadpan"):
+            self.assertNotIn(leaked, once_lower)
+
+    def test_sanitizer_replaces_shortened_tail_without_proportion_anchor(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        se01_like = (
+            "Vibrant 2D cartoon narrative illustration, 35mm angled waist-up shot. "
+            "A 16-year-old high-school student girl in a boutique, bold outlines, vibrant flat colors, "
+            "and expressive facial design, pure text-free visual illustration."
+        )
+        ie01_like = (
+            "A wide-angle 35mm waist-up composition. A 16-year-old boy in an opera dressing room. "
+            "Clean modern 2D cartoon narrative illustration, vibrant flat colors, bold outlines, "
+            "expressive 16-year-old high-school student character design, pure text-free visual illustration."
+        )
+        for sample in (se01_like, ie01_like):
+            once = sanitize_and_style_prompt(sample)
+            twice = sanitize_and_style_prompt(once)
+            self.assertEqual(once, twice)
+            self.assertIn("1:7", once)
+            self.assertIn("17-year-old", once)
+            self.assertEqual(once.lower().count("pure text-free visual illustration"), 1)
+
+    def test_sanitizer_preserves_reading_lamp_and_alcove(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+        out = sanitize_and_style_prompt(
+            "Inside a Parisian comic bookshop with a vintage brass reading lamp beside a warm yellow reading alcove lamp."
+        )
+        self.assertIn("brass reading lamp", out)
+        self.assertIn("reading alcove lamp", out)
+        self.assertNotIn("speaking expressively", out)
+
+    def test_strip_footwear_removes_wearable_shoes_preserves_venues(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt, strip_footwear_clauses
+
+        cropped = (
+            "Waist-up 3/4-angled shot of a 17-year-old high-school senior boy wearing a mustard corduroy "
+            "overshirt over a patterned shirt, dark straight jeans, and burgundy canvas high-tops."
+        )
+        out = sanitize_and_style_prompt(cropped, strip_footwear=True)
+        self.assertNotIn("high-tops", out.lower())
+        self.assertIn("dark straight jeans", out)
+
+        venue = (
+            "Inside a chic retro Italian designer sneaker boutique and luxury leather footwear workshop, "
+            "three towering designer shoe boxes rest on the counter while a 17-year-old high-school senior girl "
+            "wears an olive blazer, dark chinos, and white leather trainers."
+        )
+        stripped = strip_footwear_clauses(venue)
+        self.assertIn("designer sneaker boutique", stripped)
+        self.assertIn("luxury leather footwear workshop", stripped)
+        self.assertIn("designer shoe boxes", stripped)
+        self.assertNotIn("white leather trainers", stripped)
 
     def test_gift_box_exception_only_for_present_heteronym(self):
         # pyrefly: ignore[missing-import]
@@ -173,6 +265,59 @@ class TestVisualProfileRegistry(unittest.TestCase):
             goal = prof.build_single_scene_goal(scene_name, "girl", "boy")
             self.assertIn(scene_name.upper(), goal)
 
+    def test_roleplay_solo_dialogue_uses_angled_waist_up_framing(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.visual.types import get_visual_profile
+
+        prof = get_visual_profile("roleplay")
+        task = prof.build_storyboard_director_task("girl", "boy")
+        grammar = prof.build_storyboard_system_grammar()
+
+        for blob in (task, grammar):
+            blob_low = blob.lower()
+            self.assertNotIn("chest-up tight framing", blob_low)
+            self.assertNotIn("85mm portrait lens", blob_low)
+            self.assertIn("3/4", blob_low)
+            self.assertIn("waist-up", blob_low)
+            self.assertIn("off-camera", blob_low)
+
+        for part in ("dialogue_part_1", "dialogue_part_2"):
+            goal = prof.build_single_scene_goal(part, "girl", "boy")
+            goal_low = goal.lower()
+            self.assertNotIn("chest-up", goal_low)
+            self.assertNotIn("85mm portrait lens", goal_low)
+            self.assertIn("3/4", goal_low)
+            self.assertIn("waist-up", goal_low)
+            self.assertIn("off-camera", goal_low)
+            self.assertIn("gesture", goal_low)
+
+    def test_cropped_hook_prompts_for_game_expression_and_fun_facts(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.visual.types import get_visual_profile
+
+        forbidden = (
+            "14-16yo",
+            "14-16-year-old",
+            "not a child",
+            "never wide bug eyes",
+            "never bulging eyes",
+            "never staring rounded eyes",
+        )
+        for vtype in ("game", "expression", "fun_facts"):
+            prof = get_visual_profile(vtype)
+            blobs = (
+                prof.build_storyboard_system_grammar(),
+                prof.build_storyboard_director_task("girl", "boy"),
+                prof.build_single_scene_goal("hook", "girl", "boy"),
+            )
+            for blob in blobs:
+                low = blob.lower()
+                self.assertTrue("waist-up" in low or "mid-thigh" in low, f"{vtype} hook missing cropped framing")
+                self.assertIn("17-year-old", low)
+                self.assertIn("1:7", low)
+                for bad in forbidden:
+                    self.assertNotIn(bad, low, f"{vtype} still contains '{bad}'")
+
 
 class TestLanguageVisualLayer(unittest.TestCase):
     def test_language_registry_resolves_names_labels_and_script_ids(self):
@@ -201,7 +346,9 @@ class TestLanguageVisualLayer(unittest.TestCase):
                 self.assertNotIn(term, blob, f"Language profile {prof.language} leaked type/camera term '{term}'")
 
     def test_both_general_prompt_producers_read_from_visual_profile(self):
+        # pyrefly: ignore[missing-import]
         from core.gemini_auditor import get_video_type_directive
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.types import get_visual_profile
 
         for vtype in ("game", "fun_facts", "expression", "roleplay"):
@@ -212,6 +359,7 @@ class TestLanguageVisualLayer(unittest.TestCase):
 
 class TestStructuredCharacterCast(unittest.TestCase):
     def test_game_and_fun_facts_stay_solo_even_if_prompt_mentions_friend(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.common import build_character_cast
 
         gp = "Medium shot. A 15-year-old high-school student boy in a bakery thinking about a gift for his friend."
@@ -223,6 +371,7 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertTrue(cast_rp.has_two_characters)
 
     def test_centralized_default_speakers_gender(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.common import resolve_default_speakers_gender
 
         rp_defaults = resolve_default_speakers_gender({}, video_type="ROLEPLAY")
@@ -234,6 +383,7 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertEqual(rp_f_first["PERSON_TWO"], "male")
 
     def test_persist_character_anchors_in_state(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.common import persist_character_anchors_in_state
 
         state = {"id": "EE01", "assets": {}, "content_metadata": {}}
@@ -244,6 +394,7 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertEqual(state["content_metadata"]["character_anchors"], anchors)
 
     def test_shirt_with_sleeves_or_scarf_is_not_scrubbed_into_thematic_decor(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
 
         s1 = sanitize_and_style_prompt("A 15-year-old boy wearing a crisp light blue linen button-down shirt with rolled-up sleeves.")
@@ -258,6 +409,7 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertNotIn("hello world", s3)
 
     def test_male_with_dark_hair_in_a_sleek_ponytail_is_scrubbed(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
 
         s = sanitize_and_style_prompt("One high school student boy with dark hair in a sleek ponytail wearing a navy polo shirt.")
@@ -265,6 +417,7 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertIn("short textured dark hair", s.lower())
 
     def test_character_cast_splits_beside_her_and_aligns_with_speakers_gender(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.common import build_character_cast
 
         gp = (
@@ -278,6 +431,7 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertIn("emerald doublet", cast.char2_desc)
 
     def test_character_cast_ignores_characterized_and_two_characters_staging_sentences(self):
+        # pyrefly: ignore[missing-import]
         from _C_image_generation.visual.common import build_character_cast
 
         gp_fr01 = (
@@ -312,6 +466,90 @@ class TestStructuredCharacterCast(unittest.TestCase):
         self.assertNotIn("characterized by", cast_sr.char1_desc)
         self.assertIn("student girl", cast_sr.char1_desc)
         self.assertIn("student boy", cast_sr.char2_desc)
+
+
+class TestCulturalWorldAtlas(unittest.TestCase):
+    def test_all_languages_have_rich_text_free_cultural_worlds_and_global_diversity(self):
+        import re
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.visual.languages import ALL_LANGUAGE_PROFILES
+
+        banned_cliches = ("creative studio", "study lounge", "design atelier", "workshop", "greenhouse", "conservatory")
+        forbidden_leaks = ("85mm", "24mm", "fourth-wall", "roleplay", "dialogue_part", "chalkboard")
+
+        for prof in ALL_LANGUAGE_PROFILES:
+            worlds = prof.cultural_worlds
+            self.assertGreaterEqual(len(worlds), 26, f"{prof.language} should have >=26 CulturalWorlds")
+            ids = [w.id for w in worlds]
+            self.assertEqual(len(ids), len(set(ids)), f"Duplicate CulturalWorld id in {prof.language}")
+            monumental_count = sum(1 for w in worlds if "monumental" in w.staging_tags)
+            self.assertGreaterEqual(monumental_count, 8, f"{prof.language} needs monumental worlds for FUN_FACTS")
+
+            for w in worlds:
+                blob = f"{w.title} {w.setting_prompt} {' '.join(w.focal_props)} {w.wardrobe_cue}".lower()
+                for cliche in banned_cliches:
+                    self.assertNotIn(cliche, blob, f"{w.id} contains cliché '{cliche}'")
+                for leak in forbidden_leaks:
+                    self.assertNotIn(leak, blob, f"{w.id} leaked camera/type token '{leak}'")
+                self.assertFalse(re.search(r"\b(sign reading|text|words|menus|lettering|price tag)\b", blob), f"{w.id} mentions text surface")
+
+        # Verify regional expansion requested for Spanish (Spain + LatAm) and English (global Anglophone)
+        es_prof = next(p for p in ALL_LANGUAGE_PROFILES if p.language == "spanish")
+        es_regions = " ".join(w.region for w in es_prof.cultural_worlds)
+        for country in ("Spain", "Mexico", "Argentina", "Colombia", "Peru", "Chile", "Cuba", "Guatemala", "Uruguay"):
+            self.assertIn(country, es_regions, f"Spanish Atlas missing {country}")
+
+        en_prof = next(p for p in ALL_LANGUAGE_PROFILES if p.language == "english")
+        en_regions = " ".join(w.region for w in en_prof.cultural_worlds)
+        for nation in ("England", "Scotland", "Wales", "Ireland", "USA", "Canada", "Australia", "New Zealand", "Jamaica", "South Africa", "Singapore"):
+            self.assertIn(nation, en_regions, f"English Atlas missing {nation}")
+
+    def test_multilingual_explicit_matching_and_no_studio_fallback(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.visual.common import resolve_anchor_environment, resolve_cultural_world
+
+        fr_thrifter = resolve_cultural_world("Dans cette friperie du Marais...", topic="Acheter une veste", language="French", script_id="FE90")
+        self.assertEqual(fr_thrifter.id, "fr_marais_friperie")
+
+        it_gelato = resolve_cultural_world("Vorrei un cono al pistacchio in gelateria.", topic="Ordinare un gelato", language="Italian", script_id="IR90")
+        self.assertEqual(it_gelato.id, "it_trastevere_gelateria")
+
+        es_tapas = resolve_cultural_world("Vamos a una tapería en Sevilla.", topic="Pedir tapas", language="Spanish", script_id="SE90")
+        self.assertEqual(es_tapas.id, "es_triana_taperia")
+
+        abstract_it = resolve_anchor_environment(
+            script_text="La differenza tra sapere e conoscere in italiano.",
+            topic="Sapere vs Conoscere",
+            lexical_field="Grammatica pratica",
+            language="Italian",
+            video_type="EXPRESSION",
+            script_id="IE05",
+        )
+        self.assertNotIn("creative studio", abstract_it.lower())
+        self.assertNotIn("study lounge", abstract_it.lower())
+
+    def test_triplet_diversity_fun_facts_landmark_and_exclusion(self):
+        # pyrefly: ignore[missing-import]
+        from _C_image_generation.visual.common import resolve_cultural_world
+
+        for lang_char, lang_name in (("E", "English"), ("F", "French"), ("I", "Italian"), ("S", "Spanish")):
+            e_w = resolve_cultural_world("Grammar nuance lesson.", topic="Grammar check", lexical_field="Grammar", language=lang_name, video_type="EXPRESSION", script_id=f"{lang_char}E04")
+            g_w = resolve_cultural_world("Grammar quiz challenge.", topic="Grammar check", lexical_field="Grammar", language=lang_name, video_type="GAME", script_id=f"{lang_char}G04")
+            r_w = resolve_cultural_world("Two students talk.", topic="Grammar check", lexical_field="Grammar", language=lang_name, video_type="ROLEPLAY", script_id=f"{lang_char}R04")
+            f_w = resolve_cultural_world("Wait till you hear why!", topic="Origin story", lexical_field="History", language=lang_name, video_type="FUN_FACTS", script_id=f"{lang_char}F04")
+            self.assertEqual(len({e_w.id, g_w.id, r_w.id}), 3, f"Triplet collision in {lang_name}: {e_w.id}, {g_w.id}, {r_w.id}")
+            self.assertIn("monumental", f_w.staging_tags, f"FUN_FACTS {lang_name} should use monumental world, got {f_w.id}")
+
+            # Anti-repetition across 15 sequential scripts
+            seq_ids = {
+                resolve_cultural_world("Abstract practice.", topic=f"Topic {i}", lexical_field="Vocabulary", language=lang_name, video_type="EXPRESSION", script_id=f"{lang_char}E{i:02d}").id
+                for i in range(1, 16)
+            }
+            self.assertGreaterEqual(len(seq_ids), 10, f"Low variety in sequential {lang_name} IDs: {len(seq_ids)}")
+
+            # Exclusion switches venue cleanly
+            rerolled = resolve_cultural_world("Grammar nuance lesson.", topic="Grammar check", lexical_field="Grammar", language=lang_name, video_type="EXPRESSION", script_id=f"{lang_char}E04", exclude_world_ids=[e_w.id])
+            self.assertNotEqual(rerolled.id, e_w.id)
 
 
 class TestGoldenScriptSnapshots(unittest.TestCase):

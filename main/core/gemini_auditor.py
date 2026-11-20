@@ -23,7 +23,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 MAIN_DIR = Path(__file__).resolve().parent.parent
@@ -47,22 +47,22 @@ FALLBACK_MODELS = [
 
 POSITIVE_STYLE_PILLAR = (
     "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-    "vibrant flat colors, bold outlines, expressive high-school student character design "
-    "(approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child), "
-    "simple black 2D cartoon eyes with natural lively shape and warm gaze, "
-    "thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), "
-    "rich detailed environmental interior background with depth and warm atmospheric lighting."
+    "vibrant flat colors, bold outlines, expressive 17-year-old high-school senior character design "
+    "(realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build), "
+    "lively natural-sized simple black 2D cartoon eyes with warm expressive gaze, "
+    "stylish layered culturally authentic venue wardrobe matching the environment, "
+    "rich detailed environmental background with architectural depth and warm atmospheric lighting, "
+    "pure text-free visual illustration."
 )
 
 NEGATIVE_PROMPT_SHIELD = (
-    "(high-school student protagonist, thematic costume, thematic setting visible, explicit footwear on feet, NO bare feet, "
-    "NO mature adult wrinkles, NO elderly, NO young children, NO elementary kids, NO childish proportions, "
-    "NO generic casual t-shirts, NO plain hoodies, NO colored irises, NO blue eyes, NO green eyes, NO dot eyes, NO minimalist faces, NO blank backgrounds, "
-    "NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, "
-    "NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions, "
-    "NO 3D, NO 3D render, NO photorealism, NO realism, NO photograph, NO text, NO words, NO letters, NO quotes, "
-    "NO signs with text, NO speech bubbles, NO floating symbols, NO subtitles, NO typography, NO watermark)"
+    "(high-school student protagonist, stylish layered venue wardrobe, cultural setting visible, "
+    "2D cartoon animation frame, pure text-free scene)"
 )
+
+# Per-script in-memory ring buffer so rapid repeated Gemini Audit clicks explore fresh Cultural Worlds
+_RECENT_AUDITED_WORLDS: Dict[str, List[str]] = {}
+_MAX_RECENT_WORLDS = 14
 
 
 def detect_script_domain(script_data: Dict[str, Any]) -> Tuple[str, str]:
@@ -182,23 +182,23 @@ def extract_character_anchors_from_output(raw_text: str) -> Tuple[str, Dict[str,
                 p2_info = _parse_character_line(line_str)
 
         if p1_info:
-            anchors["char1_identity"] = p1_info.get("identity", "15-year-old high-school student boy")
+            anchors["char1_identity"] = p1_info.get("identity", "17-year-old high-school senior boy")
             anchors["char1_hair"] = p1_info.get("hair", "short textured dark hair")
             anchors["char1_attire"] = p1_info.get("attire", "a casual overshirt over a tee")
-            anchors["char1_shoes"] = p1_info.get("shoes", "sneakers")
-            anchors["char1_desc"] = (
-                f"{anchors['char1_identity']} with {anchors['char1_hair']} wearing {anchors['char1_attire']} "
-                f"and {anchors['char1_shoes']}"
-            )
+            anchors["char1_shoes"] = p1_info.get("shoes", "")
+            c1_desc = f"{anchors['char1_identity']} with {anchors['char1_hair']} wearing {anchors['char1_attire']}"
+            if anchors["char1_shoes"]:
+                c1_desc += f" and {anchors['char1_shoes']}"
+            anchors["char1_desc"] = c1_desc
         if p2_info:
-            anchors["char2_identity"] = p2_info.get("identity", "15-year-old high-school student girl")
+            anchors["char2_identity"] = p2_info.get("identity", "17-year-old high-school senior girl")
             anchors["char2_hair"] = p2_info.get("hair", "sleek dark bob")
             anchors["char2_attire"] = p2_info.get("attire", "a corduroy jacket")
-            anchors["char2_shoes"] = p2_info.get("shoes", "loafers")
-            anchors["char2_desc"] = (
-                f"{anchors['char2_identity']} with {anchors['char2_hair']} wearing {anchors['char2_attire']} "
-                f"and {anchors['char2_shoes']}"
-            )
+            anchors["char2_shoes"] = p2_info.get("shoes", "")
+            c2_desc = f"{anchors['char2_identity']} with {anchors['char2_hair']} wearing {anchors['char2_attire']}"
+            if anchors["char2_shoes"]:
+                c2_desc += f" and {anchors['char2_shoes']}"
+            anchors["char2_desc"] = c2_desc
 
         if "char1_desc" in anchors and "char2_desc" in anchors:
             anchors["continuity_summary"] = (
@@ -256,16 +256,27 @@ def _clean_gemini_output(raw_text: str) -> str:
 
 
 def _strip_redundant_tails(text: str) -> str:
-    """Removes any accidental duplicate style tags or negative shields if Gemini echoed them."""
+    """Removes any accidental duplicate style tags or legacy tails if Gemini echoed them."""
     cleaned = text.strip()
-    # Strip trailing parenthetical negative shields
-    cleaned = re.sub(r'\((?:high-school student protagonist|thematic setting visible)[^)]*\)', '', cleaned, flags=re.IGNORECASE).strip()
-    # Strip any trailing "Clean modern 2D cartoon narrative illustration..."
+    # Strip trailing parenthetical production shields (legacy or current)
+    cleaned = re.sub(
+        r'\((?:high-school student protagonist|thematic setting visible|realistic (?:adolescent 1:6\.5|late-teen 1:7))[^)]*\)',
+        '',
+        cleaned,
+        flags=re.IGNORECASE,
+    ).strip()
+    # Strip any trailing "Clean modern 2D cartoon narrative illustration..." or trailing pure text-free anchor
     cleaned = re.sub(
         r'Clean modern 2D cartoon narrative illustration.*$',
         '',
         cleaned,
         flags=re.IGNORECASE | re.DOTALL
+    ).strip()
+    cleaned = re.sub(
+        r'pure text-free visual illustration\.?$',
+        '',
+        cleaned,
+        flags=re.IGNORECASE,
     ).strip()
     return cleaned.rstrip('. ')
 
@@ -400,9 +411,15 @@ def audit_general_prompt(
         persist_character_anchors_in_state,
         resolve_default_speakers_gender,
     )
+    from video_creation._C_image_generation.visual.common.environment import (
+        infer_world_ids_from_text,
+        match_special_locked_domain,
+        resolve_cultural_world,
+    )
     from video_creation._C_image_generation.visual.common.sanitizer import (
         is_present_heteronym_topic,
         sanitize_and_style_prompt,
+        strip_footwear_clauses,
     )
 
     # Format speakers/gender description
@@ -424,9 +441,68 @@ def audit_general_prompt(
 
     existing_gp = (current_prompt or script_data.get("assets", {}).get("general_prompt", "")).strip()
 
-    # Detect semantic domain and video type archetypes
+    # Detect semantic domain, video type archetypes, and fresh Cultural World (excluding prior drafts)
     detected_domain, domain_guidance = detect_script_domain(script_data)
     video_type_directive = get_video_type_directive(video_type)
+
+    scenario_val = str(
+        content_meta.get("roleplay_scenario")
+        or content_meta.get("story_scenario")
+        or prompt_params.get("ROLEPLAY_SCENARIO")
+        or prompt_params.get("CONTEXT")
+        or content_meta.get("learning_objective")
+        or ""
+    )
+    lexical_val = str(
+        prompt_params.get("LEXICAL_FIELD")
+        or content_meta.get("lexical_field")
+        or content_meta.get("subcategory")
+        or content_meta.get("category")
+        or ""
+    )
+    sid_upper = str(script_id).strip().upper()
+    prior_assets = script_data.get("assets") if isinstance(script_data.get("assets"), dict) else {}
+    exclude_world_ids: List[str] = []
+    if prior_assets.get("anchor_world_id"):
+        exclude_world_ids.append(str(prior_assets["anchor_world_id"]))
+    for wid in prior_assets.get("used_world_ids") or []:
+        if wid and str(wid) not in exclude_world_ids:
+            exclude_world_ids.append(str(wid))
+    for wid in _RECENT_AUDITED_WORLDS.get(sid_upper, []):
+        if wid and wid not in exclude_world_ids:
+            exclude_world_ids.append(wid)
+    if existing_gp:
+        for wid in infer_world_ids_from_text(existing_gp, language=str(language)):
+            if wid not in exclude_world_ids:
+                exclude_world_ids.append(wid)
+
+    locked_facility = match_special_locked_domain(
+        topic=str(topic),
+        scenario=scenario_val,
+        script_text=script_text,
+    )
+    selected_world = None
+    if not locked_facility:
+        selected_world = resolve_cultural_world(
+            script_text=script_text,
+            topic=str(topic),
+            scenario=scenario_val,
+            lexical_field=lexical_val,
+            label=str(language),
+            video_type=video_type,
+            language=str(language),
+            script_id=str(script_id),
+            exclude_world_ids=exclude_world_ids,
+        )
+        if selected_world is not None:
+            hist = _RECENT_AUDITED_WORLDS.setdefault(sid_upper, [])
+            if selected_world.id not in hist:
+                hist.append(selected_world.id)
+                if len(hist) > _MAX_RECENT_WORLDS:
+                    del hist[:-_MAX_RECENT_WORLDS]
+            else:
+                hist.remove(selected_world.id)
+                hist.append(selected_world.id)
 
     # Determine gender words for characters (Priority: explicit speakers_gender > single-character draft in existing_gp)
     c1_gender = "boy"
@@ -507,22 +583,22 @@ def audit_general_prompt(
     if has_two_characters:
         part_a_template = (
             "[CHARACTER_ANCHORS]\n"
-            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
-            f"CHAR_2: 15-16yo high-school student {c2_gender} | hair: <explicit hair color and {_hair_guidance(c2_gender)}> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            f"CHAR_1: 17-year-old high-school senior {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
+            f"CHAR_2: 17-year-old high-school senior {c2_gender} | hair: <explicit hair color and {_hair_guidance(c2_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
             "[/CHARACTER_ANCHORS]"
         )
         char_mandate = (
-            f"3. CHARACTER 1 (Subject on the LEFT): Start with 'On the LEFT,' followed by a full inline prose description of the 15-16yo student {c1_gender} incorporating their {_hair_guidance(c1_gender)}, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
-            f"4. CHARACTER 2 (Counterpart on the RIGHT): Start with 'On the RIGHT,' followed by a full inline prose description of the 15-16yo student {c2_gender} incorporating their {_hair_guidance(c2_gender)}, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
+            f"3. CHARACTER 1 (Subject on the LEFT): Start with 'On the LEFT,' followed by a full inline prose description of the 17-year-old high-school senior {c1_gender} incorporating their {_hair_guidance(c1_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
+            f"4. CHARACTER 2 (Counterpart on the RIGHT): Start with 'On the RIGHT,' followed by a full inline prose description of the 17-year-old high-school senior {c2_gender} incorporating their {_hair_guidance(c2_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
         )
     else:
         part_a_template = (
             "[CHARACTER_ANCHORS]\n"
-            f"CHAR_1: 15-16yo high-school student {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit top garment, bottom garment matching environment> | shoes: <explicit footwear>\n"
+            f"CHAR_1: 17-year-old high-school senior {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
             "[/CHARACTER_ANCHORS]"
         )
         char_mandate = (
-            f"3. PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student {c1_gender} incorporating their {_hair_guidance(c1_gender)}, thematic setting-appropriate wardrobe, and footwear (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). SOLO PROTAGONIST MANDATE: DO NOT include a second character or companion in this solo scene.\n"
+            f"3. PROTAGONIST: Full inline prose description of the solo 17-year-old high-school senior {c1_gender} incorporating their {_hair_guidance(c1_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). SOLO PROTAGONIST MANDATE: DO NOT include a second character or companion in this solo scene.\n"
         )
 
     previous_contrast = ""
@@ -530,7 +606,22 @@ def audit_general_prompt(
         previous_contrast = (
             f"PREVIOUS DRAFT (FOR CONTRAST ONLY — DO NOT COPY OR REPEAT THIS SETTING):\n"
             f"\"{existing_gp}\"\n"
-            "MANDATE: Invent a COMPLETELY DIFFERENT physical setting, atmosphere, and props from the draft above.\n\n"
+            "MANDATE: Use the fresh assigned Cultural World below and build a COMPLETELY DIFFERENT physical setting, atmosphere, and props from the draft above.\n\n"
+        )
+
+    cultural_world_block = ""
+    if locked_facility:
+        cultural_world_block = (
+            "ASSIGNED EXPLICIT VENUE (LOCKED BY SCRIPT — 100% TEXT-FREE):\n"
+            f"- Required Physical Setting: {locked_facility}\n\n"
+        )
+    elif selected_world is not None:
+        cultural_world_block = (
+            "ASSIGNED CULTURAL WORLD (MANDATORY SETTING ANCHOR — 100% TEXT-FREE):\n"
+            f"- Location & Region: {selected_world.title} ({selected_world.region}, {selected_world.indoor_outdoor})\n"
+            f"- Visual Architecture: {selected_world.setting_prompt}\n"
+            f"- Native Non-Text Props: {', '.join(selected_world.focal_props)}\n"
+            f"- Recommended Teen Venue Fashion: {strip_footwear_clauses(selected_world.wardrobe_cue)}\n\n"
         )
 
     placeholder_rule = (
@@ -539,7 +630,7 @@ def audit_general_prompt(
         else "NEVER output placeholder tokens like 'CHAR_1' in Part B!"
     )
 
-    # Build prompt enforcing Context Domain, Video Type Archetype, Character Anchors, and 7-part Narrative Scene
+    # Build prompt enforcing Context Domain, Cultural World, Video Type Archetype, Character Anchors, and 7-part Narrative Scene
     prompt_text = (
         "You are an elite Visual Storyboard Director and Concept Artist for high-retention 2D animation Shorts.\n"
         "Your task is to audit and creatively write the Master Visual Story World for this Short to eliminate repetitive AI tropes.\n\n"
@@ -547,6 +638,7 @@ def audit_general_prompt(
         f"Cinematographic Focus: {chosen_lens}.\n\n"
         f"SEMANTIC DOMAIN: {detected_domain}\n"
         f"DOMAIN DIRECTIVE: {domain_guidance}\n\n"
+        f"{cultural_world_block}"
         f"{video_type_directive}\n\n"
         f"SCRIPT ID: {script_id}\n"
         f"LANGUAGE: {language} ({video_type})\n"
@@ -563,8 +655,8 @@ def audit_general_prompt(
         "PART B: MASTER NARRATIVE SCENE (PARTS 1 TO 7 ONLY)\n"
         "Follow this exact narrative structure in a single cohesive, richly detailed paragraph (~110-145 words):\n"
         f"1. CAMERA SHOT & FRAMING: Open with '{camera_opener}' to guarantee lens perspective.\n"
-        "2. THEMATIC SCENE CONTEXT: Ground the physical setting authentically in the SEMANTIC DOMAIN and VIDEO TYPE ARCHETYPE above. "
-        "⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are generic modern coffee shops, plain empty classrooms, pottery/ceramic workshops, rooftop greenhouses, and random flea markets. Ground the setting authentically in the dialogue domain.\n"
+        "2. CULTURAL SETTING CONTEXT: Place the scene squarely inside the assigned cultural world or explicit venue above (preserving whether it is open-air exterior or authentic indoor setting). "
+        "⚠️ ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are creative studios, cultural study lounges, study lounges, design ateliers, artisan workshops, generic apartments/living rooms, generic modern coffee shops, plain empty classrooms, pottery/ceramic workshops, rooftop greenhouses, and random flea markets.\n"
         f"{char_mandate}"
         "5. MIDGROUND ANCHOR PROPS: Concrete physical objects on the table/counter/space matching the video type archetype.\n"
         "6. ARCHITECTURAL BACKGROUND: Cultural and architectural textures providing regional depth.\n"
@@ -669,6 +761,14 @@ def audit_general_prompt(
                             merged_anchors = {**cast_dict, **parsed_anchors}
                             script_data.setdefault("assets", {})["character_anchors"] = merged_anchors
                             script_data.setdefault("content_metadata", {})["character_anchors"] = merged_anchors
+                        if selected_world is not None:
+                            assets_ref = script_data.setdefault("assets", {})
+                            assets_ref["anchor_world_id"] = selected_world.id
+                            assets_ref["anchor_world_title"] = selected_world.title
+                            used_ids = [str(w) for w in (assets_ref.get("used_world_ids") or []) if w]
+                            if selected_world.id not in used_ids:
+                                used_ids.append(selected_world.id)
+                            assets_ref["used_world_ids"] = used_ids[-_MAX_RECENT_WORLDS:]
 
                     logger.info(
                         "[%s] Successfully audited and stitched 9-part prompt with Gemini (%d chars).",

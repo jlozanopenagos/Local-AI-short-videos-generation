@@ -28,6 +28,7 @@ try:
         normalize_sheet_rows,
     )
 except (ImportError, ModuleNotFoundError):
+    # pyrefly: ignore[missing-import]
     from main.connectivity.core import (
         get_endpoint,
         ENDPOINT_REGISTRY,
@@ -85,13 +86,15 @@ def fetch_raw_corrected_records(endpoint_url: str, timeout: float = 60.0) -> Lis
     records: List[Dict[str, str]] = []
     for row in normalized:
         row_id = row.get("ID", "").strip().upper()
-        # SCRIPT_CHANGED is column D
+        # SCRIPT_CHANGED is column D; expression is column B
         script_changed = row.get("SCRIPT_CHANGED", "").strip()
+        expression = row.get("expression", "").strip()
 
         if row_id:
             records.append({
                 "ID": row_id,
                 "NEW_SCRIPT": script_changed,
+                "EXPRESSION": expression,
             })
 
     return records
@@ -169,14 +172,20 @@ def save_corrected_scripts_csv(
     filename = f"{lang_clean}_{type_clean}_script_to_change.csv"
     dest_file = dest_dir / filename
 
+    has_expression = any(str(rec.get("EXPRESSION", "")).strip() for rec in records)
+    fieldnames = ["ID", "NEW_SCRIPT", "EXPRESSION"] if has_expression else TARGET_COLUMNS
+
     with dest_file.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=TARGET_COLUMNS)
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for rec in records:
-            writer.writerow({
+            row_out = {
                 "ID": rec.get("ID", ""),
                 "NEW_SCRIPT": rec.get("NEW_SCRIPT", ""),
-            })
+            }
+            if has_expression:
+                row_out["EXPRESSION"] = rec.get("EXPRESSION", "")
+            writer.writerow(row_out)
 
     return dest_file
 

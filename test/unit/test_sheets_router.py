@@ -121,7 +121,9 @@ class TestSheetsRouter(unittest.TestCase):
         """Verify that modify_video_script produces canonical lowercase keys, preserves character anchors & voices, and clears stale image prompts."""
         import json
         import tempfile
+        # pyrefly: ignore[missing-import]
         from video_creation._A_video_scripts.script_modifier import modify_video_script
+        # pyrefly: ignore[missing-import]
         from core.state_manager import StateManager
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -230,6 +232,102 @@ payoff: A theatrical superstition turns stage panic into pure energy!"""
             # Verify stale image_prompts wiped to force fresh prompt generation
             self.assertEqual(updated["assets"]["image_prompts"], {})
             self.assertEqual(updated["assets"]["character_anchors"]["char1_gender"], "female")
+
+    def test_fun_facts_expression_change_updates_topic_title_and_5_sections(self):
+        """Verify audit_script_changes detects Column B EXPRESSION drift and updates FUN_FACTS to 5 sections."""
+        import tempfile
+        # pyrefly: ignore[missing-import]
+        from core.state_manager import StateManager
+        # pyrefly: ignore[missing-import]
+        from tools.check_script_changes import audit_script_changes
+        # pyrefly: ignore[missing-import]
+        from video_creation._A_video_scripts.script_modifier import modify_video_script
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            (base_dir / "input" / "csv" / "script_to_change").mkdir(parents=True, exist_ok=True)
+            state_mgr = StateManager(base_dir)
+
+            script_body = (
+                "Have you fought with English words keeping letters you do not pronounce?\n\n"
+                "Here is the wild truth. In words like knight and knee, that K was not always silent.\n\n"
+                "Centuries ago, English speakers actually pronounced both letters out loud.\n\n"
+                "That means silent letters are linguistic fossils trapped in time.\n\n"
+                "What silent letter drives you completely crazy?"
+            )
+
+            initial_state = {
+                "id": "EF01",
+                "status": {
+                    "script_generation": "done",
+                    "voice_generation": "done",
+                    "image_generation": "done",
+                    "thumbnail_generation": "done",
+                    "video_assembly": "done",
+                },
+                "assets": {
+                    "general_prompt": "Old world prompt",
+                    "anchor_world_id": "old_world",
+                    "image_prompts": {"hook": "old"},
+                    "images": {"hook": "old.png"},
+                },
+                "prompt_params": {
+                    "SCRIPT_ID": "EF01",
+                    "TARGET_LANGUAGE": "English",
+                    "VIDEO_TYPE": "FUN_FACTS",
+                    "EXPRESSION": "'I am' is the Shortest Complete Sentence in English",
+                    "TOPIC": "'I am' is the Shortest Complete Sentence in English",
+                },
+                "content_metadata": {
+                    "video_type": "FUN_FACTS",
+                    "language": "English",
+                    "topic": "'I am' is the Shortest Complete Sentence in English",
+                    "target_expression": "'I am' is the Shortest Complete Sentence in English",
+                    "script": {
+                        "title": "I am the shortest sentence ever",
+                        "hook": "Old hook about I am.",
+                        "setup": "Old setup.",
+                        "discovery": "Old discovery.",
+                        "payoff": "Old payoff.",
+                    },
+                },
+                "metadata": {"TITLE": "I am the shortest sentence ever"},
+            }
+            state_mgr.save_script_state("EF01", initial_state)
+
+            csv_path = base_dir / "input" / "csv" / "script_to_change" / "english_fun_facts_script_to_change.csv"
+            import csv
+            with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=["ID", "NEW_SCRIPT", "EXPRESSION"])
+                w.writeheader()
+                w.writerow({"ID": "EF01", "NEW_SCRIPT": script_body, "EXPRESSION": "Silent Letters"})
+
+            changed, identical, missing = audit_script_changes(base_dir=base_dir)
+            self.assertEqual(len(changed), 1)
+            self.assertEqual(changed[0]["id"], "EF01")
+            self.assertEqual(changed[0]["new_expression"], "Silent Letters")
+
+            with patch("video_creation._A_video_scripts.script_modifier.is_llm_online", return_value=False):
+                ok = modify_video_script(
+                    script_id="EF01",
+                    raw_script_text=changed[0]["new_script"],
+                    reset_downstream=True,
+                    base_dir=base_dir,
+                    auto_update_csv=False,
+                    new_expression=changed[0]["new_expression"],
+                )
+            self.assertTrue(ok)
+
+            updated = state_mgr.get_script_state("EF01")
+            self.assertEqual(updated["prompt_params"]["TOPIC"], "Silent Letters")
+            self.assertEqual(updated["prompt_params"]["EXPRESSION"], "Silent Letters")
+            self.assertEqual(updated["content_metadata"]["topic"], "Silent Letters")
+            self.assertEqual(updated["content_metadata"]["script"]["title"], "Origin: Silent Letters")
+            self.assertEqual(updated["metadata"]["TITLE"], "Origin: Silent Letters")
+            for k in ("hook", "setup", "discovery", "explanation", "payoff"):
+                self.assertIn(k, updated["content_metadata"]["script"])
+            self.assertNotIn("general_prompt", updated["assets"])
+            self.assertEqual(updated["status"]["image_generation"], "pending")
 
 
 if __name__ == "__main__":

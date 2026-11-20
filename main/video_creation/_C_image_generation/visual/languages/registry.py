@@ -74,8 +74,8 @@ MULTILINGUAL_SEMANTIC_DOMAINS: List[Tuple[str, List[str], str]] = [
             "università", "campus", "blackboard", "chalkboard", "desk"
         ],
         "Ground this visual world in an authentic student academic environment "
-        "(e.g. a university library research carrel with green-shaded brass lamps, a campus project table, "
-        "an architectural student drafting atelier, or a student common room lounge)."
+        "(e.g. a university library reading hall with green-shaded brass lamps, a historic stone college quadrangle, "
+        "a shaded bookstore reading alcove, or an outdoor campus terrace)."
     ),
     (
         "Workplace & Professional Life",
@@ -85,9 +85,9 @@ MULTILINGUAL_SEMANTIC_DOMAINS: List[Tuple[str, List[str], str]] = [
             "meeting", "riunione", "reunión", "job", "interview", "colloquio",
             "entrevista", "company", "azienda", "empresa", "email", "client", "career"
         ],
-        "Ground this visual world in a realistic professional or vocational workspace "
-        "(e.g. a shared creative studio, a municipal client counter, an architectural drafting atelier, "
-        "or an open-plan office discussion nook)."
+        "Ground this visual world in a realistic civic, commercial, or harborfront workspace "
+        "(e.g. a bustling historic commercial arcade, a municipal client counter, a bright glass harborfront logistics office, "
+        "or a sunlit city hall stone steps promenade)."
     ),
     (
         "Shopping, Markets & Commerce",
@@ -121,9 +121,9 @@ MULTILINGUAL_SEMANTIC_DOMAINS: List[Tuple[str, List[str], str]] = [
             "concert", "concerto", "dance", "ballo", "danza", "danse", "instrument",
             "guitar", "piano", "museum", "museo", "gallery", "exhibition"
         ],
-        "Ground this visual world in an expressive creative or cultural space "
-        "(e.g. an intimate music practice studio, a cinema lobby, an art gallery corridor, "
-        "or a theater backstage)."
+        "Ground this visual world in an expressive cultural or performing-arts space "
+        "(e.g. a vintage vinyl record shop, a sunlit outdoor amphitheater, an art gallery corridor, "
+        "or a historic theater foyer)."
     ),
     (
         "Healthcare & Wellbeing",

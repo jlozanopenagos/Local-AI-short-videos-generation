@@ -208,8 +208,8 @@ def build_character_cast(
     sents = _split_sentences_safe(general_prompt)
 
     HUMAN_WORD_PATTERN = re.compile(
-        r'\b(?:student|boy|girl|protagonist|peer|companion|teen|teenager|teenage|'
-        r'14-year|15-year|16-year|14-16|15yo|16yo|young man|young woman|male|female|'
+        r'\b(?:student|senior|boy|girl|protagonist|peer|companion|teen|teenager|teenage|'
+        r'14-year|15-year|16-year|17-year|14-16|15yo|16yo|17yo|high-school senior|young man|young woman|male|female|'
         r'chico|chica|hombre|mujer|muchacho|muchacha|char_1|char_2|character 1|character 2|'
         r'primary character|secondary character)\b',
         re.IGNORECASE,
@@ -332,7 +332,7 @@ def build_character_cast(
         c1_desc_lower = c1_desc.lower()
         anchor_is_female = bool(re.search(r'\b(girl|female|woman|chica|muchacha|mujer)\b', c1_desc_lower))
         if anchor_is_female == p1_is_female:
-            c2_desc = character_anchors.get("char2_desc") or (c2_text if c2_text else f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)")
+            c2_desc = character_anchors.get("char2_desc") or (c2_text if c2_text else f"17-year-old high-school senior {gender_word2} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)")
             cont_summary = character_anchors.get("continuity_summary") or (
                 f"Character appearance continuity: Character 1 is a {c1_desc}; Character 2 is a {c2_desc}."
                 if has_two_characters else f"Character appearance continuity: The protagonist is a {c1_desc}."
@@ -362,7 +362,7 @@ def build_character_cast(
             return CharacterCast(
                 has_two_characters=has_two_characters,
                 char1_desc=parsed["char1_desc"],
-                char2_desc=parsed.get("char2_desc", f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)"),
+                char2_desc=parsed.get("char2_desc", f"17-year-old high-school senior {gender_word2} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)"),
                 char1_hair=parsed.get("char1_hair", ""),
                 char2_hair=parsed.get("char2_hair", ""),
                 char1_attire=parsed.get("char1_attire", ""),
@@ -392,12 +392,12 @@ def build_character_cast(
         char1_attire = attire_matches[0].strip() if attire_matches else "an authentic thematic costume matching this setting"
         if not p1_is_female:
             char1_attire = re.sub(r"\b(?:bodice|corset|kirtle|skirt|gown|dress)\b", "doublet and tailored trousers", char1_attire, flags=re.IGNORECASE)
-        char1_desc = f"14-16-year-old high-school teenage {gender_word1} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child) with {char1_hair} wearing {char1_attire}"
+        char1_desc = f"17-year-old high-school senior {gender_word1} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) with {char1_hair} wearing {char1_attire}"
 
     if c2_text:
         char2_desc = c2_text
     else:
-        char2_desc = f"14-16-year-old high-school teenage {gender_word2} (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child)"
+        char2_desc = f"17-year-old high-school senior {gender_word2} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)"
 
     if has_two_characters:
         continuity_summary = (

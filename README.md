@@ -86,7 +86,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 370 automated tests across 5 layers (unit, integration & contracts, connectivity, webui, drive)
+# Run all 436 automated tests across 46 test files in 4 QA layers (unit, integration & contracts, connectivity, webui)
 py test/run_tests.py
 
 # Run specific layers
@@ -160,7 +160,7 @@ py main/connectivity/sync_drive.py --all
 py main/connectivity/sync_drive.py --script-id EE01
 
 # Filter by language and video format
-py main/connectivity/sync_drive.py --language spanish --type game
+py main/connectivity/sync_drive.py --all --language spanish --video-type game
 ```
 
 ---
@@ -201,20 +201,37 @@ The pipeline manages a canonical master catalog of **1,224 language learning scr
 > **State Machine Invalidation Behavior**: Whenever Column D script edits are synced from Google Sheets or applied via `check_script_changes.py --apply`, downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) are intentionally invalidated back to `"pending"`. This architectural safety gate ensures modified spoken wording is deterministically re-rendered into audio, subtitles, and video, explaining why 155 `.mp4` videos exist on disk while the tracking database marks scripts as pending re-render.
 
 ### 3. QA Testing Metrics
-- **Automated Tests**: **370 tests passing 100%** across Unit, Integration & Schema Contracts, Connectivity, WebUI API, and Google Drive Sync layers (`py test/run_tests.py` in ~28s).
+- **Automated Tests**: **436 tests across 46 test files passing 100%** across Unit, Integration & Schema Contracts, Connectivity, WebUI API, and Google Drive Sync layers (`py test/run_tests.py` in ~51s).
 
 ---
 
 ## Recent Changes
 
-### Latest Release: Google Drive Sync Suite, Single Source of Truth Visual Anchors & Prompt Auditor 2.0
+### Latest Release: Stage C Late-Teen Cropped Framing, Preserved General Prompt Redo, Google Sheets Sync & Cultural World Atlas
+- **Stage C Late-Teen (`17-year-old`, `1:7`) Proportions, Cropped `hook` Framing & Sanitizer Hardening**:
+  - **Proportion & Age Normalization (`sanitizer.py`, `style.py`, `cast.py`, `gemini_auditor.py`)**: Upgraded the purely-positive Z-Image-Turbo (`cfg=1.0`) anchor to `17-year-old high-school senior` (`realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build`) and automatically upgrades `8–15`, `fourteen-year-old`, `fifteen-year-old`, `14-16yo`, and `14-16-year-old` tokens to `17-year-old` (preserving `16–18`).
+  - **Cropped `hook` Framing & Wearable Footwear Stripping (`prompt_builder.py`, `sanitizer.py`, `visual/types/*`)**: Switched `GAME` `hook` to a waist-up 3/4-angled `50mm` medium shot under directional spotlighting, tightened `EXPRESSION` `hook` (`35mm` waist-up / mid-thigh) and `FUN_FACTS` `hook` (`28mm` low-angle mid-thigh/waist-up), removed footwear mandates from cropped scene prompts (`strip_footwear_clauses`, `CROPPED_FRAMING_RE`, `_CROPPED_SCENES`, and `NEGATIVE_PROMPT_SHIELD`) while preserving venue/prop nouns (`sneaker boutique`, `footwear workshop`, `shoe boxes`), and fixed shortened-tail proportion anchor skipping plus compound-noun false positives (`reading lamp`, `reading alcove`, `reading hall`, `reading boxes`, `calling card`).
+- **WebUI Preserved General Prompt on Full Image Redo (`POST /api/scripts/{script_id}/redo-all-images`, `ScriptDetailModal`)**:
+  - Added `preserve_general_prompt=True` so single-script **Queue Redo (All Images)** keeps the user-edited or Gemini-audited `general_prompt` intact while regenerating scene prompts and PNGs (while **Mass Assets Creation** keeps `preserve_general_prompt=False` for full rebuilds). Rebuilt frontend static bundle in `main/webui/static/`.
+- **Google Sheets Sync Fixes Across All 16 Sheets (`client.py`, `fetcher.py`, `check_script_changes.py`, `sheets.py`, `script_modifier.py`)**:
+  - Added `SCRIPT_CHANGE` header alias alongside `SCRIPT_CHANGED`, Column B `EXPRESSION` preservation through CSV/WebUI sync, 5-section `FUN_FACTS` parsing (`hook`, `setup`, `discovery`, `explanation`, `payoff`), and title/anchor invalidation on topic changes.
+- **Google Drive Clean Delete-Before-Upload Replacement (`drive_client.py`, `sync_service.py`, `DriveAdapter`, `sync_drive.py`)**:
+  - **Safe Atomic Replacement**: Validates that BOTH the local final assembled video and companion thumbnail exist BEFORE making any deletions on Drive.
+  - **Clean Deduplication & Pre-Upload Cleanup**: Calls `delete_duplicate_folders()` for `<script_id>` and `clear_folder()` (paginated deletion with `supportsAllDrives=True, includeItemsFromAllDrives=True` and HTTP 400/403 Trash fallback + `_folder_cache` eviction) before uploading fresh `<script_id>.mp4` and `<script_id>_thumbnail.png` files into `<root>/<language>/<expressions|fun_facts|game|role_play>/<script_id>/`. Returns and logs `deleted_existing_count` across both CLI and WebUI `DriveAdapter`.
+  - **Unified Credential Resolution**: Auto-resolves credentials from `--credentials`, `GOOGLE_APPLICATION_CREDENTIALS`, or `main/credentials/` (`token.json` -> `service_account.json` -> `client_secret.json`).
+- **Cultural World Atlas (124 Culturally Grounded Worlds) & Stage G Modular Video Assembly (`_G_video_assembly/assembly/`)**:
+  - **Cultural Worlds & Gemini Auditor Reroll**: Replaced generic studio/workshop/greenhouse/drafting-vest tropes with **124 culturally authentic venues** across 4 languages (36 English, 32 Spanish, 28 French, 28 Italian), Triplet Collision Guard, and automatic Cultural World reroll excluding prior drafts.
+  - **Per-Type Editing Grammar & Forced Mass Assembly**: Decoupled `assembly/types/{expression,game,roleplay,fun_facts}/` with cosine-eased Ken Burns motion, **Lower-Middle Safe Zone** subtitles, `ROLEPLAY` speaker color-coding, frame-accurate `xfade` transitions, and forced delete-and-recreate in `AssemblyAdapter`.
+- **QA Test Suite**: Isolated `test_chalkboard_adapter.py` into a temporary sandbox and expanded verified coverage to **436 automated tests across 46 test files** passing 100% (`py test/run_tests.py`).
+
+### Previous Release: Google Drive Sync Suite, Single Source of Truth Visual Anchors & Prompt Auditor 2.0
 - **Google Drive Export & Mass Drive Upload Suite**:
-  - **Standalone CLI & Service (`main/connectivity/sync_drive.py` & `drive_sync/`)**: Headless and automated synchronization of finished video assets to Google Drive. Implements dual authentication via OAuth 2.0 (with interactive local browser sign-in and auto-refreshing token storage in `.credentials/drive_token.json`) and Google Cloud Service Account fallback.
-  - **Hierarchical Drive Folder Structuring**: Uploads to a designated root folder (`youtube_shorts_ready`), automatically organizing files into target language subdirectories (`english`, `french`, `spanish`, `italian`) and video type subdirectories (`expression`, `game`, `roleplay`, `fun_facts`).
-  - **Atomic Video & Thumbnail Bundling**: Strictly validates that each script possesses both the final assembled video (`_final.mp4`) and companion thumbnail (`thumbnail.png`). Verifies file sizes, assigns accurate MIME types, and safely skips already-uploaded assets.
+  - **Standalone CLI & Service (`main/connectivity/sync_drive.py` & `drive_sync/`)**: Headless and automated synchronization of finished video assets to Google Drive (`drive_client.py` & `sync_service.py`). Supports OAuth 2.0 Desktop App (`client_secret.json` -> `token.json` in `main/credentials/`) and Service Account (`service_account.json`) credentials.
+  - **Hierarchical Drive Folder Structuring**: Routes uploads to `DEFAULT_ROOT_FOLDER_ID` (`15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z`) organized into `<language>` (`english`, `french`, `spanish`, `italian`), `<video_type>` (`expressions`, `fun_facts`, `game`, `role_play`), and `<script_id>` subfolders.
+  - **Atomic Video & Thumbnail Bundling**: Strictly validates that each script possesses both the final assembled video and companion thumbnail before uploading `<script_id>.mp4` and `<script_id>_thumbnail.png`.
   - **WebUI Single-Script Upload & Mass Drive Upload**:
-    - `ScriptDetailModal`: Added instant "upload to google drive" action with live progress indicator (`POST /api/drive/upload/{script_id}`).
-    - `MassAssetsCreationView`: Added "mass drive upload" mode allowing bulk ID entry, CSV drag-and-drop, and "load all ready videos" preset. Includes a pre-flight readiness audit (`POST /api/drive/check-readiness`) showing green/red badges indicating whether videos and thumbnails exist, and enqueues background jobs via `DriveAdapter` (`POST /api/drive/mass-upload`).
+    - `ScriptDetailModal`: Added instant "upload to google drive" action (`POST /api/drive/scripts/{script_id}/upload`).
+    - `MassAssetsCreationView`: Added "google drive upload" mode allowing bulk ID entry, CSV drag-and-drop, and "ready for drive upload (video + thumb)" preset. Validates IDs via `POST /api/scripts/validate-ids`, displays readiness badges, and enqueues batch jobs through `DriveAdapter` via `POST /api/jobs` (`stage="drive_upload"`).
 - **Authoritative Visual World Anchor & Single Source of Truth**:
   - **General Prompt Authority**: Completely eliminated disparate prompt generation logic where `_extract_shared_story_context` in `prompt_builder.py` recalculated independent character demographics. Scene prompts now inherit visual world anchors directly from `extract_or_build_character_anchors`, ensuring the General Prompt serves as the sole, authoritative source of truth for character gender, ethnicity/skin tone, hairstyle, and wardrobe across all scenes.
   - **Case-Insensitive Speaker Gender Resolution (`get_speaker_gender_safe`)**: Resolved a pervasive gender inversion bug where TitleCase keys (`"Narrator"`) in `speakers_gender` (present in over 1,038 state files across the database) failed `.get("NARRATOR")` lookups and defaulted female characters to `"male"`. Added case-insensitive key normalization and fuzzy fallback.

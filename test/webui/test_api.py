@@ -426,13 +426,14 @@ class TestWebUIApi(unittest.TestCase):
         self.assertEqual(saved_data["status"]["image_generation"], "pending")
         self.assertEqual(saved_data["status"]["video_assembly"], "pending")
 
-        # Verify enqueue was called with force=True and regenerate_prompts=True
+        # Verify enqueue was called with force=True, regenerate_prompts=True, and preserve_general_prompt=True
         mock_enqueue.assert_called_once()
         job_req = mock_enqueue.call_args[0][0]
         self.assertEqual(job_req.stage.value, "images")
         self.assertEqual(job_req.script_ids, ["FE06"])
         self.assertEqual(job_req.options["force"], True)
         self.assertEqual(job_req.options["regenerate_prompts"], True)
+        self.assertEqual(job_req.options["preserve_general_prompt"], True)
 
     def test_drive_status_endpoint(self):
         """Verify GET /api/drive/status returns drive configuration."""

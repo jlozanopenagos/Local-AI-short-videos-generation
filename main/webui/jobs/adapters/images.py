@@ -59,6 +59,7 @@ class ImagesAdapter(BaseStageAdapter):
         sm = StateManager(base_dir=BASE_DIR)
         force = options.get("force", False)
         regenerate_prompts = options.get("regenerate_prompts", False)
+        preserve_general_prompt = bool(options.get("preserve_general_prompt", False))
         raw_seed = options.get("seed")
         seed = int(raw_seed) if (raw_seed is not None and int(raw_seed) > 0) else None
 
@@ -122,12 +123,15 @@ class ImagesAdapter(BaseStageAdapter):
                         try:
                             if attempt > 1:
                                 emit_log(f"  [{s_id}] Retrying prompt generation (attempt {attempt}/{max_prompt_attempts})...")
+                            if preserve_general_prompt and (s_data.get("assets", {}).get("general_prompt") or "").strip():
+                                emit_log(f"  [{s_id}] Preserving saved general prompt and regenerating scene-specific prompts...")
                             ensure_image_prompts_for_script(
                                 script_data=s_data,
                                 state_manager=sm,
                                 prompt_builder=prompt_builder,
                                 force=bool(force or regenerate_prompts),
                                 base_dir=BASE_DIR,
+                                preserve_general_prompt=preserve_general_prompt,
                             )
                             fresh_state = sm.get_script_state(s_id)
                             fresh_prompts = fresh_state.get("assets", {}).get("image_prompts", {})

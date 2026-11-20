@@ -100,6 +100,46 @@ def resolve_bank_music(script_data: dict, script_output_dir: Path, base_dir: Pat
     print(f"[{script_id}] Notice: No background music found in bank ({lang}/{vtype}). Assembling video without BGM.")
     return None
 
+def delete_existing_final_video(script_data: dict, script_output_dir: Path) -> List[Path]:
+    """
+    Deletes any existing final assembled .mp4 for this script (both the canonical
+    `script_<ID>_final.mp4` output path and any stored `assets.final_video` path),
+    clears `assets.final_video`, and resets `status.video_assembly` to `'pending'`.
+    Returns the list of deleted Path objects.
+    """
+    script_id = str(script_data.get("id") or "").strip().upper()
+    candidates: List[Path] = []
+    if script_id:
+        candidates.append(script_output_dir / f"script_{script_id}_final.mp4")
+
+    assets = script_data.setdefault("assets", {})
+    if isinstance(assets, dict):
+        stored_final = assets.get("final_video")
+        if isinstance(stored_final, str) and stored_final.strip():
+            candidates.append(Path(stored_final.strip()))
+        assets.pop("final_video", None)
+
+    status = script_data.setdefault("status", {})
+    if isinstance(status, dict):
+        status["video_assembly"] = "pending"
+
+    deleted: List[Path] = []
+    seen_keys: set[str] = set()
+    for cand in candidates:
+        try:
+            key = str(cand.resolve()).lower()
+        except OSError:
+            key = str(cand).lower()
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        if cand.exists() and cand.is_file():
+            cand.unlink()
+            deleted.append(cand)
+
+    return deleted
+
+
 def process_script(
     script_data: dict,
     state_manager: StateManager,
@@ -334,6 +374,15 @@ def process_script(
         resolved_lang = resolve_script_language(script_data)
         vtype = resolve_script_video_type(script_data)
         final_video_path = script_output_dir / f"script_{script_id}_final.mp4"
+
+        deleted_videos = delete_existing_final_video(script_data, script_output_dir)
+        if deleted_videos:
+            print(
+                f"[{script_id}] Deleted existing final video(s) before re-assembly: "
+                f"{', '.join(p.name for p in deleted_videos)}"
+            )
+            state_manager.save_script_state(script_id, script_data)
+
         success = assembler.assemble(
             script_id, timings_path, image_dir, audio_path, ass_path, final_video_path,
             bgm_path=bgm_path, watermark_path=watermark_path,
@@ -471,56 +520,75 @@ def main():
 
         target_language = args.language if args.language and args.language.lower() != "all" else None
 
-        # Query pending scripts via Pipeline Status Tracker
-        try:
-            try:
-                # pyrefly: ignore [missing-import]
-                from core.status_tracker import get_status_tracker
-            except (ImportError, ModuleNotFoundError):
-                # pyrefly: ignore [missing-import]
-                from status_tracker import get_status_tracker
-            tracker = get_status_tracker(base_dir)
-            pending_rows = tracker.get_pending_scripts(
-                "video_assembly",
-                script_id=target_script_ids,
-                language=target_language,
-                video_type=target_video_type,
-                force=args.force
-            )
-            pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
-            if target_script_ids:
-                pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
-        except Exception:
-            all_scripts = state_manager.get_all_scripts()
+        if target_script_ids:
+            # Explicit target IDs always force re-assembly (deleting any prior final .mp4)
             pending = []
-            for script in all_scripts:
-                script_id = script.get("id")
-                if target_script_ids and script_id not in target_script_ids:
+            for sid in target_script_ids:
+                if not state_manager.script_exists(sid):
                     continue
-                if target_language:
-                    slang = (script.get("content_metadata", {}).get("language") or "").lower()
-                    if slang != target_language.lower():
-                        continue
+                script = state_manager.get_script_state(sid)
+                if target_language and resolve_script_language(script).lower() != target_language.lower():
+                    continue
                 if target_video_type:
-                    svtype = (script.get("content_metadata", {}).get("video_type") or "").lower()
+                    svtype = resolve_script_video_type(script).lower()
                     if target_video_type == "fun_facts" and svtype not in ("fun_facts", "funfacts"):
                         continue
                     elif target_video_type != "fun_facts" and svtype != target_video_type:
                         continue
-
-                try:
-                    # pyrefly: ignore [missing-import]
-                    from core.expression_db import is_expression_done
-                except (ImportError, ModuleNotFoundError):
-                    # pyrefly: ignore [missing-import]
-                    from expression_db import is_expression_done
-                if is_expression_done(script_id):
-                    continue
-
                 status = script.get("status", {})
                 if status.get("voice_generation") == "done" and status.get("image_generation") == "done":
-                    if args.force or status.get("video_assembly") != "done":
-                        pending.append(script)
+                    pending.append(script)
+        else:
+            # Query pending scripts via Pipeline Status Tracker
+            try:
+                try:
+                    # pyrefly: ignore [missing-import]
+                    from core.status_tracker import get_status_tracker
+                except (ImportError, ModuleNotFoundError):
+                    # pyrefly: ignore [missing-import]
+                    from status_tracker import get_status_tracker
+                tracker = get_status_tracker(base_dir)
+                pending_rows = tracker.get_pending_scripts(
+                    "video_assembly",
+                    script_id=target_script_ids,
+                    language=target_language,
+                    video_type=target_video_type,
+                    force=args.force
+                )
+                pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
+                if target_script_ids:
+                    pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
+            except Exception:
+                all_scripts = state_manager.get_all_scripts()
+                pending = []
+                for script in all_scripts:
+                    script_id = script.get("id")
+                    if target_script_ids and script_id not in target_script_ids:
+                        continue
+                    if target_language:
+                        slang = (script.get("content_metadata", {}).get("language") or "").lower()
+                        if slang != target_language.lower():
+                            continue
+                    if target_video_type:
+                        svtype = (script.get("content_metadata", {}).get("video_type") or "").lower()
+                        if target_video_type == "fun_facts" and svtype not in ("fun_facts", "funfacts"):
+                            continue
+                        elif target_video_type != "fun_facts" and svtype != target_video_type:
+                            continue
+
+                    try:
+                        # pyrefly: ignore [missing-import]
+                        from core.expression_db import is_expression_done
+                    except (ImportError, ModuleNotFoundError):
+                        # pyrefly: ignore [missing-import]
+                        from expression_db import is_expression_done
+                    if is_expression_done(script_id):
+                        continue
+
+                    status = script.get("status", {})
+                    if status.get("voice_generation") == "done" and status.get("image_generation") == "done":
+                        if args.force or status.get("video_assembly") != "done":
+                            pending.append(script)
 
         if not pending:
             scope_label = f" ({target_video_type.upper()})" if target_video_type else ""

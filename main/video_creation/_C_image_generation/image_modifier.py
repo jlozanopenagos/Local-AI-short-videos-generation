@@ -229,6 +229,8 @@ def modify_group_interactive(
         lexical_field=lexical_field_str,
         label=label,
         video_type=video_type,
+        language=label,
+        script_id=script_id,
     )
 
     stored_general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
@@ -989,6 +991,8 @@ def modify_scene_interactive(
             lexical_field=lexical_field_str,
             label=label,
             video_type=video_type,
+            language=label,
+            script_id=script_id,
         )
         stored_general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
         general_prompt_val = stored_general_prompt or anchor_environment
@@ -1374,13 +1378,13 @@ def modify_scene_interactive(
                     char_desc = (
                         f"Characters MUST be expressive youthful 2D cartoon teens: "
                         f"PERSON_ONE is a teen {p1_word} ({p1_g.upper()}) and PERSON_TWO is a companion teen {p2_word} ({p2_g.upper()}) (approx. 15-16 years old) "
-                        f"wearing authentic thematic scene costumes matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                        f"wearing stylish culturally authentic venue attire matching {anchor_environment} (NO plain blank t-shirts/hoodies, NO childish clothes, NO mature adults). "
                     )
                 else:
                     gender_word = "boy" if current_princ_gender == "male" else "girl"
                     char_desc = (
                         f"Protagonist MUST be an expressive youthful 2D cartoon teen {gender_word.upper()} (approx. 15-16 years old) "
-                        f"wearing authentic thematic scene costume/wardrobe matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                        f"wearing stylish culturally authentic venue wardrobe matching {anchor_environment} (NO plain blank t-shirts/hoodies, NO childish clothes, NO mature adults). "
                     )
                 aug_scene = (
                     f"{scene_text}\n"
@@ -1423,11 +1427,11 @@ def modify_scene_interactive(
                         p2_word = "girl" if "f" in p2_g else "boy"
                         wardrobe_mandate = (
                             f"(Characters MUST be expressive youthful 2D cartoon teens: PERSON_ONE is a teen {p1_word} ({p1_g.upper()}) and PERSON_TWO is a teen {p2_word} ({p2_g.upper()}) "
-                            f"approx. 15-16 years old in authentic thematic costumes matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
+                            f"approx. 15-16 years old in stylish culturally authentic venue attire matching {anchor_environment}, NO plain blank clothes, NO childish clothes, NO mature adults)"
                         )
                     else:
                         gender_word = "boy" if current_princ_gender == "male" else "girl"
-                        wardrobe_mandate = f"(Protagonist MUST be a youthful 2D cartoon teen {gender_word.upper()} approx. 15-16 years old in authentic thematic costume matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
+                        wardrobe_mandate = f"(Protagonist MUST be a youthful 2D cartoon teen {gender_word.upper()} approx. 15-16 years old in stylish culturally authentic venue attire matching {anchor_environment}, NO plain blank clothes, NO childish clothes, NO mature adults)"
                     if more_notes:
                         aug_text = f"{scene_text}\n[VISUAL DIRECTOR GUIDANCE: {more_notes} {wardrobe_mandate}]"
                     else:

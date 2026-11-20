@@ -275,5 +275,38 @@ class TestRealFfmpegTypedAssemblySmoke(unittest.TestCase):
                     self.assertAlmostEqual(actual_dur, expected_dur, delta=0.35)
 
 
+class TestForceDeleteExistingVideo(unittest.TestCase):
+    def test_delete_existing_final_video_removes_canonical_and_asset_paths(self):
+        """Verifies Stage G helper deletes old .mp4 files and resets status/assets before re-assembly."""
+        # pyrefly: ignore [missing-import]
+        from video_creation._G_video_assembly.main import delete_existing_final_video
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "script_EE99"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            canonical_mp4 = out_dir / "script_EE99_final.mp4"
+            canonical_mp4.write_bytes(b"old-canonical-video")
+            custom_mp4 = Path(tmp) / "legacy_location" / "custom_EE99.mp4"
+            custom_mp4.parent.mkdir(parents=True, exist_ok=True)
+            custom_mp4.write_bytes(b"old-custom-video")
+
+            script_data = {
+                "id": "EE99",
+                "assets": {"final_video": str(custom_mp4)},
+                "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "done"},
+            }
+
+            deleted = delete_existing_final_video(script_data, out_dir)
+            self.assertEqual(len(deleted), 2)
+            self.assertFalse(canonical_mp4.exists())
+            self.assertFalse(custom_mp4.exists())
+            self.assertNotIn("final_video", script_data["assets"])
+            self.assertEqual(script_data["status"]["video_assembly"], "pending")
+
+            # Idempotent second call when files are already gone
+            deleted_again = delete_existing_final_video(script_data, out_dir)
+            self.assertEqual(deleted_again, [])
+
+
 if __name__ == "__main__":
     unittest.main()

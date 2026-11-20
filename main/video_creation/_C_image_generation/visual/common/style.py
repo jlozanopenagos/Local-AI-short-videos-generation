@@ -60,29 +60,25 @@ CHARACTERS
 
 Describe characters naturally, specifically, and charmingly.
 
-MANDATORY HIGH SCHOOL PROTAGONIST DIRECTIVE (14–16 YEARS OLD — SITUATION-APPROPRIATE ATTIRE):
-- ALL main characters across EVERY scene MUST be stylish 2D cartoon high school students (approx. 14–16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child).
-- STRICT PROHIBITION ON MATURE ADULTS & YOUNG CHILDREN:
-  * NEVER depict middle-aged people, elderly individuals, mature grown-ups, or weathered adult faces with wrinkles.
-  * NEVER depict toddlers, elementary school kids, or childish proportions.
-- MANDATORY THEMATIC WARDROBE (CLOTHING MUST BE EXPLICITLY THEMED TO THE SCENE):
-  * The character's clothing MUST visibly and unmistakably match the specific thematic setting and narrative scene. NEVER use generic modern street clothes!
-    - In theater / performing arts (e.g. EE01): theatrical stage costume, dramatic performance wear, ornate stage vest, performer capelet/waistcoat, or theatrical rehearsal outfit with costume accessories. NEVER plain street clothes or generic casual hoodies/t-shirts!
-    - In culinary / kitchen: authentic crisp chef coat or artisan cooking apron with rolled sleeves and neckerchief.
-    - In architecture / design studio: technical drafting vest, designer workshop smock with mechanical pencils in pocket, or sleek architect studio coat.
-    - In science / lab / research: crisp student laboratory coat, researcher vest, or academic field smock.
-    - In music / audio studio: vintage sound technician jacket, musician stage vest, headphones draped around neck.
-    - In artisan / craft workshop: heavy leather maker apron, tool harness, sturdy craftsman workwear.
-  * STRICT BAN ON GENERIC CLOTHES: Strictly ban plain modern t-shirts, plain hoodies, jeans, and nondescript street clothes when an authentic setting is established! The wardrobe must visually reinforce the theme!
+MANDATORY HIGH SCHOOL PROTAGONIST DIRECTIVE (17-YEAR-OLD HIGH-SCHOOL SENIORS — COMPLETE LAYERED ATTIRE):
+- ALL main characters across EVERY scene MUST be stylish 2D cartoon 17-year-old high-school seniors (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build).
+- POSITIVE ANATOMY & PROPORTION RULE: Render every character with authentic late-teenager stature, natural shoulder width, neck length, and expressive lively 2D cartoon eyes (avoid straight-on passport head-crops or tiny full-body figures).
+- MANDATORY CULTURALLY AUTHENTIC VENUE WARDROBE (COMPLETE LAYERED UPPER + LOWER GARMENTS — OMIT FOOTWEAR IN CROPPED SHOTS):
+  * Dress the 17-year-old high-school seniors in stylish, culturally authentic teenage street and venue fashion that fits the specific city, climate, and setting of the Master Story World, always specifying BOTH an upper layered garment AND an explicit lower garment (trousers, chinos, or skirt), while OMITTING shoes/footwear in waist-up, chest-up, mid-thigh, and medium shots so framing never zooms out head-to-toe:
+    - At a Parisian friperie or bookstall: vintage corduroy jacket, wool cardigan, patterned neck scarf, pleated trousers or skirt.
+    - At an Italian gelateria or coastal plaza: crisp short-sleeve linen camp shirt, tailored chinos or flowing skirt.
+    - At a colorful market, record shop, or iconic landmark: layered varsity/utility overshirt, striped knit sweater, cuffed trousers.
+    - ONLY when the script explicitly depicts a kitchen chef, doctor/clinic, or theater stage actor: include an authentic apron/coat layered over a collared shirt AND tailored trousers/skirt.
+  * Always specify distinctive garment layers, textures, bottom wear, and colors.
 
 Include relevant details such as:
-- approximate age (high school student, 14-16 years old, natural balanced teenage proportions)
+- approximate age (17-year-old high-school senior, realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)
 - gender when relevant
 - appearance
 - hairstyle
-- situation-appropriate clothing (thematic costume/wardrobe matching the scene, NO plain street clothes)
+- situation-appropriate clothing (layered top garment + explicit trousers/chinos/skirt; omit footwear in waist-up, chest-up, mid-thigh, and medium shots)
 - facial expression
-- body language
+- body language and active hand gesture or prop interaction
 - action
 - interaction with other characters
 
@@ -167,7 +163,7 @@ Lighting should reinforce the emotional tone without becoming unnecessarily dram
 
 VISUAL STYLE
 
-Use: clean modern 2D cartoon animation style, polished narrative illustration, expressive characters with simple black cartoon eyes (STRICTLY NO colored irises like blue, green, or hazel eyes), rich detailed interior background environment with depth, vibrant atmospheric lighting, readable silhouettes. Strictly ban dot eyes, minimalist faces, and solid color backgrounds.
+Use: clean modern 2D cartoon animation style, polished narrative illustration, expressive characters with simple black cartoon eyes (STRICTLY NO colored irises like blue, green, or hazel eyes), rich detailed physical background environment with architectural/atmospheric depth (authentic indoor venue OR open-air street/plaza/landmark), vibrant ambient lighting, readable silhouettes. Strictly ban dot eyes, minimalist faces, and solid color backgrounds.
 
 Do not add: "8K", "masterpiece", "photorealistic", "hyper realistic", "ultra detailed".
 
@@ -234,14 +230,14 @@ ABSOLUTE ZERO-TOLERANCE BAN ON TEXT & TEXT-BEARING SURFACES:
 
 ANTI-CLICHÉ & ANTI-CAFETERIA DIRECTIVE:
 - NEVER default to a generic cafeteria, coffee shop, or cafe table unless the script explicitly and specifically mentions ordering coffee, a barista, or a cafe setting.
-- STRICTLY BAN OVERUSED AI CLICHÉS: NO greenhouses, NO conservatories, NO plant nurseries, NO generic classrooms, NO school lecture rooms, NO generic flower shops, NO pottery/ceramic studios.
+- STRICTLY BAN OVERUSED AI CLICHÉS: NO creative studios, NO cultural study lounges, NO study lounges, NO design ateliers, NO artisan workshops, NO drafting rooms, NO empty living rooms/apartments, NO greenhouses, NO conservatories, NO plant nurseries, NO generic empty classrooms, NO pottery/ceramic workshops, NO generic flower shops.
 - ALL SCENES IN THIS SHORT MUST BELONG TO THE SAME COHESIVE PHYSICAL STORY WORLD. Do not randomly switch rooms or environments between scenes!
 
 MANDATORY MULTI-CHARACTER GENDER SPECIFICATION (ZERO-AMBIGUITY RULE):
 - Whenever MORE THAN ONE character appears in the image (in ROLEPLAY, EXPRESSION, GAME, or any video type):
   * The sex/gender of EACH character MUST be explicitly and unambiguously specified!
   * STRICTLY BAN collective, ambiguous, or generic gender-neutral words: NEVER say "the two teens", "two youthful teenage characters", "two colleagues", "two students", "two friends", "the characters", or "they".
-  * ALWAYS explicitly describe each individual character: e.g. "one youthful 14-16-year-old teen boy with masculine features wearing [wardrobe] and one youthful 14-16-year-old teen girl with feminine features wearing [wardrobe]" (or "two youthful teen boys", or "two youthful teen girls").
+  * ALWAYS explicitly describe each individual character: e.g. "one 17-year-old high-school senior boy with masculine features wearing [top + trousers] and one 17-year-old high-school senior girl with feminine features wearing [top + skirt/trousers]" (or "two 17-year-old high-school senior boys", or "two 17-year-old high-school senior girls").
   * For ROLEPLAY videos: You MUST strictly adhere to the exact assigned genders for PERSON_ONE and PERSON_TWO. NEVER swap their genders, and NEVER make them identical unless explicitly instructed!
 
 FINAL OBJECTIVE
@@ -259,32 +255,32 @@ The image must:
 
 
 _ALL_TYPES_STORYBOARD_GRAMMAR = """\
-     * FOR GAME SHORTS (SYMMETRICAL DILEMMA & TENSION PROGRESSION):
-       - Hook [THE LIVELY DILEMMA]: Dynamic 3/4 eye-level medium shot with warm cinematic depth. The 14-16yo student protagonist has a natural healthy athletic build and is caught in an active, energetic moment of clever curiosity and playful dilemma, weighing two choices with engaging personality. Lively expressive face with an amused raised eyebrow, slight thinking smile, head tilted curiously, and warm animated eyes full of life and spark (NEVER wide bug eyes, NEVER staring, NEVER unexpressive deadpan face).
-       - Answer [THE EUREKA BREAKTHROUGH]: Dynamic asymmetrical breakthrough moment! Protagonist radiates joyful relief, confident smile, and forward kinetic momentum in the authentic setting.
-       - Explanation: Real-world application showing natural confident usage.
+     * FOR GAME SHORTS (WAIST-UP 3/4 DILEMMA TO ASYMMETRICAL BREAKTHROUGH PROGRESSION):
+       - Hook [THE LIVELY DILEMMA]: Waist-up 3/4-angled medium shot (50mm lens, cropped cleanly at hips/mid-thigh — omit footwear) under warm dramatic directional spotlighting with rich environmental depth. The solo 17-year-old high-school senior protagonist (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) turns in a lively 3/4-angled pose making 100% direct fourth-wall eye contact, weighing two authentic setting props in hand with a confident raised eyebrow and subtle playful dilemma smirk.
+       - Answer [THE EUREKA BREAKTHROUGH]: Dynamic 3/4 asymmetrical waist-up medium action shot with forward kinetic momentum! Protagonist radiates joyful relief, confident smile, and forward kinetic momentum in the authentic setting.
+       - Explanation: Real-world narrative medium-wide shot (35mm lens) showing natural confident usage with 0% camera eye contact.
 
      * FOR EXPRESSION SHORTS (LAYERED DEPTH & INSIDER REVELATION PROGRESSION):
-       - Hook [THE INSIDER GUIDE]: 35mm angled foreground-and-background depth composition (Rule of Thirds). The 14-16yo student protagonist occupies the foreground left or right (35-40%), turned 3/4 toward the viewer with an engaging, playful knowing smile and warm animated cartoon eyes, sharing an insider secret with natural relaxed facial acting (subtle amused smirk, lively curious gaze, NEVER bulging eyes, NEVER staring rounded eyes) breaking the fourth wall. The luminous midground and deep background (60%) reveal the story setting and oversized thematic visual metaphor in rich atmospheric depth.
+       - Hook [THE INSIDER GUIDE]: Waist-up / mid-thigh angled 35mm foreground-and-background depth composition (Rule of Thirds, cropped cleanly at hips/mid-thigh — omit footwear). The 17-year-old high-school senior protagonist (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) occupies 40-45% foreground left or right, turned 3/4 toward the viewer with an engaging, playful knowing smile and lively simple black cartoon eyes, holding or gesturing toward an authentic prop while sharing an insider secret breaking the fourth wall. The luminous midground and deep background reveal the story setting and oversized thematic visual metaphor in rich atmospheric depth.
        - Setup [SOCIAL CONTRAST]: Two-shot profile angle across a table/counter demonstrating the conversational friction or literal misunderstanding.
-       - Discovery [EUREKA BREAKTHROUGH]: Medium action shot at a demonstration station. Radiant smile of sudden clarity and understanding.
-       - Example [LIVING KINETIC MOTION]: Dynamic waist-up or medium-wide action shot actively demonstrating the exact verb or example situation in full motion while keeping facial expressions clear.
-       - Payoff [CONFIDENT RESOLUTION]: Triumphant chest-up celebratory mastery in the story environment.
+       - Discovery [EUREKA BREAKTHROUGH]: Waist-up medium action shot at a demonstration station. Radiant smile of sudden clarity and understanding.
+       - Example [LIVING KINETIC MOTION]: Dynamic waist-up or mid-thigh action shot actively demonstrating the exact verb or example situation in full motion while keeping facial expressions clear.
+       - Payoff [CONFIDENT RESOLUTION]: Triumphant chest-up celebratory mastery in the story environment (cropped at mid-torso — omit footwear).
 
      * FOR ROLEPLAY SHORTS (DYNAMIC 6-BEAT CINEMATIC DIALOGUE PROGRESSION):
        - Hook [SCENARIO THRESHOLD TWO-SHOT]: Medium-wide 35mm diagonal shot crossing a physical threshold (archway, curtain edge, counter). STRICTLY ZERO FOURTH-WALL EYE CONTACT. Characters interact exclusively with each other in situational tension.
-       - Dialogue_Part_1 [SOLO TIGHT CLOSE-UP ON PERSON_ONE]: 85mm portrait lens, shallow depth of field, dramatic key lighting, expressive facial acting on PERSON_ONE showing dilemma or questioning (PERSON_TWO is strictly off-camera).
-       - Dialogue_Part_2 [SOLO 180° REVERSE-ANGLE CLOSE-UP ON PERSON_TWO]: 85mm portrait lens, 180° reverse angle, warm fill light, calm reassuring mentorship and guidance on PERSON_TWO (PERSON_ONE is strictly off-camera).
-       - Dialogue_Part_3 [90° SIDE PROFILE / TOP-DOWN TWO-SHOT PROP INTERACTION]: 50mm lens. The camera shifts 90° to a side-profile or high-angle table overview showing BOTH characters actively examining or manipulating an authentic physical prop from the setting. Breaks the solo close-up sequence with collaborative interaction.
-       - Dialogue_Part_4 [SOLO WAIST-UP DYNAMIC ACTION ON PERSON_ONE]: 28mm/50mm lens. Distinct waist-up dynamic action framing (completely different camera distance and physical stance from the tight close-up in Part 1) capturing PERSON_ONE gesturing with clarity, confidence, and determination (PERSON_TWO is strictly off-camera).
+       - Dialogue_Part_1 [SOLO 3/4 ANGLED WAIST-UP DIALOGUE ON PERSON_ONE]: 50mm lens, waist-up / mid-torso framing showing full shoulders, torso, and arms, turned 3/4 right looking off-camera toward PERSON_TWO (zero camera eye contact), active mid-sentence hand gesture or setting prop interaction, dramatic side-key lighting on PERSON_ONE showing dilemma or questioning (PERSON_TWO is strictly off-camera). Repeat complete locked layered upper + lower garments (omit footwear).
+       - Dialogue_Part_2 [180° REVERSE 3/4 ANGLED WAIST-UP DIALOGUE ON PERSON_TWO]: 50mm lens, 180° reverse 3/4 angle turned left looking off-camera toward PERSON_ONE (optional soft-focus foreground shoulder OTS cue, zero camera eye contact), waist-up / mid-torso framing, calm reassuring hand gesture or relaxed counter lean with warm fill light on PERSON_TWO. Repeat complete locked layered upper + lower garments (omit footwear).
+       - Dialogue_Part_3 [90° SIDE PROFILE / TOP-DOWN TWO-SHOT PROP INTERACTION]: 50mm lens. The camera shifts 90° to a side-profile or high-angle table overview showing BOTH characters actively examining or manipulating an authentic physical prop from the setting. Breaks the solo sequence with collaborative interaction.
+       - Dialogue_Part_4 [SOLO MEDIUM-WIDE 3/4 DYNAMIC MOTION ON PERSON_ONE]: 35mm lens. Wider knees-up / hips-up dynamic motion framing (clearly wider camera distance and active stepping-forward stance than Part 1) capturing PERSON_ONE gesturing boldly with clarity, confidence, and determination (PERSON_TWO is strictly off-camera).
        - Payoff [CELEBRATORY TWO-SHOT]: 28mm wide cinematic lens, dramatic backlighting, shared celebratory triumph in motion.
 
      * FOR FUN_FACTS SHORTS (SCALE OF WONDER PROGRESSION):
-       - Hook [THE SCALE OF WONDER]: Dramatic low-angle heroic 24mm wide shot looking up from floor level. Protagonist in lower third looking upward in jaw-dropped awe at an imposing, towering cultural anomaly or historic marvel. Upward gaze, volumetric lighting shafts, monumental scale contrast.
-       - Setup [THE CURIOUS CLUE]: Medium 50mm eye-level investigative shot examining an authentic artifact, mechanism, or historical clue.
-       - Discovery [THE HIDDEN MECHANISM REVEAL]: Dynamic 35mm 3/4 medium action shot revealing how the cultural/linguistic phenomenon works in motion.
+       - Hook [THE SCALE OF WONDER]: Dramatic low-angle heroic 28mm wide shot framed from mid-thigh/waist up looking up at the towering cultural wonder (cropped cleanly at hips/mid-thigh in the lower foreground — zero footwear mentioned). Protagonist looks sharply upward in jaw-dropped awe with volumetric lighting shafts and monumental architectural scale contrast.
+       - Setup [THE CURIOUS CLUE]: Waist-up / medium 50mm eye-level investigative shot examining an authentic artifact, mechanism, or historical clue.
+       - Discovery [THE HIDDEN MECHANISM REVEAL]: Dynamic 35mm 3/4 waist-up medium action shot revealing how the cultural/linguistic phenomenon works in motion.
        - Explanation [LIVING CULTURAL CONTEXT]: Medium-wide 35mm narrative shot demonstrating the phenomenon or expression in its real-world setting.
-       - Payoff [MIND-BLOWN MASTERY]: Chest-up celebratory medium close-up radiating amazed delight and trivia mastery."""
+       - Payoff [MIND-BLOWN MASTERY]: Chest-up celebratory medium close-up radiating amazed delight and trivia mastery (omit footwear)."""
 
 
 def build_storyboard_system_prompt(type_grammar_block: str = "") -> str:
@@ -319,13 +315,14 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * Micro-zone diversity within that established setting is strongly encouraged (e.g. moving naturally from the concrete skate bowl to the park bench, to the rails), but the overarching location is 100% locked.
    - To guarantee 100% character visual consistency (no shifting hair colors, no shifting clothes, no shifting skin tones, no shifting ages):
      * EVERY SINGLE SCENE PROMPT MUST EXPLICITLY REPEAT THE EXACT SAME VISUAL TRAITS FOR EACH CHARACTER:
-       - Exact demographic & skin tone: e.g. "14-16-year-old high-school student girl with fair peach skin", "14-16-year-old high-school student boy with warm tan skin" (natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child). NEVER omit skin tone, otherwise camera angle changes (like close-up hooks) will drift into a completely different ethnicity!
-       - Simple black cartoon eyes: ALWAYS specify "simple black cartoon eyes" (NEVER colored irises like blue, green, hazel, or amber eyes).
+       - Exact demographic & skin tone: e.g. "17-year-old high-school senior girl with fair peach skin", "17-year-old high-school senior boy with warm tan skin" (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build). NEVER omit skin tone, otherwise camera angle changes will drift into a completely different ethnicity!
+       - Simple black cartoon eyes: ALWAYS specify "lively natural-sized simple black cartoon eyes" (NEVER colored irises like blue, green, hazel, or amber eyes).
        - Exact hair color AND exact gender-accurate hairstyle: e.g. for a GIRL: "dark wavy hair in a sleek ponytail"; for a BOY: "short textured dark-brown hair with clean tapered sides and neat side-part" (NEVER give a boy a ponytail, bun, or long hair; NEVER change or omit hair color or styling!).
-       - Exact wardrobe and garment colors: e.g. "wearing her emerald velvet blazer over white shirt", "wearing his denim utility vest over charcoal long-sleeve" (NEVER change or omit wardrobe!).
+       - Complete locked wardrobe (BOTH top + bottom garments — OMIT FOOTWEAR IN CROPPED SHOTS): e.g. "wearing her emerald velvet blazer over cream shirt and pleated charcoal trousers", "wearing his olive corduroy overshirt over striped henley and navy chinos" (ALWAYS include both upper layer AND trousers/chinos/skirt, and omit shoes/footwear in waist-up, chest-up, mid-thigh, and medium shots so framing stays cropped!).
        - Exact staging: Character 1 on the LEFT, Character 2 on the RIGHT.
-     * NEVER omit the characters' skin tone, simple black cartoon eyes, hair color, hairstyle, or wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!
-   - Natural staging variations: Characters move naturally across the set (e.g. from the drafting table to the camera rig, to the terrace railing overlook) without artificially teleporting to incompatible rooms.
+     * NEVER omit the characters' skin tone, simple black cartoon eyes, hair color, hairstyle, or complete upper + lower wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!
+     * Write purely positive visual descriptions inside every JSON prompt string — DO NOT include "NO ..." or "NOT ..." clauses inside the prompt string, since Z-Image-Turbo uses cfg=1.0.
+   - Natural staging variations: Characters move naturally across the set (e.g. from the shop counter to the sunlit doorway, to the balcony rail or stone balustrade) without artificially teleporting to incompatible places.
 
 3. PROP INTERACTION & PHYSICAL RELEVANCE:
    - Use physical objects and props that naturally belong to this scenario and reinforce the dialogue of that specific scene.
@@ -340,7 +337,7 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * Payoff: Confident mastery, warm satisfaction, triumphant conclusion of the scenario.
 
 5. ARCHETYPE VISUAL GRAMMAR & CAMERA FRAMING (MANDATORY FORMAT FINGERPRINT):
-   - In 9:16 vertical video, never use distant wide shots where characters shrink into tiny figures! Keep characters comfortably waist-up or chest-up so their facial expressions and eyes remain large, clear, and detailed.
+   - In 9:16 vertical video, never use distant full-body shots where characters shrink into tiny picture-book figures, and avoid overly tight straight-on passport head-crops! Keep characters in dynamic 3/4 waist-up or mid-thigh medium framing showing full shoulders, torso, upper trousers/skirt, and expressive hands — and omit shoes/footwear in waist-up, chest-up, mid-thigh, and medium shots so late-teen proportions and facial acting stay crisp.
    - You MUST strictly apply the unique Archetype Visual Grammar for this video format:
 
 {grammar}
@@ -370,32 +367,33 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
 
 9. STRICT ANTI-CLICHÉ & ANTI-GENERIC BAN (CRITICAL):
    - ABSOLUTELY BANNED SCENARIOS: Strictly DO NOT generate or default to the following overused AI clichés:
+     * NO creative studios, cultural study lounges, study lounges, design ateliers, drafting rooms, or artisan workshops (unless explicitly scripted).
+     * NO generic empty apartments, boring living rooms, or featureless beige dorm rooms.
      * NO greenhouses, conservatories, glasshouses, plant nurseries, or rooms filled with potted plants (unless the script is explicitly about gardening or botany).
      * NO generic empty classrooms, school desks, teacher blackboards, or academic lecture rooms (unless the script explicitly describes a school lesson).
      * NO generic flower shops, pottery/ceramic workshops, or random flea markets.
-     * NO generic modern coffee shops, cafe tables, or barista counters (unless the script explicitly mentions ordering coffee or a cafe setting).
-   - AUTHENTIC REAL-WORLD DIVERSITY: Always ground the setting directly in the authentic cultural, vocational, or narrative domain established in the Master Story World / General Prompt!
+     * NO generic modern coffee shops, cafe tables, or barista counters (unless the script explicitly mentions ordering coffee or a classic cafe terrace).
+   - AUTHENTIC CULTURAL DIVERSITY: Ground every scene directly in the authentic city, shop, plaza, coastal promenade, or cultural landmark established in the Master Story World / General Prompt!
 
 10. HIGH-FIDELITY CHARACTER FACIAL QUALITY (SIMPLE BLACK CARTOON EYES — NO COLORED IRISES):
     - Characters across ALL scenes must maintain consistent, high-end 2D cartoon animation fidelity.
     - Every character must have simple black cartoon eyes with expressive eyebrows and clean line art (STRICTLY NO colored irises like blue, green, hazel, or amber eyes).
     - ABSOLUTELY FORBIDDEN: Colored eyes (blue, green, hazel), tiny featureless bead eyes, flat minimalist stick faces, or featureless faces! Every character across every scene must look as polished and expressive as a modern 2D animated feature film.
 
-11. ENVIRONMENTAL BACKGROUND RICHNESS (STRICT BAN ON SOLID COLOR / EMPTY BACKDROPS):
-    - Every scene prompt MUST describe the physical background interior environment:
-      * Architecture, furniture (e.g. wooden drafting desk, tool workbench, books on shelves), indoor depth, textured walls, atmospheric ambient lighting, and soft cast shadows.
-    - ABSOLUTELY FORBIDDEN: Solid color backgrounds, plain white voids, flat empty backdrops, or isolated characters on blank walls! Even close-up shots MUST have rich background room depth.
+11. ENVIRONMENTAL BACKGROUND RICHNESS (STRICT BAN ON SOLID COLOR / EMPTY BACKDROPS — INDOOR OR OUTDOOR):
+    - Every scene prompt MUST describe the physical background environment (either a richly detailed indoor venue OR an atmospheric open-air street, plaza, market, waterfront, or landmark):
+      * Architecture, storefronts, patterned tiles, market displays, timber or stone arches, foliage/sky horizon where outdoor, textured surfaces, atmospheric ambient lighting, and soft cast shadows.
+    - ABSOLUTELY FORBIDDEN: Solid color backgrounds, plain white voids, flat empty backdrops, or isolated characters on blank walls! Even close-up shots MUST retain recognizable cultural background depth.
 
-12. MANDATORY HIGH SCHOOL DEMOGRAPHIC & THEMATIC WARDROBE:
-    - All main characters across every scene MUST be stylish 2D cartoon high school students (approx. 14–16 years old, natural balanced teenage proportions, healthy youthful athletic build, mature teenage features, NOT a child).
-    - STRICTLY FORBIDDEN: Middle-aged adults, elderly faces, mature adult wrinkles, or childish elementary-kid proportions.
-    - THEMATIC COSTUME & WARDROBE: The character's clothing MUST explicitly match the physical environment (e.g. theater stage costume/waistcoat in theater, chef coat in kitchen, drafting smock in studio, lab coat in science). NEVER depict plain generic modern street clothes (plain t-shirts/hoodies)!
+12. MANDATORY HIGH SCHOOL DEMOGRAPHIC & COMPLETE CULTURALLY AUTHENTIC WARDROBE:
+    - All main characters across every scene MUST be stylish 2D cartoon 17-year-old high-school seniors (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build).
+    - CULTURALLY AUTHENTIC VENUE WARDROBE: Dress the 17-year-old high-school seniors in stylish, layered clothing authentic to the city and setting, always specifying BOTH upper layered garments AND lower garments (trousers, chinos, or skirts) — e.g. vintage corduroy jacket over collared shirt and pleated trousers at a friperie, linen camp shirt and tailored chinos at a coastal gelateria, varsity cardigan and cuffs in historic streets — while omitting footwear in waist-up, chest-up, mid-thigh, and medium shots! Reserve aprons/chef coats ONLY for literal culinary kitchen scenes, always layered over a collared shirt and tailored trousers/skirt!
 
 13. MANDATORY MULTI-CHARACTER GENDER SPECIFICATION (ZERO-AMBIGUITY RULE):
     - Whenever MORE THAN ONE character appears in any scene (in ROLEPLAY, EXPRESSION, GAME, or any video type):
       * The sex/gender of EACH character MUST be explicitly and unambiguously specified!
       * STRICTLY BAN collective, ambiguous, or generic gender-neutral words: NEVER say "the two teens", "two youthful teenage characters", "two colleagues", "two students", "two friends", "the characters", or "they".
-      * ALWAYS explicitly describe each individual character: e.g. "one youthful 14-16-year-old teen boy with masculine features wearing [wardrobe] and one youthful 14-16-year-old teen girl with feminine features wearing [wardrobe]" (or "two youthful teen boys", or "two youthful teen girls").
+      * ALWAYS explicitly describe each individual character: e.g. "one 17-year-old high-school senior boy with masculine features wearing [top + trousers] and one 17-year-old high-school senior girl with feminine features wearing [top + skirt/trousers]" (or "two 17-year-old high-school senior boys", or "two 17-year-old high-school senior girls").
       * For ROLEPLAY videos: You MUST strictly adhere to the exact assigned genders for PERSON_ONE and PERSON_TWO. NEVER swap their genders, and NEVER make them identical unless explicitly instructed!
 
 OUTPUT FORMAT:

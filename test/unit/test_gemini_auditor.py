@@ -260,8 +260,9 @@ class TestGeminiAuditor(unittest.TestCase):
         payload_text = mock_post.call_args[1]["json"]["contents"][0]["parts"][0]["text"]
         self.assertIn("CHAR_1", payload_text)
         self.assertNotIn("CHAR_2", payload_text)
-        self.assertIn("PROTAGONIST: Full inline prose description of the solo 15-16yo high-school student", payload_text)
+        self.assertIn("PROTAGONIST: Full inline prose description of the solo 17-year-old high-school senior", payload_text)
         self.assertIn("Medium-wide establishing eye-level shot", res)
+        self.assertNotIn("explicit footwear", NEGATIVE_PROMPT_SHIELD.lower())
 
     @patch("core.gemini_auditor.requests.post")
     def test_audit_general_prompt_sanitizes_output_and_persists_full_character_cast(self, mock_post):
@@ -309,7 +310,10 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertNotIn("gift box", res.lower())
         self.assertNotIn("word-cards", res.lower())
         self.assertNotIn("phonetic symbols", res.lower())
-        self.assertIn("NOT a child", res)
+        self.assertIn("1:7", res)
+        self.assertIn("17-year-old", res)
+        for leaked in ("not a child", "no young children", "no elementary kids", "no bulging eyes"):
+            self.assertNotIn(leaked, res.lower())
 
         # Complete CharacterCast + structured anchor fields must be persisted in state
         anchors = script_data["assets"]["character_anchors"]
@@ -320,6 +324,63 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertEqual(anchors["gender_word2"], "boy")
         self.assertEqual(anchors["char1_hair"], "soft shoulder-length bob")
         self.assertEqual(anchors["char2_hair"], "short chestnut hair with neat side-part")
+
+    @patch("core.gemini_auditor.requests.post")
+    def test_audit_general_prompt_rerolls_into_fresh_cultural_world_on_repeat_calls(self, mock_post):
+        """Verify repeated Gemini Audit calls inject a fresh CulturalWorld excluding previous drafts."""
+        valid_core = (
+            "Medium wide diagonal two-shot across a shop threshold. Inside a colorful French corner venue, "
+            "a 15-year-old high-school student girl with fair peach skin and dark ponytail wears a striped linen blazer and loafers. "
+            "On the right, a 15-year-old high-school student boy with warm olive skin and short textured brown hair wears a burgundy wool cardigan and chinos. "
+            "Between them rest vintage striped baskets and ceramics under warm golden sunlight casting soft blue shadows."
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": valid_core}]},
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        script_data = {
+            "id": "FR77",
+            "prompt_params": {
+                "EXPRESSION": "C'est du gâteau",
+                "VIDEO_TYPE": "ROLEPLAY",
+                "TARGET_LANGUAGE": "French",
+                "LEXICAL_FIELD": "Communication générale",
+            },
+            "content_metadata": {
+                "language": "French",
+                "video_type": "ROLEPLAY",
+                "speakers_gender": {"PERSON_ONE": "female", "PERSON_TWO": "male"},
+            },
+            "script_text": '{"hook": "Pas de souci!", "dialogue_part_1": "Tu peux m\'aider ?"}',
+            "assets": {},
+        }
+
+        res1 = audit_general_prompt(script_data, api_key="FAKE_KEY")
+        world_id_1 = script_data["assets"]["anchor_world_id"]
+        payload_1 = mock_post.call_args_list[0][1]["json"]["contents"][0]["parts"][0]["text"]
+        self.assertTrue(world_id_1.startswith("fr_"))
+        self.assertIn("ASSIGNED CULTURAL WORLD", payload_1)
+        self.assertIn(script_data["assets"]["anchor_world_title"], payload_1)
+
+        # Second click passes the previous prompt (res1) -> MUST pick a different CulturalWorld
+        res2 = audit_general_prompt(script_data, current_prompt=res1, api_key="FAKE_KEY")
+        world_id_2 = script_data["assets"]["anchor_world_id"]
+        payload_2 = mock_post.call_args_list[1][1]["json"]["contents"][0]["parts"][0]["text"]
+        self.assertTrue(world_id_2.startswith("fr_"))
+        self.assertNotEqual(world_id_1, world_id_2)
+        self.assertIn(script_data["assets"]["anchor_world_title"], payload_2)
+        self.assertIn("1:7", res2)
+        self.assertIn("17-year-old", res2)
+        for leaked in ("not a child", "no young children", "no bulging eyes"):
+            self.assertNotIn(leaked, res2.lower())
 
 
 if __name__ == "__main__":

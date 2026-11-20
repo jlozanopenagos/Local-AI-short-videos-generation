@@ -15,6 +15,9 @@ from .environment import (
     EXPLICIT_SCENARIO_DOMAINS,
     is_figurative_idiom,
     resolve_anchor_environment,
+    resolve_cultural_world,
+    format_cultural_world_anchor,
+    infer_world_ids_from_text,
 )
 from .cast import (
     DEFAULT_P1_GENDER,
@@ -31,7 +34,7 @@ from .cast import (
     extract_or_build_character_anchors,
     persist_character_anchors_in_state,
 )
-from .sanitizer import sanitize_and_style_prompt, is_present_heteronym_topic
+from .sanitizer import sanitize_and_style_prompt, strip_footwear_clauses, is_present_heteronym_topic
 from .llm_stream import _extract_json_payload
 
 __all__ = [
@@ -44,6 +47,9 @@ __all__ = [
     "EXPLICIT_SCENARIO_DOMAINS",
     "is_figurative_idiom",
     "resolve_anchor_environment",
+    "resolve_cultural_world",
+    "format_cultural_world_anchor",
+    "infer_world_ids_from_text",
     "DEFAULT_P1_GENDER",
     "DEFAULT_P2_GENDER",
     "FEMALE_HAIRSTYLE_TERMS",
@@ -58,6 +64,7 @@ __all__ = [
     "extract_or_build_character_anchors",
     "persist_character_anchors_in_state",
     "sanitize_and_style_prompt",
+    "strip_footwear_clauses",
     "is_present_heteronym_topic",
     "_extract_json_payload",
 ]

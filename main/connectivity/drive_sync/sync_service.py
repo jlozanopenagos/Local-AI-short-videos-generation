@@ -182,6 +182,23 @@ def upload_script_to_drive(
     # Step 3: Script ID folder (e.g. EE01)
     script_folder_id = drive_client.get_or_create_folder(script_id, parent_id=type_folder_id)
 
+    # Ensure clean replacement: delete any duplicate script folders and any existing files inside script_folder_id
+    deleted_dups = drive_client.delete_duplicate_folders(
+        script_id,
+        parent_id=type_folder_id,
+        keep_folder_id=script_folder_id,
+    )
+    deleted_files = drive_client.clear_folder(script_folder_id)
+    deleted_existing_count = (
+        (deleted_files if isinstance(deleted_files, int) else 0)
+        + (deleted_dups if isinstance(deleted_dups, int) else 0)
+    )
+    if deleted_existing_count > 0:
+        logger.info(
+            "[%s] Deleted %d existing item(s) inside Drive folder %s before uploading new version.",
+            script_id, deleted_existing_count, script_folder_id,
+        )
+
     folder_url = f"https://drive.google.com/drive/folders/{script_folder_id}"
 
     # 3. Upload clean named video (<SCRIPT_ID>.mp4)
@@ -229,6 +246,7 @@ def upload_script_to_drive(
         "video_type": target_vtype,
         "folder_id": script_folder_id,
         "folder_url": folder_url,
+        "deleted_existing_count": deleted_existing_count,
         "video": video_upload_res,
         "thumbnail": thumb_upload_res,
     }

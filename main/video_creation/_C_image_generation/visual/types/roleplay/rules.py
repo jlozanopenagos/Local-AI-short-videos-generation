@@ -20,19 +20,19 @@ ROLEPLAY_SCENES = [
         name="dialogue_part_1",
         render_mode="comfy",
         cast_in_frame="p1",
-        lens_and_angle="Solo tight medium close-up on PERSON_ONE (85mm portrait lens, shallow depth of field)",
+        lens_and_angle="Solo 3/4 angled waist-up medium dialogue shot on PERSON_ONE (50mm lens, turned 3/4 right looking off-camera toward PERSON_TWO, zero camera eye contact)",
         gaze="none",
-        emotion_arc="Intense facial acting, nervous or questioning body language, opening dilemma",
-        prop_rule="PERSON_TWO strictly off-camera; dramatic key lighting",
+        emotion_arc="Expressive questioning facial acting and anxious dilemma while speaking mid-sentence",
+        prop_rule="PERSON_TWO strictly off-camera; active mid-sentence hand gesture or setting prop interaction; dramatic side-key lighting",
     ),
     SceneSpec(
         name="dialogue_part_2",
         render_mode="comfy",
         cast_in_frame="p2",
-        lens_and_angle="Solo 180-degree reverse-angle medium close-up on PERSON_TWO (85mm portrait lens)",
+        lens_and_angle="180-degree reverse 3/4 angled waist-up medium dialogue shot on PERSON_TWO (50mm lens, turned 3/4 left looking off-camera toward PERSON_ONE, optional soft-focus foreground shoulder OTS cue, zero camera eye contact)",
         gaze="none",
-        emotion_arc="Calm, confident, reassuring mentorship expression as they articulate the explanation",
-        prop_rule="PERSON_ONE strictly off-camera; warm fill light",
+        emotion_arc="Calm, confident, reassuring mentorship expression while articulating the explanation",
+        prop_rule="PERSON_ONE off-camera or soft foreground shoulder edge; calm reassuring hand gesture or relaxed counter lean; warm fill light",
     ),
     SceneSpec(
         name="dialogue_part_3",
@@ -47,10 +47,10 @@ ROLEPLAY_SCENES = [
         name="dialogue_part_4",
         render_mode="comfy",
         cast_in_frame="p1",
-        lens_and_angle="Solo waist-up medium-wide dynamic action shot on PERSON_ONE (28mm/50mm lens)",
+        lens_and_angle="Solo medium-wide 3/4 dynamic motion shot on PERSON_ONE (35mm lens, wider knees-up/hips-up framing stepping forward or gesturing boldly with renewed confidence)",
         gaze="none",
-        emotion_arc="Standing or gesturing dynamically with clarity and newfound confidence",
-        prop_rule="PERSON_TWO strictly off-camera; distinct camera distance and stance from Part 1",
+        emotion_arc="Stepping forward or gesturing boldly with clarity and newfound confidence",
+        prop_rule="PERSON_TWO strictly off-camera; distinct wider distance and active body stance from Part 1",
     ),
     SceneSpec(
         name="payoff",
@@ -73,9 +73,9 @@ ROLEPLAY_FORMAT_STAGING_DIRECTIVE = (
 ROLEPLAY_ARCHETYPE_DIRECTIVE = (
     "VIDEO TYPE ARCHETYPE: ROLEPLAY (Character Drama & Cinematic Threshold Dialogue)\n"
     "- Core World Objective: Authentic conversational environment designed for interpersonal drama, debate, or collaborative discovery.\n"
-    "- Setting & Stage Setup: A shared, culturally grounded space (e.g. artisan atelier, kitchen island, study lounge, store counter) with natural physical depth.\n"
-    "- Characters & Dynamic: Two distinct high-school students (PERSON_ONE and PERSON_TWO) with complementary thematic wardrobe matching the location.\n"
+    "- Setting & Stage Setup: A shared, culturally grounded space with rich physical depth (e.g. vintage friperie rack, gelateria counter, azulejo tapería bar, cobblestone arcade, colonial balcony, or harbor pier).\n"
+    "- Characters & Dynamic: Two distinct high-school students (PERSON_ONE and PERSON_TWO) with complementary stylish culturally authentic venue wardrobe matching the city and location.\n"
     "- Setting Mood: Relatable interpersonal connection, engaging conversational atmosphere.\n"
-    "- Mandatory Conversational Foil Props: Authentic physical objects anchoring their interaction (e.g. tools, utensils, garments, blueprints, culinary ingredients).\n"
+    "- Mandatory Conversational Foil Props: Authentic physical objects anchoring their interaction (e.g. regional ceramics, vinyl sleeves, wicker baskets, pastries, travel bags).\n"
     "- World Anchor Directive: Define the spatial relationship, environment, and both character designs. Do NOT dictate transient facial expressions or momentary speech gestures."
 )

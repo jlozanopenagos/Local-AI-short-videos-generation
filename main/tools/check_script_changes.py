@@ -183,6 +183,10 @@ def audit_script_changes(
             (c for c in fieldnames if c.strip().upper() in ("NEW_SCRIPT", "SCRIPT", "NEW_SCRIPT_TEXT", "SCRIPT_CHANGE", "SCRIPT_CHANGED")),
             None,
         )
+        expr_col = next(
+            (c for c in fieldnames if c.strip().upper() in ("EXPRESSION", "TOPIC", "SUBJECT")),
+            None,
+        )
 
         if not id_col or not script_col:
             continue
@@ -190,6 +194,7 @@ def audit_script_changes(
         for row in reader:
             sid = str(row.get(id_col, "")).strip().upper()
             new_script = str(row.get(script_col, "")).strip()
+            new_expression = str(row.get(expr_col, "")).strip() if expr_col else ""
 
             if not sid:
                 continue
@@ -223,6 +228,7 @@ def audit_script_changes(
                 "id": sid,
                 "file": cf.name,
                 "new_script": new_script,
+                "new_expression": new_expression,
                 "current_spoken": curr_spoken,
                 "words_current": len(curr_spoken.split()),
                 "words_new": len(new_script.split()),
@@ -385,6 +391,7 @@ def main() -> int:
                 raw_script_text=raw_text,
                 reset_downstream=args.reset_downstream,
                 base_dir=base_dir,
+                new_expression=item.get("new_expression"),
             )
             if ok:
                 successful += 1

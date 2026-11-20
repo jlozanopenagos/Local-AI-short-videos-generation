@@ -126,6 +126,8 @@ def main() -> int:
             )
             print(f"SUCCESS: Script {sid} uploaded!")
             print(f"  Drive Folder: {res['folder_url']}")
+            if res.get("deleted_existing_count", 0) > 0:
+                print(f"  Replaced:     {res['deleted_existing_count']} existing item(s) deleted before upload")
             print(f"  Video:        {res['video']['name']} (ID: {res['video']['id']})")
             if res.get("thumbnail"):
                 print(f"  Thumbnail:    {res['thumbnail']['name']} (ID: {res['thumbnail']['id']})")

@@ -10,10 +10,10 @@ GAME_SCENES = [
         name="hook",
         render_mode="comfy",
         cast_in_frame="solo",
-        lens_and_angle="Front-facing, centered medium eye-level shot under overhead spotlight with vertical symmetry",
+        lens_and_angle="Waist-up 3/4-angled medium shot (50mm lens, cropped cleanly at hips/mid-thigh, showing full shoulders, torso, and expressive hands — omit footwear) under warm dramatic directional spotlighting",
         gaze="fourth_wall",
-        emotion_arc="Lively animated dilemma face, amused raised eyebrow, slight thinking smirk, head tilted inquisitively",
-        prop_rule="Authentic setting props weighing two choices; zero chalkboards/screens/quiz UI",
+        emotion_arc="Confident playful dilemma expression, raised eyebrow, subtle knowing smirk while weighing two props in hand",
+        prop_rule="Authentic setting props held/compared at chest height; zero chalkboards/screens/quiz UI",
     ),
     SceneSpec(
         name="challenge",
@@ -54,19 +54,19 @@ GAME_SCENES = [
 ]
 
 GAME_FORMAT_STAGING_DIRECTIVE = (
-    "5. FORMAT STAGING DIRECTIVE (GAME — FRONTAL DILEMMA & FOURTH-WALL EYE CONTACT):\n"
-    "   - Hook Scene: Front-facing, centered medium eye-level shot under an intense overhead spotlight beam with clean vertical symmetry. Solo teen protagonist centered, making 100% direct fourth-wall eye contact into the camera lens with an expressive, animated dilemma expression.\n"
-    "   - Answer Scene: Dynamic 3/4 asymmetrical medium action shot with forward kinetic momentum, celebrating eureka victory.\n"
+    "5. FORMAT STAGING DIRECTIVE (GAME — WAIST-UP 3/4 DILEMMA & FOURTH-WALL EYE CONTACT):\n"
+    "   - Hook Scene: Waist-up 3/4-angled medium shot (50mm lens, cropped cleanly at hips/mid-thigh — omit footwear) under warm dramatic directional spotlighting with rich environmental depth. Solo 17-year-old high-school senior protagonist turned 3/4 while making 100% direct fourth-wall eye contact into the camera lens with a confident, playful raised-eyebrow dilemma expression and active hand/prop gesture.\n"
+    "   - Answer Scene: Dynamic 3/4 asymmetrical waist-up medium action shot with forward kinetic momentum, celebrating eureka victory (omit footwear).\n"
     "   - Explanation Scene: Real-world narrative medium-wide shot (35mm lens) with deep spatial environment and 0% eye contact with camera (100% in-scene immersion).\n"
-    "   - Crisp cast shadows on the floorboards, high focus on the dilemma."
+    "   - Rich warm/cool cast shadows across the authentic venue and clear focus on late-teen facial acting."
 )
 
 GAME_ARCHETYPE_DIRECTIVE = (
     "VIDEO TYPE ARCHETYPE: GAME / QUIZ (Interactive Challenge Arena & Staged Dilemma-to-Triumph)\n"
     "- Core World Objective: Dynamic interactive challenge setting where the protagonist tackles a puzzle or linguistic dilemma.\n"
-    "- Setting & Stage Setup: Establish an authentic thematic arena or workspace (e.g. workshop, studio, kitchen, lab) equipped for hands-on tasks.\n"
+    "- Setting & Stage Setup: Establish a vibrant culturally grounded venue or landmark courtyard (e.g. historic covered market hall, vintage vinyl shop, sunlit tiled plaza, coastal pier, or traditional pastry counter) equipped for hands-on visual comparison.\n"
     "- Protagonist & Ensemble: Solo teen high-school student protagonist (NEVER include a second character unless explicitly specified in script dialogue).\n"
     "- Setting Mood: Energetic concentration, suspenseful countdown tension, active problem-solving.\n"
-    "- Mandatory Challenge Props: Concrete non-text objects representing choices or tasks (e.g. an hourglass timer, physical tools, authentic materials). STRICT BAN ON TEXT: NO placards, NO scorecards, NO writing.\n"
-    "- World Anchor Directive: Define the stage architecture, lighting, and protagonist character design. Do NOT generate transient facial expressions (smirks, winks) or fourth-wall gaze commands."
+    "- Mandatory Challenge Props: Concrete non-text objects representing choices or tasks (e.g. an hourglass timer, vintage brass scales, vinyl records, regional ceramic objects). STRICT BAN ON TEXT: NO placards, NO scorecards, NO writing.\n"
+    "- World Anchor Directive: Define the stage architecture, lighting, and protagonist character design with stylish culturally authentic venue attire. Do NOT generate transient facial expressions (smirks, winks) or fourth-wall gaze commands."
 )

@@ -51,6 +51,7 @@ from _C_image_generation.core.comfy_client import ImageComfyClient
 from _C_image_generation.core.prompt_builder import (
     VisualPromptBuilder,
     resolve_anchor_environment,
+    resolve_cultural_world,
     sanitize_and_style_prompt,
     get_speaker_gender_safe,
     resolve_default_speakers_gender,
@@ -70,8 +71,14 @@ def ensure_image_prompts_for_script(
     prompt_builder: VisualPromptBuilder,
     force: bool = False,
     base_dir: Optional[Path] = None,
+    preserve_general_prompt: bool = False,
 ) -> bool:
-    """Pre-generates and persists general_prompt and storyboard image_prompts in state if missing or forced."""
+    """Pre-generates and persists general_prompt and storyboard image_prompts in state if missing or forced.
+
+    When ``preserve_general_prompt=True`` and a non-empty ``general_prompt`` already exists in state,
+    that saved general prompt is kept intact while scene-specific storyboard prompts are regenerated
+    from it (and character anchors are refreshed from it).
+    """
     script_id = script_data["id"]
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
@@ -147,18 +154,34 @@ def ensure_image_prompts_for_script(
         or ""
     )
 
+    general_prompt = (script_data.get("assets", {}).get("general_prompt") or "").strip()
+    reuse_existing_gp = bool(general_prompt) and (preserve_general_prompt or not force)
+
     if force:
         if isinstance(script_data.get("assets"), dict):
             script_data["assets"].pop("character_anchors", None)
+            if not reuse_existing_gp:
+                script_data["assets"].pop("anchor_world_id", None)
+                script_data["assets"].pop("anchor_world_title", None)
         if isinstance(content_meta, dict):
             content_meta.pop("character_anchors", None)
-            content_meta.pop("anchor_environment", None)
+            if not reuse_existing_gp:
+                content_meta.pop("anchor_environment", None)
 
-    general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
-    if general_prompt and not force:
+    if reuse_existing_gp:
         anchor_environment = general_prompt
     else:
         ensure_llama_running()
+        cultural_world = resolve_cultural_world(
+            script_text=script_text,
+            topic=topic,
+            scenario=scenario,
+            lexical_field=lexical_field,
+            label=label,
+            video_type=video_type,
+            language=resolved_lang or label,
+            script_id=script_id,
+        )
         anchor_environment = resolve_anchor_environment(
             script_text=script_text,
             topic=topic,
@@ -166,6 +189,8 @@ def ensure_image_prompts_for_script(
             lexical_field=lexical_field,
             label=label,
             video_type=video_type,
+            language=resolved_lang or label,
+            script_id=script_id,
         )
         try:
             general_prompt = prompt_builder.build_general_prompt(
@@ -183,6 +208,9 @@ def ensure_image_prompts_for_script(
             if "assets" not in script_data or not isinstance(script_data["assets"], dict):
                 script_data["assets"] = {}
             script_data["assets"]["general_prompt"] = general_prompt
+            if cultural_world is not None:
+                script_data["assets"]["anchor_world_id"] = cultural_world.id
+                script_data["assets"]["anchor_world_title"] = cultural_world.title
             if "content_metadata" not in script_data or not isinstance(script_data["content_metadata"], dict):
                 script_data["content_metadata"] = {}
             script_data["content_metadata"]["anchor_environment"] = general_prompt

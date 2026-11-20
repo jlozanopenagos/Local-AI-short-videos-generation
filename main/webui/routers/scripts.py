@@ -868,6 +868,8 @@ def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = 
         "status": "success",
         "audited_prompt": audited_prompt,
         "character_anchors": state_data.get("assets", {}).get("character_anchors") or {},
+        "anchor_world_id": state_data.get("assets", {}).get("anchor_world_id", ""),
+        "anchor_world_title": state_data.get("assets", {}).get("anchor_world_title", ""),
         "script_id": canonical_id,
     }
 
@@ -1166,11 +1168,13 @@ def redo_all_images_endpoint(
     """
     Queues a full regeneration of all scene illustrations for a script.
     Saves any updated general_prompt into state, clears old scene prompts,
-    and enqueues a Stage C (IMAGES) job with force=True and regenerate_prompts=True.
+    and enqueues a Stage C (IMAGES) job with force=True, regenerate_prompts=True,
+    and preserve_general_prompt=True.
 
     Job Execution Flow:
-    1. Phase 1: Starts Llama -> runs ensure_image_prompts_for_script(force=True) to produce
-       new scene-specific prompts adhering to the new general prompt -> saves to state -> shuts down Llama.
+    1. Phase 1: Starts Llama -> runs ensure_image_prompts_for_script(force=True, preserve_general_prompt=True)
+       to keep the saved general prompt intact and produce fresh scene-specific prompts adhering to it
+       -> saves to state -> shuts down Llama.
     2. Phase 2: Starts ComfyUI batch queue -> generates all scene images with the fresh prompts.
     """
     sm = _get_state_manager()
@@ -1179,15 +1183,23 @@ def redo_all_images_endpoint(
         raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
 
     state_data = sm.get_script_state(canonical_id)
+    assets = state_data.setdefault("assets", {})
+    content_meta = state_data.setdefault("content_metadata", {})
+    status = state_data.setdefault("status", {})
 
-    # 1. If general prompt was provided (or changed), update state
-    if payload and payload.general_prompt and payload.general_prompt.strip():
+    # 1. If general prompt was provided, persist it; always reset scene prompts & downstream image/video status
+    if payload and payload.general_prompt is not None and payload.general_prompt.strip():
         new_gp = payload.general_prompt.strip()
-        state_data.setdefault("assets", {})["general_prompt"] = new_gp
-        state_data.setdefault("content_metadata", {})["anchor_environment"] = new_gp
-        state_data.setdefault("status", {})["image_generation"] = "pending"
-        state_data["assets"]["image_prompts"] = {}
-        state_data.setdefault("status", {})["video_assembly"] = "pending"
+        prev_gp = str(assets.get("general_prompt") or "").strip()
+        assets["general_prompt"] = new_gp
+        content_meta["anchor_environment"] = new_gp
+        if new_gp != prev_gp:
+            assets.pop("character_anchors", None)
+            content_meta.pop("character_anchors", None)
+
+    assets["image_prompts"] = {}
+    status["image_generation"] = "pending"
+    status["video_assembly"] = "pending"
 
     # 2. Clear old generated images from disk
     image_dir_str = state_data.get("assets", {}).get("image_dir")
@@ -1217,6 +1229,7 @@ def redo_all_images_endpoint(
         options={
             "force": True,
             "regenerate_prompts": True,
+            "preserve_general_prompt": True,
             "seed": seed,
         }
     ))

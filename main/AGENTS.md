@@ -51,13 +51,13 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - `phonetic`: Heteronym, stress-shift, or minimal pair contrast.
      - `false_friend`: Cross-language false cognate trap.
    - **6-Image Visual Architecture across 4 Dialogue Parts (6 ComfyUI Scene Renders)**:
-     - `hook` (Narrator, 15–20 words): Scenario Threshold Establishing Two-Shot (35mm lens, 0% fourth-wall eye contact).
-     - `DIALOGUE_PART_1` (P1 & P2, 30–38 words): Solo Tight Medium Close-Up on `PERSON_ONE` (85mm portrait lens, `PERSON_TWO` off-camera).
-     - `DIALOGUE_PART_2` (P1 & P2, 30–38 words): Solo 180° Reverse-Angle Medium Close-Up on `PERSON_TWO` (85mm portrait lens, `PERSON_ONE` off-camera).
-     - `DIALOGUE_PART_3` (P1 & P2, 30–38 words): 90° Side-Profile / High-Angle Two-Shot Prop Interaction (50mm lens, both characters).
-     - `DIALOGUE_PART_4` (P1 & P2, 30–38 words): Solo Waist-Up Dynamic Action Shot on `PERSON_ONE` (28mm/50mm lens, `PERSON_TWO` off-camera).
-     - `PAYOFF` (Narrator, 20–25 words): Celebratory Resolution Action Two-Shot (28mm wide lens) + CTA.
-   - **Multi-Character Gender Specification**: Sex of EACH individual character MUST be explicitly specified in prompts (e.g. *"one youthful 14-16-year-old teen boy and one youthful 14-16-year-old companion teen girl"*). Dual-character state persistence via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}`.
+     - `hook` (Narrator, 15–20 words): Scenario Threshold Establishing Two-Shot (`35mm` lens, 0% fourth-wall eye contact).
+     - `DIALOGUE_PART_1` (P1 & P2, 30–38 words): Solo 3/4 angled waist-up medium dialogue shot on `PERSON_ONE` (`50mm` lens, turned 3/4 right looking off-camera toward `PERSON_TWO`, zero camera eye contact, active mid-sentence hand gesture or setting prop interaction, dramatic side-key lighting, `PERSON_TWO` strictly off-camera).
+     - `DIALOGUE_PART_2` (P1 & P2, 30–38 words): 180° reverse 3/4 angled waist-up medium dialogue shot on `PERSON_TWO` (`50mm` lens, turned 3/4 left looking off-camera toward `PERSON_ONE`, optional soft-focus foreground shoulder OTS cue, zero camera eye contact, calm reassuring hand gesture or relaxed counter lean, warm fill light).
+     - `DIALOGUE_PART_3` (P1 & P2, 30–38 words): 90° Side-Profile / High-Angle Two-Shot Prop Interaction (`50mm` lens, both characters).
+     - `DIALOGUE_PART_4` (P1 & P2, 30–38 words): Solo medium-wide 3/4 dynamic motion shot on `PERSON_ONE` (`35mm` lens, wider knees-up/hips-up framing stepping forward or gesturing boldly with renewed confidence, `PERSON_TWO` strictly off-camera).
+     - `PAYOFF` (Narrator, 20–25 words): Celebratory Resolution Action Two-Shot (`28mm` wide lens) + CTA.
+   - **Multi-Character Gender Specification**: Sex of EACH individual character MUST be explicitly specified in prompts (e.g. *"one 17-year-old high-school senior boy and one 17-year-old high-school senior girl"*), alongside explicit skin tone, simple black 2D cartoon eyes, hairstyle, and complete layered upper + lower venue outfit (trousers/chinos/skirt; omitting footwear in cropped waist-up and medium shots). Dual-character state persistence via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}`.
    - **Target Duration & Word Budget**: **60 to 80 seconds max** (strictly **145–180 spoken words** across all 6 spoken sections).
    - **Status**: **Fully functional and verified end-to-end**.
 
@@ -81,27 +81,27 @@ The content strategy consists of four distinct formats queued from CSV files in 
      - **Part of Speech Specification for Single Words**: When options are single words (distinguishing noun vs verb heteronyms), a grammatical contextualizer is mandatory (`a record` for noun, `to record` for verb; `a present` vs `to present`; articles/prepositions in other languages).
      - **Period Punctuation**: Every option MUST terminate with a period (`.`). The last option **NEVER ends with a question mark (`?`)**.
    - **Visuals & 5-Scene Calibrated Image Generation Pipeline**:
-     - Timeline requires EXACTLY 5 distinct, non-repeating scene assets in script_<ID>/images/:
-       1. hook: Scenario dilemma setup rendered in 2D cartoon illustration via ComfyUI (symmetrical spotlight framing, 100% direct fourth-wall eye contact).
-       2. challenge: High-resolution typography rendered natively on CPU via FreeType onto empty_chalkboard.png with **100% target language localization** (get_localized_game_header(), e.g. QUE SIGNIFIE CETTE EXPRESSION ?, OÙ EST L'ERREUR ? / COMPLÉTEZ :, ¿QUÉ SIGNIFICA ESTA EXPRESIÓN?). **ZERO English headers or text on non-English chalkboards**.
-       3. pressure: Static pre-made waiting illustration per language from input/images/game_images/<lang>/<lang>_waiting.png.
-       4. nswer: Resolution / victory breakthrough illustration rendered via ComfyUI (dynamic action, triumphant breakthrough).
-       5. explanation: Dedicated cultural immersion narrative illustration rendered via ComfyUI (authentic practical real-world usage, ZERO duplicate images with answer).
-     - **ComfyUI Batch Processing**: Exactly **3 scenes** (hook, nswer, explanation) are sent to ComfyUI for generation, paired with CPU chalkboard and static Tito to yield 5 distinct timeline cuts.
+     - Timeline requires EXACTLY 5 distinct, non-repeating scene assets in `script_<ID>/images/`:
+       1. `hook`: Scenario dilemma setup rendered in 2D cartoon illustration via ComfyUI (waist-up 3/4-angled `50mm` medium shot cropped cleanly at hips/mid-thigh under warm directional spotlighting, footwear omitted, 100% direct fourth-wall eye contact).
+       2. `challenge`: High-resolution typography rendered natively on CPU via FreeType onto `empty_chalkboard.png` with **100% target language localization** (`get_localized_game_header()`, e.g. `QUE SIGNIFIE CETTE EXPRESSION ?`, `OÙ EST L'ERREUR ? / COMPLÉTEZ :`, `¿QUÉ SIGNIFICA ESTA EXPRESIÓN?`). **ZERO English headers or text on non-English chalkboards**.
+       3. `pressure`: Static pre-made waiting illustration per language from `input/images/game_images/<lang>/<lang>_waiting.png`.
+       4. `answer`: Resolution / victory breakthrough illustration rendered via ComfyUI (dynamic 3/4 asymmetrical waist-up medium action, triumphant breakthrough, footwear omitted).
+       5. `explanation`: Dedicated cultural immersion narrative illustration rendered via ComfyUI (`35mm` medium-wide authentic practical real-world usage, 0% camera eye contact, ZERO duplicate images with `answer`).
+     - **ComfyUI Batch Processing**: Exactly **3 scenes** (`hook`, `answer`, `explanation`) are sent to ComfyUI for generation, paired with CPU chalkboard and static Tito to yield 5 distinct timeline cuts.
    - **Zero-Tolerance Text & Quote Scrubbing in Prompts**:
-     - Visual prompts must NEVER contain text inside quotation marks, speech verbs (whispering the words...), signboards with text, or letter names.
+     - Visual prompts must NEVER contain text inside quotation marks, speech verbs (`whispering the words...`), signboards with text, or letter names (while preserving compound venue nouns like `reading lamp`, `reading alcove`, `reading hall`, `reading boxes`, `calling card`, and `speaking lectern`).
      - Any parchment, scroll, book, or paper must be described with abstract wavy cartoon doodle lines and geometric diagrams, completely devoid of legible text, words, or letters.
-     - sanitize_and_style_prompt scrubs all quoted words and speech phrases, reinforcing negative constraints: NO text, NO words, NO letters, NO quotes, NO signs with text, NO subtitles, NO typography, NO young children, NO elementary kids, NO childish proportions.
+     - `sanitize_and_style_prompt()` scrubs all quoted words and speech phrases, strips legacy negated parenthetical clauses that trigger concept leakage under Z-Image-Turbo (`cfg=1.0`), upgrades younger ages (`8–15`, `fourteen-year-old`, `fifteen-year-old`, `14-16yo`, `14-16-year-old`) to `17-year-old` (preserving `16–18`), strips wearable footwear clauses (`strip_footwear_clauses`) when `strip_footwear=True` or cropped framing (`waist-up`, `chest-up`, `mid-torso`, `thigh-up`, `mid-thigh`, `hips-up`, `medium close-up`) is active while preserving venue/prop nouns (`sneaker boutique`, `footwear workshop`, `shoe boxes`), and appends the **purely-positive** 2D cartoon style anchor (`17-year-old high-school senior`, `1:7` proportions, `pure text-free visual illustration`) whenever either `"head-to-body proportions"` or `"pure text-free visual illustration"` is absent.
    - **Character Appearance Continuity & Demographic Lock**:
      - **General Prompt as Single Source of Truth**: Character demographic anchors (`gender`, `skin_tone`, `eye_color`, `hair_style`, `wardrobe`) originate from `extract_or_build_character_anchors` and are locked into `content_metadata.general_prompt`. All downstream scene prompts inherit visual world anchors directly from this single authoritative truth, preventing contradictory descriptions or ethnicity drift across scenes.
      - **Case-Insensitive Speaker Gender Resolution (`get_speaker_gender_safe`)**: All modules query speaker genders using case-insensitive lookup with fuzzy fallback. This eliminates gender inversion bugs where TitleCase keys (`"Narrator"`, present in >1,038 state files) previously bypassed `.get("NARRATOR")` lookups and defaulted female characters to `"male"`.
      - **Locked Director Prompts**: Storyboard tasks for Game, Fun Facts, and Expression lock `{p1_word}` (`girl`/`boy`) in director tasks based on authoritative anchors.
-     - Single source of truth in `content_metadata.character_anchors` (and `assets.character_anchors`) via `CharacterCast` with locked gender, skin tone, eye color, hairstyle, and wardrobe.
-     - Strict demographic anchor: *14–16-year-old high-school teenager with natural balanced teenage proportions and healthy youthful athletic build (NOT a child, NOT a kid, NOT an adult)*.
-     - **Mandatory Complexion & Eye Color Anchoring**: Explicit skin tone (e.g., *warm tan skin*, *fair peach skin*, *olive skin*) and eye color (e.g., *dark brown cartoon eyes*) must NEVER be omitted in general prompts or scene prompts. Without explicit skin tone anchors, dramatic framing shifts (such as 35mm foreground Hook close-ups vs. medium two-shots) trigger diffusion drift where the model hallucinates a completely different ethnicity or facial structure.
-     - Elimination of emaciated/skinny silhouettes and unexpressive deadpan faces: purged `"tall slender proportions"`, `"Wes Anderson-style central balance"`, and `"frozen at a physical crossroads"`.
-     - **Natural Facial Acting & Bug-Eye Eradication**: Purged `"conspiratorial glance"` and `"arched eyebrow"` triggers from prompt templates and storyboard directors, which previously caused diffusion models to render excessively open, rounded, or bulging bug-eyes. Replaced with *"engaging, playful knowing smile and natural animated cartoon eyes with relaxed facial acting"*.
-     - Fortified negative prompt shield: `NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions`.
+     - Single source of truth in `content_metadata.character_anchors` (and `assets.character_anchors`) via `CharacterCast` with locked gender, skin tone, eye color, hairstyle, and complete layered upper + lower venue wardrobe (trousers/chinos/skirt; omitting footwear in cropped waist-up and medium shots), replacing generic studio/workshop/greenhouse/drafting-vest clichés with culturally grounded city & venue fashion.
+     - Strict positive demographic anchor: *`17-year-old high-school senior` with `realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build`*.
+     - **Mandatory Complexion & Eye Anchoring**: Explicit skin tone (e.g., *warm tan skin*, *fair peach skin*, *olive skin*) and **`lively natural-sized simple black 2D cartoon eyes`** must NEVER be omitted in general prompts or scene prompts. Without explicit skin tone anchors, framing shifts across wide establishing shots and 3/4 medium shots can trigger diffusion drift.
+     - Elimination of emaciated silhouettes and unexpressive deadpan faces: purged `"tall slender proportions"`, `"Wes Anderson-style central balance"`, and `"frozen at a physical crossroads"`.
+     - **Natural Facial Acting & Relaxed Eye Rendering**: Purged `"conspiratorial glance"` triggers from prompt templates and storyboard directors, replacing them with *"engaging, playful knowing smile and lively natural-sized simple black 2D cartoon eyes with relaxed facial acting"*.
+     - **Purely-Positive Z-Image-Turbo (`cfg=1.0`) Anchor Discipline**: Because Z-Image-Turbo runs at `cfg=1.0`, negative-exclusion boilerplate causes concept leakage; therefore relaxed natural eyes, late-teen 1:7 proportions, stylish layered attire, and text-free surfaces are enforced strictly through positive descriptions (`NEGATIVE_PROMPT_SHIELD` excludes `explicit footwear on feet`, and legacy negated parenthetical clauses are stripped idempotently on re-sanitization).
      - Gender-attire integrity: male characters are barred from feminine garments (bodices, corsets, kirtles, skirts, dresses).
      - Elimination of conflicting double prompt injections (no duplicate or contradictory character descriptions within the same prompt).
    - **Zero-Copy Static Shared Asset Architecture**:
@@ -130,11 +130,11 @@ The content strategy consists of four distinct formats queued from CSV files in 
    - **6 Authorized Formats**: Format A (3 Facts), Format B (One Big Curiosity), Format C (Challenge), Format D (Mystery), Format E (Comparison), Format F (Ranking/List).
    - **Target Language Localization**: All content in `*_READY_PROMPTS_FUN_FACTS.csv` (`TOPIC`, `FACT_DETAILS`, `HOOK_ANGLE`, `EMOTIONAL_TRIGGER`) is written directly in the target language (French, Spanish, Italian, English).
    - **Calibrated Scene Count & 5-Beat Camera Grammar**: Generates **5 distinct thematic scene images** via ComfyUI:
-     - `hook` [THE SCALE OF WONDER]: Dramatic low-angle heroic 24mm wide shot looking upward in jaw-dropped awe (0% camera eye contact).
-     - `setup` [THE CURIOUS CLUE]: Medium 50mm eye-level investigative shot examining an authentic artifact or clue.
-     - `discovery` [THE HIDDEN MECHANISM REVEAL]: Dynamic 35mm 3/4 medium action shot revealing the mechanism/origin in motion.
-     - `explanation` [LIVING CULTURAL CONTEXT]: Medium-wide 35mm environmental immersion shot showing practical cultural context.
-     - `payoff` [MIND-BLOWN MASTERY]: Chest-up celebratory medium close-up (50mm lens) with warm rim lighting.
+     - `hook` [THE SCALE OF WONDER]: Dramatic low-angle heroic 28mm wide shot framed from mid-thigh/waist up in the lower foreground (cropped at hips/mid-thigh, zero footwear) looking sharply upward in jaw-dropped awe (0% camera eye contact).
+     - `setup` [THE CURIOUS CLUE]: Waist-up medium 50mm eye-level investigative shot examining an authentic artifact or clue (footwear omitted).
+     - `discovery` [THE HIDDEN MECHANISM REVEAL]: Dynamic 35mm 3/4 waist-up medium action shot revealing the mechanism/origin in motion (footwear omitted).
+     - `explanation` [LIVING CULTURAL CONTEXT]: Medium-wide 35mm environmental immersion shot showing practical cultural context (0% camera eye contact).
+     - `payoff` [MIND-BLOWN MASTERY]: Chest-up celebratory medium close-up (50mm lens, cropped at mid-torso, footwear omitted) with warm rim lighting.
    - **Target Duration & Word Budget**: **40 to 60 seconds** (strictly **95–135 spoken words** across all sections).
    - **Status**: **Fully implemented, verified, and operational**.
 
@@ -158,13 +158,14 @@ Stage C separates shared visual rules, language data, and video-type camera prof
 | Layer / File | Responsibility ("Where to Change X") |
 | :--- | :--- |
 | `visual/common/style.py` | Shared 2D cartoon style pillars, base system prompts, and type-pure storyboard system prompt builder (`build_storyboard_system_prompt`). |
-| `visual/common/sanitizer.py` | Idempotent `sanitize_and_style_prompt`, text/quote scrubbing, 14–16yo teen demographic enforcement, and `present` heteronym gift-box exception. |
+| `visual/common/sanitizer.py` | Idempotent `sanitize_and_style_prompt`, `strip_footwear_clauses` (`CROPPED_FRAMING_RE`), text/quote scrubbing (protecting `reading lamp`/`alcove`/`hall`/`boxes`, `calling card`, `speaking lectern`), purely-positive Z-Image-Turbo (`cfg=1.0`) 2D style anchor (`17-year-old high-school senior`, `1:7` late-teen proportions, `lively natural-sized simple black 2D cartoon eyes`, `pure text-free visual illustration`), legacy negated-tail & shortened-tail handling, age upgrades (`8–15`/`14-16yo` -> `17-year-old`), and `present` heteronym gift-box exception. |
 | `visual/common/cast.py` | `CharacterCast` model, `get_speaker_gender_safe`, centralized default genders (`resolve_default_speakers_gender`), solo-format protection for `GAME`/`FUN_FACTS`, and `persist_character_anchors_in_state`. |
-| `visual/common/environment.py` | Anchor environment resolution engine (`resolve_anchor_environment`, `is_figurative_idiom`). |
-| `visual/languages/{english,french,spanish,italian}.py` | **Language-only data**: brand color palette mood, idiom detection markers, idiom metaphor environments, heteronyms, and `MULTILINGUAL_SEMANTIC_DOMAINS` (shared with `core/gemini_auditor.py`). Never contains camera angles or video-type rules. |
-| `visual/types/{expression,game,roleplay,fun_facts}/` | **Type-only rules & prompts**: `SceneSpec` contracts (`rules.py`), single-scene goals, scene progressions, storyboard director tasks (`prompts.py`), and `VisualProfile` class (`profile.py`). |
+| `visual/common/environment.py` | 4-Tier Cultural World Atlas & anchor resolver (`resolve_cultural_world`, `resolve_anchor_environment`, `infer_world_ids_from_text`, `is_figurative_idiom`, Triplet Collision Guard ensuring distinct worlds for matching-number `E`/`G`/`R` triplets). |
+| `visual/languages/{english,french,spanish,italian}.py` | **Language-only data**: brand color palette mood, idiom detection markers, idiom metaphor environments, heteronyms, and `cultural_worlds` (`CulturalWorld` atlas: **124 worlds total** — 36 English global Anglophone, 32 Spanish Spain + Latin America, 28 French France + Francophone, 28 Italian regional Italy; stylish venue fashion; 100% text-free). Never contains camera angles or video-type rules. |
+| `visual/types/{expression,game,roleplay,fun_facts}/` | **Type-only rules & prompts**: `SceneSpec` contracts (`rules.py`) with waist-up/mid-thigh cropped `hook` & medium framing (footwear omitted), single-scene goals, scene progressions, storyboard director tasks (`prompts.py`), and `VisualProfile` class (`profile.py`). |
 | `visual/types/registry.py` | `get_visual_profile(...)` dispatcher (by type name, 1-letter code, or Script ID) + `IMAGE_PROMPT_ENGINE=legacy\|typed` rollback switch. |
-| `core/prompt_builder.py` | Public facade (`VisualPromptBuilder` + re-exports of all helper functions for backward compatibility). |
+| `core/prompt_builder.py` | Public facade (`VisualPromptBuilder`, `_CROPPED_SCENES` footwear-stripping enforcement, stripped `wardrobe_cue` hints, and re-exports of all helper functions for backward compatibility). |
+| `main/core/gemini_auditor.py` | Gemini Prompt Auditor enforcing purely-positive Z-Image-Turbo (`cfg=1.0`, `17-year-old`, `1:7`, footwear-free `NEGATIVE_PROMPT_SHIELD` and `CHAR_1`/`CHAR_2` templates) and automatic Cultural World reroll excluding the previous draft's setting (unless fixed by the script). |
 
 ---
 
@@ -193,63 +194,61 @@ The project features a full **Model-View-Controller (MVC)** WebUI providing an i
 ```text
 [Browser: React 19 + Vite] ──HTTP / REST──> [FastAPI Backend: main/webui/server.py]
       │                                                │
-      ├── SSE Log Stream (/api/jobs/{id}/stream) <─────┤
-      └── SSE Sync Stream (/api/sheets/sync/stream) <──┤
+      ├── WebSocket Logs (/ws/jobs/{id}, /ws/system) <─┤
+      └── Polled Sync State (/api/sheets/status) <─────┤
                                                        ▼
                                            [Job Manager & Adapters]
                                         (main/webui/jobs/manager.py)
                                                        │
-                                   ┌───────────────────┼───────────────────┐
-                                   ▼                   ▼                   ▼
-                              [VoiceAdapter]     [ImagesAdapter]    [ThumbnailsAdapter]
-                               (Stage B)           (Stage C)           (Stage F)
+       ┌──────────────┬────────────┬───────────┬───────┴────────┬─────────────┬────────────┐
+       ▼              ▼            ▼           ▼                ▼             ▼            ▼
+[ScriptsAdapter] [VoiceAdapter] [Images] [Chalkboard]     [Thumbnails]  [Assembly]   [DriveAdapter]
+   (Stage A)       (Stage B)   (Stage C) (CPU Chalk)       (Stage F)    (Stage G)   (Google Drive)
 ```
 
 - **Frontend (`main/webui/frontend/`)**: React 19, TypeScript, Vite, Tailwind CSS, Lucide Icons. Built assets are compiled directly into `main/webui/static/` and served as a single-page application.
 - **Backend API (`main/webui/server.py`)**: FastAPI application mounted with modular routers:
-  - `/api/scripts`: Script catalog querying, filtering, search, detail modals, and ID validation.
-  - `/api/media`: Audio, image, and video streaming with proper MIME types.
-  - `/api/jobs`: Background job queue management, execution console, SSE log streaming, pause/cancel.
-  - `/api/system`: Real-time service monitoring (ComfyUI and Llama-server status, GPU VRAM, PIDs) and service control.
-  - `/api/sheets`: Google Sheets 4-step synchronization worker and progress streaming.
+  - `/api/scripts`: Script catalog querying, filtering, search, detail modals, Gemini Prompt Auditor (`POST /api/scripts/{script_id}/gemini-audit-prompt`), CPU chalkboard rendering, scene/full image redo, and ID validation.
+  - `/api/media`: Audio, image, and video streaming with HTTP Range support and MIME type resolution.
+  - `/api/jobs`: Background job queue management (`scripts`, `voice`, `images`, `music`, `assembly`, `thumbnails`, `chalkboard`, `drive_upload`), execution console, WebSocket log streaming (`/ws/jobs/{job_id}`, `/ws/system`), and cancellation.
+  - `/api/system`: Real-time service monitoring (ComfyUI and Llama-server status, GPU VRAM, PIDs, Gemini API key status) and service control.
+  - `/api/sheets`: Google Sheets 4-step synchronization worker and status polling.
+  - `/api/drive`: Google Drive configuration status (`GET /api/drive/status`) and single-script upload (`POST /api/drive/scripts/{script_id}/upload`).
 - **Launcher**: Launch with a single command:
   ```powershell
   py main/tools/webui.py
   ```
   The launcher checks Python dependencies, validates Node/npm build status, resolves port conflicts automatically, and opens the default browser.
 
-### The 4 WebUI Views
+### The 6 WebUI Views (`Navbar.tsx`)
 
-1. **Dashboard (`/`)**:
-   - **System Health Cards**: Live monitoring of ComfyUI and Llama-server processes, GPU VRAM allocation, PIDs, and one-click start/stop controls.
-   - **Stage Metrics**: Real-time asset completion counts across all 6 pipeline stages.
-   - **Filterable Script Catalog**: Instant filtering by Language (English, French, Italian, Spanish), Video Format (Expression, Game, Roleplay, Fun Facts), and Pipeline Status (Pending, Done, In Progress). Searchable by expression or ID.
-   - **Bingo Matrix View (`BingoMatrixView.tsx`)**: High-level visual matrix providing an at-a-glance status grid across all 16 language/format combinations (e.g. EE, EG, ER, EF, FE, FG, FR, etc.).
+1. **Home (`HomeView.tsx`)**: Pipeline overview, high-level KPI progress summary, and quick launch entry points.
+2. **Script Catalog (`ScriptList.tsx` & `ScriptDetailModal.tsx`)**:
+   - Instant filtering by Language (English, French, Italian, Spanish), Video Format (Expression, Game, Roleplay, Fun Facts), and Pipeline Status, plus search by expression or ID.
    - **Script Detail Modal (`ScriptDetailModal.tsx`)**: Inspects script narrative sections, master audio playback with interactive waveform, scene illustrations, thumbnail preview, and YouTube SEO metadata (Title, Description, Tags, Hashtags).
-     - *Single-Scene Image Redo*: Clickable redo button per scene card in the storyboard tab enqueues an isolated scene generation job to Job Manager using the active scene-specific prompt.
-     - *Full Image Set Redo from General Prompt*: "queue redo (all images)" button persists user-edited general prompt, clears stale scene prompts and disk PNGs, and queues a sequential two-phase job: Llama boots up first to regenerate all scene-specific prompts aligned to the new general prompt, persists them to state, and stops to release VRAM; ComfyUI then starts and renders all scene images.
-     - *Direct Google Drive Upload*: "upload to google drive" button verifies video & thumbnail existence, uploads both to the appropriate Google Drive subfolder, and provides live feedback.
+     - *Gemini Prompt Auditor*: Calls `POST /api/scripts/{script_id}/gemini-audit-prompt` to audit and auto-reroll the Cultural World setting (excluding the previous draft's setting unless the script requires a fixed venue) and emit purely-positive Z-Image-Turbo prompts.
+     - *Single-Scene Image Redo*: Clickable redo button per scene card in the storyboard tab enqueues an isolated scene generation job (`POST /api/scripts/{script_id}/scenes/{scene_type}/redo-image`).
+     - *Full Image Set Redo from General Prompt*: "queue redo (all images)" button (`POST /api/scripts/{script_id}/redo-all-images`) persists the edited general prompt, clears stale scene prompts and disk PNGs, and queues a two-phase job with `preserve_general_prompt=True`: Llama regenerates all scene prompts aligned to the saved general prompt (without overwriting it) and stops to free VRAM before ComfyUI renders all scene images.
+     - *Direct Google Drive Upload*: "upload to google drive" button (`POST /api/drive/scripts/{script_id}/upload`) verifies video & thumbnail existence, removes duplicate `<script_id>` folders and existing files inside `<script_id>`, and uploads fresh replacements.
      - *Zero-Copy Static Asset Architecture*: Reusable assets (e.g. GAME Tito `pressure` waiting cards, opening and closure cards) are dynamically resolved via `resolve_static_scene_path` without copying duplicate PNGs into script asset folders.
-2. **Job Queue / Execution Console (`/jobs`)**:
+3. **Job Queue / Execution Console (`JobQueueView.tsx`)**:
    - Asynchronous background job queue (`webui/jobs/manager.py`) executing batch jobs across pipeline stages.
-   - Live terminal log stream (Server-Sent Events) with pause, resume, and cancel buttons.
-   - Step-by-step progress bars showing script completion count, current stage, and elapsed time.
-3. **Handle Google Sheets Changes (`/sheets`)**:
-   - **Step 1/4 (Cache Purge)**: Purges stale cached CSVs in `input/csv/script_to_change/` to ensure fresh synchronization.
-   - **Step 2/4 (API Fetch)**: Connects to the Google Apps Script Web App API across all 16 sheets, fetching Column D (`SCRIPT_CHANGED` / `NEW_SCRIPT`).
-   - **Step 3/4 (Audit & Diff)**: Audits differences against local State JSONs using GAME-aware comparison logic that eliminates false positives from option formatting.
-   - **Step 4/4 (Apply & Reset)**: Applies script modifications into State JSONs, cleans GAME challenges, resets downstream stages (`voice`, `images`, `thumbnails`, `assembly`) to `pending`, and refreshes review CSVs.
-4. **Mass Assets Creation (`/mass-creation`)**:
-   - Mass generation of **Scene Images** (Stage C), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), or **Google Drive Upload** for arbitrary lists of script IDs across all languages and video formats.
+   - Live terminal log stream via WebSockets (`/ws/jobs/{job_id}`) with cancel controls, step-by-step progress bars, and elapsed time.
+4. **Mass Assets Creation (`MassAssetsCreationView.tsx`)**:
+   - Batch generation and cloud sync across **7 target stages**: **Script Dialogues** (Stage A), **Scene Images** (Stage C), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), **Chalkboard Images** (Game only), **Video Assembly** (Stage G), and **Google Drive Upload**.
    - **3 ID Collection Modes**:
      - *Manual Input*: Comma/space/line-separated IDs with debounced real-time validation via `POST /api/scripts/validate-ids`.
      - *CSV Drag & Drop*: Upload CSV/TXT files to automatically extract and validate target script IDs.
-     - *Preset Catalogs*: One-click buttons to load "All Pending Images", "All Pending Voice", "All Pending Thumbnails", or "Load Ready Videos".
-   - **Mass Drive Upload Mode**: Pre-flight audit via `POST /api/drive/check-readiness` displays real-time readiness status for each script ID (both `_final.mp4` and `thumbnail.png` present). Once validated, `POST /api/drive/mass-upload` enqueues a batch job through `DriveAdapter` with live progress tracking in the Job Manager.
+     - *Preset Catalogs*: One-click buttons to load pending images/voice/thumbnails, ready for assembly, ready for Drive upload (video + thumb), or Game chalkboards.
+   - **Mass Drive Upload Mode**: Uses `validate-ids` and catalog readiness flags (`has_video && has_thumbnail`) to filter upload-ready IDs, then dispatches a `stage="drive_upload"` job via `POST /api/jobs` to `DriveAdapter` for live progress tracking.
    - **Interactive Validated Script Grid**: Clickable chips showing format, language, and current asset status, with quick-remove buttons and one-click inspection via `ScriptDetailModal`.
-   - **Forced Re-generation**: Toggle (`force: true` default) ensuring assets are re-rendered and overwritten even if the state JSON marks them as `done`.
-   - **Pre-flight Service Checks**: Displays warnings if ComfyUI is offline when images or thumbnails are selected.
-   - **Execution Console Redirect**: Launches the batch directly into the background Job Manager and navigates to the Execution Console for live tracking.
+   - **Forced Re-generation & Prompt Rebuild**: Toggle (`force: true` default) ensuring assets are re-rendered even when marked `"done"`. For **Scene Images** (`ImagesAdapter` & `_C_image_generation/main.py`), Mass Assets Creation (`preserve_general_prompt=False`) rebuilds both `general_prompt` and storyboard `image_prompts` from scratch when `force=True` or `regenerate_prompts=True`. For **Video Assembly** (`AssemblyAdapter` & CLI targeted IDs), targeted IDs are always forced: any existing final `.mp4` is unlinked from disk first, `status.video_assembly` is reset to `pending`, and the final video and subtitles are recreated from scratch (only after verifying Stage B voice and Stage C image prerequisites).
+   - **Pre-flight Service Checks**: Displays warnings if ComfyUI is offline when images or voice are selected.
+   - **Execution Console Redirect**: Launches the batch directly into the background Job Manager and navigates to the Queue view for live tracking.
+5. **Google Sheets Sync (`GoogleSheetsSyncView.tsx`)**:
+   - Interactive 4-step workflow triggered via `POST /api/sheets/sync`: Step 1 purges stale CSVs in `input/csv/script_to_change/`, Step 2 fetches Column D (`SCRIPT_CHANGED` or `SCRIPT_CHANGE`) and Column B (`EXPRESSION`) across all 16 sheets (including `FUN_FACTS`), Step 3 runs format-aware audit & diff preview, and Step 4 applies changes cleanly via `script_modifier.py` (5-section `FUN_FACTS` with `explanation`, title/anchor invalidation on topic change) while resetting downstream stages (`voice`, `images`, `thumbnails`, `assembly`) to `pending`.
+6. **Bingo Matrix (`BingoMatrixView.tsx`)**:
+   - Interactive visual status grid tracking asset readiness across all 16 language/format matrices (`EE`, `EG`, `ER`, `EF`, `FE`, etc.).
 
 ---
 
@@ -279,10 +278,10 @@ The `connectivity/` package coordinates Google Sheets data exchanges:
 
 1. **Option A Master Router (`connectivity/core/endpoints.py`)**: 16 endpoints mapped to Google Sheets IDs via Google Apps Script Web App (`google_apps_script.js`).
 2. **Feature 1 (`sync_sheets.py`)**: Pulls sheet records into `<OUTPUT_DIR>/connectivity/synced_sheets/` (Columns A-C or A-D).
-3. **Feature 2 (`fetch_corrected_scripts.py`)**: Filters Column D (`SCRIPT_CHANGED`) and exports corrections into `input/csv/script_to_change/` with schema `ID, NEW_SCRIPT`.
+3. **Feature 2 (`fetch_corrected_scripts.py`)**: Filters Column D (`SCRIPT_CHANGED` or `SCRIPT_CHANGE`) across all 16 sheets (all 4 formats including `FUN_FACTS`) and exports corrections into `input/csv/script_to_change/` with schema `ID, NEW_SCRIPT, EXPRESSION` (preserving Column B `EXPRESSION` updates).
 4. **Feature 2b (`tools/check_script_changes.py`)**:
-   - Deep comparison engine between CSV Column D corrections and local runtime State JSONs.
-   - **GAME-Aware Normalization**: Ignores formatting differences in option connectors, stress capitalization, and option punctuation (`?` vs `.`) to eliminate false positives.
+   - Deep comparison engine between CSV Column D corrections (+ Column B `EXPRESSION` topic updates) across all 4 formats (`EXPRESSION`, `GAME`, `ROLEPLAY`, `FUN_FACTS`) and local runtime State JSONs.
+   - **GAME & FUN_FACTS Format Awareness**: Automatically parses GAME challenges into neutral spoken words (no uppercase stress giveaways), option tags (`A: `, `B: `), zero connectors, parts-of-speech context (`a record.` / `to record.`), period endings, and synchronizes `chalkboard_exercise` with `challenge`; parses 5-section `FUN_FACTS` (`hook`, `setup`, `discovery`, `explanation`, `payoff`) cleanly and invalidates stale titles/anchors on topic change.
    - CLI flags: `--check-only`, `--apply`, `--csv <file>`, `--script-id <ID>`.
 5. **Feature 3 (`reconcile_scripts.py`)**: Reconciles local scripts against Google Sheets order into `scripts_to_post/`.
 6. **Feature 4 (`post_scripts.py`)**: Safely publishes scripts to Google Sheets (preserves Column D in 3-column mode).
@@ -292,27 +291,31 @@ The `connectivity/` package coordinates Google Sheets data exchanges:
 
 ## Google Drive Export & Cloud Synchronization Suite
 
-The `main/connectivity/drive_sync/` module and `main/connectivity/sync_drive.py` CLI coordinate secure, automated asset delivery to Google Drive:
+The `main/connectivity/drive_sync/` package (`drive_client.py`, `sync_service.py`) and `main/connectivity/sync_drive.py` CLI coordinate automated asset delivery to Google Drive:
 
-1. **Authentication Architecture (`auth.py`)**:
-   - Primary: OAuth 2.0 User Flow using Google API client credentials (`.credentials/google_drive_credentials.json`). Interactive browser sign-in on first run with tokens automatically persisted and refreshed via `.credentials/drive_token.json`.
-   - Fallback: Google Cloud Service Account authentication via service account key JSON.
-2. **Directory & Routing Structure (`folder_manager.py`)**:
-   - Resolves or creates a root folder (default `youtube_shorts_ready` configured via `GOOGLE_DRIVE_FOLDER_NAME` in `.env`).
-   - Automatically maintains hierarchical subdirectories by language (`english`, `french`, `spanish`, `italian`) and format (`expression`, `game`, `roleplay`, `fun_facts`).
-3. **Atomic Asset Packaging & Integrity (`uploader.py`)**:
-   - Requires both the final video (`<script_id>_final.mp4`) and thumbnail (`thumbnail.png`).
-   - Sets standard MIME types (`video/mp4`, `image/png`), checks file sizes, and skips files already present in the target folder with identical names to avoid redundant transfers.
+1. **Authentication & Credential Resolution (`drive_client.py`)**:
+   - `GoogleDriveClient._resolve_credentials_path()` checks `--credentials`, `GOOGLE_APPLICATION_CREDENTIALS`, and `main/credentials/` in strict priority order: `token.json` -> `service_account.json` -> `client_secret.json`.
+   - Supports **OAuth 2.0 Desktop App** (interactive browser consent on first run, saving/refreshing `token.json`) and **Service Account** (`service_account.json`) authentication against Drive API v3 (`SCOPES = ["https://www.googleapis.com/auth/drive"]`).
+2. **Directory & Routing Hierarchy (`sync_service.py`)**:
+   - Uploads target `DEFAULT_ROOT_FOLDER_ID = "15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z"` (overridable via `--root-folder-id`) with hierarchical folders:
+     `<root> / <language> (english|french|italian|spanish) / <video_type> (expressions|fun_facts|game|role_play) / <script_id> /`
+   - Places cleanly renamed bundles inside `<script_id>`: `<script_id>.mp4` and `<script_id>_thumbnail.png`.
+3. **Clean Delete-Before-Upload Replacement**:
+   - Validates that BOTH the local final video and thumbnail exist on disk BEFORE modifying anything in Drive (never deletes remote files if local assets are incomplete).
+   - Uses `_list_files()` with `supportsAllDrives=True, includeItemsFromAllDrives=True` (Shared Drives compatibility).
+   - Calls `delete_duplicate_folders()` to remove redundant same-name `<script_id>` folders under `<video_type>`, then `clear_folder()` (paginated child deletion) inside `<script_id>` before uploading fresh versions.
+   - `upload_or_update_file()` deletes any matching existing file(s) before creating a fresh file via resumable chunked `files().create(...)`.
+   - `delete_file()` performs permanent deletion with automatic HTTP 400/403 Trash fallback (`trashed: True`), safe 404 handling, and `_folder_cache` eviction.
+   - `upload_script_to_drive()` returns `deleted_existing_count`, which is logged by `DriveAdapter` and printed by `sync_drive.py`, and records `drive_upload` URLs/status via `StateManager`.
 4. **WebUI Integration & Execution**:
-   - `GET /api/drive/status`: Reports Google Drive service connection state and authentication mode.
-   - `POST /api/drive/check-readiness`: Audits a list of script IDs and returns whether both video and thumbnail exist on disk.
-   - `POST /api/drive/upload/{script_id}`: Single-script synchronous upload from `ScriptDetailModal`.
-   - `POST /api/drive/mass-upload`: Batch asynchronous upload executed through `DriveAdapter` in `main/webui/jobs/adapters/drive.py`, reporting real-time progress via SSE.
+   - `GET /api/drive/status`: Reports Drive configuration, resolved credentials file, and root folder metadata.
+   - `POST /api/drive/scripts/{script_id}/upload`: Single-script upload from `ScriptDetailModal`.
+   - Batch asynchronous uploads dispatch via `POST /api/jobs` with `stage="drive_upload"` through `DriveAdapter` (`main/webui/jobs/adapters/drive.py`), streaming live progress over WebSockets.
 5. **Standalone CLI (`sync_drive.py`)**:
    ```powershell
    py main/connectivity/sync_drive.py --all
    py main/connectivity/sync_drive.py --script-id EE01
-   py main/connectivity/sync_drive.py --language spanish --type game
+   py main/connectivity/sync_drive.py --all --language spanish --video-type game
    ```
 
 ---
@@ -350,24 +353,25 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 | File / Folder | Role |
 | :--- | :--- |
 | `main/tools/webui.py` | Dedicated launcher for the WebUI MVC application (FastAPI on port 8190 + React 19 SPA). |
-| `main/webui/server.py` | FastAPI backend server with modular routers for `scripts`, `media`, `jobs`, `system`, and `sheets`. |
+| `main/webui/server.py` | FastAPI backend server with modular routers for `scripts`, `media`, `jobs`, `system`, `sheets`, and `drive`. |
 | `main/webui/frontend/` | React 19 + TypeScript + Vite frontend source code. |
 | `main/webui/static/` | Compiled static production bundle served directly by FastAPI. |
-| `main/webui/jobs/manager.py` | Background Job Manager with SSE/WebSocket logging and pipeline stage adapters (`voice`, `images`, `thumbnails`, `assembly`). |
+| `main/webui/jobs/manager.py` | Background Job Manager with WebSocket streaming (`/ws/jobs/{job_id}`, `/ws/system`) and stage adapters (`scripts`, `voice`, `images`, `chalkboard`, `thumbnails`, `assembly`, `drive`). |
 | `main/main.py` | Main CLI orchestrator to run pipeline stages sequentially with health verification. |
 | `main/core/llama_manager.py` | Process supervisor for local llama.cpp server with VRAM freeing and status monitoring. |
+| `main/core/gemini_auditor.py` | Gemini Prompt Auditor generating purely-positive Z-Image-Turbo prompts with automatic Cultural World reroll. |
 | `main/tools/llama.py` | CLI supervisor tool for manual control of llama-server (`start`, `stop`, `status`, `logs`). |
 | `main/tools/comfy.py` | Headless ComfyUI background supervisor (`start`, `stop`, `status`, `logs`). |
 | `main/tools/check_script_changes.py` | CLI auditor & synchronizer between Google Sheets Column D CSVs and local State JSONs. |
-| `main/connectivity/sync_drive.py` | Standalone CLI for uploading finalized video bundles to Google Drive. |
-| `main/connectivity/drive_sync/` | Google Drive client suite: OAuth2/Service Account auth, hierarchical folder routing, uploader. |
-| `main/webui/routers/drive.py` | FastAPI router for Drive status, readiness audits, single upload, and mass upload dispatch. |
-| `main/webui/jobs/adapters/drive.py` | Background Job Manager adapter for batch Google Drive uploads. |
+| `main/connectivity/sync_drive.py` | Standalone CLI for uploading finalized video bundles to Google Drive with delete-before-upload replacement. |
+| `main/connectivity/drive_sync/` | Google Drive API v3 suite (`drive_client.py`, `sync_service.py`): OAuth2/Service Account auth, hierarchical routing, clean deletion/replacement. |
+| `main/webui/routers/drive.py` | FastAPI router for Drive credentials status and single-script uploads (batch uploads run via `POST /api/jobs` + `DriveAdapter`). |
+| `main/webui/jobs/adapters/drive.py` | Background Job Manager adapter for batch Google Drive clean replacement uploads. |
 | `main/webui/frontend/src/components/BingoMatrixView.tsx` | Visual matrix tracker across all 16 language/format combinations. |
 | `main/video_creation/_A_video_scripts/script_modifier.py` | Script modifier supporting direct parsing, LLM structuring, and automatic `clean_game_challenge()` enforcement. |
 | `main/video_creation/_A_video_scripts/prompts/game_rules.py` | Authoritative GAME prompt rules enforcing clean option formatting, no stress giveaways, and separation of challenge and pressure. |
-| `main/connectivity/` | Google Sheets integration suite (Apps Script Web App client, fetcher, reconciler, poster, scanner). |
-| `test/run_tests.py` | Test runner for automated unit, integration, contract, WebUI, and Drive tests (370 tests passing 100%). |
+| `main/connectivity/` | Google Sheets & Google Drive integration suite (Apps Script Web App client, fetcher, reconciler, poster, scanner, Drive sync). |
+| `test/run_tests.py` | Test runner for automated unit, integration, contract, connectivity, and WebUI tests (**436 tests across 46 files passing 100%**). |
 
 ---
 

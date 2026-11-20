@@ -270,7 +270,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
 
     try {
       const job = await createJob(targetStage, targetIds, {
-        force: forceRegenerate,
+        force: targetStage === 'assembly' ? true : forceRegenerate,
       })
       onJobStarted(job.job_id)
     } catch (err) {
@@ -779,13 +779,20 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           <label className="checkbox-label highlight">
             <input
               type="checkbox"
-              checked={forceRegenerate}
+              checked={targetStage === 'assembly' ? true : forceRegenerate}
+              disabled={targetStage === 'assembly'}
               onChange={(e) => setForceRegenerate(e.target.checked)}
             />
             <span className="checkbox-text">
-              <strong>force regeneration even if marked as "done" in state JSON</strong>
+              <strong>
+                {targetStage === 'assembly'
+                  ? 'always force video assembly for targeted IDs'
+                  : 'force regeneration even if marked as "done" in state JSON'}
+              </strong>
               <span className="checkbox-hint">
-                re-creates and overwrites existing asset files for all targeted IDs, resetting downstream status.
+                {targetStage === 'assembly'
+                  ? 'mass video assembly always forces all targeted IDs: any existing final video (.mp4) is deleted and created again from scratch.'
+                  : 're-creates and overwrites existing asset files for all targeted IDs, resetting downstream status.'}
               </span>
             </span>
           </label>

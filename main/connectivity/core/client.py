@@ -139,7 +139,7 @@ def normalize_sheet_rows(raw_rows: List[Dict[str, Any]]) -> List[Dict[str, str]]
                 record["expression"] = val
             elif k_upper in ("SCRIPT", "ORIGINAL_SCRIPT"):
                 record["script"] = val
-            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT_CHNAGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
+            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT_CHANGE", "SCRIPT_CHNAGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
                 record["SCRIPT_CHANGED"] = val
 
         # Fallback script to SCRIPT_CHANGED if original script is empty

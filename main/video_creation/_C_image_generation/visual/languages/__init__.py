@@ -3,7 +3,7 @@ visual/languages — Language-specific visual profiles, palettes, idioms, and se
 """
 from __future__ import annotations
 
-from .base import LanguageVisualProfile
+from .base import CulturalWorld, LanguageVisualProfile
 from .english import ENGLISH_PROFILE, ENGLISH_HETERONYM_DOMAINS
 from .french import FRENCH_PROFILE
 from .spanish import SPANISH_PROFILE
@@ -18,6 +18,7 @@ from .registry import (
 )
 
 __all__ = [
+    "CulturalWorld",
     "LanguageVisualProfile",
     "ENGLISH_PROFILE",
     "ENGLISH_HETERONYM_DOMAINS",

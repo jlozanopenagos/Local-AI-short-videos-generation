@@ -605,12 +605,20 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
             }
 
     elif vtype in ("FUN_FACTS", "FUNFACTS"):
-        if len(lines) >= 4:
+        if len(lines) >= 5:
             parsed = {
                 "hook": lines[0],
                 "setup": lines[1],
-                "discovery": "\n".join(lines[2:-2]) if len(lines) > 4 else lines[2],
-                "payoff": "\n".join(lines[-2:]) if len(lines) > 4 else lines[-1],
+                "discovery": "\n".join(lines[2:-2]),
+                "explanation": lines[-2],
+                "payoff": lines[-1],
+            }
+        elif len(lines) == 4:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": lines[2],
+                "payoff": lines[3],
             }
         elif len(lines) >= 2:
             parsed = {
@@ -678,9 +686,10 @@ Required "script" object structure for FUN_FACTS:
     "hook": "Direct curiosity hook addressing the viewer...",
     "setup": "Context or setup of the curiosity...",
     "discovery": "The surprising revelation or core facts...",
+    "explanation": "Why this anomaly happens or how it works in practice...",
     "payoff": "Memorable takeaway and closing reaction..."
 }
-(If the script is a 3-facts format, use "fact_1", "fact_2", "fact_3" instead of setup/discovery.)
+(If the script is a 3-facts format, use "fact_1", "fact_2", "fact_3" instead of setup/discovery/explanation.)
 """
     else:  # EXPRESSION
         format_spec = """
@@ -765,7 +774,7 @@ CANONICAL_SCRIPT_KEYS_BY_TYPE: Dict[str, list[str]] = {
     "EXPRESSION": ["title", "hook", "setup", "discovery", "example", "payoff"],
     "GAME": ["title", "hook", "challenge", "pressure", "answer", "explanation"],
     "ROLEPLAY": ["title", "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"],
-    "FUN_FACTS": ["title", "hook", "setup", "discovery", "payoff"],
+    "FUN_FACTS": ["title", "hook", "setup", "discovery", "explanation", "payoff"],
 }
 
 
@@ -892,11 +901,22 @@ def format_script_with_llm(
     else:
         default_native_title = clean_expr_base
 
+    prev_topic_norm = str(
+        existing_content_metadata.get("topic")
+        or existing_content_metadata.get("target_expression")
+        or ""
+    ).strip().lower()
+    topic_changed = bool(
+        prev_topic_norm
+        and expression_or_topic
+        and expression_or_topic.strip().lower() != prev_topic_norm
+    )
+
     raw_title = (
         script_field.get("title")
         or parsed_json.get("title")
-        or existing_content_metadata.get("script", {}).get("title")
-        or existing_content_metadata.get("title")
+        or (None if topic_changed else existing_content_metadata.get("script", {}).get("title"))
+        or (None if topic_changed else existing_content_metadata.get("title"))
         or default_native_title
     )
     if isinstance(raw_title, str):
@@ -1021,6 +1041,7 @@ def modify_video_script(
     reset_downstream: Optional[bool] = None,
     base_dir: Optional[Path] = None,
     auto_update_csv: bool = True,
+    new_expression: Optional[str] = None,
 ) -> bool:
     """
     Core function to modify an existing script state with plain text input.
@@ -1050,7 +1071,7 @@ def modify_video_script(
         or "EXPRESSION"
     ).upper()
 
-    topic = (
+    old_topic = (
         prompt_params.get("EXPRESSION")
         or prompt_params.get("ROLEPLAY_SCENARIO")
         or prompt_params.get("TOPIC")
@@ -1058,6 +1079,22 @@ def modify_video_script(
         or content_meta.get("target_expression")
         or script_id
     )
+    clean_new_expr = (new_expression or "").strip()
+    topic_changed = bool(clean_new_expr and clean_new_expr.lower() != str(old_topic).strip().lower())
+    topic = clean_new_expr if clean_new_expr else old_topic
+
+    if topic_changed:
+        for k in ("EXPRESSION", "TARGET_EXPRESSION", "TOPIC"):
+            if k in prompt_params or k == "TOPIC":
+                prompt_params[k] = topic
+        for k in ("expression", "target_expression", "topic"):
+            if k in prompt_params:
+                prompt_params[k] = topic
+        # Clear stale angle/fact details inherited from the previous topic
+        for stale_k in ("ANGLE", "angle", "HOOK_ANGLE", "hook_angle", "FACT_DETAILS", "fact_details"):
+            if stale_k in prompt_params:
+                prompt_params[stale_k] = ""
+        state["prompt_params"] = prompt_params
 
     print("\n" + "=" * 68)
     print(f"🔄 MODIFYING SCRIPT: {script_id}")
@@ -1143,6 +1180,12 @@ def modify_video_script(
             state["assets"]["audio_path"] = None
             state["assets"]["final_video"] = None
             state["assets"]["thumbnail_path"] = None
+            if topic_changed:
+                state["assets"].pop("general_prompt", None)
+                state["assets"].pop("anchor_world_id", None)
+                state["assets"].pop("anchor_world_title", None)
+                if isinstance(state.get("content_metadata"), dict):
+                    state["content_metadata"].pop("anchor_environment", None)
             if saved_anchors:
                 state["assets"]["character_anchors"] = saved_anchors
 

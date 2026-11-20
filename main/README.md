@@ -16,7 +16,7 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
 7. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
 8. [Interactive CLI & Modifier Ecosystem](#interactive-cli--modifier-ecosystem)
 9. [Modern WebUI Management Studio](#modern-webui-management-studio)
-10. [Google Sheets Connectivity & Publishing Suite](#google-sheets-connectivity--publishing-suite)
+10. [Google Sheets & Drive Connectivity Suite](#google-sheets--drive-connectivity-suite)
 11. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
 12. [Prerequisites & Installation](#prerequisites--installation)
 13. [Configuration & Environment Matrix](#configuration--environment-matrix)
@@ -68,34 +68,34 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  │   - Multilingual Diction Guidance (Italian, Spanish, French)       │
  │   - Dynamic Token Budgets & Leading/Trailing Silence Trimming     │
  └───────────────┬────────────────┬──────────────────┬───────────────┘
-                 │                │                  │
-                 ▼                ▼                  ▼
- ┌────────────────────────┐┌──────────────┐┌─────────────────────────┐
- │  STAGE 3: _C_images    ││STAGE 4: _D_  ││ STAGE 5: _F_thumbnails  │
- │ - ComfyUI SD/Flux      ││Standing Bank ││ - ComfyUI Flux1-dev     │
- │   Scene Generation     ││160 Pre-Made  ││   Reference Model       │
- │ - Native CPU FreeType  ││Curated Audio ││   Stylized Generation   │
- │   Chalkboard Typography││Jams (30s)    ││   (576x1024)            │
- └───────────────┬────────┘└──────┬───────┘└─────────┬───────────────┘
-                 │                │                  │
-                 └────────────────┼──────────────────┘
-                                  │
-                                  ▼
- ┌───────────────────────────────────────────────────────────────────┐
- │               STAGE 6: video_creation/_G_video_assembly           │
- │   - Word-Timestamp Audio Transcription via faster-whisper (CPU)   │
- │   - Script-to-Audio Forced Alignment (100% Homophone Fidelity)    │
- │   - Dynamic ASS Animated Subtitles (Yellow &H0000FFFF, 60pt Bold) │
- │   - Hyphenated Subtitle Token Merging (re-CORD unified timing)    │
- │   - Challenge Scene Subtitle Suppression (Prevents Quiz Spoilers) │
- │   - Deterministic Emotion-Based BGM Jam Selection & Ducking       │
- │   - Interactive Fun Facts Card Dialect Prompt (US/UK, LatAm/Spain)│
- │   - FFmpeg Ken Burns Motion, 2s Intro Bumper, 3s Outro CTA Card   │
- └────────────────────────────────┬──────────────────────────────────┘
-                                  │
-                                  ▼
-                       [Final shorts MP4 Video]
-                 (<OUTPUT_DIR>/video_assets/.../final.mp4)
+ ├─────────────────────────────────────────────────────────────────────────────────────────┐
+ │        │                │                  │                                            │
+ │        ▼                ▼                  ▼                                            │
+ │  ┌────────────────────────┐┌──────────────┐┌─────────────────────────┐                  │
+ │  │  STAGE 3: _C_images    ││STAGE 4: _D_  ││ STAGE 5: _F_thumbnails  │                  │
+ │  │ - Modular visual/      ││Standing Bank ││ - ComfyUI Flux1-dev     │                  │
+ │  │   + Cultural Worlds    ││160 Pre-Made  ││   Reference Model       │                  │
+ │  │ - Purely-positive 17yo ││Curated Audio ││   Stylized Generation   │                  │
+ │  │   1:7 cfg=1.0 2D anchor││Jams (30s)    ││   (576x1024)            │                  │
+ │  │ - Native CPU FreeType  │└──────┬───────┘└─────────┬───────────────┘                  │
+ │  │   Chalkboard Typography│       │                  │                                  │
+ │  └───────────────┬────────┘       │                  │                                  │
+ │                  └────────────────┼──────────────────┘                                  │
+ │                                   ▼                                                     │
+ │  ┌───────────────────────────────────────────────────────────────────┐                  │
+ │  │               STAGE 6: video_creation/_G_video_assembly           │                  │
+ │  │   - Modular assembly/ Split by Video Type + Neutral Lang Hooks    │                  │
+ │  │   - Word-Timestamp Audio Transcription via faster-whisper (CPU)   │                  │
+ │  │   - Script-to-Audio Forced Alignment (100% Homophone Fidelity)    │                  │
+ │  │   - Lower-Middle Safe-Zone ASS Subtitles (Roleplay Speaker Colors)│                  │
+ │  │   - Challenge Scene Subtitle Suppression (Prevents Quiz Spoilers) │                  │
+ │  │   - Per-Type BGM Volume Envelopes & Cosine-Eased Motion Curves    │                  │
+ │  │   - Smooth FFmpeg xfade Cuts, 2s Intro Bumper, 3s Outro CTA Card  │                  │
+ │  └────────────────────────────────┬──────────────────────────────────┘                  │
+ │                                   │                                                     │
+ │                                   ▼                                                     │
+ │                        [Final shorts MP4 Video] ──(optional sync_drive.py)──> [Drive]  │
+ │                  (<OUTPUT_DIR>/video_assets/.../final.mp4)                              │
 ```
 
 ### Pre-Flight Service Assertions
@@ -114,7 +114,7 @@ Content strategy is divided across four distinct formats, each strictly governed
 | **Spoken Word Budget** | **85 to 110 words** | **145 to 180 words** | **95 to 125 words** | **95 to 135 words** |
 | **Target Runtime** | **38 to 48 seconds** | **60 to 80 seconds** | **40 to 55 seconds** | **40 to 60 seconds** |
 | **Speaker Cast** | 1 Voice (Narrator) | 3 Voices (Narrator, P1, P2)| 1 Voice (Narrator) | 1 Voice (Narrator) |
-| **Visual Structure** | 5 Visual Scenes (ComfyUI) | 6 Timeline Cuts (4 ComfyUI) | 5 Scenes (2 ComfyUI + Chalkboard + Tito) | 5 Visual Scenes (ComfyUI) |
+| **Visual Structure** | 5 Visual Scenes (ComfyUI) | 6 Visual Scenes (6 ComfyUI Renders) | 5 Scenes (3 ComfyUI + Chalkboard + Static Tito) | 5 Visual Scenes (ComfyUI) |
 | **JSON Keys** | `title`, `hook`, `setup`, `discovery`, `example`, `payoff` | `title`, `hook`, `DIALOGUE_PART_1`–`4`, `PAYOFF` | `title`, `hook`, `challenge`, `pressure`, `answer`, `explanation` | `title`, `hook`, `setup`, `discovery`, `explanation`, `payoff` |
 
 ### 1. EXPRESSION: Micro-Storytelling
@@ -134,22 +134,23 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **Direct-Causality & Zero-Hallucination Quotes**: Speakers strictly respond to the exact words uttered in the immediately preceding turn. No phantom quotes.
 - **Trigger Direction**: PERSON_ONE sets up their real-world problem or error; PERSON_TWO introduces the idiom naturally in `DIALOGUE_PART_1`. P1 never self-diagnoses with the idiom in turn 1.
 - **TTS Stress Notation & Syntactic Carrier Protocol**: For heteronyms and minimal pairs, stressed syllables are capitalized in the script JSON (`REcord` vs `reCORD`, `PROject` vs `proJECT`) for title/graphic clarity. Downstream in Stage 2, dialogue turns are generated in continuous single takes using natural syntactic carriers (`a PREsent` / `to preSENT`, `a PROject` / `to proJECT`), eliminating artificial BPE respellings. Takes are scored via the Acoustic Prominence Quality Gate and backed by the Kokoro-82M Pronunciation Bank.
-- **Dynamic Setting Injection**: `prompt_builder.py` deterministically cycles 10 realistic settings via `script_id % 10` (airports, street markets, flat-pack assembly, train commutes, gym tracks, café terraces).
-- **Dynamic 4-Beat Storyboard Sequence & Dynamic Assembly Punch-In Cuts**:
-  To eliminate repetitive duplicate poses and save 33% GPU generation time, Roleplay generates 4 distinct, visually engaging illustrations:
-  1. `hook`: Scenario Establishing Shot (medium-wide framing establishing physical tension, environment, and opening dilemma; visually grounds the hook and opening dialogue exchange).
-  2. `DIALOGUE_PART_2`: 180° Reverse Angle Over-The-Shoulder (Reverse OTS) focusing on PERSON_TWO mentoring and explaining the target expression.
-  3. `DIALOGUE_PART_3`: Kinetic Interaction & Prop Demonstration Shot (active motion with physical object grounding the dialogue).
-  4. `PAYOFF`: Celebratory Resolution Outro (shared triumph, high-five, or confident outro in the established story world).
-  In video assembly (`_G_video_assembly`), when `DIALOGUE_PART_1` and `DIALOGUE_PART_4` occur in the audio timeline, the assembler automatically applies dynamic 1.25x punch-in cuts from their companion scenes (`hook` and `payoff`), framing high on characters' faces. This delivers 6 rhythmically timed cuts aligned with character speech with only 4 generated images!
-- **Story World Anchor & Locked General Prompt**:
-  `_C_image_generation` executes a two-pass architecture. Pass 1 builds an overarching `general_prompt` establishing the master architectural setting, lighting, time of day, and character traits, stored in state. Pass 2 synthesizes non-repetitive scene prompts strictly anchored to this story world.
-- **Strict Gender-Accurate Hairstyle Sanitization (`sanitize_character_hair`)**:
-  Enforces programmatic guardrails preventing male characters from receiving female hairstyles (buns, bobs, ponytails, chignons) and female characters from receiving masculine haircuts (quiffs, buzz cuts, crew cuts). Boys are locked to short clean-cut styles (`short textured dark hair with clean tapered sides and a neat side-part`), and girls to feminine styling (`dark wavy hair tied in an elegant ponytail` or `textured caramel-brown hair styled in soft shoulder-length waves`).
-- **Locked Character Continuity Anchors (`extract_or_build_character_anchors`)**:
-  Extracts and guarantees that character hairstyles, wardrobes, and teenage age profiles remain 100% stable across all scenes, automatically appending character continuity tokens if omitted by the LLM.
+- **4-Tier Cultural World Atlas (`visual/common/environment.py` & `visual/languages/*.py`)**: Replaces generic studio/workshop/greenhouse settings with **124 culturally authentic venues** across the 4 languages (**36** English global Anglophone, **32** Spanish Spain + Latin America, **28** French France + Francophone, **28** Italian regional Italy), paired with stylish venue-matched teen fashion, a **Triplet Collision Guard** ensuring matching-number `E`/`G`/`R` topics receive distinct worlds, and **Gemini Prompt Auditor** auto-reroll excluding previous draft settings.
+- **6-Beat Calibrated Roleplay Storyboard (`visual/types/roleplay/rules.py`)**:
+  Roleplay renders **6 distinct illustrations** via ComfyUI (`hook`, `dialogue_part_1`–`4`, `payoff`):
+  1. `hook`: Medium-wide `35mm` establishing diagonal OTS two-shot crossing a physical threshold (0% camera eye contact).
+  2. `dialogue_part_1`: Solo **3/4 angled waist-up** medium dialogue shot on `PERSON_ONE` (`50mm` lens, turned 3/4 right looking off-camera toward `PERSON_TWO`, active mid-sentence gesture or setting prop interaction, `PERSON_TWO` off-camera).
+  3. `dialogue_part_2`: `180°` reverse **3/4 angled waist-up** medium dialogue shot on `PERSON_TWO` (`50mm` lens, turned 3/4 left looking off-camera toward `PERSON_ONE`, optional soft-focus foreground shoulder OTS cue, calm reassuring gesture/lean).
+  4. `dialogue_part_3`: `90°` side profile or high-angle top-down two-shot prop interaction (`50mm` lens, both characters).
+  5. `dialogue_part_4`: Solo medium-wide 3/4 dynamic motion shot on `PERSON_ONE` (`35mm` lens, wider knees-up/hips-up framing stepping forward with renewed confidence).
+  6. `payoff`: Celebratory wide action two-shot in motion (`28mm` lens).
+- **Story World Anchor & Purely-Positive Z-Image-Turbo (`cfg=1.0`) Pipeline**:
+  `_C_image_generation` executes a two-pass architecture under `visual/`: Pass 1 builds an overarching `general_prompt` locking setting, lighting, and complete layered character designs (upper garment + trousers/chinos/skirt; omitting footwear in cropped shots); Pass 2 synthesizes non-repetitive scene prompts anchored to this world (`GAME`, `EXPRESSION`, `FUN_FACTS` `hook` shots and `ROLEPLAY` dialogue shots use cropped waist-up / mid-thigh framing and strip wearable footwear via `strip_footwear_clauses` / `_CROPPED_SCENES`). Because Z-Image-Turbo runs at `cfg=1.0`, `sanitize_and_style_prompt()` appends a concise **purely-positive** style anchor (`17-year-old high-school senior`, `realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build`, `lively natural-sized simple black 2D cartoon eyes`, `pure text-free visual illustration`), never skips the proportion anchor on shortened tails, protects compound nouns (`reading lamp`, `reading alcove`, `reading hall`, `reading boxes`, `calling card`, `speaking lectern`), strips legacy negated tails idempotently, and upgrades younger ages (`8–15`, `fourteen-year-old`, `fifteen-year-old`, `14-16yo`) to `17-year-old`.
+- **Strict Gender-Accurate Hairstyle Sanitization (`sanitize_and_style_prompt`)**:
+  Enforces programmatic guardrails preventing male characters from receiving female hairstyles (buns, bobs, ponytails, chignons) or female garments, and female characters from receiving masculine haircuts (quiffs, buzz cuts, crew cuts).
+- **Locked Character Continuity Anchors (`extract_or_build_character_anchors` / `CharacterCast`)**:
+  Extracts and persists character hairstyles, skin tones, eye anchors, wardrobes, and `17-year-old` profiles across all scenes in state JSONs.
 - **Universal Multi-Character Gender Specification Rule (Zero-Ambiguity Mandate)**:
-  Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one youthful 14-year-old teen boy and one youthful 14-year-old companion teen girl"*). Ambiguous words (*"two teens"*, *"friends"*, *"characters"*) are strictly prohibited to prevent diffusion models from hallucinating or randomizing character sexes. Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with locked wardrobes and hairstyles.
+  Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one 17-year-old high-school senior boy and one 17-year-old high-school senior girl"*). Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with complete upper + lower venue outfits.
 - **`SPECIAL_TREATMENT` Classification System**:
   - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
   - **Idiomatic Arc (Error #4 Fix)**: For multi-word figurative idioms, the LLM is instructed to enforce active usage modeling: P2 drops the full idiom in Part 1; P1 reacts to literal image while P2 clarifies in ≤1 sentence in Part 2; P2 demonstrates a new real-life usage in Part 3; and **P1 must use the complete idiom in an original sentence in Part 4** (the proof of learning).
@@ -186,11 +187,10 @@ Content strategy is divided across four distinct formats, each strictly governed
   - **Automatic Spoken Answer Masking in Listening Challenges (`mask_revealed_answer_in_question`)**: For acoustic and listening quizzes where the spoken narrative pronounces the answer, the renderer automatically detects if an option phrase appears in the question text and masks it with `_________`. This guarantees the visual chalkboard never spoils the spoken quiz.
   - **Subtitles**: Subtitles are suppressed exclusively during the `challenge` section so the chalkboard exercise remains clear and uncluttered, and the answer is never spoiled in text while the challenge audio plays. Subtitles resume normally for all other sections.
 - **Suspense Gap**: Audio engine inserts an exact 2.20-second suspense pause (`pressure_gap`) between `pressure` and `answer`.
-- **5-Scene Calibrated Image Pipeline**:
-  - ComfyUI renders ONLY 2 scenes (`hook` and `answer`).
-  - `challenge` is rendered natively on CPU via FreeType.
-  - `pressure` is loaded from static `<lang>_waiting.png`.
-  - `explanation` is automatically duplicated from `answer.png` post-batch.
+- **5-Scene Calibrated Image Pipeline (3 ComfyUI Renders)**:
+  - ComfyUI renders **3 distinct scenes** (`hook`, `answer`, and `explanation`), with zero duplicate images between `answer` and `explanation`.
+  - `challenge` is rendered natively on CPU via FreeType onto `empty_chalkboard.png`.
+  - `pressure` is resolved via `resolve_static_scene_path` from static per-language `<lang>_waiting.png` (zero-copy).
 
 ### 4. FUN_FACTS: Viral Linguistic Curiosities
 - **Target Language Localization**: Prompts and state contents are localized 100% in the target language (French, Spanish, Italian, English) to guarantee authentic regional nuance and zero translation artifacts.
@@ -397,25 +397,21 @@ In addition to the interactive CLI, the pipeline features a browser-based manage
   ```
   Opens `http://127.0.0.1:8190` automatically in your default browser.
 
-- **The 4 Core Views**:
-  1. **Dashboard**: Service health monitoring (LLM, ComfyUI, GPU VRAM), real-time generation metrics across languages and video formats.
-  2. **Job Queue**: Task runner with live ANSI terminal log streaming via Server-Sent Events (SSE), abort controls, and background worker status.
-  3. **Google Sheets Sync**: 4-step interactive pipeline directly in the browser:
-     - *Step 1*: Fetch Column D (`SCRIPT_CHANGED`) into `script_to_change/`.
-     - *Step 2*: Check & audit differences (`check_script_changes.py` dry-run).
-     - *Step 3*: Apply detected changes cleanly to state JSONs and reset downstream stages.
-     - *Step 4*: Scan ready scripts (`script_ready == TRUE`, `video_ready == FALSE`) and export dated CSVs.
-  4. **Mass Assets Creation Studio**:
-     - Targeted batch generation for Voiceovers (`Stage _B`), Scene Images (`Stage _C`), or Chalkboard Thumbnails (`Stage _F`).
-     - Accepts arbitrary lists of IDs (e.g. `EE01, EE02, FG04, SR10`) with real-time validation against state files (`POST /api/scripts/validate-ids`).
-     - Forced re-generation mode (`All Assets` vs `Missing Only`) to recreate assets even when marked `"done"` in state JSONs.
-     - Dynamic gender casting overrides, candidate counts, and seed locking.
+- **The 6 Core Views**:
+  1. **Home**: High-level pipeline overview, active KPI summaries, and quick launch actions.
+  2. **Script Catalog (`ScriptList.tsx` & `ScriptDetailModal.tsx`)**: Filter/search all scripts, inspect sections/audio/images/SEO metadata, run the **Gemini Prompt Auditor** (auto-rerolling Cultural Worlds), redo single scenes or queue a full image rebuild preserving your edited `general_prompt` (`preserve_general_prompt=True` via two-phase Llama + ComfyUI handoff), render Game chalkboards, or upload a single script to Google Drive (`POST /api/drive/scripts/{script_id}/upload`).
+  3. **Queue (`JobQueueView.tsx`)**: Task runner with live terminal log streaming via WebSockets (`/ws/jobs/{job_id}`), progress bars, and cancellation controls.
+  4. **Mass Assets Creation Studio (`MassAssetsCreationView.tsx`)**:
+     - Targeted batch execution across all **7 stages**: **Script Dialogues** (Stage A), **Scene Images** (Stage C — `preserve_general_prompt=False` so `force` / `regenerate_prompts` rebuilds both `general_prompt` and storyboard `image_prompts`), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), **Chalkboard Images** (Game only, CPU), **Video Assembly** (Stage G — targeted IDs always force delete-and-recreate once Stage B + C prerequisites pass), and **Google Drive Upload** (`drive_upload` — clean delete-before-upload replacement).
+     - Accepts arbitrary ID lists, CSV drag-and-drop, or one-click catalog presets with real-time validation (`POST /api/scripts/validate-ids`).
+  5. **Google Sheets Sync (`GoogleSheetsSyncView.tsx`)**: 4-step interactive workflow across all 16 sheets (including `FUN_FACTS`) fetching Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`), running format-aware diffs, applying edits to state JSONs (invalidating stale titles/anchors on topic change & resetting downstream stages), and syncing tracking manifests.
+  6. **Bingo Matrix (`BingoMatrixView.tsx`)**: At-a-glance asset readiness matrix across all 16 language/format matrices.
 
 ---
 
-## Google Sheets Connectivity & Publishing Suite
+## Google Sheets & Drive Connectivity Suite
 
-Located in `main/connectivity/`, this modular suite bridges the local video pipeline with external Google Sheets spreadsheets across all 16 language/type matrices using Option A dynamic routing (`?id=<SPREADSHEET_ID>`):
+Located in `main/connectivity/`, this modular suite coordinates both external Google Sheets synchronization (16 language/type matrices using Option A routing `?id=<SPREADSHEET_ID>`) and automated Google Drive clean replacement uploads:
 
 ```
 main/connectivity/
@@ -424,8 +420,10 @@ main/connectivity/
 ├── reconcile_scripts.py            # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                 # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
 ├── scan_ready_scripts.py           # Principal Runner 5: Scans ready scripts and exports by date
+├── sync_drive.py                   # Principal Runner 6: Clean delete-before-upload sync to Google Drive
 ├── core/                           # Endpoints registry & resilient HTTP client (redirects & retries)
 ├── apps_script/                    # Apps Script Web App implementation (doGet/doPost) & deployment guide
+├── drive_sync/                     # Google Drive API v3 client (`drive_client.py`) & replacement sync (`sync_service.py`)
 ├── sheet_sync/                     # Syncs Columns A-C (or A:D) to local CSV files
 ├── corrected_scripts/              # Pulls Column D (SCRIPT_CHANGED) to input/csv/script_to_change/
 ├── reconcile/                      # Reorganizes local scripts to match Google Sheets order
@@ -433,7 +431,7 @@ main/connectivity/
 └── ready_scripts/                  # Scans ready scripts and groups by script_date
 ```
 
-### 5 Core Capabilities & Principal Runner Scripts:
+### 6 Core Capabilities & Principal Runner Scripts:
 1. **Master Sheet Synchronization (`connectivity/sync_sheets.py`)**:
    Fetches records from Google Sheets and writes standardized CSV files to `<OUTPUT_DIR>/connectivity/synced_sheets/_3_columns/` or `_4_columns/`.
 2. **Pulling External Corrections (`connectivity/fetch_corrected_scripts.py`)**:
@@ -447,6 +445,8 @@ main/connectivity/
    - Supports both in-place updates of existing IDs and automatic appending of new records.
 5. **Scan Ready Scripts by Date (`connectivity/scan_ready_scripts.py`)**:
    Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked. Skips completed videos (`video_ready == True`). Exports grouped `ID, expression` records into daily CSV files in `<OUTPUT_DIR>/connectivity/ready_scripts/<YYYY-MM-DD>_ready_scripts.csv` (or `undated_ready_scripts.csv` if date is blank).
+6. **Google Drive Export & Clean Replacement Sync (`connectivity/sync_drive.py` & `drive_sync/`)**:
+   Validates that both the finished video and thumbnail exist locally, then removes duplicate `<script_id>` folders and clears existing remote files inside `<root>/<language>/<expressions|fun_facts|game|role_play>/<script_id>/` (with Shared Drives support and HTTP 400/403 Trash fallback) before uploading fresh `<script_id>.mp4` and `<script_id>_thumbnail.png` files and updating `StateManager`.
 
 ---
 
@@ -570,7 +570,7 @@ python video_creation/_D_music_generation/main.py --language english --video-typ
 python video_creation/_F_thumbnail_image_generation/main.py --script-id EE01
 python video_creation/_F_thumbnail_image_generation/main.py --from-ready-scripts
 
-# Part G: Video Assembly
+# Part G: Video Assembly (targeted IDs force delete-and-recreate; VIDEO_ASSEMBLY_ENGINE=legacy|typed|legacy:<type>)
 python video_creation/_G_video_assembly/main.py --script-id EE01
 python video_creation/_G_video_assembly/main.py --script-id EE01 --keep-subtitles
 python video_creation/_G_video_assembly/main.py --from-ready-scripts
@@ -618,7 +618,7 @@ python tools/webui.py
 python tools/webui.py --port 8080 --no-browser
 ```
 
-### Google Sheets Connectivity Suite
+### Google Sheets & Drive Connectivity Suite
 ```bash
 # Feature 1: Synchronize all Google Sheets to local connectivity CSVs (synced_sheets/_3_columns or _4_columns)
 python connectivity/sync_sheets.py --all
@@ -634,6 +634,11 @@ python connectivity/post_scripts.py
 
 # Feature 5: Scan ready scripts across all sheets and export daily tracking CSVs
 python connectivity/scan_ready_scripts.py --all
+
+# Feature 6: Clean delete-before-upload sync to Google Drive
+python connectivity/sync_drive.py --script-id EE01
+python connectivity/sync_drive.py --all
+python connectivity/sync_drive.py --all --language spanish --video-type game
 ```
 
 ---
@@ -649,23 +654,27 @@ shorts_automation/
 │   │   ├── health.py                   # Pre-flight service health assertions (LLM, ComfyUI)
 │   │   ├── settings.py                 # Core path mappings, pauses, and voice maps
 │   │   └── __init__.py
-│   ├── connectivity/                   # Modular Google Sheets integration suite
+│   ├── connectivity/                   # Modular Google Sheets & Drive integration suite
 │   │   ├── sync_sheets.py              # Principal Runner 1: Syncs Sheets to CSV (_3_cols / _4_cols)
 │   │   ├── fetch_corrected_scripts.py  # Principal Runner 2: Pulls Column D (SCRIPT_CHANGED) to CSV
 │   │   ├── reconcile_scripts.py        # Principal Runner 3: Audits & reorganizes local scripts
 │   │   ├── post_scripts.py             # Principal Runner 4: Posts scripts to Google Sheets
 │   │   ├── scan_ready_scripts.py       # Principal Runner 5: Scans ready scripts and exports by date
+│   │   ├── sync_drive.py               # Principal Runner 6: Google Drive delete-before-upload sync CLI
 │   │   ├── core/                       # Option A endpoints router & resilient HTTP client
 │   │   ├── apps_script/                # Apps Script Web App implementation & deployment guide
+│   │   ├── drive_sync/                 # Google Drive API v3 client (drive_client.py) & sync_service.py
 │   │   ├── sheet_sync/                 # Sheet to CSV synchronization service
 │   │   ├── corrected_scripts/          # Column D (SCRIPT_CHANGED) fetching engine
 │   │   ├── reconcile/                  # Reconcile & reorganization service
 │   │   ├── post_scripts/               # Safe script publisher engine
 │   │   ├── ready_scripts/              # Ready scripts scanner & date exporter
 │   │   └── README.md                   # Full connectivity manual and deployment guide
+│   ├── credentials/                    # Local OAuth2 / Service Account JSONs (gitignored) & setup guide
 │   ├── core/                           # Shared infrastructure and utilities
 │   │   ├── cli_prompt.py               # Interactive CLI menus with 10s countdown timers
 │   │   ├── expression_db.py            # SQLite + CSV hybrid database implementation
+│   │   ├── gemini_auditor.py           # Gemini Prompt Auditor (cfg=1.0 positive rules + Cultural World reroll)
 │   │   ├── state_manager.py            # Script state machine and lifecycle manager
 │   │   └── status_tracker.py           # Cross-queue pipeline progress manifest auditor
 │   ├── database/                       # Centralized expression stores
@@ -700,8 +709,8 @@ shorts_automation/
 │   │   └── check_script_changes.py     # Script change auditor & synchronizer
 │   ├── webui/                          # Modern WebUI Management Studio (FastAPI + React 19)
 │   │   ├── frontend/                   # React 19, TypeScript, Vite & Tailwind source code
-│   │   ├── jobs/                       # Background task runner & stage adapters (voice, image, thumbnail)
-│   │   ├── routers/                    # API route controllers (health, jobs, scripts, sheets)
+│   │   ├── jobs/                       # Background task runner & stage adapters (scripts, voice, images, chalkboard, thumbnails, assembly, drive)
+│   │   ├── routers/                    # API route controllers (system, jobs, scripts, media, sheets, drive)
 │   │   ├── static/                     # Pre-compiled production React SPA assets
 │   │   ├── server.py                   # FastAPI server factory
 │   │   └── README.md                   # WebUI architecture & API documentation
@@ -711,11 +720,12 @@ shorts_automation/
 │   │   ├── _B_voice_generation/        # Qwen3-TTS multi-speaker voice generation
 │   │   ├── _C_image_generation/        # Scene illustration & visual direction suite
 │   │   │   ├── core/                   # prompt_builder.py, chalkboard_renderer.py, comfy_client.py
+│   │   │   ├── visual/                 # Modular common/style/sanitizer, 124 Cultural Worlds (languages/), and typed rules (types/)
 │   │   │   ├── image_modifier.py       # Single scene & batch group recreation, dual gender casting
 │   │   │   └── main.py                 # Multi-scene image generation runner
 │   │   ├── _D_music_generation/        # Standing Music Bank generator and catalog
 │   │   ├── _F_thumbnail_image_generation/ # Flux thumbnail generation
-│   │   └── _G_video_assembly/          # Whisper subtitles, audio ducking, and FFmpeg assembly
+│   │   └── _G_video_assembly/          # Modular assembly/ (types/ + languages/), Whisper subtitles, audio ducking & FFmpeg
 │   ├── main.py                         # Primary execution orchestrator
 │   ├── requirements.txt                # Production runtime dependencies
 │   ├── system_prompts_editor.csv       # External LLM system prompts for script doctoring
@@ -723,8 +733,10 @@ shorts_automation/
 │   └── README.md                       # Comprehensive pipeline manual (this document)
 └── test/                               # Isolated QA test suite and validation layer
     ├── connectivity/                   # Google Sheets integration & data contract tests
+    ├── fixtures/                       # Frozen Stage C golden image prompt regression snapshots
     ├── integration/                    # DB, status tracker, schema contracts, security & mock service health tests
-    ├── unit/                           # Pure unit tests for core pipeline modules
+    ├── unit/                           # Pure unit tests for core pipeline modules & Drive sync
+    ├── webui/                          # WebUI API & Job Manager adapter tests
     ├── conftest.py                     # Shared pytest/unittest fixtures & sys.path setup
     ├── pytest.ini                      # Pytest discovery settings and custom test markers
     ├── README.md                       # Test suite documentation & CLI execution guide

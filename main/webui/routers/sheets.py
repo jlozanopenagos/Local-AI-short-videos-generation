@@ -190,6 +190,7 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
                         reset_downstream=True,
                         base_dir=BASE_DIR,
                         auto_update_csv=False,
+                        new_expression=item.get("new_expression"),
                     )
                     if ok:
                         updated_records.append({

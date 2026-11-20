@@ -4,8 +4,8 @@ drive_client.py — Google Drive API v3 client for Shorts Automation.
 Handles:
 - Headless Service Account authentication with fallback to OAuth 2.0 user credentials.
 - In-memory folder lookup caching and auto-creation.
+- Deleting existing files or duplicate folders before uploading replacements.
 - Resumable chunked file uploads for large MP4 video files and PNG thumbnails.
-- Deduplication: updates existing files in-place or creates new ones.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import logging
 import mimetypes
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +158,7 @@ class GoogleDriveClient:
 
             if not creds or not creds.valid:
                 try:
+                    # pyrefly: ignore[missing-import]
                     from google_auth_oauthlib.flow import InstalledAppFlow
                     flow = InstalledAppFlow.from_client_secrets_file(str(cred_path), SCOPES)
                     creds = flow.run_local_server(port=0)
@@ -182,6 +183,43 @@ class GoogleDriveClient:
         if self._service is None:
             self.authenticate()
         return self._service
+
+    def _evict_folder_cache(self, folder_id: str) -> None:
+        """Removes any cached (parent, name) mappings pointing to folder_id."""
+        stale_keys = [k for k, v in self._folder_cache.items() if v == folder_id]
+        for key in stale_keys:
+            del self._folder_cache[key]
+
+    def _list_files(
+        self,
+        query: str,
+        fields: str = "nextPageToken, files(id, name)",
+        page_size: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Lists all Drive items matching a query across paginated responses."""
+        fields_expr = fields if "nextPageToken" in fields else f"nextPageToken, {fields}"
+        results: List[Dict[str, Any]] = []
+        page_token: Optional[str] = None
+
+        while True:
+            list_kwargs: Dict[str, Any] = {
+                "q": query,
+                "spaces": "drive",
+                "fields": fields_expr,
+                "pageSize": page_size,
+                "supportsAllDrives": True,
+                "includeItemsFromAllDrives": True,
+            }
+            if page_token:
+                list_kwargs["pageToken"] = page_token
+
+            response = self.service.files().list(**list_kwargs).execute()
+            results.extend(response.get("files", []))
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        return results
 
     def get_or_create_folder(self, folder_name: str, parent_id: Optional[str] = None) -> str:
         """
@@ -208,6 +246,8 @@ class GoogleDriveClient:
             spaces="drive",
             fields="files(id, name)",
             pageSize=10,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
         ).execute()
 
         files = response.get("files", [])
@@ -223,11 +263,96 @@ class GoogleDriveClient:
             "mimeType": "application/vnd.google-apps.folder",
             "parents": [parent],
         }
-        created = self.service.files().create(body=metadata, fields="id").execute()
+        created = self.service.files().create(
+            body=metadata,
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
         folder_id = created.get("id")
         logger.info("Created new folder '%s' (ID: %s) under parent %s", folder_name, folder_id, parent)
         self._folder_cache[cache_key] = folder_id
         return folder_id
+
+    def delete_file(self, file_id: str, name: str = "") -> bool:
+        """
+        Deletes a file or folder by Drive ID, falling back to Trash if permanent delete
+        is declined (HTTP 400/403, e.g. Shared Drive permissions). Returns False on 404.
+        """
+        label = name or file_id
+        try:
+            self.service.files().delete(
+                fileId=file_id,
+                supportsAllDrives=True,
+            ).execute()
+            self._evict_folder_cache(file_id)
+            logger.info("Deleted existing item '%s' (ID: %s) from Drive.", label, file_id)
+            return True
+        except Exception as exc:
+            status = getattr(getattr(exc, "resp", None), "status", None)
+            if status == 404:
+                self._evict_folder_cache(file_id)
+                logger.debug("Drive item '%s' (ID: %s) already missing (404).", label, file_id)
+                return False
+            if status in (403, 400):
+                self.service.files().update(
+                    fileId=file_id,
+                    body={"trashed": True},
+                    supportsAllDrives=True,
+                ).execute()
+                self._evict_folder_cache(file_id)
+                logger.warning(
+                    "Permanent delete declined (HTTP %s) for '%s' (ID: %s); moved to Trash instead.",
+                    status, label, file_id,
+                )
+                return True
+            raise
+
+    def clear_folder(self, folder_id: str) -> int:
+        """Deletes all non-trashed items inside folder_id and returns the number of items deleted."""
+        query = f"'{folder_id}' in parents and trashed = false"
+        items = self._list_files(
+            query=query,
+            fields="nextPageToken, files(id, name, mimeType)",
+            page_size=100,
+        )
+        deleted = 0
+        for item in items:
+            item_id = item.get("id")
+            if not item_id:
+                continue
+            if self.delete_file(item_id, item.get("name", "")):
+                deleted += 1
+        if deleted > 0:
+            logger.info("Cleared %d existing item(s) from Drive folder %s.", deleted, folder_id)
+        return deleted
+
+    def delete_duplicate_folders(self, folder_name: str, parent_id: str, keep_folder_id: str) -> int:
+        """Deletes any extra non-trashed folders named folder_name under parent_id except keep_folder_id."""
+        safe_name = folder_name.replace("'", "\\'")
+        query = (
+            f"'{parent_id}' in parents and "
+            f"name = '{safe_name}' and "
+            "mimeType = 'application/vnd.google-apps.folder' and "
+            "trashed = false"
+        )
+        folders = self._list_files(
+            query=query,
+            fields="nextPageToken, files(id, name)",
+            page_size=100,
+        )
+        deleted = 0
+        for folder in folders:
+            fid = folder.get("id")
+            if not fid or fid == keep_folder_id:
+                continue
+            if self.delete_file(fid, folder.get("name", folder_name)):
+                deleted += 1
+        if deleted > 0:
+            logger.info(
+                "Deleted %d duplicate folder(s) named '%s' under parent %s.",
+                deleted, folder_name, parent_id,
+            )
+        return deleted
 
     def upload_or_update_file(
         self,
@@ -238,9 +363,8 @@ class GoogleDriveClient:
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Dict[str, str]:
         """
-        Uploads or updates a file in the target parent folder.
-        If a file with remote_filename already exists in parent_folder_id, updates it.
-        Uses resumable chunked upload for robustness.
+        Deletes any existing matching file(s) in parent_folder_id and uploads the new file.
+        Uses resumable chunked upload so Drive generates a fresh file ID and preview.
 
         Returns dict with:
             id: Google Drive file ID
@@ -265,14 +389,22 @@ class GoogleDriveClient:
             f"name = '{safe_name}' and "
             "trashed = false"
         )
-        response = self.service.files().list(
-            q=query,
-            spaces="drive",
-            fields="files(id, name)",
-            pageSize=10,
-        ).execute()
+        existing_files = self._list_files(
+            query=query,
+            fields="nextPageToken, files(id, name)",
+            page_size=100,
+        )
 
-        existing_files = response.get("files", [])
+        if existing_files:
+            logger.info(
+                "Found %d existing file(s) matching '%s' in folder %s; deleting before upload...",
+                len(existing_files), remote_filename, parent_folder_id,
+            )
+            for existing in existing_files:
+                eid = existing.get("id")
+                if eid:
+                    self.delete_file(eid, existing.get("name", remote_filename))
+
         media = MediaFileUpload(
             str(path),
             mimetype=mime_type,
@@ -280,25 +412,17 @@ class GoogleDriveClient:
             chunksize=5 * 1024 * 1024,  # 5MB chunks
         )
 
-        if existing_files:
-            existing_id = existing_files[0]["id"]
-            logger.info("Updating existing file '%s' (ID: %s) on Drive...", remote_filename, existing_id)
-            request = self.service.files().update(
-                fileId=existing_id,
-                media_body=media,
-                fields="id, name, webViewLink",
-            )
-        else:
-            logger.info("Uploading new file '%s' to folder %s on Drive...", remote_filename, parent_folder_id)
-            metadata = {
-                "name": remote_filename,
-                "parents": [parent_folder_id],
-            }
-            request = self.service.files().create(
-                body=metadata,
-                media_body=media,
-                fields="id, name, webViewLink",
-            )
+        logger.info("Uploading new file '%s' to folder %s on Drive...", remote_filename, parent_folder_id)
+        metadata = {
+            "name": remote_filename,
+            "parents": [parent_folder_id],
+        }
+        request = self.service.files().create(
+            body=metadata,
+            media_body=media,
+            fields="id, name, webViewLink",
+            supportsAllDrives=True,
+        )
 
         res = None
         while res is None:

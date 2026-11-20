@@ -74,7 +74,13 @@ class DriveAdapter(BaseStageAdapter):
                     state_mgr=sm,
                     progress_callback=progress_cb,
                 )
-                emit_log(f"[{script_id}] SUCCESS -> {res['folder_url']}")
+                deleted_cnt = res.get("deleted_existing_count", 0)
+                if deleted_cnt > 0:
+                    emit_log(
+                        f"[{script_id}] Deleted {deleted_cnt} existing item(s) on Drive and uploaded new version -> {res['folder_url']}"
+                    )
+                else:
+                    emit_log(f"[{script_id}] SUCCESS -> {res['folder_url']}")
                 success_count += 1
             except Exception as exc:
                 emit_log(f"[{script_id}] ERROR: {exc}")

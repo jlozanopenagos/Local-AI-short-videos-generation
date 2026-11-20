@@ -37,6 +37,9 @@ from ..visual.common import (
     EXPLICIT_SCENARIO_DOMAINS,
     is_figurative_idiom,
     resolve_anchor_environment,
+    resolve_cultural_world,
+    format_cultural_world_anchor,
+    infer_world_ids_from_text,
     FEMALE_HAIRSTYLE_TERMS,
     MALE_HAIRSTYLE_TERMS,
     CharacterCast,
@@ -49,10 +52,16 @@ from ..visual.common import (
     extract_or_build_character_anchors,
     persist_character_anchors_in_state,
     sanitize_and_style_prompt,
+    strip_footwear_clauses,
     is_present_heteronym_topic,
     _extract_json_payload,
 )
 from ..visual.types import get_visual_profile
+
+_CROPPED_SCENES = frozenset({
+    "hook", "setup", "discovery", "example", "payoff",
+    "answer", "dialogue_part_1", "dialogue_part_2",
+})
 
 
 def _extract_shared_story_context(
@@ -68,10 +77,11 @@ def _extract_shared_story_context(
     anchor_environment: str = "",
     general_prompt: str = "",
     character_anchors: dict = None,
+    script_id: str = "",
 ) -> dict[str, Any]:
     """
     Extracts and standardizes shared narrative context across single-scene and multi-scene storyboard builders:
-    - Resolves anchor environment
+    - Resolves CulturalWorld & anchor environment
     - Voiceover isolation notice
     - Character personalities
     - Mandatory speaker genders (authoritatively anchored to General Prompt / character anchors)
@@ -80,6 +90,16 @@ def _extract_shared_story_context(
     - Figurative idiom directive
     """
     video_type_upper = video_type.upper()
+    cultural_world = resolve_cultural_world(
+        script_text=script_text,
+        topic=topic,
+        scenario=scenario,
+        lexical_field=lexical_field,
+        label=label,
+        video_type=video_type,
+        language=language or label,
+        script_id=script_id,
+    )
     if not anchor_environment:
         anchor_environment = general_prompt or resolve_anchor_environment(
             script_text=script_text,
@@ -88,6 +108,8 @@ def _extract_shared_story_context(
             lexical_field=lexical_field,
             label=label,
             video_type=video_type,
+            language=language or label,
+            script_id=script_id,
         )
 
     voiceover_notice = ""
@@ -124,26 +146,34 @@ def _extract_shared_story_context(
     has_two = char_anchors.get("has_two_characters") in (True, "True") or video_type_upper == "ROLEPLAY"
 
     if has_two:
-        p1_desc = f"high school student {p1_word} (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, stylish thematic attire)"
-        p2_desc = f"high school student {p2_word} (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, stylish thematic attire)"
+        p1_desc = f"17-year-old high-school senior {p1_word} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build, complete layered top + bottom venue attire)"
+        p2_desc = f"17-year-old high-school senior {p2_word} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build, complete layered top + bottom venue attire)"
         gender_context = (
-            f"MANDATORY CHARACTER GENDERS & DEMOGRAPHIC (HIGH SCHOOL PROTAGONISTS — 14-16 YEARS OLD):\n"
+            f"MANDATORY CHARACTER GENDERS & DEMOGRAPHIC (17-YEAR-OLD HIGH-SCHOOL SENIORS):\n"
             f"- PERSON_ONE: {p1_word.upper()} (MUST visually appear as a {p1_desc})\n"
             f"- PERSON_TWO: {p2_word.upper()} (MUST visually appear as a {p2_desc})\n"
             f"CRITICAL MULTI-CHARACTER RULE: If MORE THAN ONE character appears in the image, the sex/gender of EACH character MUST be explicitly specified! "
-            f"NEVER use generic words like 'the two students', 'two friends', or 'the characters' without stating their individual sex (e.g. 'one high school student {p1_word} and one high school student {p2_word}').\n"
-            f"CRITICAL RULE: Characters are 14-16 year old high school students (natural balanced teenage proportions, NOT childish proportions) dressed appropriately for this specific setting. Strictly ban generic plain t-shirts/hoodies, and strictly ban middle-aged/mature adult wrinkles!\n\n"
+            f"NEVER use generic words like 'the two students', 'two friends', or 'the characters' without stating their individual sex (e.g. 'one 17-year-old high-school senior {p1_word} and one 17-year-old high-school senior {p2_word}').\n"
+            f"CRITICAL RULE: Both characters are 17-year-old high-school seniors with realistic late-teen 1:7 proportions and full shoulder width, dressed in complete layered venue fashion (BOTH top layer AND explicit trousers/chinos/skirt fitting this city and location — omit shoes/footwear in cropped waist-up and medium shots). Write purely positive visual descriptions.\n\n"
         )
     else:
         gender_word = p1_word
         companion_word = p2_word
-        gender_desc = f"high school student {gender_word}"
+        gender_desc = f"17-year-old high-school senior {gender_word}"
+        raw_wardrobe_hint = (
+            strip_footwear_clauses(cultural_world.wardrobe_cue)
+            if cultural_world is not None and not general_prompt
+            else "complete layered culturally authentic street or venue attire (e.g. corduroy overshirt or tailored cardigan + explicit trousers/chinos/skirt) matching the setting; reserve aprons strictly for literal culinary kitchen scenes over a collared shirt and trousers"
+        )
+        wardrobe_hint = raw_wardrobe_hint or (
+            "complete layered culturally authentic street or venue attire (e.g. corduroy overshirt or tailored cardigan + explicit trousers/chinos/skirt) matching the setting"
+        )
         gender_context = (
-            f"MANDATORY CHARACTER DEMOGRAPHIC & THEMATIC WARDROBE (14-16 YEARS OLD):\n"
-            f"- PROTAGONIST (Primary Character 1): MUST visually appear as an expressive high school student {gender_word.upper()} (approx. 14-16 years old {gender_desc}, natural balanced teenage proportions, healthy youthful athletic build, NOT a child).\n"
-            f"- WARDROBE: The {gender_word} MUST wear an authentic costume or attire explicitly matching the thematic setting (e.g. theater stage costume/vest, chef uniform, studio apron, lab coat). Strictly ban generic casual clothes (plain t-shirts/hoodies)!\n"
-            f"CRITICAL MULTI-CHARACTER RULE: If a secondary companion appears in a two-shot (such as setup), explicitly specify their individual sex and gender-accurate hairstyle (e.g. 'one teen {gender_word} and one companion teen {companion_word}', NEVER give a boy long feminine hair or a girl sideburns/quiff, and NEVER use generic words like 'two students' or 'friends')!\n"
-            f"CRITICAL RULE: Primary Protagonist MUST be a {gender_word.upper()} ({gender_desc}). Strictly ban mature adult faces, wrinkles, childish proportions, and generic t-shirts!\n\n"
+            f"MANDATORY CHARACTER DEMOGRAPHIC & COMPLETE LAYERED WARDROBE (17-YEAR-OLD):\n"
+            f"- PROTAGONIST (Primary Character 1): MUST visually appear as an expressive {gender_desc} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build).\n"
+            f"- WARDROBE: The {gender_word} MUST wear {wardrobe_hint} (explicitly repeat BOTH top layer AND lower garment in every scene; omit shoes/footwear in waist-up, chest-up, mid-thigh, and medium shots so framing never zooms out head-to-toe).\n"
+            f"CRITICAL MULTI-CHARACTER RULE: If a secondary companion appears in a two-shot (such as setup), explicitly specify their individual sex and gender-accurate hairstyle (e.g. 'one 17-year-old senior {gender_word} and one companion 17-year-old senior {companion_word}', NEVER give a boy long feminine hair or a girl sideburns/quiff, and NEVER use generic words like 'two students' or 'friends')!\n"
+            f"CRITICAL RULE: Primary Protagonist MUST be a {gender_word.upper()} ({gender_desc}). Write purely positive visual descriptions without 'NO ...' or 'NOT ...' phrases.\n\n"
         )
 
     palette_context = _get_language_palette(language)
@@ -162,13 +192,14 @@ def _extract_shared_story_context(
         idiom_rule = (
             "CREATIVE VISUAL METAPHOR & GRAPHIC WORDPLAY DIRECTIVE:\n"
             f"This Short is about an idiom / figurative phrase ('{topic}').\n"
-            "- Play with the graphic, visual sense of the expression across the scenes! Use the literal or visual imagery playfully to make the scenes entertaining and magnetic (e.g. giant towering multi-tiered cakes, dramatic theatrical props, colorful spilled jars, vintage travel luggage, hourglass timers, botanical planters).\n"
+            "- Play with the graphic, visual sense of the expression across the scenes! Use the literal or visual imagery playfully to make the scenes entertaining and magnetic (e.g. giant towering multi-tiered cakes, dramatic theatrical props, colorful spilled ceramic jars, vintage travel luggage, hourglass timers, hand-painted ceramics).\n"
             "- AVOID BORING IMAGES: Never just show someone staring at a desk or paper looking stressed. Make the visual world lively, imaginative, and fun!\n"
             "- STRICT PROP RELEVANCE (ANTI-GIFT-BOX BAN): Ground props strictly in the environment and actual subject. NEVER use generic gift boxes, ribbon-wrapped packages, or mystery boxes as fallback props!\n\n"
         )
 
     return {
         "anchor_environment": anchor_environment,
+        "cultural_world": cultural_world,
         "voiceover_notice": voiceover_notice,
         "personality_context": personality_context,
         "gender_context": gender_context,
@@ -196,6 +227,7 @@ def _build_user_context(
     anchor_environment: str = "",
     existing_scene_prompts: dict = None,
     general_prompt: str = "",
+    script_id: str = "",
 ) -> str:
     """Build the user-facing context block sent alongside the system prompt."""
     scene_lower = scene_name.lower().strip()
@@ -213,6 +245,7 @@ def _build_user_context(
         lexical_field=lexical_field,
         anchor_environment=anchor_environment,
         general_prompt=general_prompt,
+        script_id=script_id,
     )
     anchor_environment = ctx["anchor_environment"]
     char_anchors = ctx.get("char_anchors", {})
@@ -250,17 +283,17 @@ def _build_user_context(
             "MASTER STORY WORLD, PHYSICAL SETTING & CHARACTER ANCHOR (FROM GENERAL PROMPT):\n"
             f">> {general_prompt} <<\n\n"
             "CRITICAL CONTINUITY DIRECTIVE (ABSOLUTE PRECEDENCE):\n"
-            "All scenes MUST take place in this exact physical story world and setting! Inherit the exact characters (ages, genders, hair colors, hairstyles, specific thematic wardrobes), and atmosphere established in this General Prompt!\n\n"
+            "All scenes MUST take place in this exact physical story world and setting! Inherit the exact characters (ages, genders, hair colors, hairstyles, specific culturally authentic wardrobes), and atmosphere established in this General Prompt!\n\n"
         )
     else:
         anchor_block = (
-            "THEMATIC STORY WORLD & SCENARIO CONTINUITY (MANDATORY):\n"
-            f"The overarching real-world thematic setting is:\n>> {anchor_environment} <<\n"
-            "- MICRO-ZONE ROTATION: Each scene MUST occur in a different micro-zone (desk -> discussion lounge -> workbench -> action stage -> victory area)!\n"
+            "CULTURAL STORY WORLD & SCENARIO CONTINUITY (MANDATORY):\n"
+            f"The overarching real-world setting is:\n>> {anchor_environment} <<\n"
+            "- MICRO-ZONE ROTATION: Each scene MUST occur in a distinct micro-zone within this venue (foreground entryway -> display counter -> scenic overlook or archway -> active corner -> celebratory spot)!\n"
             "- PROP ROTATION: NEVER repeat the same focal prop across scenes!\n"
             "- POSE DIVERSITY: Strictly ban repeating generic poses (no duplicate 'pointing' or 'gesturing at models')!\n"
-            "- ANTI-CAFETERIA RULE: Do NOT place characters in a generic cafe, cafeteria, or coffee shop unless the setting explicitly specifies one.\n"
-            f"- MANDATORY THEMATIC WARDROBE: The character MUST wear clothing/costume that directly belongs to this setting ({anchor_environment}).\n\n"
+            "- ANTI-CAFETERIA & ANTI-STUDIO RULE: Do NOT shift characters into a creative studio, study lounge, workshop, or generic cafe.\n"
+            f"- CULTURALLY AUTHENTIC WARDROBE: Keep characters dressed in stylish culturally authentic fashion belonging to this setting ({anchor_environment}).\n\n"
         )
 
     if profile is not None:
@@ -288,7 +321,7 @@ def _build_user_context(
         f"LABEL: {label}\n\n"
         f"{ctx['palette_context']}\n\n"
         f"ANGLE: visual storytelling / authentic situation\n\n"
-        f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive high-school student protagonist (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, stylish situation-appropriate attire, NO mature adults, NOT a child), vibrant but balanced colors, rich cinematic atmosphere\n\n"
+        f"STYLE: polished modern 2D cartoon narrative illustration, clean, expressive 17-year-old high-school senior protagonist (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build, stylish layered top + bottom situation-appropriate attire — omit footwear in cropped waist-up and medium shots), vibrant but balanced colors, rich cinematic atmosphere\n\n"
         f"FULL SCRIPT TEXT FOR CONTEXT (THE STORY):\n{script_text}\n\n"
         f"---\n\n"
         f"{anchor_block}"
@@ -321,6 +354,7 @@ def _build_storyboard_context(
     anchor_environment: str = "",
     general_prompt: str = "",
     character_anchors: dict = None,
+    script_id: str = "",
 ) -> str:
     """Build the prompt for generating a complete, non-repetitive visual storyboard in JSON."""
     ctx = _extract_shared_story_context(
@@ -335,6 +369,7 @@ def _build_storyboard_context(
         lexical_field=lexical_field,
         anchor_environment=anchor_environment,
         general_prompt=general_prompt,
+        script_id=script_id,
     )
     anchor_environment = ctx["anchor_environment"]
     char_anchors = ctx.get("char_anchors", {})
@@ -373,9 +408,9 @@ def _build_storyboard_context(
             "2. MANDATORY CHARACTER CONTINUITY:\n"
             f"{char_continuity_lines}"
             "Diffusion models generate EACH scene image independently with zero memory of other scenes! "
-            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat the featured character's exact demographic (14-16yo high-school student, natural balanced teenage proportions, NOT a child), "
-            "exact hair color, exact hairstyle, and exact wardrobe specified above. "
-            "NEVER invent different clothing or different hairstyles across scenes!\n\n"
+            "Therefore, in EVERY single scene prompt below, you MUST explicitly repeat the featured character's exact demographic (17-year-old high-school senior with realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, and lean athletic teenage build), "
+            "exact hair color, exact hairstyle, and COMPLETE locked layered wardrobe (explicitly repeating BOTH upper layered garment AND lower garment such as trousers, chinos, or skirt — omit shoes/footwear in waist-up, chest-up, mid-thigh, and medium shots)! "
+            "Write purely positive visual descriptions without 'NO ...' or 'NOT ...' clauses.\n\n"
         )
 
     formatted_scenes = []
@@ -559,6 +594,7 @@ class VisualPromptBuilder:
             anchor_environment=anchor_environment,
             existing_scene_prompts=existing_scene_prompts,
             general_prompt=general_prompt,
+            script_id=script_id,
         )
 
         logger.info(
@@ -604,7 +640,11 @@ class VisualPromptBuilder:
                 logger.debug("[%s] Prompt preview: %s…", script_id, visual_prompt[:120])
                 time.sleep(0.2)  # Slot cooldown
                 allow_gift_box = is_present_heteronym_topic(topic=topic, label=label)
-                return sanitize_and_style_prompt(visual_prompt, allow_gift_box=allow_gift_box)
+                return sanitize_and_style_prompt(
+                    visual_prompt,
+                    allow_gift_box=allow_gift_box,
+                    strip_footwear=(scene_name.strip().lower() in _CROPPED_SCENES),
+                )
 
             except Exception as exc:
                 last_error = exc
@@ -697,6 +737,7 @@ class VisualPromptBuilder:
             anchor_environment=anchor_environment,
             general_prompt=general_prompt,
             character_anchors=character_anchors,
+            script_id=script_id,
         )
 
         logger.info(
@@ -823,7 +864,11 @@ class VisualPromptBuilder:
             if not has_character and anchors.get("continuity_summary"):
                 prompt_str = f"{prompt_str.rstrip('. ')}. {anchors['continuity_summary']}"
 
-            final_prompts[sec_key] = sanitize_and_style_prompt(prompt_str, allow_gift_box=allow_gift_box)
+            final_prompts[sec_key] = sanitize_and_style_prompt(
+                prompt_str,
+                allow_gift_box=allow_gift_box,
+                strip_footwear=(sec_key in _CROPPED_SCENES),
+            )
 
         return final_prompts
 
@@ -849,6 +894,16 @@ class VisualPromptBuilder:
         for all scenes in this video.
         """
         language, subject, situation = _parse_label(label)
+        cultural_world = resolve_cultural_world(
+            script_text=script_text,
+            topic=topic,
+            scenario=scenario,
+            lexical_field=lexical_field,
+            label=label,
+            video_type=video_type,
+            language=language or label,
+            script_id=script_id,
+        )
         if not anchor_environment:
             anchor_environment = resolve_anchor_environment(
                 script_text=script_text,
@@ -857,6 +912,8 @@ class VisualPromptBuilder:
                 lexical_field=lexical_field,
                 label=label,
                 video_type=video_type,
+                language=language or label,
+                script_id=script_id,
             )
 
         video_type_clean = (video_type or "EXPRESSION").strip().upper()
@@ -886,24 +943,24 @@ class VisualPromptBuilder:
             )
 
             character_directive = (
-                f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, GENDER-ACCURATE HAIR & THEMATIC WARDROBE CONTINUITY):\n"
-                f"   - Character 1 (Left Position): An expressive 14-16-year-old high-school student {p1_word} (natural balanced teenage proportions, healthy youthful athletic build, NOT a child) positioned on the LEFT side of the frame.\n"
-                f"     * Complexion & Eyes: Explicitly specify skin tone and simple black cartoon eyes (e.g. 'warm tan skin and simple black cartoon eyes' or 'fair peach skin and simple black cartoon eyes')! NEVER use colored eyes (NO blue, green, hazel, or amber eyes) and NEVER omit skin tone!\n"
+                f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, GENDER-ACCURATE HAIR & COMPLETE LAYERED WARDROBE CONTINUITY):\n"
+                f"   - Character 1 (Left Position): An expressive 17-year-old high-school senior {p1_word} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) positioned on the LEFT side of the frame.\n"
+                f"     * Complexion & Eyes: Explicitly specify skin tone and lively natural-sized simple black cartoon eyes (e.g. 'warm tan skin and simple black cartoon eyes' or 'fair peach skin and simple black cartoon eyes')!\n"
                 f"     * Hair: Explicitly specify hair color and hairstyle (e.g. '{c1_hair_example}')!\n"
-                f"     * Wardrobe: Explicitly specify authentic thematic costume garments and colors MATCHING THIS SPECIFIC SETTING ({anchor_environment}) — NEVER plain t-shirts/hoodies, and NEVER copy unrelated clothing!\n"
-                f"   - Character 2 (Right Position): An energetic 14-16-year-old high-school student {p2_word} (natural balanced teenage proportions, healthy youthful athletic build, NOT a child) positioned on the RIGHT side of the frame.\n"
-                f"     * Complexion & Eyes: Explicitly specify skin tone and simple black cartoon eyes (e.g. 'fair peach skin and simple black cartoon eyes' or 'warm olive skin and simple black cartoon eyes')! NEVER use colored eyes (NO blue, green, hazel, or amber eyes)!\n"
+                f"     * Complete Layered Wardrobe (Upper + Lower — Omit Footwear): Explicitly specify stylish, culturally authentic garments fitting this specific city and setting ({anchor_environment}) incorporating BOTH a layered upper garment AND an explicit lower garment (trousers, chinos, or skirt) — e.g. corduroy overshirt over tee with charcoal chinos, OR crisp linen shirt under a kitchen apron with dark tailored trousers! Omit shoes/footwear so cropped and medium scenes never zoom out head-to-toe.\n"
+                f"   - Character 2 (Right Position): An energetic 17-year-old high-school senior {p2_word} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) positioned on the RIGHT side of the frame.\n"
+                f"     * Complexion & Eyes: Explicitly specify skin tone and lively natural-sized simple black cartoon eyes (e.g. 'fair peach skin and simple black cartoon eyes' or 'warm olive skin and simple black cartoon eyes')!\n"
                 f"     * Hair: Explicitly specify contrasting hair color and hairstyle (e.g. '{c2_hair_example}')!\n"
-                f"     * Wardrobe: Explicitly specify complementary authentic thematic costume garments and colors matching this setting!\n"
+                f"     * Complete Layered Wardrobe (Upper + Lower — Omit Footwear): Explicitly specify complementary stylish culturally authentic garments including BOTH a layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching this city and venue (omit shoes/footwear)!\n"
                 f"   CRITICAL GENDER-ACCURATE HAIRSTYLE RULE:\n"
                 f"   - For MALE characters: ALWAYS use short, distinctly masculine hairstyles (short textured side-part, neat tapered sides, crew-cut). STRICTLY FORBIDDEN FOR MALES: NO buns, NO chignons, NO bobs, NO ponytails, NO feminine long hair!\n"
                 f"   - For FEMALE characters: ALWAYS use stylish feminine hairstyles (ponytails, soft shoulder-length waves, bobs with bangs). STRICTLY FORBIDDEN FOR FEMALES: NO masculine quiffs or buzz cuts!\n"
-                f"   CRITICAL MULTI-CHARACTER RULE: You MUST explicitly describe the sex, skin tone, hair color, and wardrobe of BOTH characters! Strictly ban generic words like 'two teens' or 'the characters'!"
+                f"   CRITICAL MULTI-CHARACTER RULE: You MUST explicitly describe the sex, skin tone, hair color, and complete upper+lower wardrobe of BOTH characters!"
             )
         else:
             p_gend = get_speaker_gender_safe(speakers_gender, "NARRATOR", "") or get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "male")
             is_female = "f" in str(p_gend).lower() or "girl" in str(p_gend).lower()
-            gender_desc = "high-school student girl (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, NOT a child)" if is_female else "high-school student boy (approx. 14-16 years old, natural balanced teenage proportions, healthy youthful athletic build, NOT a child)"
+            gender_desc = "17-year-old high-school senior girl (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)" if is_female else "17-year-old high-school senior boy (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)"
             protagonist_hair = (
                 "dark wavy hair tied in an elegant ponytail or chic shoulder-length bob"
                 if is_female
@@ -916,11 +973,11 @@ class VisualPromptBuilder:
                 )
             else:
                 companion_rule = (
-                    "   - Staging & Companion Rule: If a secondary character or peer is genuinely needed by the story, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, skin tone, hair color, and distinct thematic costumes (NEVER plain t-shirts/hoodies)!"
+                    "   - Staging & Companion Rule: If a secondary character or peer is genuinely needed by the story, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, skin tone, hair color, and complete layered upper + lower outfits (omit shoes/footwear in cropped shots)!"
                 )
             character_directive = (
-                f"2. Protagonist (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, HAIR & WARDROBE CONTINUITY):\n"
-                f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), simple black cartoon eyes (STRICTLY NO colored eyes like blue, green, or hazel), hair color and hairstyle (e.g. '{protagonist_hair}'), and an authentic thematic costume/wardrobe explicitly matching this setting (describe specific colors and garment types — NEVER plain generic t-shirts/hoodies).\n"
+                f"2. Protagonist (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, HAIR & COMPLETE LAYERED WARDROBE CONTINUITY):\n"
+                f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), lively natural-sized simple black cartoon eyes, hair color and hairstyle (e.g. '{protagonist_hair}'), and a complete stylish culturally authentic venue outfit explicitly matching this city and setting (specify BOTH layered top garment AND explicit lower garment such as trousers/chinos/skirt; omit shoes/footwear so waist-up and medium shots stay tightly framed).\n"
                 f"{companion_rule}"
             )
 
@@ -935,27 +992,35 @@ class VisualPromptBuilder:
         system_prompt = (
             "You are a professional visual director for language-learning animated YouTube Shorts.\n"
             "Your task is to establish the overarching General Visual Prompt / Story World Anchor that will define "
-            "the visual context, thematic environment, character appearance, and atmosphere for ALL scenes of this video.\n\n"
+            "the visual context, cultural environment, character appearance, and atmosphere for ALL scenes of this video.\n\n"
             "MANDATORY DIRECTIVES:\n"
-            "1. Macro-Setting & Architecture: Describe a rich, authentic physical setting with architectural details, indoor depth, "
-            "furniture, ambient props, atmospheric lighting, and soft cast shadows.\n"
+            "1. Macro-Setting & Architecture: Describe a rich, unmistakable cultural venue or landmark (authentic indoor shop/hall OR open-air street/plaza/waterfront/landmark matching THEMATIC BASE SETTING) "
+            "with regional architectural textures, natural non-text props, atmospheric sky or room depth, lighting, and soft cast shadows.\n"
             f"{character_directive}\n"
-            "   Strictly ban generic modern street clothes (plain t-shirts/hoodies) and mature adults.\n"
+            "   Strictly ban plain blank t-shirts, plain hoodies, drafting vests, and mature adults.\n"
             "3. Creative Visual Metaphor & Graphic Props in Environment:\n"
             "   Embrace the GRAPHIC / LITERAL SENSE of the expression or topic by placing relevant physical props naturally in the setting to make the world visually magnetic and fun "
-            "(e.g., for 'a piece of cake', feature an elaborate multi-tiered cake on the display table; "
-            "for 'proJECT vs PROject', camera tripods, clapperboard, and megaphone on the film shoot set; for travel/visiting, vintage luggage, train timetables, and architectural maps).\n"
+            "(e.g., for 'a piece of cake', feature an elaborate multi-tiered cake on a marble pastry display; "
+            "for 'proJECT vs PROject', camera tripods, clapperboard without text, and megaphone on a sunset terrace film set; for travel/visiting, vintage leather luggage and architectural compasses).\n"
             "   STRICT BAN ON GENERIC PROP CLICHÉS: NEVER use generic ribbon-wrapped gift boxes, mystery boxes, or present parcels unless the topic literally and explicitly discusses gifts or birthdays.\n"
             "4. Atmosphere & Style: Vibrant color palette, rich cinematic lighting, clean modern 2D cartoon narrative illustration, "
-            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, simple black cartoon eyes (NO colored irises like blue or green), rich interior depth.\n"
+            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, simple black cartoon eyes (NO colored irises like blue or green), rich environmental depth.\n"
             f"{format_staging_directive}\n"
             "6. STATIC STAGE SETUP ONLY (NO MOMENTARY DIALOGUE ACTIONS):\n"
-            "   Describe the physical stage, setting props, and characters standing ready on set in their thematic costumes and positions matching the format staging above.\n"
+            "   Describe the physical stage, setting props, and characters standing ready on set in their stylish culturally authentic outfits and positions matching the format staging above.\n"
             "   DO NOT describe temporary dialogue actions (such as shouting, covering ears, arguing, or gesturing) in this General Prompt! Temporary actions belong strictly to individual scene prompts.\n"
             "7. Keep the description rich, concrete, vivid, and around 110-180 words (detailed enough to establish specific character clothing, positions, and environmental props).\n"
-            "8. ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are generic greenhouses or plant nurseries, plain empty classrooms/schools, pottery/ceramic workshops, flower shops, or generic coffee shops. Ground the setting authentically in the dialogue domain.\n"
+            "8. ANTI-CLICHÉ BAN: Strictly DO NOT use generic AI clichés: BANNED are creative studios, cultural study lounges, study lounges, design ateliers, artisan workshops, generic apartments/living rooms, greenhouses or plant nurseries, plain empty classrooms/schools, pottery/ceramic workshops, generic flower shops, or generic modern coffee shops. Ground the setting in the authentic cultural venue or landmark below.\n"
             "9. Return ONLY the visual prompt text. No markdown formatting, no commentary."
         )
+
+        cultural_meta_lines = ""
+        if cultural_world is not None:
+            cultural_meta_lines = (
+                f"ASSIGNED CULTURAL WORLD: {cultural_world.title} ({cultural_world.region}, {cultural_world.indoor_outdoor})\n"
+                f"AUTHENTIC LOCAL PROPS (100% TEXT-FREE): {', '.join(cultural_world.focal_props)}\n"
+                f"RECOMMENDED TEEN VENUE WARDROBE: {strip_footwear_clauses(cultural_world.wardrobe_cue)}\n"
+            )
 
         user_content = (
             f"LANGUAGE / SUBJECT: {language} / {subject}\n"
@@ -964,7 +1029,8 @@ class VisualPromptBuilder:
             f"TOPIC: {topic}\n"
             f"SCENARIO: {scenario}\n"
             f"LEXICAL FIELD: {lexical_field}\n"
-            f"THEMATIC BASE SETTING: {anchor_environment}\n\n"
+            f"THEMATIC BASE SETTING: {anchor_environment}\n"
+            f"{cultural_meta_lines}\n"
             f"FULL SCRIPT TEXT (THE COMPLETE STORY):\n{script_text}\n\n"
         )
         if guidance:

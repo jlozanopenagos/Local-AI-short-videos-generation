@@ -173,7 +173,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const handleRunStage = async (stage: JobStage) => {
     setTriggeringStage(stage)
     try {
-      const job = await createJob(stage, [scriptId], { force: true })
+      const options: Record<string, any> = { force: true }
+      if (stage === 'images' && (editGeneralPrompt.trim() || (detail?.general_prompt || '').trim())) {
+        options.preserve_general_prompt = true
+      }
+      const job = await createJob(stage, [scriptId], options)
       onJobStarted(job.job_id)
       onClose()
     } catch (err) {

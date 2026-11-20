@@ -13,8 +13,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+from config import get_script_output_dir
 from core.state_manager import StateManager
-from video_creation._G_video_assembly.main import process_script
+from video_creation._G_video_assembly.main import delete_existing_final_video, process_script
 from video_creation._G_video_assembly.core.transcriber import Transcriber
 from video_creation._G_video_assembly.core.subtitle_builder import SubtitleBuilder
 from video_creation._G_video_assembly.core.video_assembler import VideoAssembler
@@ -33,13 +34,15 @@ class AssemblyAdapter(BaseStageAdapter):
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
         sm = StateManager(base_dir=BASE_DIR)
-        force = options.get("force", False)
+        skip_existing = bool(options.get("skip_existing", False))
+        force = not skip_existing
+        regenerate_subtitles = not bool(options.get("keep_subtitles", False))
 
         total = len(script_ids)
         success_count = 0
         failed_ids = []
 
-        emit_log(f"Starting Video Assembly for {total} script(s)...")
+        emit_log(f"Starting forced Video Assembly for {total} script(s) (existing final videos will be deleted and recreated)...")
 
         # Instantiate core assembly workers once to reuse memory and models across mass batches
         transcriber = None
@@ -74,7 +77,7 @@ class AssemblyAdapter(BaseStageAdapter):
                 success_count += 1
                 continue
 
-            # Verify prerequisites
+            # Verify prerequisites BEFORE removing any existing final video
             has_voice = status.get("voice_generation") == "done"
             has_images = status.get("image_generation") == "done"
             if not has_voice or not has_images:
@@ -86,6 +89,24 @@ class AssemblyAdapter(BaseStageAdapter):
                 emit_log(f"[{script_id}] Skipping assembly — prerequisites missing: {', '.join(missing)}.")
                 failed_ids.append(script_id)
                 continue
+
+            # Delete any pre-existing final .mp4 and reset state so assembly always creates fresh output
+            label = (
+                script_data.get("metadata", {}).get("LABEL")
+                or script_data.get("prompt_params", {}).get("TARGET_LANGUAGE", "english")
+            )
+            script_output_dir = get_script_output_dir(script_id, label, BASE_DIR)
+            was_done = status.get("video_assembly") == "done" or bool(
+                (script_data.get("assets") or {}).get("final_video")
+            )
+            deleted_files = delete_existing_final_video(script_data, script_output_dir)
+            if deleted_files:
+                emit_log(
+                    f"[{script_id}] Deleted existing final video ({', '.join(p.name for p in deleted_files)}) "
+                    "— recreating from scratch."
+                )
+            if deleted_files or was_done:
+                sm.save_script_state(script_id, script_data)
 
             max_attempts = int(options.get("max_attempts", 3))
             assembly_succeeded = False
@@ -106,7 +127,7 @@ class AssemblyAdapter(BaseStageAdapter):
                         builder=builder,
                         assembler=assembler,
                         base_dir=BASE_DIR,
-                        regenerate_subtitles=force,
+                        regenerate_subtitles=regenerate_subtitles,
                         auto=True,
                     )
                     dur = time.time() - t0
