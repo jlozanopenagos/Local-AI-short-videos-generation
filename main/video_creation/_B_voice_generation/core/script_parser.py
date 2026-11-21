@@ -161,6 +161,7 @@ def parse_content_dialogue(content_text: str) -> List[Dict[str, str]]:
                 segments.append({
                     "speaker": spk,
                     "text": cleaned_text,
+                    "raw_text": text_str,
                     "emotion": inline_emotions or current_emotion or "neutral"
                 })
             pending_text = []
@@ -299,6 +300,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
                     "section": sec,
                     "speaker": turn["speaker"],
                     "text": turn["text"],
+                    "raw_text": turn.get("raw_text", turn["text"]),
                     "emotion": turn["emotion"],
                     "language": language,
                     "is_dialogue": True
@@ -317,6 +319,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
                         "section": sec,
                         "speaker": "Narrator",
                         "text": cleaned_p,
+                        "raw_text": p,
                         "emotion": p_emotion or "neutral",
                         "language": language,
                         "is_dialogue": False

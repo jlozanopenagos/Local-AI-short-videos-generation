@@ -52,45 +52,23 @@ try:
     from video_creation._B_voice_generation.core.script_parser import get_script_segments
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.voice_manager import VoiceManager
-    from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
-    from video_creation._B_voice_generation.core.stress_enhancer import (
-        enhance_stress_text_for_tts,
-        build_stress_style_directive,
-        detect_intentional_stress_errors,
-        normalize_multiple_choice_options_for_tts,
-    )
-    from video_creation._B_voice_generation.core.acoustic_evaluator import (
-        select_best_voice_candidate,
-        select_best_general_candidate,
-        evaluate_voice_take
-    )
-    from video_creation._B_voice_generation.main import (
+    from video_creation._B_voice_generation.voice.common.orchestrator import (
         is_stress_pronunciation_vital,
         EMOTION_TRANSLATION_MAP,
         infer_dialogue_emotion,
         map_emotion_to_energy,
+        synthesize_script_voice,
     )
 except (ImportError, ModuleNotFoundError):
     from core.script_parser import get_script_segments
     from core.comfy_client import ComfyClient
     from core.voice_manager import VoiceManager
-    from core.audio_processor import concatenate_audios
-    from core.stress_enhancer import (
-        enhance_stress_text_for_tts,
-        build_stress_style_directive,
-        detect_intentional_stress_errors,
-        normalize_multiple_choice_options_for_tts,
-    )
-    from core.acoustic_evaluator import (
-        select_best_voice_candidate,
-        select_best_general_candidate,
-        evaluate_voice_take
-    )
-    from main import (
+    from voice.common.orchestrator import (  # type: ignore[no-redef]
         is_stress_pronunciation_vital,
         EMOTION_TRANSLATION_MAP,
         infer_dialogue_emotion,
         map_emotion_to_energy,
+        synthesize_script_voice,
     )
 
 
@@ -205,6 +183,8 @@ def main():
     parser.add_argument("--script-id", type=str, default=None, help="Script ID to modify (e.g. ER114, EE04)")
     parser.add_argument("--genders", type=str, default=None, help="Comma-separated genders for speakers (e.g. 'male, female' or 'm, f, m')")
     parser.add_argument("--candidates", type=int, default=None, help="Number of candidate takes to generate for stress-vital segments (default: 2)")
+    parser.add_argument("--accent", type=str, default=None, help="Optional neutral accent override (e.g. es_latam_neutral, es_spain_castilian)")
+    parser.add_argument("--engine", type=str, default=None, choices=["typed", "legacy"], help="Voice engine mode override")
     args = parser.parse_args()
 
     base_dir = BASE_DIR
@@ -323,377 +303,30 @@ def main():
     for spk, g in selected_genders.items():
         print(f"     {spk:12s}: {g.upper()}")
 
-    # 3. Automatic Random Voice Casting with Strict Roleplay Differentiation
-    print("\n[Voice Casting] Selecting randomized distinct high-quality voices...")
-    voice_manager.assign_voices_for_script(
-        unique_speakers,
-        clean_language,
+    # 3. Delegate fresh recast + synthesis to the unified Stage B orchestrator (excluding prior voices)
+    existing_voices = script_data.get("content_metadata", {}).get("speakers_voice", {}) or {}
+    exclude_set = {str(v) for v in existing_voices.values() if v}
+
+    print("\n[Voice Casting] Selecting randomized distinct high-quality voices (excluding previous cast)...")
+    ok = synthesize_script_voice(
+        script_data=script_data,
+        state_manager=state_manager,
+        comfy_client=comfy_client,
+        voice_manager=voice_manager,
+        force=True,
+        base_dir=base_dir,
+        candidates=args.candidates,
         manual_genders=selected_genders,
-        manual_voice_paths={},  # Empty dictionary ensures fresh randomized assignment
-        video_type=video_type,
+        exclude_voices=exclude_set,
+        force_fresh_cast=True,
+        explicit_accent=args.accent,
+        engine_mode=args.engine,
+        mark_video_assembly_pending=True,
     )
-
-    # ENFORCE RULE: In roleplay videos, narrator and any character sharing the same
-    # gender MUST NOT share the same voice. Every speaker must have a unique reference voice.
-    used_reference_names = set()
-    speakers_gender = {}
-    speakers_voice = {}
-
-    # Order characters first, narrator last so narrator can adapt to avoid character voice collisions
-    characters = [s for s in unique_speakers if "narrator" not in s.lower()]
-    narrators = [s for s in unique_speakers if "narrator" in s.lower()]
-    ordered_speakers = characters + narrators
-
-    for speaker in ordered_speakers:
-        gender, abs_path, _ = voice_manager.get_speaker_voice(speaker, clean_language)
-        vname = abs_path.name if abs_path else None
-
-        # Collision avoidance: if this reference voice was already assigned to another speaker
-        if vname and (vname in used_reference_names):
-            pool = voice_manager.get_available_voices(clean_language, gender)
-            candidates = [p for p in pool if p.name not in used_reference_names]
-            if candidates:
-                # Prefer golden voices if available, or any acceptable candidate
-                golden_cand = [p for p in candidates if "kokoro_golden" in p.name]
-                new_vpath = random.choice(golden_cand if golden_cand else candidates)
-                voice_manager.current_assignments[speaker] = (gender, new_vpath)
-                abs_path = new_vpath
-                vname = new_vpath.name
-
-        if vname:
-            used_reference_names.add(vname)
-
-        speakers_gender[speaker] = gender
-        if abs_path:
-            speakers_voice[speaker] = abs_path.name
-
-    print("\n" + "=" * 64)
-    print("🎤 NEW VOICE CASTING:")
-    for spk in ordered_speakers:
-        g = speakers_gender[spk]
-        v = speakers_voice.get(spk, "default")
-        print(f"  - {spk:12s} ({g.upper()}): {v}")
-    print("=" * 64 + "\n")
-
-    # Update state with new voice assignments
-    if "content_metadata" not in script_data:
-        script_data["content_metadata"] = {}
-    script_data["content_metadata"]["speakers_gender"] = speakers_gender
-    script_data["content_metadata"]["speakers_voice"] = speakers_voice
-    state_manager.save_script_state(script_id, script_data)
-
-    # 4. Clean up old audio files so no stale segments linger
-    for old_file in script_output_dir.glob("*.flac"):
-        try:
-            old_file.unlink()
-        except Exception:
-            pass
-    for old_file in script_output_dir.glob("*.wav"):
-        try:
-            old_file.unlink()
-        except Exception:
-            pass
-
-    is_game = video_type == "GAME" or any(s.get("section") in ["challenge", "pressure"] for s in segments)
-    is_roleplay = video_type == "ROLEPLAY" or any("dialogue" in (s.get("section") or "").lower() for s in segments)
-    is_script_stress_vital = is_stress_pronunciation_vital(script_data)
-
-    segments_to_concat = []
-
-    # 5. Synthesize segments
-    for seg in segments:
-        idx = seg["index"]
-        speaker = seg["speaker"]
-        text = seg["text"]
-        emotion = seg["emotion"]
-        language = seg["language"]
-        is_dialogue = seg["is_dialogue"]
-        sec_name = (seg.get("section") or "").lower()
-        is_seg_stress_vital = is_script_stress_vital or is_stress_pronunciation_vital(script_data, text)
-
-        print(f"\n--- Generating Segment {idx}/{len(segments)} [{speaker}] ({language}) ---")
-
-        gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
-
-        output_prefix = f"audio/script_{script_id}_{idx:02d}_{speaker.replace(' ', '_')}"
-        dest_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}.flac"
-        dest_path = script_output_dir / dest_filename
-
-        norm_text = normalize_multiple_choice_options_for_tts(text, language=clean_language)
-        if norm_text != text:
-            print(f"  [TTS MC Options Normalized]: '{norm_text}'")
-
-        if comfy_client is None:
-            print(f"Error: Qwen3-TTS ComfyUI is offline and needed for segment {idx}.")
-            return
-
-        ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
-        if is_game and "narrator" in speaker.lower():
-            if is_seg_stress_vital and "challenge" in sec_name:
-                context = f"Charismatic game show host presenting a clear pronunciation and word stress challenge in {language}"
-                style = (
-                    "lively and articulate game show host delivery, upbeat conversational tempo, distinct options with clear syllable stress. "
-                    "Crucial pronunciation directive: Deliver educational focus words with authentic syllable stress and natural vowel reduction."
-                )
-            elif is_seg_stress_vital and "answer" in sec_name:
-                context = f"Triumphant game show host explaining the correct syllable stress in {language}"
-                style = (
-                    "triumphant celebratory delivery, joyful game show reveal cadence with crystal-clear pronunciation. "
-                    "Deliver correct syllable stress with unmistakable clarity and authentic vowel reduction."
-                )
-            elif "hook" in sec_name:
-                context = f"Vibrant, charismatic TV trivia show host presenting an educational quiz in {language}"
-                style = "electrifying game show host delivery, bold dynamic vocal projection, energetic high-spirited conversational momentum, punchy and enthusiastic, magnetic trivia spirit, charismatic and inviting, warm human flow"
-            elif "challenge" in sec_name:
-                context = f"Charismatic and engaging trivia host presenting a multiple-choice challenge in {language}"
-                style = "lively game show host delivery, engaging conversational momentum, crisp clear presentation of options with upbeat natural cadence, lively human flow without mechanical stalling"
-            elif "pressure" in sec_name:
-                context = f"Suspenseful game show host leading an intense countdown in {language}"
-                style = "gripping game show host countdown, dramatic suspense and urgent anticipation, building high-energy excitement, punchy and thrilling delivery"
-            elif "answer" in sec_name:
-                context = f"Enthusiastic game show host revealing the correct answer in {language}"
-                style = "triumphant celebratory delivery, joyful game show reveal cadence, energetic punchy intonation, warm human flow"
-            else:
-                context = f"Charismatic language coach explaining the answer in {language}"
-                style = "magnetic storyteller cadence, lively and encouraging, clear dynamic intonation, natural and punchy, warm human flow"
-        else:
-            char_personalities = script_data.get("content_metadata", {}).get("character_personalities", {})
-            speaker_personality = char_personalities.get(speaker, "")
-            if not speaker_personality and "narrator" in speaker.lower():
-                speaker_personality = STATIC_NARRATOR_PERSONALITY
-
-            if is_seg_stress_vital:
-                if language.lower() == "english":
-                    context = (
-                        f"Charismatic language coach and pronunciation mentor demonstrating clear syllable stress in English"
-                        if not is_dialogue
-                        else (f"Character '{speaker}' ({speaker_personality}) practicing authentic syllable stress and pronunciation in English"
-                              if speaker_personality else f"Character '{speaker}' practicing authentic syllable stress and pronunciation in English")
-                    )
-                    style = (
-                        "deliberate articulate broadcast delivery, crystal-clear phoneme articulation, and measured educational pacing. "
-                        "Crucial pronunciation directive: Deliver educational focus words with authentic syllable stress and natural vowel reduction."
-                    )
-                else:
-                    context = (
-                        f"Charismatic language coach and pronunciation mentor demonstrating clear articulation in {language}"
-                        if not is_dialogue
-                        else (f"Character '{speaker}' ({speaker_personality}) practicing clear pronunciation in {language}"
-                              if speaker_personality else f"Character '{speaker}' practicing clear pronunciation in {language}")
-                    )
-                    style = (
-                        "deliberate articulate broadcast delivery, crystal-clear phoneme articulation, natural rhythm, and measured educational pacing."
-                    )
-            else:
-                if is_roleplay:
-                    context = (
-                        f"Charismatic storyteller ({speaker_personality}) in a {language} roleplay short"
-                        if speaker_personality
-                        else f"Charismatic YouTube Shorts storyteller and viral language mentor in a {language} roleplay narrative"
-                    ) if not is_dialogue else (
-                        f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
-                        if speaker_personality else f"Character '{speaker}' participating in a {language} conversational dialogue"
-                    )
-                    style = (
-                        "magnetic storyteller cadence, snappy conversational momentum, expressive theatrical inflection, lively and captivating rhythm, warm human flow"
-                        if not is_dialogue
-                        else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
-                    )
-                else:
-                    context = (
-                        f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
-                        if (is_dialogue and speaker_personality)
-                        else (f"Narrator ({speaker_personality}) presenting in {language}" if speaker_personality
-                              else (f"Character '{speaker}' participating in a {language} conversational dialogue" if is_dialogue
-                                     else f"Narrator introducing a language learning topic in {language}"))
-                    )
-                    style = (
-                        "magnetic storyteller cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
-                        if not is_dialogue
-                        else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
-                    )
-
-        target_text = normalize_multiple_choice_options_for_tts(text, language=language)
-        detected_stress_words = []
-        if is_seg_stress_vital:
-            target_text, detected_stress_words = enhance_stress_text_for_tts(target_text, language=language)
-            style = build_stress_style_directive(detected_stress_words, language=language, base_style=style, raw_text=text)
-            intentional_errs = detect_intentional_stress_errors(text, detected_stress_words)
-            if intentional_errs:
-                err_summary = ", ".join([f"{e['token']} -> {e['visual_role']} (in {e['syntactic_role']} slot)" for e in intentional_errs])
-                print(f"  [Intentional Pronunciation Error Active]: {err_summary}")
-                context += f" (Character intentionally makes a pronunciation mistake on '{err_summary}' for educational contrast)"
-            if target_text != text or detected_stress_words:
-                print(f"  [TTS Stress Enhanced]: '{target_text}' (Target words: {detected_stress_words})")
-
-        if is_seg_stress_vital and (not emotion or emotion.lower() in ["neutral", "none", "", "normal"]):
-            emotion = "articulate, enthusiastic, and deliberate pronunciation mentor"
-        else:
-            emotion = infer_dialogue_emotion(speaker, text, emotion, section=seg.get("section"), is_game=is_game)
-        energy = map_emotion_to_energy(emotion)
-        pers_log = f" | Persona: '{context}'" if context else ""
-        print(f"[{speaker}] Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
-
-        is_high_impact = (
-            any(k in sec_name for k in ["hook", "pressure", "payoff", "cta", "reveal"])
-            or (is_game and "answer" in sec_name)
-            or (is_seg_stress_vital and bool(detected_stress_words))
-        )
-
-        if args.candidates is not None:
-            seg_candidates = max(1, args.candidates)
-        elif is_high_impact:
-            seg_candidates = 2
-        else:
-            seg_candidates = 1
-
-        try:
-            if is_seg_stress_vital and detected_stress_words:
-                candidate_paths = []
-                num_takes = max(2, seg_candidates)
-                for take_idx in range(num_takes):
-                    take_seed = seed + (take_idx * 101)
-                    take_prefix = f"{output_prefix}_take{take_idx+1}"
-                    take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
-                    take_path = script_output_dir / take_filename
-                    print(f"  [Take #{take_idx+1}/{num_takes}]: Generating candidate with seed {take_seed}...")
-                    comfy_client.generate_voice_segment(
-                        ref_audio_name=ref_filename,
-                        target_text=target_text,
-                        language=language,
-                        gender=gender,
-                        context=context,
-                        emotion=emotion,
-                        energy=energy,
-                        style=style,
-                        output_prefix=take_prefix,
-                        dest_path=take_path,
-                        seed=take_seed
-                    )
-                    candidate_paths.append(take_path)
-
-                select_best_voice_candidate(
-                    candidate_paths=candidate_paths,
-                    target_words=detected_stress_words,
-                    text_context=text,
-                    dest_path=dest_path
-                )
-            elif seg_candidates > 1:
-                candidate_paths = []
-                for take_idx in range(seg_candidates):
-                    take_seed = seed + (take_idx * 777)
-                    take_prefix = f"{output_prefix}_take{take_idx+1}"
-                    take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
-                    take_path = script_output_dir / take_filename
-                    print(f"  [High-Impact Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
-                    comfy_client.generate_voice_segment(
-                        ref_audio_name=ref_filename,
-                        target_text=target_text,
-                        language=language,
-                        gender=gender,
-                        context=context,
-                        emotion=emotion,
-                        energy=energy,
-                        style=style,
-                        output_prefix=take_prefix,
-                        dest_path=take_path,
-                        seed=take_seed
-                    )
-                    candidate_paths.append(take_path)
-
-                select_best_general_candidate(
-                    candidate_paths=candidate_paths,
-                    target_text=target_text,
-                    language=language,
-                    dest_path=dest_path
-                )
-            else:
-                comfy_client.generate_voice_segment(
-                    ref_audio_name=ref_filename,
-                    target_text=target_text,
-                    language=language,
-                    gender=gender,
-                    context=context,
-                    emotion=emotion,
-                    energy=energy,
-                    style=style,
-                    output_prefix=output_prefix,
-                    dest_path=dest_path,
-                    seed=seed
-                )
-                score, passes_gate, issues, metrics = evaluate_voice_take(
-                    dest_path, target_text=target_text, language=language
-                )
-                if passes_gate:
-                    print(f"  [Quality Gate]: Pass (Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s)")
-                else:
-                    print(f"  [Quality Gate]: Take #1 flagged: {', '.join(issues)}. Auto-retrying with seed {seed + 555}...")
-                    take1_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take1.flac"
-                    take2_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take2.flac"
-                    if dest_path.exists():
-                        if take1_path.exists():
-                            take1_path.unlink()
-                        shutil.move(str(dest_path), str(take1_path))
-
-                    comfy_client.generate_voice_segment(
-                        ref_audio_name=ref_filename,
-                        target_text=target_text,
-                        language=language,
-                        gender=gender,
-                        context=context,
-                        emotion=emotion,
-                        energy=energy,
-                        style=style,
-                        output_prefix=f"{output_prefix}_take2",
-                        dest_path=take2_path,
-                        seed=seed + 555
-                    )
-                    select_best_general_candidate(
-                        candidate_paths=[take1_path, take2_path],
-                        target_text=target_text,
-                        language=language,
-                        dest_path=dest_path
-                    )
-        except Exception as exc:
-            print(f"API Error on segment {idx}: {exc}")
-            return
-
-        segments_to_concat.append({
-            "path": dest_path,
-            "section": seg["section"],
-            "speaker": speaker
-        })
-
-    print(f"\nSyntheses complete. Merging {len(segments_to_concat)} segments...")
-    master_path = script_output_dir / f"script_{script_id}_master.wav"
-
-    try:
-        merged_file = concatenate_audios(
-            segments_metadata=segments_to_concat,
-            output_path=master_path
-        )
-        if merged_file:
-            print(f"Successfully generated new master audio: {merged_file}")
-            if "assets" not in script_data:
-                script_data["assets"] = {}
-            script_data["assets"]["audio_path"] = str(merged_file)
-            script_data["status"]["voice_generation"] = "done"
-            # Set video assembly to pending so it can be reassembled with the new audio
-            script_data["status"]["video_assembly"] = "pending"
-            state_manager.save_script_state(script_id, script_data)
-
-            for seg in segments_to_concat:
-                try:
-                    if seg["path"].exists():
-                        seg["path"].unlink()
-                except Exception:
-                    pass
-
-            voice_manager.cleanup_comfy_input()
-            print(f"\n[Done] Master voice for {script_id} successfully replaced. Video assembly is set to pending.")
-
-    except Exception as exc:
-        print(f"Error during audio merge: {exc}")
+    if ok:
+        print(f"\n[Done] Master voice for {script_id} successfully replaced. Video assembly is set to pending.")
+    else:
+        print(f"\n[Error] Failed to regenerate voice for {script_id}.")
 
 
 if __name__ == "__main__":

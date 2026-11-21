@@ -3,9 +3,21 @@ import json
 import random
 import sys
 import time
+import re
 import requests
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+
+try:
+    from video_creation._B_voice_generation.voice.common.bank_manifest import VoiceBankManifest, sanitize_ref_transcript
+    from video_creation._B_voice_generation.voice.languages import get_language_voice_profile
+except (ImportError, ModuleNotFoundError):
+    try:
+        from ..voice.common.bank_manifest import VoiceBankManifest, sanitize_ref_transcript  # type: ignore[no-redef]
+        from ..voice.languages import get_language_voice_profile  # type: ignore[no-redef]
+    except (ImportError, ValueError):
+        from voice.common.bank_manifest import VoiceBankManifest, sanitize_ref_transcript  # type: ignore[no-redef]
+        from voice.languages import get_language_voice_profile  # type: ignore[no-redef]
 
 
 def _safe_print(text: str, file=None, flush: bool = True) -> None:
@@ -34,15 +46,17 @@ LOCALIZED_INSTRUCT_TEMPLATES = {
     },
     "french": {
         "narrator": (
-            "Un narrateur natif français ({gender_fr}) charismatique et dynamique présentant un court métrage YouTube Shorts avec une énergie {energy_fr}. "
-            "Accent français parisien standard (France métropolitaine, Paris), prononciation parisienne pure, fluide, naturelle et authentique, sans aucun accent américain, anglais ou québécois. "
+            "Un narrateur natif français ({gender_fr}) plein d'esprit parisien, charismatique, complice et pétillant, présentant un court métrage YouTube Shorts avec une énergie {energy_fr}. "
+            "Accent français parisien standard pur (France métropolitaine, Paris), prononciation parisienne raffinée et vivante, sans aucun accent américain, anglais ou québécois. "
+            "Musicalité française authentique avec groupes rythmiques fluides, liaisons naturelles soignées, intonation montante chantante sur les questions et sourire dans la voix. "
             "Ton : {emotion}. Style : {style}. "
-            "Débit clair et articulé idéal pour les apprenants, intonation chaleureuse, vivante et très expressive."
+            "Débit vif, clair et articulé idéal pour les apprenants, intonation chaleureuse et très expressive."
         ),
         "dialogue": (
-            "Un locuteur natif français ({gender_fr}) jouant un dialogue conversationnel expressif avec une énergie {energy_fr}. "
-            "Accent français parisien standard (France métropolitaine, Paris), prononciation parisienne pure, fluide et naturelle, sans aucun accent américain, anglais ou québécois. "
+            "Un locuteur natif français ({gender_fr}) plein de naturel et de charme parisien jouant un dialogue conversationnel expressif avec une énergie {energy_fr}. "
+            "Accent français parisien standard pur (France métropolitaine, Paris), prononciation parisienne fluide et authentique, sans aucun accent américain, anglais ou québécois. "
             "En conservant strictement le même registre vocal, timbre de voix et hauteur fondamentale tout au long du dialogue sans variation artificielle. "
+            "Musicalité française legato naturelle, groupes rythmiques chantants et sourire expressif dans la voix. "
             "Ton théâtral de la réplique : {emotion}. Style : {style}. "
             "Timbre vocal stable, débit clair et articulé pour les apprenants, inflexion émotionnelle authentique et articulation nette."
         ),
@@ -74,6 +88,7 @@ class ComfyClient:
         self._ref_transcripts_cache: Optional[Dict[str, str]] = None
         self.pool = None
         try:
+            # pyrefly: ignore[missing-import]
             from core.comfy_pool import get_comfy_pool
             self.pool = get_comfy_pool(self.api_url)
         except Exception:
@@ -86,8 +101,27 @@ class ComfyClient:
         with self.workflow_json_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
-    def _get_ref_transcript(self, ref_audio_name: str) -> str:
-        """Looks up a pre-computed Whisper transcript for `ref_audio_name` from `ref_transcripts.json`."""
+    def _has_manifest_ref_text(self, ref_audio_name: str) -> bool:
+        """Returns True if `ref_audio_name` exists in the curated `VoiceBankManifest` with a transcript."""
+        if not ref_audio_name:
+            return False
+        if not hasattr(self, "_bank_manifest_cache"):
+            self._bank_manifest_cache = VoiceBankManifest.load()
+        if self._bank_manifest_cache is None:
+            return False
+        return bool(self._bank_manifest_cache.lookup_ref_text(ref_audio_name))
+
+    def _get_ref_transcript(self, ref_audio_name: str, language: str = "") -> str:
+        """Looks up a reference transcript from curated bank manifest or cleaned `ref_transcripts.json`."""
+        if not ref_audio_name:
+            return ""
+        if not hasattr(self, "_bank_manifest_cache"):
+            self._bank_manifest_cache = VoiceBankManifest.load()
+        if self._bank_manifest_cache is not None:
+            manifest_txt = self._bank_manifest_cache.lookup_ref_text(ref_audio_name)
+            if manifest_txt:
+                return manifest_txt
+
         if self._ref_transcripts_cache is None:
             self._ref_transcripts_cache = {}
             try:
@@ -101,13 +135,12 @@ class ComfyClient:
                             self._ref_transcripts_cache[Path(k).name] = str(v)
             except Exception:
                 pass
-        if not ref_audio_name:
-            return ""
-        return (
+        raw_txt = (
             self._ref_transcripts_cache.get(ref_audio_name)
             or self._ref_transcripts_cache.get(Path(ref_audio_name).name)
             or ""
         )
+        return sanitize_ref_transcript(raw_txt, language=language, audio_name=ref_audio_name)
 
     def check_connection(self) -> None:
         """Checks if the ComfyUI server is reachable and responsive."""
@@ -338,6 +371,8 @@ class ComfyClient:
         use_icl: Optional[bool] = None,
         ref_text: Optional[str] = None,
         localize_instruct: Optional[bool] = None,
+        sampling_overrides: Optional[Dict[str, Any]] = None,
+        accent_hint: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Clones the template and updates inputs for the specific segment."""
         # Deep copy the template
@@ -358,7 +393,9 @@ class ComfyClient:
                 import config
                 if use_icl is None:
                     use_icl = bool(getattr(config, "QWEN3_USE_ICL", False)) and (
-                        lang_norm != "english" or "kokoro_golden" in str(ref_audio_name).lower()
+                        lang_norm != "english"
+                        or "kokoro_golden" in str(ref_audio_name).lower()
+                        or self._has_manifest_ref_text(ref_audio_name)
                     )
                 if localize_instruct is None:
                     localize_instruct = bool(getattr(config, "QWEN3_LOCALIZE_INSTRUCT", False)) and lang_norm != "english"
@@ -379,7 +416,7 @@ class ComfyClient:
         if "35" in wf and "inputs" in wf["35"]:
             if use_icl:
                 wf["35"]["inputs"]["x_vector_only"] = False
-                resolved_ref_text = ref_text if ref_text is not None else self._get_ref_transcript(ref_audio_name)
+                resolved_ref_text = ref_text if ref_text is not None else self._get_ref_transcript(ref_audio_name, language=lang_norm)
                 if resolved_ref_text:
                     wf["35"]["inputs"]["ref_text"] = resolved_ref_text
             else:
@@ -411,7 +448,13 @@ class ComfyClient:
                 node_inputs["subtalker_temperature"] = 0.88
                 node_inputs["repetition_penalty"] = 1.03
 
-            words_count = max(1, len(target_text.split()))
+            if sampling_overrides and isinstance(sampling_overrides, dict):
+                for param in ("temperature", "top_p", "top_k", "subtalker_temperature", "repetition_penalty"):
+                    if param in sampling_overrides and sampling_overrides[param] is not None:
+                        node_inputs[param] = sampling_overrides[param]
+
+            spoken_only = re.sub(r"\[pause:\d+(?:\.\d+)?\]", " ", target_text)
+            words_count = max(1, len(spoken_only.split()))
             node_inputs["max_new_tokens"] = max(128, min(2048, words_count * 18))
 
             localized = (
@@ -428,15 +471,22 @@ class ComfyClient:
                 else None
             )
 
+            accent_clause = ""
+            if accent_hint:
+                lang_prof = get_language_voice_profile(lang_norm)
+                hint_str = lang_prof.accent_instruct_hints.get(accent_hint, "")
+                if hint_str:
+                    accent_clause = f" {hint_str}"
+
             if localized:
-                node_inputs["instruct"] = localized
+                node_inputs["instruct"] = f"{localized}{accent_clause}".strip()
             elif is_dialogue_speaker:
                 role_clause = f"as {context}" if context else "as a character"
                 node_inputs["instruct"] = (
                     f"A consistent {gender.lower()} native speaker character with a stable vocal timbre and clear, learner-friendly conversational pacing in {language}. "
                     f"Speak {role_clause} with vibrant vocal energy and authentic theatrical acting. "
                     f"Acting tone: {emotion}. Energy level: {energy.upper()}. "
-                    f"Delivery: {style}. Unhurried, articulate tempo that language learners can easily follow, expressive human inflection, and engaging reactive dialogue."
+                    f"Delivery: {style}. Unhurried, articulate tempo that language learners can easily follow, expressive human inflection, and engaging reactive dialogue.{accent_clause}"
                 )
             else:
                 personality_clause = f" Persona: {context}." if context else ""
@@ -445,7 +495,7 @@ class ComfyClient:
                     f"Tone: {emotion}. "
                     f"Energy level: {energy.upper()}. "
                     f"Delivery: {style}. Clear, unhurried learner-friendly tempo with high vocal enthusiasm, expressive emotional inflection, captivating cadence, and warm human flow. "
-                    f"Avoid any rushed, sleepy, monotone, or robotic announcer enunciation."
+                    f"Avoid any rushed, sleepy, monotone, or robotic announcer enunciation.{accent_clause}"
                 )
 
         return wf
@@ -541,6 +591,8 @@ class ComfyClient:
         use_icl: Optional[bool] = None,
         ref_text: Optional[str] = None,
         localize_instruct: Optional[bool] = None,
+        sampling_overrides: Optional[Dict[str, Any]] = None,
+        accent_hint: Optional[str] = None,
     ) -> Path:
         """Executes the voice cloning pipeline for a single segment with auto-retry and watchdog.
         Returns the path to the downloaded audio file.
@@ -566,6 +618,8 @@ class ComfyClient:
                 use_icl=use_icl,
                 ref_text=ref_text,
                 localize_instruct=localize_instruct,
+                sampling_overrides=sampling_overrides,
+                accent_hint=accent_hint,
             )
 
     def _execute_voice_generation_loop(
@@ -586,11 +640,13 @@ class ComfyClient:
         use_icl: Optional[bool] = None,
         ref_text: Optional[str] = None,
         localize_instruct: Optional[bool] = None,
+        sampling_overrides: Optional[Dict[str, Any]] = None,
+        accent_hint: Optional[str] = None,
     ) -> Path:
         last_error = None
         for attempt in range(1, max_retries + 1):
             try:
-                wf = self._prepare_workflow(
+                prep_kwargs: Dict[str, Any] = dict(
                     ref_audio_name=ref_audio_name,
                     target_text=target_text,
                     language=language,
@@ -605,6 +661,11 @@ class ComfyClient:
                     ref_text=ref_text,
                     localize_instruct=localize_instruct,
                 )
+                if sampling_overrides is not None:
+                    prep_kwargs["sampling_overrides"] = sampling_overrides
+                if accent_hint is not None:
+                    prep_kwargs["accent_hint"] = accent_hint
+                wf = self._prepare_workflow(**prep_kwargs)
 
                 print(f"Queuing voice generation (attempt {attempt}/{max_retries}): '{target_text[:35]}...'")
                 prompt_id = self.queue_prompt(wf)

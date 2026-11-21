@@ -151,6 +151,28 @@ The content strategy consists of four distinct formats queued from CSV files in 
 
 ---
 
+## Stage B Modular Voice Generation Architecture (`_B_voice_generation/voice/`)
+
+Stage B decouples shared synthesis infrastructure, per-language prosodic fingerprints, and per-video-type pause/mastering rules inside `_B_voice_generation/voice/` so editing one language or format never alters another:
+
+| Layer / File | Responsibility ("Where to Change X") |
+| :--- | :--- |
+| `voice/common/models.py` | Immutable dataclasses: `SamplingProfile`, `AcousticGateEnvelope`, `PauseChoreography`, `MasteringPreset`, `LanguageVoiceProfile`, `VideoTypeVoiceProfile`, `VoiceBankEntry`. |
+| `voice/common/engine.py` | `VOICE_ENGINE=typed\|legacy\|legacy:<type/lang>` rollback switch (`is_typed_voice_enabled`), `detect_dialect_hint()` (auto-locking `es_spain_castilian` / `es_latam_neutral` / `en_uk_neutral` / `en_us_neutral` from explicit `--accent` or script keywords), and `compute_segment_sampling()` (capped at `temperature <= 0.90`, `subtalker_temperature <= 0.86`, protecting `GAME` `challenge` neutrality via `neutral_challenge_lock`). |
+| `voice/common/bank_manifest.py` | `VoiceBankManifest` loader for `VOICE_BANK_DIR/voice_bank_manifest.json`, `sanitize_ref_transcript()` for clean `open_swara` transcripts, `LOW_QUALITY_OPEN_SWARA` filtering, and same-speaker `find_speaker_energy_variant()` lookup. |
+| `voice/common/casting.py` | Anti-repetition `VoiceCastingEngine` (tiering curated VoiceDesign clips + clean `open_swara` human clips ahead of demoted `kokoro_golden` fallback), `pick_weighted_accent()` (75/25 Spanish, 70/30 English), and 3-speaker uniqueness for Roleplays (`used_identities`, `--recast` exclusions). |
+| `voice/common/punctuation.py` | Non-destructive TTS prosody shaping (`prepare_tts_prosody_text`) that preserves screen captions untouched while injecting Spanish opening `¿`/`¡`, restoring safe `?!`/`...` cues, and inserting `GAME` option `[pause:0.26]` micro-pauses. |
+| `voice/common/dsp_mastering.py` | Zero-external-binary `numpy` + `scipy` broadcast vocal mastering chain (`apply_vocal_mastering`): sub-rumble HPF, subtractive mud cut, chest warmth, presence EQ, air shelf, split-band de-esser, soft-knee RMS compressor, ITU-R BS.1770 LUFS target leveling, and `0.891` (`-1.0 dBFS`) soft-clip peak limiter. |
+| `voice/common/orchestrator.py` | Unified `synthesize_script_voice()` shared by `_B_voice_generation/main.py`, `voice_modifier.py`, and WebUI `VoiceAdapter`, including a 1-shot calm recovery retry (`temp - 0.10`, `sub_temp - 0.06`, `seed + 1999`) whenever all high-impact candidates fail `evaluate_voice_take()`. |
+| `voice/languages/{english,french,spanish,italian}.py` + `registry.py` | **Language-only prosody**: English (`0.84`/`0.77`, 70/30 `en_us_neutral`/`en_uk_neutral`); French (`0.85`/`0.80`, Parisian *esprit français* legato *groupes rythmiques*); Spanish (`0.85`/`0.79`, neutral-only `75% es_latam_neutral` / `25% es_spain_castilian` + `¿`/`¡` enforcement); Italian (`0.87`/`0.83`, high-energy Mediterranean pitch excursions + crisp geminates). |
+| `voice/types/{expression,game,roleplay,fun_facts}/{pauses.py,mastering.py,profile.py}` (+ `roleplay/emotion.py`, `registry.py`) | **Type-only pauses, energy & mastering**: `EXPRESSION` (`pre_discovery_gap=0.38s`, `-15.2 LUFS`, `2.9:1`, `+2.6 dB @ 3.5 kHz`); `GAME` (`pressure_gap=2.20s`, `option_micro_pause=0.26s`, `answer_to_explanation_gap=0.28s`, `-15.0 LUFS`, `3.2:1`, `neutral_challenge_lock=True`); `FUN_FACTS` (`pre_discovery_gap=0.45s`, `-15.2 LUFS`, `2.8:1`, `+2.6 dB @ 3.2 kHz`); `ROLEPLAY` (`hook_to_next_gap=0.38s`, `dialogue_to_payoff_gap=0.35s`, `-16.0 LUFS`, `2.2:1`, `+1.5 dB @ 3.2 kHz`, `roleplay/emotion.py` 3-tier energy switching across `baseline` / `high_energy` / `surprised_urgent` of the exact same speaker voice). |
+| `core/{comfy_client.py,acoustic_evaluator.py,audio_processor.py,voice_manager.py}` | `_has_manifest_ref_text()` enabling `use_icl=True` (`x_vector_only=False` + exact `ref_text`) for English VoiceDesign clips (preventing mid-video speaker drift), `?`/`!` pitch/RMS contour gating + Syntactic Carrier heteronym stress gating + `kokoro_golden` fallback WAV support, per-type pause insertion & mastering integration, and `VoiceCastingEngine` + `VOICE_CASTING_HISTORY_PATH` wiring. |
+| `tools/build_voice_bank.py`, `data/voice_bank_personas.json`, `workflows/Qwen3-TTS VoiceDesign.json` | Offline Qwen3-TTS 1.7B-VoiceDesign reference bank builder: enforces affirmative-English `voice_instruction` descriptions, Whisper `lang_prob` verification, and an octave-proof 3-harmonic HPS + `P25` + low/high `M/F_E` spectral energy gender-pitch gate (`male`: `85–195 Hz`, `M/F_E >= 0.08`; `female`: `200–285 Hz`, `P25 >= 195 Hz`, `M/F_E <= 0.05`). |
+
+- **Stage B Invariants & Rollback (`VOICE_ENGINE`)**: Setting `VOICE_ENGINE=legacy` (or `VOICE_ENGINE=legacy:<type,lang>`) or passing `--engine legacy` restores pre-split casting, sampling, pauses, and `-16.0 LUFS` loudness normalization immediately. Syntactic Carrier heteronym precision, `GAME` `pressure_gap=2.20s`, lowercase/neutral `GAME` `challenge` delivery, 3-voice Roleplay distinctness, `ensure_llama_stopped()` VRAM arbitration, and `*_master.wav` / State JSON schemas remain 100% preserved.
+
+---
+
 ## Stage C Modular Visual Prompt Architecture (`_C_image_generation/visual/`)
 
 Stage C separates shared visual rules, language data, and video-type camera profiles so editing one language or video type never leaks into others:
@@ -360,6 +382,8 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 | `main/main.py` | Main CLI orchestrator to run pipeline stages sequentially with health verification. |
 | `main/core/llama_manager.py` | Process supervisor for local llama.cpp server with VRAM freeing and status monitoring. |
 | `main/core/gemini_auditor.py` | Gemini Prompt Auditor generating purely-positive Z-Image-Turbo prompts with automatic Cultural World reroll. |
+| `main/video_creation/_B_voice_generation/voice/` | Modular Stage B voice layer (`common/` orchestrator/casting/punctuation/DSP mastering, `languages/` prosodic prints, `types/` pause choreography & Roleplay 3-tier energy profiles). |
+| `main/video_creation/_B_voice_generation/tools/build_voice_bank.py` | Offline Qwen3-TTS 1.7B-VoiceDesign reference voice bank builder & HPS + spectral `M/F_E` gender-pitch verifier (`data/voice_bank_personas.json`). |
 | `main/tools/llama.py` | CLI supervisor tool for manual control of llama-server (`start`, `stop`, `status`, `logs`). |
 | `main/tools/comfy.py` | Headless ComfyUI background supervisor (`start`, `stop`, `status`, `logs`). |
 | `main/tools/check_script_changes.py` | CLI auditor & synchronizer between Google Sheets Column D CSVs and local State JSONs. |
@@ -371,7 +395,7 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 | `main/video_creation/_A_video_scripts/script_modifier.py` | Script modifier supporting direct parsing, LLM structuring, and automatic `clean_game_challenge()` enforcement. |
 | `main/video_creation/_A_video_scripts/prompts/game_rules.py` | Authoritative GAME prompt rules enforcing clean option formatting, no stress giveaways, and separation of challenge and pressure. |
 | `main/connectivity/` | Google Sheets & Google Drive integration suite (Apps Script Web App client, fetcher, reconciler, poster, scanner, Drive sync). |
-| `test/run_tests.py` | Test runner for automated unit, integration, contract, connectivity, and WebUI tests (**436 tests across 46 files passing 100%**). |
+| `test/run_tests.py` | Test runner for automated unit, integration, contract, connectivity, and WebUI tests (**450 tests across 48 files passing 100%**). |
 
 ---
 
@@ -384,3 +408,4 @@ $$\textbf{<Language\_Code><Type\_Code><Index:02d>}$$
 5. **Pipeline-Level Solutions Only (Zero Manual Patching)**: Fix all errors inside the core engine, prompt coordinators, FreeType renderers, and audio processors so the pipeline operates autonomously end-to-end.
 6. **Master Expression Database (User-Only 'DONE')**: Pipeline scripts NEVER mutate `STATUS` to `DONE`—that privilege belongs solely to the human creator. Completed expressions with `STATUS = DONE` are strictly frozen.
 7. **Verbatim Script Ingestion**: When updating scripts from `script_to_change/` or Google Sheets, the spoken words must be preserved verbatim in `content_metadata.script`.
+8. **Qwen3-TTS VoiceDesign Prompt & Spectral Gate Discipline**: When adding or rebuilding personas via `build_voice_bank.py`, write `voice_instruction` strictly in affirmative English describing an adult vocal register (never `"soprano"`, `"bright"`, `"chest voice"`, or negative exclusions like `"never childlike"` / `"zero American"`), keep `language` + `ref_text` in the target language, and verify all clips pass Whisper `lang_prob` and the HPS + `P25` + `M/F_E` spectral gender-pitch gate (`male`: `85–195 Hz`, `M/F_E >= 0.08`; `female`: `200–285 Hz`, `P25 >= 195 Hz`, `M/F_E <= 0.05`).

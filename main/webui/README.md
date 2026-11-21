@@ -25,7 +25,7 @@ main/webui/
 │   └── adapters/                   # Stage-specific execution adapters
 │       ├── base.py                 # Abstract BaseStageAdapter interface
 │       ├── scripts.py              # Adapts Stage _A (Modular Script Generation: Game, Roleplay, Expression, Fun Facts)
-│       ├── voice.py                # Adapts Stage _B (TTS), manages Llama/VRAM lifecycle
+│       ├── voice.py                # Adapts Stage _B via unified `voice/common/orchestrator.py` (accent, voice_engine, recast) + VRAM handoff
 │       ├── images.py               # Adapts Stage _C (Scene illustrations + forced general/scene prompt rebuild)
 │       ├── chalkboard.py           # Adapts CPU FreeType chalkboard rendering for Game quiz scenes
 │       ├── thumbnails.py           # Adapts Stage _F (Chalkboard thumbnails)
@@ -59,6 +59,9 @@ main/webui/
         "regenerate_prompts": true,
         "candidates": 3,
         "genders": "male, female",
+        "accent": "es_latam_neutral",
+        "voice_engine": "typed",
+        "recast": false,
         "seed": 42
       }
     }
@@ -100,7 +103,7 @@ main/webui/
 When executing heavy generative tasks via WebUI job adapters:
 - **TTS Synthesis (`jobs/adapters/voice.py`)**:
   - Automatically queries `LlamaManager` to release LLM VRAM allocations before synthesis begins (`llama_manager.ensure_llama_stopped()`).
-  - Ensures Qwen3-TTS and Kokoro-82M have full access to GPU memory, and restarts the LLM background server once complete (`llama_manager.ensure_llama_running()`).
+  - Delegates Stage B synthesis to `voice/common/orchestrator.py` (`synthesize_script_voice()`), forwarding `candidates`, `accent`, `voice_engine` (`typed` / `legacy`), and `recast` options while ensuring Qwen3-TTS has full GPU memory and restarting the LLM server once complete (`llama_manager.ensure_llama_running()`).
 - **Diffusion Concurrency (`jobs/adapters/images.py` & `thumbnails.py`)**:
   - `ImagesAdapter` executes a two-phase VRAM handoff: boots Llama once in Phase 1 to batch-generate prompts (rebuilding both `general_prompt` and storyboard `image_prompts` from scratch when `force=True` or `regenerate_prompts=True` unless `preserve_general_prompt=True` is set by `redo-all-images`), stops Llama to free VRAM, then uses `core/comfy_pool.py` mutex guards during ComfyUI rendering.
 - **Assembly Processing (`jobs/adapters/assembly.py`)**:

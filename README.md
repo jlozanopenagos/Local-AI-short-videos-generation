@@ -79,6 +79,7 @@ py main/main.py
 # Run individual generation stages (with interactive 10s countdown or CLI flags)
 py main/video_creation/_A_video_scripts/main.py --script-id EE01 --force
 py main/video_creation/_B_voice_generation/main.py --auto --candidates 3
+# Optional neutral accent override or engine rollback: --accent es_latam_neutral --engine typed|legacy
 py main/video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/batch.csv
 py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ```
@@ -86,7 +87,7 @@ py main/video_creation/_G_video_assembly/main.py --script-id EE01
 ### 4. Running the Automated QA Test Suite
 The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
 ```powershell
-# Run all 436 automated tests across 46 test files in 4 QA layers (unit, integration & contracts, connectivity, webui)
+# Run all 450 automated tests across 48 test files in 4 QA layers (unit, integration & contracts, connectivity, webui)
 py test/run_tests.py
 
 # Run specific layers
@@ -201,13 +202,26 @@ The pipeline manages a canonical master catalog of **1,224 language learning scr
 > **State Machine Invalidation Behavior**: Whenever Column D script edits are synced from Google Sheets or applied via `check_script_changes.py --apply`, downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) are intentionally invalidated back to `"pending"`. This architectural safety gate ensures modified spoken wording is deterministically re-rendered into audio, subtitles, and video, explaining why 155 `.mp4` videos exist on disk while the tracking database marks scripts as pending re-render.
 
 ### 3. QA Testing Metrics
-- **Automated Tests**: **436 tests across 46 test files passing 100%** across Unit, Integration & Schema Contracts, Connectivity, WebUI API, and Google Drive Sync layers (`py test/run_tests.py` in ~51s).
+- **Automated Tests**: **450 tests across 48 test files passing 100%** across Unit, Integration & Schema Contracts, Connectivity, WebUI API, and Google Drive Sync layers (`py test/run_tests.py`).
 
 ---
 
 ## Recent Changes
 
-### Latest Release: Stage C Late-Teen Cropped Framing, Preserved General Prompt Redo, Google Sheets Sync & Cultural World Atlas
+### Latest Release: Stage B Modular Voice Generation (`voice/`), 68-Clip VoiceDesign Bank & Broadcast Mastering
+- **Modular Language & Video-Type Voice Package (`_B_voice_generation/voice/`)**:
+  - Decoupled Stage B into `voice/common/` (`models.py`, `engine.py`, `bank_manifest.py`, `casting.py`, `punctuation.py`, `dsp_mastering.py`, `orchestrator.py`), `voice/languages/{english,french,spanish,italian}.py`, and `voice/types/{expression,game,roleplay,fun_facts}/` (`pauses.py`, `mastering.py`, `profile.py`, plus `roleplay/emotion.py`), backed by a unified `synthesize_script_voice()` orchestrator across `main.py`, `voice_modifier.py`, and WebUI `VoiceAdapter` plus instant `VOICE_ENGINE=typed|legacy|legacy:<type/lang>` rollback.
+- **68-Clip Qwen3-TTS 1.7B-VoiceDesign Reference Bank & Spectral Gender-Pitch Gate (`tools/build_voice_bank.py`, `data/voice_bank_personas.json`, `workflows/Qwen3-TTS VoiceDesign.json`)**:
+  - Built an offline 1.7B-VoiceDesign bank of **68 active `PCM_16` clips** across **28 personas** (8 Spanish, 8 Italian, 6 French, 6 English), including **20 Roleplay actors** with 3 matched energy tiers (`28 baseline`, `20 high_energy`, `20 surprised_urgent` of the exact same speaker voice for emotional turns with zero timbre drift).
+  - Enforces affirmative-English adult register prompts, Whisper `lang_prob` verification, and an octave-proof 3-harmonic HPS + `P25` + low/high spectral energy ratio `M/F_E` gate (`male`: `85–195 Hz`, `M/F_E >= 0.08`; `female`: `200–285 Hz`, `P25 >= 195 Hz`, `M/F_E <= 0.05`).
+- **Per-Language Vocal Prints, Neutral Anti-Repetition Casting & English ICL Locking**:
+  - Deterministic `VoiceCastingEngine` (`casting_history.json`) prioritizes curated VoiceDesign clips blended with cleaned `open_swara` clips while demoting `kokoro_golden` to fallback; enforces a **neutral-only 75/25 Spanish accent mix** (`es_latam_neutral` / `es_spain_castilian`) with automatic Spain/LatAm dialect locking, non-destructive `¿`/`¡` injection, Parisian *esprit français* musicality, energetic Italian prosody, and `_has_manifest_ref_text()` English VoiceDesign ICL locking (`use_icl=True`) to eliminate mid-video voice drift.
+- **Per-Type Pause Choreography, Calm Recovery Retry & Broadcast DSP Mastering**:
+  - Added pure `numpy` + `scipy` broadcast vocal mastering (`GAME` `-15.0 LUFS` / `3.2:1`, `EXPRESSION` `-15.2 LUFS` / `2.9:1`, `FUN_FACTS` `-15.2 LUFS` / `2.8:1` with `+2.6 dB` presence boost & `+1.0 dB` air shelf; `ROLEPLAY` `-16.0 LUFS` / `2.2:1` with `+1.5 dB` presence boost; `-1.0 dBFS` soft-clip limiter), sampling caps (`temp <= 0.90`, `subtalker_temperature <= 0.86`), a 1-shot calm recovery retry (`temp - 0.10`, `sub_temp - 0.06`, `seed + 1999`) when high-impact segments fail quality gating, and format-specific pauses preserving `GAME` `pressure_gap = 2.20s` and Syntactic Carrier heteronym stress precision.
+- **CLI / WebUI Parity & QA Test Suite**:
+  - Added `--accent` and `--engine` CLI flags alongside WebUI `VoiceAdapter` (`accent`, `voice_engine`, `recast`) support, and expanded the QA suite (`test_voice_characterization.py`, `test_voice_upgrade_modules.py`) to **450 automated tests across 48 test files** passing 100% (`py test/run_tests.py`).
+
+### Previous Release: Stage C Late-Teen Cropped Framing, Preserved General Prompt Redo, Google Sheets Sync & Cultural World Atlas
 - **Stage C Late-Teen (`17-year-old`, `1:7`) Proportions, Cropped `hook` Framing & Sanitizer Hardening**:
   - **Proportion & Age Normalization (`sanitizer.py`, `style.py`, `cast.py`, `gemini_auditor.py`)**: Upgraded the purely-positive Z-Image-Turbo (`cfg=1.0`) anchor to `17-year-old high-school senior` (`realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build`) and automatically upgrades `8–15`, `fourteen-year-old`, `fifteen-year-old`, `14-16yo`, and `14-16-year-old` tokens to `17-year-old` (preserving `16–18`).
   - **Cropped `hook` Framing & Wearable Footwear Stripping (`prompt_builder.py`, `sanitizer.py`, `visual/types/*`)**: Switched `GAME` `hook` to a waist-up 3/4-angled `50mm` medium shot under directional spotlighting, tightened `EXPRESSION` `hook` (`35mm` waist-up / mid-thigh) and `FUN_FACTS` `hook` (`28mm` low-angle mid-thigh/waist-up), removed footwear mandates from cropped scene prompts (`strip_footwear_clauses`, `CROPPED_FRAMING_RE`, `_CROPPED_SCENES`, and `NEGATIVE_PROMPT_SHIELD`) while preserving venue/prop nouns (`sneaker boutique`, `footwear workshop`, `shoe boxes`), and fixed shortened-tail proportion anchor skipping plus compound-noun false positives (`reading lamp`, `reading alcove`, `reading hall`, `reading boxes`, `calling card`).

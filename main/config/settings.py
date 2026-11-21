@@ -158,6 +158,11 @@ NARRATOR_VOICES = {
 QWEN3_USE_ICL = os.getenv("QWEN3_USE_ICL", "true").strip().lower() in ("1", "true", "yes")
 QWEN3_LOCALIZE_INSTRUCT = os.getenv("QWEN3_LOCALIZE_INSTRUCT", "true").strip().lower() in ("1", "true", "yes")
 REF_TRANSCRIPTS_PATH = OUTPUT_DIR / "voice_quality" / "audit" / "ref_transcripts.json"
+VOICE_ENGINE = os.getenv("VOICE_ENGINE", "typed")
+VOICE_DESIGN_WORKFLOW_PATH = WORKFLOWS_DIR / "Qwen3-TTS VoiceDesign.json"
+VOICE_BANK_DIR = _resolve_local_path(os.getenv("VOICE_BANK_DIR"), BASE_DIR) or (OPEN_SWARA_DIR / "voice_design_bank")
+VOICE_BANK_MANIFEST_PATH = VOICE_BANK_DIR / "voice_bank_manifest.json"
+VOICE_CASTING_HISTORY_PATH = OUTPUT_DIR / "voice_quality" / "casting_history.json"
 
 DEFAULT_PAUSES = {
     "section_gap": 0.35,           # Natural transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)

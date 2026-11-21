@@ -24,7 +24,7 @@ from core.llama_manager import ensure_llama_stopped, get_llama_manager
 from core.state_manager import StateManager
 from video_creation._B_voice_generation.core.comfy_client import ComfyClient
 from video_creation._B_voice_generation.core.voice_manager import VoiceManager
-from video_creation._B_voice_generation.main import process_script
+from video_creation._B_voice_generation.voice.common.orchestrator import synthesize_script_voice
 from webui.jobs.adapters.base import BaseStageAdapter
 
 
@@ -41,6 +41,9 @@ class VoiceAdapter(BaseStageAdapter):
     ) -> Dict[str, Any]:
         sm = StateManager(base_dir=BASE_DIR)
         force = options.get("force", False)
+        explicit_accent = options.get("accent") or None
+        engine_mode = options.get("voice_engine") or None
+        recast = bool(options.get("recast", False))
 
         total = len(script_ids)
         success_count = 0
@@ -86,13 +89,21 @@ class VoiceAdapter(BaseStageAdapter):
                 try:
                     emit_log(f"[{script_id}] Synthesizing multi-character audio track (attempt {attempt}/{max_attempts})...")
                     t0 = time.time()
-                    ok = process_script(
+                    existing_v = script_data.get("content_metadata", {}).get("speakers_voice", {}) or {}
+                    exclude_set = {str(v) for v in existing_v.values() if v} if recast else None
+                    ok = synthesize_script_voice(
                         script_data=script_data,
                         state_manager=sm,
                         comfy_client=comfy_client,
                         voice_manager=voice_manager,
                         force=script_force,
                         base_dir=BASE_DIR,
+                        candidates=options.get("candidates"),
+                        exclude_voices=exclude_set,
+                        force_fresh_cast=recast,
+                        explicit_accent=explicit_accent,
+                        engine_mode=engine_mode,
+                        mark_video_assembly_pending=recast,
                     )
                     dur = time.time() - t0
                     if ok:

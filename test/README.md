@@ -23,7 +23,9 @@ test/
 │                           # visual prompt builder & Cultural Worlds, metadata & JSON parser,
 │                           # music jam matcher, modular Stage A engines & prompt rules, roleplay treatment,
 │                           # state manager & ID generator, stress enhancer, acoustic evaluator, subtitles,
-│                           # thumbnail builder, typed video assembler, voice manager & modifier, WebUI ID validator,
+│                           # thumbnail builder, typed video assembler, modular Stage B voice characterization
+│                           # & upgrade suite (casting, punctuation, pauses, Roleplay energy tiers, scipy DSP
+│                           # mastering, ICL lock, spectral gender-pitch gate), voice manager, WebUI ID validator,
 │                           # Sheets router, and watchdog recovery
 │
 ├── integration/            # Layer 2: Component interaction, schemas & security tests
@@ -45,7 +47,7 @@ test/
 ## Quick Start & Execution
 
 ### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **436 automated tests** across **46 curated test files** in 4 QA layers (`unit/`, `integration/`, `connectivity/`, `webui/`) with zero external dependencies in ~51 seconds:
+Executes all **450 automated tests** across **48 curated test files** in 4 QA layers (`unit/`, `integration/`, `connectivity/`, `webui/`) with zero external dependencies:
 ```bash
 py test/run_tests.py
 ```
@@ -81,4 +83,4 @@ py -m unittest discover -s test -p "test_*.py"
 1. **Deterministic & Isolated**: Tests run in-memory or inside temporary isolated folders (`tempfile`, including isolated sandboxes in `test_chalkboard_adapter.py`). No real LLM credits, ComfyUI server connections, GPU VRAM, or live `main/state/` files are touched or consumed.
 2. **Zero Main Project Pollution**: All testing tools, runners, and configs live strictly inside `test/`. Root project files (`main.py`, `requirements.txt`, etc.) remain clean.
 3. **100% Quiet Output**: Standard test runner stdout is completely clean of unmocked prompt banners or console noise.
-4. **Comprehensive Coverage**: Covers Stage C golden prompt snapshots, late-teen (`17yo`, `1:7`) proportions, cropped `hook` framing, footwear stripping & sanitizer edge-cases, data transformation, LLM response resilience, audio token math, typography parsing, master database gates, schema validation, music bank resolution, thumbnail prompt generation, and git privacy.
+4. **Comprehensive Coverage**: Covers modular Stage B legacy/typed voice characterization, neutral casting, Roleplay 3-tier energy switching, scipy DSP mastering, English-manifest ICL locking & VoiceDesign spectral gender-pitch gating, Stage C golden prompt snapshots, late-teen (`17yo`, `1:7`) proportions, cropped `hook` framing, footwear stripping & sanitizer edge-cases, data transformation, LLM response resilience, audio token math, typography parsing, master database gates, schema validation, music bank resolution, thumbnail prompt generation, and git privacy.

@@ -1,8 +1,25 @@
 import csv
 import random
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 import config
+
+try:
+    from video_creation._B_voice_generation.voice.common.bank_manifest import VoiceBankManifest
+    from video_creation._B_voice_generation.voice.common.casting import VoiceCastingEngine, canonical_speaker_identity
+    from video_creation._B_voice_generation.voice.common.engine import detect_dialect_hint, is_typed_voice_enabled, resolve_voice_context
+    from video_creation._B_voice_generation.voice.types.roleplay.emotion import resolve_roleplay_turn_reference
+except (ImportError, ModuleNotFoundError):
+    try:
+        from ..voice.common.bank_manifest import VoiceBankManifest  # type: ignore[no-redef]
+        from ..voice.common.casting import VoiceCastingEngine, canonical_speaker_identity  # type: ignore[no-redef]
+        from ..voice.common.engine import detect_dialect_hint, is_typed_voice_enabled, resolve_voice_context  # type: ignore[no-redef]
+        from ..voice.types.roleplay.emotion import resolve_roleplay_turn_reference  # type: ignore[no-redef]
+    except (ImportError, ValueError):
+        from voice.common.bank_manifest import VoiceBankManifest  # type: ignore[no-redef]
+        from voice.common.casting import VoiceCastingEngine, canonical_speaker_identity  # type: ignore[no-redef]
+        from voice.common.engine import detect_dialect_hint, is_typed_voice_enabled, resolve_voice_context  # type: ignore[no-redef]
+        from voice.types.roleplay.emotion import resolve_roleplay_turn_reference  # type: ignore[no-redef]
 
 # Known problematic / accented Open-Swara reference clips excluded for native target-language cloning
 EXCLUDED_NON_ENGLISH_PATTERNS = (
@@ -13,7 +30,12 @@ EXCLUDED_NON_ENGLISH_PATTERNS = (
 
 
 class VoiceManager:
-    def __init__(self, open_swara_dir: Path, comfy_input_dir: Path):
+    def __init__(
+        self,
+        open_swara_dir: Path,
+        comfy_input_dir: Path,
+        casting_history_path: Optional[Path] = None,
+    ):
         self.open_swara_dir = open_swara_dir
         self.comfy_input_dir = comfy_input_dir
         self.data_dir = Path(__file__).parent.parent / "data"
@@ -21,10 +43,27 @@ class VoiceManager:
         self.current_assignments = {}
         self.speaker_seeds = {}
         self.fallback_used_paths = set()
-        
+        self.last_dialect_hint: Optional[str] = None
+
         # Ensure ComfyUI input folder exists
         self.comfy_input_dir.mkdir(parents=True, exist_ok=True)
         self._load_csv_pools()
+        self.bank_manifest = VoiceBankManifest.load(self.open_swara_dir)
+
+        effective_history_path: Optional[Path] = None
+        if casting_history_path is not None:
+            effective_history_path = Path(casting_history_path)
+        else:
+            cfg_open_swara = getattr(config, "OPEN_SWARA_DIR", None)
+            cfg_history = getattr(config, "VOICE_CASTING_HISTORY_PATH", None)
+            if cfg_open_swara and cfg_history:
+                try:
+                    if Path(self.open_swara_dir).resolve() == Path(cfg_open_swara).resolve():
+                        effective_history_path = Path(cfg_history)
+                except Exception:
+                    pass
+
+        self.casting_engine = VoiceCastingEngine(history_path=effective_history_path)
 
     @staticmethod
     def _is_acceptable_ref(path: Path, lang: str) -> bool:
@@ -170,7 +209,12 @@ class VoiceManager:
         language: str,
         manual_genders: dict = None,
         manual_voice_paths: dict = None,
-        video_type: Optional[str] = None
+        video_type: Optional[str] = None,
+        script_id: Optional[str] = None,
+        script_data: Optional[dict] = None,
+        exclude_voices: Optional[Set[str]] = None,
+        accent_hint: Optional[str] = None,
+        engine_mode: Optional[str] = None,
     ):
         self.current_assignments.clear()
         self.speaker_seeds.clear()
@@ -180,6 +224,36 @@ class VoiceManager:
             manual_genders = {}
         if manual_voice_paths is None:
             manual_voice_paths = {}
+
+        if self.bank_manifest is None:
+            self.bank_manifest = VoiceBankManifest.load(self.open_swara_dir)
+
+        use_typed = (
+            (engine_mode == "typed")
+            if engine_mode in ("legacy", "typed")
+            else is_typed_voice_enabled(video_type or "expression", lang)
+        )
+        lang_profile, _, resolved_dialect = resolve_voice_context(
+            lang,
+            video_type or "expression",
+            script_data=script_data,
+            explicit_accent=accent_hint,
+        )
+        self.last_dialect_hint = resolved_dialect
+
+        if use_typed:
+            self._assign_voices_typed(
+                unique_speakers=unique_speakers,
+                lang=lang,
+                manual_genders=manual_genders,
+                manual_voice_paths=manual_voice_paths,
+                video_type=video_type or "expression",
+                lang_profile=lang_profile,
+                script_id=script_id,
+                dialect_hint=resolved_dialect,
+                exclude_voices=exclude_voices,
+            )
+            return
 
         if len(unique_speakers) == 1:
             speaker = list(unique_speakers)[0]
@@ -354,6 +428,131 @@ class VoiceManager:
                     self.fallback_used_paths.add(abs_path)
                 self.current_assignments[narrator_key] = (narrator_gender, abs_path)
                 self.speaker_seeds[narrator_key] = random.randint(1, 10**14)
+
+    def _assign_voices_typed(
+        self,
+        unique_speakers: list,
+        lang: str,
+        manual_genders: dict,
+        manual_voice_paths: dict,
+        video_type: str,
+        lang_profile,
+        script_id: Optional[str],
+        dialect_hint: Optional[str],
+        exclude_voices: Optional[Set[str]],
+    ) -> None:
+        """Typed mode anti-repetition voice casting with neutral accent routing & 3-voice uniqueness."""
+        # Resolve speaker ordering (characters first so narrator adapts around them) & genders
+        narrator_keys = [s for s in unique_speakers if "narrator" in s.strip().lower()]
+        characters = [s for s in unique_speakers if "narrator" not in s.strip().lower()]
+        ordered_speakers = characters + narrator_keys
+
+        char_genders: Dict[str, str] = {}
+        for spk in characters:
+            if spk in manual_genders:
+                gender = manual_genders[spk]
+            else:
+                gender = self.resolve_speaker_gender(spk)
+                if gender != "unknown" and gender in char_genders.values():
+                    gender = "female" if gender == "male" else "male"
+                if gender == "unknown":
+                    m_cnt = list(char_genders.values()).count("male")
+                    f_cnt = list(char_genders.values()).count("female")
+                    if m_cnt > f_cnt:
+                        gender = "female"
+                    elif f_cnt > m_cnt:
+                        gender = "male"
+                    else:
+                        gender = random.choice(["male", "female"])
+            char_genders[spk] = gender
+
+        speaker_genders: Dict[str, str] = dict(char_genders)
+        for narr in narrator_keys:
+            if narr in manual_genders:
+                speaker_genders[narr] = manual_genders[narr]
+            elif len(characters) == 0:
+                if script_id:
+                    idx = sum(ord(c) for c in str(script_id))
+                    speaker_genders[narr] = "female" if (idx % 2 == 1) else "male"
+                else:
+                    speaker_genders[narr] = random.choice(["male", "female"])
+            else:
+                char_vals = list(char_genders.values())
+                if len(char_vals) >= 2 and all(g == char_vals[0] for g in char_vals):
+                    speaker_genders[narr] = "female" if char_vals[0] == "male" else "male"
+                elif char_vals[0] in ("male", "female"):
+                    speaker_genders[narr] = "male" if char_vals[0] == "female" else "female"
+                else:
+                    speaker_genders[narr] = random.choice(["male", "female"])
+
+        used_identities: Set[str] = set()
+        used_filenames: Set[str] = set()
+
+        for spk in ordered_speakers:
+            gender = speaker_genders[spk]
+            manual_p = manual_voice_paths.get(spk)
+            if manual_p and Path(manual_p).exists():
+                abs_path = Path(manual_p)
+                ent = self.bank_manifest.find_entry_by_audio(abs_path.name) if self.bank_manifest else None
+                used_identities.add(canonical_speaker_identity(abs_path, ent))
+                used_filenames.add(abs_path.name.lower())
+            else:
+                all_paths = self.get_available_voices(lang, gender)
+                chosen = self.casting_engine.select_speaker_voice(
+                    open_swara_dir=self.open_swara_dir,
+                    language=lang,
+                    gender=gender,
+                    role=spk,
+                    video_type=video_type,
+                    all_paths=all_paths,
+                    manifest=self.bank_manifest,
+                    lang_profile=lang_profile,
+                    is_acceptable_fn=self._is_acceptable_ref,
+                    used_identities=used_identities,
+                    used_filenames=used_filenames,
+                    script_id=script_id,
+                    dialect_hint=dialect_hint,
+                    exclude_voices=exclude_voices,
+                )
+                abs_path = chosen if (chosen and chosen.exists()) else self.find_reference_voice(lang, gender)
+
+            if abs_path:
+                self.fallback_used_paths.add(abs_path)
+            self.current_assignments[spk] = (gender, abs_path)
+            self.speaker_seeds[spk] = random.randint(1, 10**14)
+
+    def resolve_turn_voice(
+        self,
+        speaker: str,
+        language: str,
+        emotion: str,
+        text: str,
+        section: str,
+        video_type: str,
+        engine_mode: Optional[str] = None,
+    ) -> Tuple[str, Path, int]:
+        """Resolves `(gender, ref_path, seed)` for one turn, switching to a same-speaker energy variant in ROLEPLAY."""
+        gender, base_path, seed = self.get_speaker_voice(speaker, language)
+        use_typed = (
+            (engine_mode == "typed")
+            if engine_mode in ("legacy", "typed")
+            else is_typed_voice_enabled(video_type or "expression", self.normalize_language(language))
+        )
+        if use_typed and (video_type or "").lower() == "roleplay" and "narrator" not in speaker.lower():
+            if self.bank_manifest is None:
+                self.bank_manifest = VoiceBankManifest.load(self.open_swara_dir)
+            variant = resolve_roleplay_turn_reference(
+                base_voice_path=base_path,
+                emotion=emotion,
+                text=text,
+                section=section,
+                manifest=self.bank_manifest,
+                open_swara_dir=self.open_swara_dir,
+            )
+            if variant and variant.exists():
+                self.fallback_used_paths.add(variant)
+                return gender, variant, seed
+        return gender, base_path, seed
 
     def get_speaker_voice(self, speaker: str, language: str) -> Tuple[str, Path, int]:
         """Returns the assigned (gender, absolute_voice_path, seed) for the speaker.
