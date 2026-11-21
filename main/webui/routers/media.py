@@ -33,18 +33,19 @@ if OPENING_CLOSURE_DIR.exists():
     ALLOWED_ROOTS.append(OPENING_CLOSURE_DIR.resolve())
 
 
-def _resolve_safe_path(requested_path: str) -> Path:
+def _resolve_safe_path(requested_path: str, allowed_roots=ALLOWED_ROOTS) -> Path:
     """
     Resolves requested relative or normalized path against ALLOWED_ROOTS.
     Rejects directory traversal (..) or access outside allowed roots.
     """
-    clean = requested_path.strip().lstrip("/\\")
-    if ".." in clean or clean.startswith("~"):
+    clean = requested_path.strip()
+    media_path = Path(clean)
+    if ".." in media_path.parts or clean.startswith("~"):
         raise HTTPException(status_code=403, detail="Path traversal forbidden.")
 
     # Try matching against each allowed root
-    for root in ALLOWED_ROOTS:
-        candidate = (root / clean).resolve()
+    for root in allowed_roots:
+        candidate = (root / media_path).resolve()
         if candidate.is_relative_to(root) and candidate.exists() and candidate.is_file():
             return candidate
 
@@ -72,7 +73,9 @@ def get_media(request: Request, path: str = "", file: str = ""):
     Supports either URL path segment (/api/media/rel/path.png) or query param (/api/media?file=rel/path.png).
     """
     target = file if file else path
-    safe_path = _resolve_safe_path(target)
+    base_dir = request.app.state.base_dir
+    roots = [(base_dir / "output").resolve()] if base_dir else ALLOWED_ROOTS
+    safe_path = _resolve_safe_path(target, roots)
     file_size = safe_path.stat().st_size
     content_type, _ = mimetypes.guess_type(str(safe_path))
     if not content_type:

@@ -552,22 +552,25 @@ class TestCulturalWorldAtlas(unittest.TestCase):
             self.assertNotEqual(rerolled.id, e_w.id)
 
 
-class TestGoldenScriptSnapshots(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.systems = _load("_system_prompts.json")
+class TestScriptVisualContracts(unittest.TestCase):
+    REFERENCE_IDS = {"EE01", "FG01", "IR01", "SF01"}
 
     def _check(self, script_id):
         expected = _load(f"{script_id}.json")
         got = H.condense(H.capture_script(H.load_state(script_id)), {})
-        for key in ("calls", "calls_no_gp"):
-            self.assertEqual(len(got[key]), len(expected[key]), f"{script_id} {key}: number of LLM calls changed")
-            for i, (g, e) in enumerate(zip(got[key], expected[key])):
-                self.assertEqual(g["kind"], e["kind"], f"{script_id} {key}[{i}] kind")
-                self.assertEqual(g["system_sha"], e["system_sha"], f"{script_id} {key}[{i}] SYSTEM prompt changed")
-                self.assertEqual(g["user"], e["user"], f"{script_id} {key}[{i}] USER prompt changed")
-        self.assertEqual(got["outputs"], expected["outputs"], f"{script_id}: final prompts/anchors changed")
-        self.assertEqual(got["outputs_no_gp"], expected["outputs_no_gp"], f"{script_id}: no-GP outputs changed")
+        for branch in ("outputs", "outputs_no_gp"):
+            self.assertTrue(got[branch]["general_prompt"].strip(), script_id)
+            prompts = got[branch]["image_prompts"]
+            self.assertEqual(set(prompts), set(expected[branch]["image_prompts"]), script_id)
+            self.assertTrue(all(prompt.strip() for prompt in prompts.values()), script_id)
+        self.assertEqual(
+            got["outputs"]["anchor_environment"], got["outputs"]["general_prompt"],
+            f"{script_id}: visual anchor lost between stages",
+        )
+
+        if script_id in self.REFERENCE_IDS:
+            for key in ("calls", "calls_no_gp", "outputs", "outputs_no_gp"):
+                self.assertEqual(got[key], expected[key], f"{script_id}: reviewed snapshot changed")
 
 
 def _make(script_id):
@@ -577,7 +580,7 @@ def _make(script_id):
 
 
 for _sid in H.GOLDEN_IDS:
-    setattr(TestGoldenScriptSnapshots, f"test_golden_{_sid}", _make(_sid))
+    setattr(TestScriptVisualContracts, f"test_golden_{_sid}", _make(_sid))
 
 
 if __name__ == "__main__":

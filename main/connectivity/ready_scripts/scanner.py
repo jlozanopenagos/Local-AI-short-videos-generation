@@ -4,8 +4,9 @@ scanner.py — Service for scanning Google Sheets for ready scripts (Columns E t
 Rules:
 1. Scans Google Sheets (all 16 sheets or a single targeted sheet).
 2. Checks Column E (script_ready) and Column G (video_ready).
-3. If video_ready is checked (True), the row is strictly SKIPPED (already completed).
-4. If script_ready is checked (True) and video_ready is not checked (False), extracts:
+3. Undated video_ready rows retain the legacy completion behavior. For dated rows,
+   check local production state because the release calendar also sets video_ready.
+4. For approved scripts still needing production, extract:
    - ID (Column A)
    - expression (Column B)
    - script_date (Column F)
@@ -26,6 +27,8 @@ import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from core.state_manager import StateManager
 
 from connectivity.core.client import fetch_raw_sheet_rows
 from connectivity.core.endpoints import (
@@ -180,9 +183,8 @@ def normalize_date_str(val: Any) -> str:
 def filter_ready_scripts(raw_records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Filters raw sheet records according to readiness criteria:
-    - Included: script_ready is True AND video_ready is False.
-    - Excluded: video_ready is True (already completed video).
-    - Excluded: script_ready is False (script not ready).
+    Approved rows are excluded when marked complete without a launch date,
+    or when a scheduled row has completed assembly in local production state.
 
     Returns:
         Dict with ready records list and filtering statistics.
@@ -193,6 +195,7 @@ def filter_ready_scripts(raw_records: List[Dict[str, Any]]) -> Dict[str, Any]:
     not_script_ready_count = 0
     missing_id_count = 0
 
+    state_manager = None
     for row in raw_records:
         if not isinstance(row, dict):
             continue
@@ -217,10 +220,21 @@ def filter_ready_scripts(raw_records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 video_ready_val = is_checkbox_checked(row[k])
                 break
 
-        # If video_ready is checked, SKIP immediately
         if video_ready_val:
-            video_ready_excluded_count += 1
-            continue
+            launch_date = next(
+                (value for key, value in row.items()
+                 if key.casefold().replace(" ", "_") == "video_date" and value),
+                None,
+            )
+            if not launch_date:
+                video_ready_excluded_count += 1
+                continue
+            if state_manager is None:
+                state_manager = StateManager(BASE_DIR)
+            state = state_manager.get_script_state(id_val)
+            if state.get("status", {}).get("video_assembly") == "done":
+                video_ready_excluded_count += 1
+                continue
 
         # Locate script_ready checkbox
         script_ready_val = False

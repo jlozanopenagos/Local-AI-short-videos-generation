@@ -31,6 +31,9 @@ from webui.jobs.adapters.base import BaseStageAdapter
 class VoiceAdapter(BaseStageAdapter):
     """Executes Stage B multi-character voice generation."""
 
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or BASE_DIR
+
     def run(
         self,
         script_ids: List[str],
@@ -39,7 +42,7 @@ class VoiceAdapter(BaseStageAdapter):
         emit_progress: Callable[[int, int, str], None],
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
-        sm = StateManager(base_dir=BASE_DIR)
+        sm = StateManager(base_dir=self.base_dir)
         force = options.get("force", False)
         explicit_accent = options.get("accent") or None
         engine_mode = options.get("voice_engine") or None
@@ -97,7 +100,7 @@ class VoiceAdapter(BaseStageAdapter):
                         comfy_client=comfy_client,
                         voice_manager=voice_manager,
                         force=script_force,
-                        base_dir=BASE_DIR,
+                        base_dir=self.base_dir,
                         candidates=options.get("candidates"),
                         exclude_voices=exclude_set,
                         force_fresh_cast=recast,

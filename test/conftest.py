@@ -14,9 +14,11 @@ from typing import Dict, Any, Generator
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MAIN_DIR = REPO_ROOT / "main"
 TEST_DIR = Path(__file__).resolve().parent
-for p in [str(REPO_ROOT), str(MAIN_DIR), str(TEST_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+for path in (TEST_DIR, REPO_ROOT, MAIN_DIR):
+    path_text = str(path)
+    if path_text in sys.path:
+        sys.path.remove(path_text)
+    sys.path.insert(0, path_text)
 
 try:
     # pyrefly: ignore [missing-import]

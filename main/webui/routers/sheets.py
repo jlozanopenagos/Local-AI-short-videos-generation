@@ -13,12 +13,14 @@ import logging
 import os
 import sys
 import threading
+from contextvars import ContextVar, copy_context
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # pyrefly: ignore[missing-import]
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 # pyrefly: ignore[missing-import]
 from pydantic import BaseModel, Field
 
@@ -26,10 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from connectivity.corrected_scripts.fetcher import (
-    DEFAULT_OUTPUT_DIR,
-    fetch_all_sheets_corrected_scripts,
-)
+from connectivity.corrected_scripts.fetcher import fetch_all_sheets_corrected_scripts
 from tools.check_script_changes import audit_script_changes
 from video_creation._A_video_scripts.script_modifier import modify_video_script
 from webui.routers.scripts import _get_indexed_scripts
@@ -37,9 +36,7 @@ from webui.routers.scripts import _get_indexed_scripts
 router = APIRouter(prefix="/api/sheets", tags=["Google Sheets Sync"])
 logger = logging.getLogger("webui.sheets")
 
-_LOCK = threading.Lock()
-
-_SHEETS_SYNC_STATE: Dict[str, Any] = {
+_INITIAL_SYNC_STATE: Dict[str, Any] = {
     "status": "idle",  # "idle" | "running" | "completed" | "failed"
     "progress": 0,
     "current_step": "Ready to sync",
@@ -53,6 +50,16 @@ _SHEETS_SYNC_STATE: Dict[str, Any] = {
 }
 
 
+
+@dataclass
+class SheetsWorkspace:
+    state: dict = field(default_factory=lambda: {**_INITIAL_SYNC_STATE, "logs": []})
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+_workspace = ContextVar("sheets_workspace", default=SheetsWorkspace())
+
+
 class SheetsSyncRequest(BaseModel):
     clean_cache: bool = Field(default=True, description="Purge old CSV files in script_to_change/ before fetching.")
     apply_changes: bool = Field(default=True, description="Automatically update local State JSONs with detected changes.")
@@ -61,25 +68,24 @@ class SheetsSyncRequest(BaseModel):
 def _add_log(msg: str) -> None:
     ts = time.strftime("%H:%M:%S")
     clean = f"[{ts}] {msg}"
-    with _LOCK:
-        _SHEETS_SYNC_STATE["logs"].append(clean)
+    with _workspace.get().lock:
+        _workspace.get().state["logs"].append(clean)
         # Limit in-memory logs to latest 1000 lines
-        if len(_SHEETS_SYNC_STATE["logs"]) > 1000:
-            _SHEETS_SYNC_STATE["logs"] = _SHEETS_SYNC_STATE["logs"][-1000:]
+        if len(_workspace.get().state["logs"]) > 1000:
+            _workspace.get().state["logs"] = _workspace.get().state["logs"][-1000:]
     logger.info(clean)
 
 
-def _count_existing_csvs() -> int:
-    csv_dir = BASE_DIR / "input" / "csv" / "script_to_change"
+def _count_existing_csvs(base_dir: Path = BASE_DIR) -> int:
+    csv_dir = base_dir / "input" / "csv" / "script_to_change"
     if not csv_dir.exists():
         return 0
     return len([f for f in csv_dir.glob("*.csv") if not f.name.startswith("model_")])
 
 
-def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
-    global _SHEETS_SYNC_STATE
+def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool, base_dir: Path = BASE_DIR) -> None:
 
-    csv_dir = BASE_DIR / "input" / "csv" / "script_to_change"
+    csv_dir = base_dir / "input" / "csv" / "script_to_change"
     csv_dir.mkdir(parents=True, exist_ok=True)
 
     purged_csvs: List[str] = []
@@ -95,10 +101,10 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
         # ==========================================
         # STEP 1: Purge stale CSV cache
         # ==========================================
-        with _LOCK:
-            _SHEETS_SYNC_STATE["current_step"] = "Cleaning cached CSV files..."
-            _SHEETS_SYNC_STATE["step_number"] = 1
-            _SHEETS_SYNC_STATE["progress"] = 15
+        with _workspace.get().lock:
+            _workspace.get().state["current_step"] = "Cleaning cached CSV files..."
+            _workspace.get().state["step_number"] = 1
+            _workspace.get().state["progress"] = 15
 
         if clean_cache and csv_dir.exists():
             _add_log("🧹 Step 1/4: Purging cached CSV files in input/csv/script_to_change/...")
@@ -117,10 +123,10 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
         # ==========================================
         # STEP 2: Fetch Column D across all 16 sheets
         # ==========================================
-        with _LOCK:
-            _SHEETS_SYNC_STATE["current_step"] = "Fetching corrected scripts from Google Sheets..."
-            _SHEETS_SYNC_STATE["step_number"] = 2
-            _SHEETS_SYNC_STATE["progress"] = 35
+        with _workspace.get().lock:
+            _workspace.get().state["current_step"] = "Fetching corrected scripts from Google Sheets..."
+            _workspace.get().state["step_number"] = 2
+            _workspace.get().state["progress"] = 35
 
         _add_log("📥 Step 2/4: Connecting to Google Sheets API (all 16 sheets)...")
 
@@ -152,13 +158,13 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
         # ==========================================
         # STEP 3: Audit differences against State JSONs
         # ==========================================
-        with _LOCK:
-            _SHEETS_SYNC_STATE["current_step"] = "Auditing differences against local State JSONs..."
-            _SHEETS_SYNC_STATE["step_number"] = 3
-            _SHEETS_SYNC_STATE["progress"] = 65
+        with _workspace.get().lock:
+            _workspace.get().state["current_step"] = "Auditing differences against local State JSONs..."
+            _workspace.get().state["step_number"] = 3
+            _workspace.get().state["progress"] = 65
 
         _add_log("🔍 Step 3/4: Comparing fetched CSV rows against local State JSONs...")
-        changed_records, identical_records, missing_ids = audit_script_changes(base_dir=BASE_DIR)
+        changed_records, identical_records, missing_ids = audit_script_changes(base_dir=base_dir)
 
         _add_log(
             f"   ✓ Audit complete: {len(changed_records)} script(s) with differences, "
@@ -169,10 +175,10 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
         # STEP 4: Update State JSONs
         # ==========================================
         if apply_changes and changed_records:
-            with _LOCK:
-                _SHEETS_SYNC_STATE["current_step"] = f"Updating {len(changed_records)} State JSON file(s)..."
-                _SHEETS_SYNC_STATE["step_number"] = 4
-                _SHEETS_SYNC_STATE["progress"] = 80
+            with _workspace.get().lock:
+                _workspace.get().state["current_step"] = f"Updating {len(changed_records)} State JSON file(s)..."
+                _workspace.get().state["step_number"] = 4
+                _workspace.get().state["progress"] = 80
 
             _add_log(f"🚀 Step 4/4: Applying script updates to {len(changed_records)} State JSON file(s)...")
 
@@ -188,7 +194,7 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
                         script_id=sid,
                         raw_script_text=raw_text,
                         reset_downstream=True,
-                        base_dir=BASE_DIR,
+                        base_dir=base_dir,
                         auto_update_csv=False,
                         new_expression=item.get("new_expression"),
                     )
@@ -239,7 +245,7 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
             try:
                 from tools.auditing.scrapper_script import process_scripts
                 process_scripts(
-                    base_dir=BASE_DIR,
+                    base_dir=base_dir,
                     include_tags=False,
                     include_title=False,
                 )
@@ -277,36 +283,37 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool) -> None:
             "missing_ids": missing_ids,
         }
 
-        with _LOCK:
-            _SHEETS_SYNC_STATE["status"] = "completed"
-            _SHEETS_SYNC_STATE["progress"] = 100
-            _SHEETS_SYNC_STATE["current_step"] = "Completed successfully"
-            _SHEETS_SYNC_STATE["result"] = final_result
-            _SHEETS_SYNC_STATE["finished_at"] = time.time()
+        with _workspace.get().lock:
+            _workspace.get().state["status"] = "completed"
+            _workspace.get().state["progress"] = 100
+            _workspace.get().state["current_step"] = "Completed successfully"
+            _workspace.get().state["result"] = final_result
+            _workspace.get().state["finished_at"] = time.time()
 
         _add_log("🎉 Google Sheets synchronization completed successfully!")
 
     except Exception as exc:
         logger.exception("Error during Google Sheets synchronization: %s", exc)
         _add_log(f"💥 Fatal error during sync: {exc}")
-        with _LOCK:
-            _SHEETS_SYNC_STATE["status"] = "failed"
-            _SHEETS_SYNC_STATE["error"] = str(exc)
-            _SHEETS_SYNC_STATE["current_step"] = f"Error: {exc}"
-            _SHEETS_SYNC_STATE["finished_at"] = time.time()
+        with _workspace.get().lock:
+            _workspace.get().state["status"] = "failed"
+            _workspace.get().state["error"] = str(exc)
+            _workspace.get().state["current_step"] = f"Error: {exc}"
+            _workspace.get().state["finished_at"] = time.time()
 
 
 @router.get("/status")
-def get_sheets_sync_status() -> Dict[str, Any]:
+def get_sheets_sync_status(request: Request = None) -> Dict[str, Any]:
     """Returns the current state, progress, and logs of the Google Sheets sync worker."""
-    with _LOCK:
-        state_copy = dict(_SHEETS_SYNC_STATE)
-    state_copy["existing_csv_count"] = _count_existing_csvs()
+    with _workspace.get().lock:
+        state_copy = dict(_workspace.get().state)
+    base_dir = request.app.state.base_dir if request else None
+    state_copy["existing_csv_count"] = _count_existing_csvs(base_dir or BASE_DIR)
     return state_copy
 
 
 @router.post("/sync")
-def start_sheets_sync(payload: SheetsSyncRequest) -> Dict[str, Any]:
+def start_sheets_sync(payload: SheetsSyncRequest, request: Request) -> Dict[str, Any]:
     """
     Triggers the automated Google Sheets sync workflow:
     1. Delete stale CSVs in script_to_change/ (if clean_cache is True)
@@ -314,26 +321,26 @@ def start_sheets_sync(payload: SheetsSyncRequest) -> Dict[str, Any]:
     3. Audit differences against local State JSONs
     4. Apply updates to State JSONs and reset downstream stages
     """
-    with _LOCK:
-        if _SHEETS_SYNC_STATE["status"] == "running":
+    with _workspace.get().lock:
+        if _workspace.get().state["status"] == "running":
             raise HTTPException(
                 status_code=409,
                 detail="A Google Sheets synchronization job is already running.",
             )
 
-        _SHEETS_SYNC_STATE["status"] = "running"
-        _SHEETS_SYNC_STATE["progress"] = 5
-        _SHEETS_SYNC_STATE["current_step"] = "Initializing synchronization..."
-        _SHEETS_SYNC_STATE["step_number"] = 0
-        _SHEETS_SYNC_STATE["logs"] = []
-        _SHEETS_SYNC_STATE["result"] = None
-        _SHEETS_SYNC_STATE["error"] = None
-        _SHEETS_SYNC_STATE["started_at"] = time.time()
-        _SHEETS_SYNC_STATE["finished_at"] = None
+        _workspace.get().state["status"] = "running"
+        _workspace.get().state["progress"] = 5
+        _workspace.get().state["current_step"] = "Initializing synchronization..."
+        _workspace.get().state["step_number"] = 0
+        _workspace.get().state["logs"] = []
+        _workspace.get().state["result"] = None
+        _workspace.get().state["error"] = None
+        _workspace.get().state["started_at"] = time.time()
+        _workspace.get().state["finished_at"] = None
 
     thread = threading.Thread(
-        target=_run_sheets_sync_worker,
-        args=(payload.clean_cache, payload.apply_changes),
+        target=copy_context().run,
+        args=(_run_sheets_sync_worker, payload.clean_cache, payload.apply_changes, request.app.state.base_dir or BASE_DIR),
         daemon=True,
     )
     thread.start()
@@ -344,18 +351,18 @@ def start_sheets_sync(payload: SheetsSyncRequest) -> Dict[str, Any]:
 @router.post("/reset")
 def reset_sheets_sync_status() -> Dict[str, Any]:
     """Resets the sheets sync state back to idle."""
-    with _LOCK:
-        if _SHEETS_SYNC_STATE["status"] == "running":
+    with _workspace.get().lock:
+        if _workspace.get().state["status"] == "running":
             raise HTTPException(status_code=400, detail="Cannot reset while a job is running.")
-        _SHEETS_SYNC_STATE["status"] = "idle"
-        _SHEETS_SYNC_STATE["progress"] = 0
-        _SHEETS_SYNC_STATE["current_step"] = "Ready to sync"
-        _SHEETS_SYNC_STATE["step_number"] = 0
-        _SHEETS_SYNC_STATE["logs"] = []
-        _SHEETS_SYNC_STATE["result"] = None
-        _SHEETS_SYNC_STATE["error"] = None
-        _SHEETS_SYNC_STATE["started_at"] = None
-        _SHEETS_SYNC_STATE["finished_at"] = None
+        _workspace.get().state["status"] = "idle"
+        _workspace.get().state["progress"] = 0
+        _workspace.get().state["current_step"] = "Ready to sync"
+        _workspace.get().state["step_number"] = 0
+        _workspace.get().state["logs"] = []
+        _workspace.get().state["result"] = None
+        _workspace.get().state["error"] = None
+        _workspace.get().state["started_at"] = None
+        _workspace.get().state["finished_at"] = None
 
     return {"status": "reset", "message": "Sheets sync status reset to idle."}
 

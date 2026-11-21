@@ -205,7 +205,7 @@ class ScriptHealthAuditor:
     def regenerate_script_now(self, script_id: str, state_data: Dict[str, Any]) -> bool:
         """Immediately re-generates the script using local LLM."""
         try:
-            from video_creation._A_video_scripts.main import handle_prompt
+            from video_creation._A_video_scripts.legacy_generation import handle_prompt
             params = state_data.get("prompt_params")
             if not params:
                 print(f"Cannot regenerate {script_id}: missing prompt_params in state.")

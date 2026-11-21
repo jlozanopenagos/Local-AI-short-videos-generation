@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from threading import Event
 import time
 import unittest
 from pathlib import Path
@@ -19,7 +20,6 @@ if str(MAIN_DIR) not in sys.path:
 # pyrefly: ignore[missing-import]
 from fastapi.testclient import TestClient
 # pyrefly: ignore[missing-import]
-from webui.jobs.manager import JobManager, get_job_manager
 # pyrefly: ignore[missing-import]
 from webui.jobs.models import JobCreateRequest, JobResponse, JobStage, JobStatus
 # pyrefly: ignore[missing-import]
@@ -41,20 +41,19 @@ class MockAdapter(BaseStageAdapter):
 
 class TestWebUIJobs(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app())
-        self.jm = get_job_manager()
+        workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(workspace.cleanup)
+        self.app = create_app(Path(workspace.name))
+        self.client = TestClient(self.app)
+        self.jm = self.app.state.job_manager
+        transcriber = patch("webui.jobs.adapters.assembly.Transcriber")
+        transcriber.start()
+        self.addCleanup(transcriber.stop)
+        self.addCleanup(self.jm.close)
         # Register a quick mock adapter for scripts and assembly stages to test pipeline execution without real ffmpeg/llm
         self.mock_adapter = MockAdapter()
         self.jm.register_adapter(JobStage.SCRIPTS, self.mock_adapter)
         self.jm.register_adapter(JobStage.ASSEMBLY, self.mock_adapter)
-
-    def tearDown(self):
-        # pyrefly: ignore[missing-import]
-        from webui.jobs.adapters.scripts import ScriptsAdapter
-        # pyrefly: ignore[missing-import]
-        from webui.jobs.adapters.assembly import AssemblyAdapter
-        self.jm.register_adapter(JobStage.SCRIPTS, ScriptsAdapter())
-        self.jm.register_adapter(JobStage.ASSEMBLY, AssemblyAdapter())
 
     def test_enqueue_job_rest(self):
         """Verify POST /api/jobs enqueues a job."""
@@ -93,17 +92,48 @@ class TestWebUIJobs(unittest.TestCase):
         response = self.client.get("/api/jobs/NONEXISTENT999")
         self.assertEqual(response.status_code, 404)
 
-    def test_cancel_job_rest(self):
-        """Verify cancellation endpoint."""
-        # Enqueue a job
-        res = self.client.post(
-            "/api/jobs",
-            json={"stage": "scripts", "script_ids": ["CANCEL_ME"]},
-        )
-        job_id = res.json()["job_id"]
-        # Cancel it
-        cancel_res = self.client.post(f"/api/jobs/{job_id}/cancel")
-        self.assertIn(cancel_res.status_code, [200, 400])
+    def test_cancel_running_and_queued_jobs_without_stopping_worker(self):
+        started = Event()
+        release = Event()
+        observed_cancellation = Event()
+
+        class BlockingAdapter(BaseStageAdapter):
+            def run(self, script_ids, options, emit_log, emit_progress, check_cancelled):
+                started.set()
+                if not release.wait(timeout=10):
+                    raise TimeoutError("Test did not release the worker")
+                if check_cancelled():
+                    observed_cancellation.set()
+                    raise InterruptedError("Cancellation observed")
+                raise AssertionError("Adapter continued after cancellation")
+
+        self.jm.register_adapter(JobStage.SCRIPTS, BlockingAdapter())
+        def enqueue(stage):
+            response = self.client.post("/api/jobs", json={"stage": stage, "script_ids": ["EG01"]})
+            self.assertEqual(response.status_code, 202, response.text)
+            return f"/api/jobs/{response.json()['job_id']}"
+
+        try:
+            running = enqueue("scripts")
+            self.assertTrue(started.wait(timeout=5))
+            self.assertEqual(self.client.get(running).json()["status"], "running")
+            queued = enqueue("scripts")
+            self.assertEqual(self.client.post(f"{queued}/cancel").status_code, 200)
+            self.assertEqual(self.client.post(f"{running}/cancel").status_code, 200)
+        finally:
+            release.set()
+        self.assertTrue(observed_cancellation.wait(timeout=5))
+        self.assertEqual(self.client.get(running).json()["status"], "cancelled")
+        self.assertEqual(self.client.get(queued).json()["status"], "cancelled")
+
+        next_job = enqueue("assembly")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            result = self.client.get(next_job).json()
+            if result["status"] == "completed":
+                break
+            time.sleep(0.01)
+        self.assertEqual(result["status"], "completed", result)
 
     def test_job_captures_stdout_and_logging(self):
         """Verify prints and logging in adapters are captured in job logs."""
@@ -111,7 +141,7 @@ class TestWebUIJobs(unittest.TestCase):
             def run(self, script_ids, options, emit_log, emit_progress, check_cancelled):
                 print("Captured print statement from worker module")
                 import logging
-                logging.getLogger("test").info("Captured logging info from worker module")
+                logging.getLogger("test").warning("Captured worker warning")
                 return {"success_count": 1, "failed_ids": []}
 
         self.jm.register_adapter(JobStage.SCRIPTS, VerboseAdapter())
@@ -126,7 +156,7 @@ class TestWebUIJobs(unittest.TestCase):
         self.assertIsNotNone(job)
         all_logs = " ".join(job.logs)
         self.assertIn("Captured print statement", all_logs)
-        self.assertIn("Captured logging info", all_logs)
+        self.assertIn("Captured worker warning", all_logs)
 
     def test_assembly_job_enqueue(self):
         """Verify POST /api/jobs enqueues an assembly stage job."""
@@ -139,49 +169,45 @@ class TestWebUIJobs(unittest.TestCase):
         self.assertEqual(data["stage"], "assembly")
         self.assertEqual(data["script_ids"], ["IE07", "IG07"])
 
-    @patch("webui.jobs.adapters.assembly.get_script_output_dir")
     @patch("webui.jobs.adapters.assembly.StateManager")
     @patch("webui.jobs.adapters.assembly.process_script")
-    def test_assembly_adapter_execution(self, mock_process, mock_sm_cls, mock_out_dir):
+    def test_assembly_adapter_execution(self, mock_process, mock_sm_cls):
         """Verify AssemblyAdapter runs process_script and reports progress."""
         # pyrefly: ignore[missing-import]
         from webui.jobs.adapters.assembly import AssemblyAdapter
 
-        with tempfile.TemporaryDirectory() as tmp:
-            mock_out_dir.return_value = Path(tmp) / "script_IE07"
-            mock_sm = MagicMock()
-            mock_sm.script_exists.return_value = True
-            mock_sm.get_script_state.return_value = {
-                "id": "IE07",
-                "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "pending"},
-            }
-            mock_sm_cls.return_value = mock_sm
-            mock_process.return_value = True
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "IE07",
+            "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "pending"},
+        }
+        mock_sm_cls.return_value = mock_sm
+        mock_process.return_value = True
 
-            adapter = AssemblyAdapter()
-            logs = []
-            progress = []
+        adapter = AssemblyAdapter()
+        logs = []
+        progress = []
 
-            result = adapter.run(
-                script_ids=["IE07"],
-                options={"force": True},
-                emit_log=lambda msg: logs.append(msg),
-                emit_progress=lambda cur, tot, sid: progress.append((cur, tot, sid)),
-                check_cancelled=lambda: False,
-            )
+        result = adapter.run(
+            script_ids=["IE07"],
+            options={"force": True},
+            emit_log=lambda msg: logs.append(msg),
+            emit_progress=lambda cur, tot, sid: progress.append((cur, tot, sid)),
+            check_cancelled=lambda: False,
+        )
 
-            self.assertEqual(result["success_count"], 1)
-            self.assertEqual(result["failed_ids"], [])
-            self.assertTrue(mock_process.called)
-            self.assertTrue(any("✓ Video assembly completed" in l for l in logs))
+        self.assertEqual(result["success_count"], 1)
+        self.assertEqual(result["failed_ids"], [])
+        self.assertTrue(mock_process.called)
+        self.assertTrue(any("✓ Video assembly completed" in l for l in logs))
 
-    @patch("webui.jobs.adapters.assembly.get_script_output_dir")
     @patch("webui.jobs.adapters.assembly.StateManager")
     @patch("webui.jobs.adapters.assembly.process_script")
-    def test_assembly_adapter_forces_done_script_deletes_existing_video_and_recreates(
-        self, mock_process, mock_sm_cls, mock_out_dir
+    def test_assembly_adapter_forces_done_script_and_preserves_previous_video(
+        self, mock_process, mock_sm_cls
     ):
-        """Verify mass assembly forces target IDs even with force=False, deleting existing .mp4 before recreating."""
+        """Verify mass assembly keeps the previous MP4 while delegating a forced render."""
         # pyrefly: ignore[missing-import]
         from webui.jobs.adapters.assembly import AssemblyAdapter
 
@@ -190,7 +216,6 @@ class TestWebUIJobs(unittest.TestCase):
             out_dir.mkdir(parents=True, exist_ok=True)
             existing_mp4 = out_dir / "script_IE07_final.mp4"
             existing_mp4.write_bytes(b"stale-video-bytes")
-            mock_out_dir.return_value = out_dir
 
             state = {
                 "id": "IE07",
@@ -207,8 +232,7 @@ class TestWebUIJobs(unittest.TestCase):
 
             def _fake_process(**kwargs):
                 existed_when_process_called.append(existing_mp4.exists())
-                existing_mp4.write_bytes(b"recreated-video-bytes")
-                return True
+                return False
 
             mock_process.side_effect = _fake_process
 
@@ -216,29 +240,25 @@ class TestWebUIJobs(unittest.TestCase):
             logs = []
             result = adapter.run(
                 script_ids=["IE07"],
-                options={"force": False},
+                options={"force": False, "max_attempts": 1},
                 emit_log=lambda msg: logs.append(msg),
                 emit_progress=lambda *_a: None,
                 check_cancelled=lambda: False,
             )
 
-            self.assertEqual(result["success_count"], 1)
-            self.assertEqual(result["failed_ids"], [])
-            # Must have deleted stale file BEFORE process_script ran, then saved reset state
-            self.assertEqual(existed_when_process_called, [False])
-            mock_sm.save_script_state.assert_called_once_with("IE07", state)
-            self.assertEqual(state["status"]["video_assembly"], "pending")
-            self.assertNotIn("final_video", state["assets"])
+            self.assertEqual(result["success_count"], 0)
+            self.assertEqual(result["failed_ids"], ["IE07"])
+            self.assertEqual(existed_when_process_called, [True])
+            mock_sm.save_script_state.assert_not_called()
+            self.assertEqual(state["status"]["video_assembly"], "done")
+            self.assertEqual(state["assets"]["final_video"], str(existing_mp4))
             self.assertTrue(mock_process.call_args.kwargs["regenerate_subtitles"])
-            self.assertTrue(existing_mp4.exists())
-            self.assertEqual(existing_mp4.read_bytes(), b"recreated-video-bytes")
-            self.assertTrue(any("Deleted existing final video" in l for l in logs))
+            self.assertEqual(existing_mp4.read_bytes(), b"stale-video-bytes")
 
-    @patch("webui.jobs.adapters.assembly.get_script_output_dir")
     @patch("webui.jobs.adapters.assembly.StateManager")
     @patch("webui.jobs.adapters.assembly.process_script")
     def test_assembly_adapter_preserves_existing_video_when_prerequisites_missing(
-        self, mock_process, mock_sm_cls, mock_out_dir
+        self, mock_process, mock_sm_cls
     ):
         """Verify existing .mp4 is NOT deleted when prerequisites (voice/images) are missing."""
         # pyrefly: ignore[missing-import]
@@ -249,7 +269,6 @@ class TestWebUIJobs(unittest.TestCase):
             out_dir.mkdir(parents=True, exist_ok=True)
             existing_mp4 = out_dir / "script_IE07_final.mp4"
             existing_mp4.write_bytes(b"keep-me")
-            mock_out_dir.return_value = out_dir
 
             state = {
                 "id": "IE07",
@@ -280,7 +299,7 @@ class TestWebUIJobs(unittest.TestCase):
     def test_ensure_image_prompts_preserves_general_prompt_when_requested(self):
         """Verify preserve_general_prompt=True keeps saved general_prompt while regenerating scene prompts."""
         # pyrefly: ignore[missing-import]
-        from video_creation._C_image_generation.main import ensure_image_prompts_for_script
+        from video_creation._C_image_generation.service import ensure_image_prompts_for_script
 
         saved_gp = (
             "A sunlit cobbled square in Lisbon with azure tile facades and warm golden-hour light. "
@@ -322,7 +341,7 @@ class TestWebUIJobs(unittest.TestCase):
             "payoff": "New payoff following saved GP",
         }
 
-        with patch("video_creation._C_image_generation.main.ensure_llama_running"):
+        with patch("video_creation._C_image_generation.service.ensure_llama_running"):
             ok = ensure_image_prompts_for_script(
                 script_data=script_data,
                 state_manager=mock_sm,

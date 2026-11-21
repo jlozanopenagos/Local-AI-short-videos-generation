@@ -29,8 +29,8 @@ main/webui/
 │       ├── images.py               # Adapts Stage _C (Scene illustrations + forced general/scene prompt rebuild)
 │       ├── chalkboard.py           # Adapts CPU FreeType chalkboard rendering for Game quiz scenes
 │       ├── thumbnails.py           # Adapts Stage _F (Chalkboard thumbnails)
-│       ├── assembly.py             # Adapts Stage _G (Typed video assembly & forced delete-and-recreate)
-│       └── drive.py                # Adapts batch Google Drive clean delete-before-upload replacement
+│       ├── assembly.py             # Adapts Stage _G (Typed video assembly and staged replacement)
+│       └── drive.py                # Adapts batch Google Drive bundle replacement
 ├── static/                         # Production pre-compiled React SPA assets (HTML, JS, CSS)
 ├── frontend/                       # React 19 + TypeScript + Vite source code
 └── README.md                       # WebUI backend manual (this document)
@@ -109,7 +109,7 @@ When executing heavy generative tasks via WebUI job adapters:
 - **Assembly Processing (`jobs/adapters/assembly.py`)**:
   - Targeted IDs are always forced: verifies Stage B voice and Stage C image prerequisites first, deletes any pre-existing final `.mp4` and resets `video_assembly` to `pending`, then runs Whisper (CPU) and modular Stage G typed FFmpeg assembly from scratch.
 - **Google Drive Sync (`jobs/adapters/drive.py`)**:
-  - Authenticates once per batch via `GoogleDriveClient`, delegates per-script clean delete-before-upload replacement to `upload_script_to_drive()`, and logs `deleted_existing_count` for replaced items.
+  - Authenticates once per batch via `GoogleDriveClient`, delegates per-script bundle replacement to `upload_script_to_drive()`, and logs `deleted_existing_count` for replaced items.
 
 ---
 
@@ -124,3 +124,6 @@ py main/tools/webui.py
 # Custom port or host
 py main/tools/webui.py --port 8195 --host 0.0.0.0
 ```
+
+
+The studio owns its job worker, script catalog cache, and Sheets sync state per application instance. Production stages are queued from Script Catalog or Mass Creation. Mass Creation accepts pasted IDs, ID CSVs, and catalog selections. Seed, voice, and subtitle options are available with the applicable stages. See the [studio test guide](../../test/README.md) for isolated API and browser checks.

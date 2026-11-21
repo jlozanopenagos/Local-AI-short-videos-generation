@@ -14,12 +14,15 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from core.state_manager import StateManager
-from video_creation._F_thumbnail_image_generation.main import generate_thumbnail_for_script
+from video_creation._F_thumbnail_image_generation.service import generate_thumbnail_for_script
 from webui.jobs.adapters.base import BaseStageAdapter
 
 
 class ThumbnailsAdapter(BaseStageAdapter):
     """Executes Stage F chalkboard thumbnail generation."""
+
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or BASE_DIR
 
     def run(
         self,
@@ -29,7 +32,7 @@ class ThumbnailsAdapter(BaseStageAdapter):
         emit_progress: Callable[[int, int, str], None],
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
-        sm = StateManager(base_dir=BASE_DIR)
+        sm = StateManager(base_dir=self.base_dir)
         force = options.get("force", False)
 
         total = len(script_ids)
@@ -69,7 +72,7 @@ class ThumbnailsAdapter(BaseStageAdapter):
                 try:
                     emit_log(f"[{script_id}] Rendering chalkboard title thumbnail (attempt {attempt}/{max_attempts})...")
                     t0 = time.time()
-                    ok = generate_thumbnail_for_script(state_data, state_mgr=sm, base_dir=BASE_DIR)
+                    ok = generate_thumbnail_for_script(state_data, state_mgr=sm, base_dir=self.base_dir)
                     dur = time.time() - t0
                     if ok:
                         emit_log(f"[{script_id}] ✓ Thumbnail successfully rendered in {dur:.1f}s.")

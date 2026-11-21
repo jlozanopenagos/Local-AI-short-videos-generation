@@ -182,47 +182,33 @@ def upload_script_to_drive(
     # Step 3: Script ID folder (e.g. EE01)
     script_folder_id = drive_client.get_or_create_folder(script_id, parent_id=type_folder_id)
 
-    # Ensure clean replacement: delete any duplicate script folders and any existing files inside script_folder_id
-    deleted_dups = drive_client.delete_duplicate_folders(
-        script_id,
-        parent_id=type_folder_id,
-        keep_folder_id=script_folder_id,
-    )
-    deleted_files = drive_client.clear_folder(script_folder_id)
-    deleted_existing_count = (
-        (deleted_files if isinstance(deleted_files, int) else 0)
-        + (deleted_dups if isinstance(deleted_dups, int) else 0)
-    )
-    if deleted_existing_count > 0:
-        logger.info(
-            "[%s] Deleted %d existing item(s) inside Drive folder %s before uploading new version.",
-            script_id, deleted_existing_count, script_folder_id,
-        )
-
     folder_url = f"https://drive.google.com/drive/folders/{script_folder_id}"
+    video_name = f"{script_id}.mp4"
+    thumbnail_name = f"{script_id}_thumbnail.png"
+    previous_files = [
+        *drive_client.list_named_files(script_folder_id, video_name),
+        *drive_client.list_named_files(script_folder_id, thumbnail_name),
+    ]
 
-    # 3. Upload clean named video (<SCRIPT_ID>.mp4)
-    clean_video_name = f"{script_id}.mp4"
-    logger.info("[%s] Uploading video: %s -> %s", script_id, video_path.name, clean_video_name)
     video_upload_res = drive_client.upload_or_update_file(
         local_path=video_path,
-        remote_filename=clean_video_name,
+        remote_filename=video_name,
         parent_folder_id=script_folder_id,
         mime_type="video/mp4",
         progress_callback=progress_callback,
+        replace_existing=False,
     )
-
-    # 4. Upload clean named thumbnail if present (<SCRIPT_ID>_thumbnail.png)
-    thumb_upload_res: Optional[Dict[str, str]] = None
-    if thumb_path:
-        clean_thumb_name = f"{script_id}_thumbnail.png"
-        logger.info("[%s] Uploading thumbnail: %s -> %s", script_id, thumb_path.name, clean_thumb_name)
+    try:
         thumb_upload_res = drive_client.upload_or_update_file(
             local_path=thumb_path,
-            remote_filename=clean_thumb_name,
+            remote_filename=thumbnail_name,
             parent_folder_id=script_folder_id,
             mime_type="image/png",
+            replace_existing=False,
         )
+    except Exception:
+        drive_client.delete_file(video_upload_res["id"], video_name)
+        raise
 
     # 5. Update State
     assets = script_data.setdefault("assets", {})
@@ -238,6 +224,12 @@ def upload_script_to_drive(
     status["drive_upload"] = "done"
 
     sm.save_script_state(script_id, script_data)
+    new_file_ids = {video_upload_res["id"], thumb_upload_res["id"]}
+    deleted_existing_count = 0
+    for previous in previous_files:
+        file_id = previous.get("id")
+        if file_id and file_id not in new_file_ids:
+            deleted_existing_count += drive_client.delete_file(file_id, previous.get("name", ""))
     logger.info("[%s] Drive upload complete! Folder URL: %s", script_id, folder_url)
 
     return {

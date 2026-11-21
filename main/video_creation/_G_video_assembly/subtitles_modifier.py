@@ -23,7 +23,7 @@ try:
     from core.subtitle_builder import SubtitleBuilder
     from core.video_assembler import VideoAssembler
 except ImportError:
-    from video_creation._G_video_assembly.main import process_script
+    from video_creation._G_video_assembly.service import process_script
     from video_creation._G_video_assembly.core.transcriber import Transcriber
     from video_creation._G_video_assembly.core.subtitle_builder import SubtitleBuilder
     from video_creation._G_video_assembly.core.video_assembler import VideoAssembler

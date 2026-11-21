@@ -1,8 +1,9 @@
 """
-test/webui/test_api.py — Unit tests for the Local Web UI FastAPI endpoints.
+test/webui/test_api.py â€” Unit tests for the Local Web UI FastAPI endpoints.
 """
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -20,8 +21,11 @@ from webui.server import create_app
 
 class TestWebUIApi(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
+        workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(workspace.cleanup)
+        self.app = create_app(Path(workspace.name))
         self.client = TestClient(self.app)
+        self.addCleanup(self.app.state.job_manager.close)
 
     def test_healthz_endpoint(self):
         """Verify /healthz probe returns 200 OK."""
@@ -162,11 +166,11 @@ class TestWebUIApi(unittest.TestCase):
         # 2. PUT script with updated chalkboard and dialogue
         update_payload = {
             "chalkboard_title": "Tomar el pelo (Updated)",
-            "chalkboard_exercise": "¿Qué significa me estás tomando el pelo?\nA) Broma\nB) Verdad",
+            "chalkboard_exercise": "Â¿QuÃ© significa me estÃ¡s tomando el pelo?\nA) Broma\nB) Verdad",
             "script_dict": {
                 "title": "Tomar el pelo (Updated)",
                 "hook": "New updated hook",
-                "challenge": "¿Qué significa?",
+                "challenge": "Â¿QuÃ© significa?",
             },
         }
         put_resp = self.client.put("/api/scripts/SG02", json=update_payload)
@@ -176,7 +180,7 @@ class TestWebUIApi(unittest.TestCase):
         self.assertEqual(saved_id, "SG02")
         self.assertEqual(
             saved_data["content_metadata"]["chalkboard_exercise"],
-            "¿Qué significa me estás tomando el pelo?\nA) Broma\nB) Verdad",
+            "Â¿QuÃ© significa me estÃ¡s tomando el pelo?\nA) Broma\nB) Verdad",
         )
         self.assertEqual(saved_data["content_metadata"]["target_expression"], "Tomar el pelo (Updated)")
         self.assertEqual(saved_data["content_metadata"]["script"]["hook"], "New updated hook")

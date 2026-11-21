@@ -26,7 +26,7 @@ from core.llama_manager import ensure_llama_running, ensure_llama_stopped
 from core.state_manager import StateManager
 from video_creation._C_image_generation.core.comfy_client import ImageComfyClient
 from video_creation._C_image_generation.core.prompt_builder import VisualPromptBuilder
-from video_creation._C_image_generation.main import (
+from video_creation._C_image_generation.service import (
     ensure_image_prompts_for_script,
     process_script,
 )
@@ -36,17 +36,8 @@ from webui.jobs.adapters.base import BaseStageAdapter
 class ImagesAdapter(BaseStageAdapter):
     """Executes Stage C scene illustration generation with batched prompt pre-generation."""
 
-    def __init__(self):
-        self._active_comfy_client: ImageComfyClient | None = None
-
-    def cancel(self) -> None:
-        """Immediately interrupts running ComfyUI generation and clears queue."""
-        if self._active_comfy_client:
-            try:
-                self._active_comfy_client.interrupt()
-                self._active_comfy_client.clear_queue()
-            except Exception:
-                pass
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or BASE_DIR
 
     def run(
         self,
@@ -56,7 +47,7 @@ class ImagesAdapter(BaseStageAdapter):
         emit_progress: Callable[[int, int, str], None],
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
-        sm = StateManager(base_dir=BASE_DIR)
+        sm = StateManager(base_dir=self.base_dir)
         force = options.get("force", False)
         regenerate_prompts = options.get("regenerate_prompts", False)
         preserve_general_prompt = bool(options.get("preserve_general_prompt", False))
@@ -130,7 +121,7 @@ class ImagesAdapter(BaseStageAdapter):
                                 state_manager=sm,
                                 prompt_builder=prompt_builder,
                                 force=bool(force or regenerate_prompts),
-                                base_dir=BASE_DIR,
+                                base_dir=self.base_dir,
                                 preserve_general_prompt=preserve_general_prompt,
                             )
                             fresh_state = sm.get_script_state(s_id)
@@ -179,157 +170,153 @@ class ImagesAdapter(BaseStageAdapter):
             poll_timeout=3600,
             poll_interval=2,
         )
-        self._active_comfy_client = comfy_client
 
-        try:
-            for idx, script_id in enumerate(script_ids, start=1):
+        for idx, script_id in enumerate(script_ids, start=1):
+            if check_cancelled():
+                emit_log(f"Job cancelled by user at script {script_id}.")
+                break
+
+            emit_progress(idx - 1, total, script_id)
+
+            if script_id in prompt_failed_ids:
+                emit_log(f"[{script_id}] Skipping ComfyUI rendering — storyboard prompt generation previously failed.")
+                continue
+
+            if not sm.script_exists(script_id):
+                emit_log(f"[{script_id}] ERROR: Script state does not exist.")
+                failed_ids.append(script_id)
+                continue
+
+            script_data = sm.get_script_state(script_id)
+            status = script_data.get("status", {})
+
+            # Single scene execution branch
+            if single_scene:
+                sec_lower = str(single_scene).strip().lower()
+                prompt_to_use = custom_prompt
+                if not prompt_to_use:
+                    prompts_map = script_data.get("assets", {}).get("image_prompts") or {}
+                    visual_prompts = script_data.get("visual_prompts") or {}
+                    prompt_to_use = (
+                        prompts_map.get(sec_lower)
+                        or prompts_map.get(single_scene)
+                        or visual_prompts.get(sec_lower)
+                        or visual_prompts.get(single_scene)
+                    )
+
+                if not prompt_to_use or not str(prompt_to_use).strip():
+                    err = f"No prompt found for scene '{single_scene}' in script '{script_id}'."
+                    emit_log(f"[{script_id}] ERROR: {err}")
+                    failed_ids.append(script_id)
+                    continue
+
+                from config.settings import (
+                    IMAGE_DEFAULT_STEPS,
+                    IMAGE_DEFAULT_WIDTH,
+                    IMAGE_DEFAULT_HEIGHT,
+                    IMAGE_STALL_TIMEOUT,
+                    get_script_output_dir,
+                )
+                from core.state_manager import resolve_lang_and_type
+                from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+
+                lang, _ = resolve_lang_and_type(script_id, script_data)
+                out_dir = get_script_output_dir(script_id, language=lang, base_dir=self.base_dir) / "images"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                dest_path = out_dir / f"script_{script_id}_{sec_lower}.png"
+
+                styled_prompt = sanitize_and_style_prompt(str(prompt_to_use).strip())
+                img_seed = seed if seed > 0 else random.randint(1, 10**15)
+
+                emit_log(f"[{script_id}] Rendering scene '{sec_lower}' illustration in ComfyUI (seed: {img_seed})...")
+                t0 = time.time()
+                try:
+                    comfy_client.generate_image(
+                        prompt_text=styled_prompt,
+                        filename_prefix=f"Z-Image/script_{script_id}_{sec_lower}",
+                        dest_path=dest_path,
+                        seed=img_seed,
+                        steps=IMAGE_DEFAULT_STEPS,
+                        width=IMAGE_DEFAULT_WIDTH,
+                        height=IMAGE_DEFAULT_HEIGHT,
+                        stall_timeout=IMAGE_STALL_TIMEOUT,
+                    )
+                    dur = time.time() - t0
+                    emit_log(f"[{script_id}] ✓ Scene '{sec_lower}' rendered successfully in {dur:.1f}s -> {dest_path.name}")
+
+                    # Update script state & in-memory cache
+                    assets = script_data.setdefault("assets", {})
+                    img_prompts = assets.setdefault("image_prompts", {})
+                    img_prompts[sec_lower] = str(prompt_to_use).strip()
+                    assets["image_dir"] = str(out_dir)
+                    img_list = assets.get("images")
+                    if not isinstance(img_list, list):
+                        img_list = []
+                    dest_str = str(dest_path)
+                    if dest_str not in img_list:
+                        img_list.append(dest_str)
+                    assets["images"] = img_list
+
+                    sm.save_script_state(script_id, script_data)
+                    from webui.routers.scripts import _update_cached_script
+                    _update_cached_script(script_id, script_data)
+                    success_count += 1
+                except Exception as exc:
+                    emit_log(f"[{script_id}] ERROR generating scene '{sec_lower}': {exc}")
+                    failed_ids.append(script_id)
+                continue
+
+            if not force and status.get("image_generation") == "done":
+                emit_log(f"[{script_id}] Images already generated — skipping.")
+                success_count += 1
+                continue
+
+            script_force = force or (status.get("image_generation") == "pending")
+            max_attempts = int(options.get("max_attempts", 3))
+            images_succeeded = False
+            last_err = ""
+
+            for attempt in range(1, max_attempts + 1):
                 if check_cancelled():
                     emit_log(f"Job cancelled by user at script {script_id}.")
                     break
 
-                emit_progress(idx - 1, total, script_id)
-
-                if script_id in prompt_failed_ids:
-                    emit_log(f"[{script_id}] Skipping ComfyUI rendering — storyboard prompt generation previously failed.")
-                    continue
-
-                if not sm.script_exists(script_id):
-                    emit_log(f"[{script_id}] ERROR: Script state does not exist.")
-                    failed_ids.append(script_id)
-                    continue
-
-                script_data = sm.get_script_state(script_id)
-                status = script_data.get("status", {})
-
-                # Single scene execution branch
-                if single_scene:
-                    sec_lower = str(single_scene).strip().lower()
-                    prompt_to_use = custom_prompt
-                    if not prompt_to_use:
-                        prompts_map = script_data.get("assets", {}).get("image_prompts") or {}
-                        visual_prompts = script_data.get("visual_prompts") or {}
-                        prompt_to_use = (
-                            prompts_map.get(sec_lower)
-                            or prompts_map.get(single_scene)
-                            or visual_prompts.get(sec_lower)
-                            or visual_prompts.get(single_scene)
-                        )
-
-                    if not prompt_to_use or not str(prompt_to_use).strip():
-                        err = f"No prompt found for scene '{single_scene}' in script '{script_id}'."
-                        emit_log(f"[{script_id}] ERROR: {err}")
-                        failed_ids.append(script_id)
-                        continue
-
-                    from config.settings import (
-                        IMAGE_DEFAULT_STEPS,
-                        IMAGE_DEFAULT_WIDTH,
-                        IMAGE_DEFAULT_HEIGHT,
-                        IMAGE_STALL_TIMEOUT,
-                        get_script_output_dir,
-                    )
-                    from core.state_manager import resolve_lang_and_type
-                    from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
-
-                    lang, _ = resolve_lang_and_type(script_id, script_data)
-                    out_dir = get_script_output_dir(script_id, language=lang, base_dir=BASE_DIR) / "images"
-                    out_dir.mkdir(parents=True, exist_ok=True)
-                    dest_path = out_dir / f"script_{script_id}_{sec_lower}.png"
-
-                    styled_prompt = sanitize_and_style_prompt(str(prompt_to_use).strip())
-                    img_seed = seed if seed > 0 else random.randint(1, 10**15)
-
-                    emit_log(f"[{script_id}] Rendering scene '{sec_lower}' illustration in ComfyUI (seed: {img_seed})...")
+                try:
+                    emit_log(f"[{script_id}] Rendering scene illustrations in ComfyUI (attempt {attempt}/{max_attempts})...")
                     t0 = time.time()
-                    try:
-                        comfy_client.generate_image(
-                            prompt_text=styled_prompt,
-                            filename_prefix=f"Z-Image/script_{script_id}_{sec_lower}",
-                            dest_path=dest_path,
-                            seed=img_seed,
-                            steps=IMAGE_DEFAULT_STEPS,
-                            width=IMAGE_DEFAULT_WIDTH,
-                            height=IMAGE_DEFAULT_HEIGHT,
-                            stall_timeout=IMAGE_STALL_TIMEOUT,
-                        )
-                        dur = time.time() - t0
-                        emit_log(f"[{script_id}] ✓ Scene '{sec_lower}' rendered successfully in {dur:.1f}s -> {dest_path.name}")
-
-                        # Update script state & in-memory cache
-                        assets = script_data.setdefault("assets", {})
-                        img_prompts = assets.setdefault("image_prompts", {})
-                        img_prompts[sec_lower] = str(prompt_to_use).strip()
-                        assets["image_dir"] = str(out_dir)
-                        img_list = assets.get("images")
-                        if not isinstance(img_list, list):
-                            img_list = []
-                        dest_str = str(dest_path)
-                        if dest_str not in img_list:
-                            img_list.append(dest_str)
-                        assets["images"] = img_list
-
-                        sm.save_script_state(script_id, script_data)
-                        from webui.routers.scripts import _update_cached_script
-                        _update_cached_script(script_id, script_data)
+                    ok = process_script(
+                        script_data=script_data,
+                        state_manager=sm,
+                        comfy_client=comfy_client,
+                        prompt_builder=prompt_builder,
+                        force=script_force,
+                        seed=seed,
+                        base_dir=self.base_dir,
+                        check_cancelled=check_cancelled,
+                    )
+                    dur = time.time() - t0
+                    if ok:
+                        emit_log(f"[{script_id}] ✓ Scene images completed in {dur:.1f}s.")
                         success_count += 1
-                    except Exception as exc:
-                        emit_log(f"[{script_id}] ERROR generating scene '{sec_lower}': {exc}")
-                        failed_ids.append(script_id)
-                    continue
-
-                if not force and status.get("image_generation") == "done":
-                    emit_log(f"[{script_id}] Images already generated — skipping.")
-                    success_count += 1
-                    continue
-
-                script_force = force or (status.get("image_generation") == "pending")
-                max_attempts = int(options.get("max_attempts", 3))
-                images_succeeded = False
-                last_err = ""
-
-                for attempt in range(1, max_attempts + 1):
-                    if check_cancelled():
-                        emit_log(f"Job cancelled by user at script {script_id}.")
+                        images_succeeded = True
                         break
-
-                    try:
-                        emit_log(f"[{script_id}] Rendering scene illustrations in ComfyUI (attempt {attempt}/{max_attempts})...")
-                        t0 = time.time()
-                        ok = process_script(
-                            script_data=script_data,
-                            state_manager=sm,
-                            comfy_client=comfy_client,
-                            prompt_builder=prompt_builder,
-                            force=script_force,
-                            seed=seed,
-                            base_dir=BASE_DIR,
-                            check_cancelled=check_cancelled,
-                        )
-                        dur = time.time() - t0
-                        if ok:
-                            emit_log(f"[{script_id}] ✓ Scene images completed in {dur:.1f}s.")
-                            success_count += 1
-                            images_succeeded = True
-                            break
-                        else:
-                            last_err = f"Process returned false after {dur:.1f}s"
-                            emit_log(f"[{script_id}] Image attempt {attempt}/{max_attempts} failed.")
-                            if attempt < max_attempts and not check_cancelled():
-                                time.sleep(3.0)
-                    except InterruptedError:
-                        emit_log(f"[{script_id}] Generation interrupted by cancellation.")
-                        break
-                    except Exception as exc:
-                        last_err = str(exc)
-                        emit_log(f"[{script_id}] Image attempt {attempt}/{max_attempts} exception: {last_err}")
+                    else:
+                        last_err = f"Process returned false after {dur:.1f}s"
+                        emit_log(f"[{script_id}] Image attempt {attempt}/{max_attempts} failed.")
                         if attempt < max_attempts and not check_cancelled():
                             time.sleep(3.0)
+                except InterruptedError:
+                    emit_log(f"[{script_id}] Generation interrupted by cancellation.")
+                    break
+                except Exception as exc:
+                    last_err = str(exc)
+                    emit_log(f"[{script_id}] Image attempt {attempt}/{max_attempts} exception: {last_err}")
+                    if attempt < max_attempts and not check_cancelled():
+                        time.sleep(3.0)
 
-                if not images_succeeded and not check_cancelled() and script_id not in failed_ids:
-                    emit_log(f"[{script_id}] ERROR: Scene image generation failed after {max_attempts} attempts: {last_err}")
-                    failed_ids.append(script_id)
-        finally:
-            self._active_comfy_client = None
+            if not images_succeeded and not check_cancelled() and script_id not in failed_ids:
+                emit_log(f"[{script_id}] ERROR: Scene image generation failed after {max_attempts} attempts: {last_err}")
+                failed_ids.append(script_id)
 
         emit_progress(total, total, None)
         emit_log(f"Image job finished: {success_count}/{total} successful.")

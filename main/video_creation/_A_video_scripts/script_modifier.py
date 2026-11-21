@@ -63,10 +63,10 @@ except (ImportError, ModuleNotFoundError):
     )
 
 try:
-    from core.state_manager import StateManager, resolve_lang_and_type
+    from core.state_manager import DOWNSTREAM_STAGES, StateManager, resolve_lang_and_type
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
-    from state_manager import StateManager, resolve_lang_and_type
+    from state_manager import DOWNSTREAM_STAGES, StateManager, resolve_lang_and_type
 
 try:
     from connectivity.ready_scripts.scanner import (
@@ -1146,7 +1146,7 @@ def modify_video_script(
     state["script_text"] = new_script_text
     state["content_metadata"] = new_content_meta
     state["metadata"] = new_metadata
-    state["status"]["script_generation"] = "done"
+    state.setdefault("status", {})["script_generation"] = "done"
 
     # Handle downstream statuses
     if reset_downstream is None:
@@ -1162,14 +1162,7 @@ def modify_video_script(
 
     if reset_downstream:
         print("🔄 Resetting downstream stages to 'pending' for fresh rendering...")
-        downstream_stages = [
-            "voice_generation",
-            "image_generation",
-            "thumbnail_generation",
-            "video_assembly",
-        ]
-        for stage in downstream_stages:
-            state["status"][stage] = "pending"
+        state["status"].update(dict.fromkeys(DOWNSTREAM_STAGES, "pending"))
 
         # Invalidate stale downstream assets so new prompts & media match the updated script
         if "assets" in state and isinstance(state["assets"], dict):

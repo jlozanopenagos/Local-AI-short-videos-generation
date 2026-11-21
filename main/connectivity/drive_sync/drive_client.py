@@ -4,7 +4,7 @@ drive_client.py — Google Drive API v3 client for Shorts Automation.
 Handles:
 - Headless Service Account authentication with fallback to OAuth 2.0 user credentials.
 - In-memory folder lookup caching and auto-creation.
-- Deleting existing files or duplicate folders before uploading replacements.
+- Creating resumable uploads and retiring prior files by ID.
 - Resumable chunked file uploads for large MP4 video files and PNG thumbnails.
 """
 
@@ -354,6 +354,19 @@ class GoogleDriveClient:
             )
         return deleted
 
+    def list_named_files(self, parent_folder_id: str, remote_filename: str) -> list[dict]:
+        safe_name = remote_filename.replace("'", "\\'")
+        query = (
+            f"'{parent_folder_id}' in parents and "
+            f"name = '{safe_name}' and "
+            "trashed = false"
+        )
+        return self._list_files(
+            query=query,
+            fields="nextPageToken, files(id, name)",
+            page_size=100,
+        )
+
     def upload_or_update_file(
         self,
         local_path: str | Path,
@@ -361,9 +374,11 @@ class GoogleDriveClient:
         parent_folder_id: str,
         mime_type: Optional[str] = None,
         progress_callback: Optional[Callable[[float], None]] = None,
+        *,
+        replace_existing: bool = True,
     ) -> Dict[str, str]:
         """
-        Deletes any existing matching file(s) in parent_folder_id and uploads the new file.
+        Uploads the new file and optionally deletes previous files with the same name.
         Uses resumable chunked upload so Drive generates a fresh file ID and preview.
 
         Returns dict with:
@@ -383,27 +398,9 @@ class GoogleDriveClient:
             if not mime_type:
                 mime_type = "video/mp4" if path.suffix.lower() == ".mp4" else "image/png"
 
-        safe_name = remote_filename.replace("'", "\\'")
-        query = (
-            f"'{parent_folder_id}' in parents and "
-            f"name = '{safe_name}' and "
-            "trashed = false"
+        existing_files = (
+            self.list_named_files(parent_folder_id, remote_filename) if replace_existing else []
         )
-        existing_files = self._list_files(
-            query=query,
-            fields="nextPageToken, files(id, name)",
-            page_size=100,
-        )
-
-        if existing_files:
-            logger.info(
-                "Found %d existing file(s) matching '%s' in folder %s; deleting before upload...",
-                len(existing_files), remote_filename, parent_folder_id,
-            )
-            for existing in existing_files:
-                eid = existing.get("id")
-                if eid:
-                    self.delete_file(eid, existing.get("name", remote_filename))
 
         media = MediaFileUpload(
             str(path),
@@ -433,7 +430,12 @@ class GoogleDriveClient:
                     progress_callback(progress)
                 logger.debug("[%s] Upload progress: %0.1f%%", remote_filename, progress * 100.0)
 
-        file_id = res.get("id", "")
+        file_id = res.get("id")
+        if not file_id:
+            raise RuntimeError(f"Drive did not confirm upload of {remote_filename}")
+        for existing in existing_files:
+            if existing.get("id") and existing["id"] != file_id:
+                self.delete_file(existing["id"], existing.get("name", remote_filename))
         web_link = res.get("webViewLink", f"https://drive.google.com/file/d/{file_id}/view")
         logger.info("Successfully uploaded '%s' (ID: %s)", remote_filename, file_id)
 

@@ -1,54 +1,20 @@
 from __future__ import annotations
 
-import argparse
-import os
-import sys
-import shutil
-import time
-import traceback
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
 import logging
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8")
-
-# Add project root, video_creation, core, and module directory to path for robust imports
-MODULE_DIR = Path(__file__).parent.resolve()
-VIDEO_CREATION_DIR = Path(__file__).parent.parent.resolve()
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CORE_DIR = PROJECT_ROOT / "core"
-for p in [str(PROJECT_ROOT), str(CORE_DIR), str(VIDEO_CREATION_DIR), str(MODULE_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+import shutil
+from pathlib import Path
+from typing import Any, Optional
 
 from config import (
-    COMFY_API_URL, COMFY_INPUT_DIR, BASE_DIR, GAME_IMAGES_DIR,
-    IMAGE_WORKFLOW_PATH, IMAGE_DEFAULT_STEPS, IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT,
-    IMAGE_STALL_TIMEOUT, LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME, require_services,
-    get_script_output_dir, resolve_static_scene_path
+    BASE_DIR, GAME_IMAGES_DIR, IMAGE_DEFAULT_STEPS, IMAGE_DEFAULT_WIDTH,
+    IMAGE_DEFAULT_HEIGHT, IMAGE_STALL_TIMEOUT, get_script_output_dir, resolve_static_scene_path,
 )
-# pyrefly: ignore [missing-import]
-from state_manager import StateManager, resolve_lang_and_type
-# pyrefly: ignore [missing-import]
-from core.cli_prompt import (
-    timed_input,
-    prompt_production_mode,
-    prompt_group_range,
-    prompt_fun_facts_mode,
-    prompt_ready_scripts_mode,
-    prompt_mass_ready_scripts_mode,
-)
-# pyrefly: ignore [missing-import]
-from core.status_tracker import get_status_tracker
-# pyrefly: ignore [missing-import]
-from core.expression_db import is_expression_done
-# pyrefly: ignore[missing-import]
 from core.llama_manager import ensure_llama_running, ensure_llama_stopped
-from _C_image_generation.core.comfy_client import ImageComfyClient
-from _C_image_generation.core.prompt_builder import (
+from core.state_manager import StateManager, resolve_lang_and_type
+from video_creation._B_voice_generation.core.script_parser import parse_sections
+from video_creation._C_image_generation.core.chalkboard_renderer import render_chalkboard_image
+from video_creation._C_image_generation.core.comfy_client import ImageComfyClient
+from video_creation._C_image_generation.core.prompt_builder import (
     VisualPromptBuilder,
     resolve_anchor_environment,
     resolve_cultural_world,
@@ -57,11 +23,7 @@ from _C_image_generation.core.prompt_builder import (
     resolve_default_speakers_gender,
     persist_character_anchors_in_state,
 )
-from _C_image_generation.core.chalkboard_renderer import render_chalkboard_image
-from _B_voice_generation.core.script_parser import parse_sections
 
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -406,10 +368,10 @@ def process_script(
         dest_path = script_output_dir / scene_filename
 
         if dest_path.exists() and not force:
-            logger.info("[%s] Image for %s already exists: %s — skipping.", script_id, section_name, dest_path.name)
+            logger.info("[%s] Image for %s already exists: %s â€” skipping.", script_id, section_name, dest_path.name)
             continue
 
-        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image — zero-copy)
+        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image â€” zero-copy)
         if video_type == "GAME" and section_name.lower() == "pressure":
             static_img = resolve_static_scene_path(
                 section_name=section_name,
@@ -426,7 +388,8 @@ def process_script(
 
         # Specialized handling for GAME: CHALLENGE (Native high-resolution chalk typography on empty_chalkboard.png)
         if video_type == "GAME" and section_name.lower() == "challenge":
-            chalkboard_model = GAME_IMAGES_DIR / "empty_chalkboard.png"
+            game_images = GAME_IMAGES_DIR if base_dir == BASE_DIR else base_dir / "input" / "images" / "game_images"
+            chalkboard_model = game_images / "empty_chalkboard.png"
             if chalkboard_model.exists():
                 exercise_text = content_meta.get("chalkboard_exercise", "")
                 if not exercise_text:
@@ -492,7 +455,7 @@ def process_script(
     if comfy_tasks and success:
         print(f"\n[ComfyUI Batch Pipeline] Enqueueing {len(comfy_tasks)} scene(s) for '{script_id}' into continuous FIFO queue...")
         for t in comfy_tasks:
-            print(f"  • Enqueued scene: {t['section_name'].upper()}")
+            print(f"  â€¢ Enqueued scene: {t['section_name'].upper()}")
 
         def _on_batch_progress(sec_name: str, completed_cnt: int, total_cnt: int, dur: float) -> None:
             print(f"[OK] Scene {sec_name.upper()} rendered in {dur:.1f}s [{completed_cnt}/{total_cnt} completed] -> script_{script_id}_{sec_name}.png")
@@ -518,255 +481,3 @@ def process_script(
         state_manager.save_script_state(script_id, script_data)
         
     return success
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="LingoVerse Shorts Image Generator (Flux / Z-Image)")
-    parser.add_argument("--script-id", type=str, default=None, help="Target specific script ID(s) (e.g. EE01, FG02 or comma-separated)")
-    parser.add_argument("--force", action="store_true", help="Force regeneration even if images are already generated")
-    parser.add_argument("--seed", type=int, default=None, help="Optional random seed for generation reproducibility")
-    parser.add_argument("--auto", action="store_true", help="Auto-generate without interactive terminal prompts")
-    parser.add_argument(
-        "--fun-facts",
-        "--fun-facts-only",
-        dest="fun_facts_only",
-        action="store_true",
-        help="Only generate images for Fun Facts scripts (e.g. EF01, FF01, SF01, IF01)"
-    )
-    parser.add_argument(
-        "--video-type",
-        type=str,
-        default=None,
-        choices=["expression", "game", "roleplay", "fun_facts", "all"],
-        help="Filter generation to specific video type"
-    )
-    parser.add_argument(
-        "--language",
-        type=str,
-        default=None,
-        choices=["all", "english", "french", "spanish", "italian"],
-        help="Filter generation to specific language"
-    )
-    parser.add_argument(
-        "--from-csv",
-        "--csv-list",
-        dest="csv_list",
-        nargs="?",
-        const="",
-        default=None,
-        help="Target scripts listed in CSV (default checks input/csv/image_to_change/)"
-    )
-    parser.add_argument(
-        "--from-ready-scripts",
-        "--ready-scripts",
-        dest="ready_scripts_csv",
-        nargs="?",
-        const="",
-        default=None,
-        help="Target scripts from <date>_ready_scripts.csv (default checks <OUTPUT_DIR>/connectivity/ready_scripts/)"
-    )
-    parser.add_argument(
-        "--from-mass-ready-scripts",
-        "--mass-ready-scripts",
-        dest="mass_ready_scripts_csv",
-        nargs="?",
-        const="",
-        default=None,
-        help="Target scripts in mass from multiple/all ready_scripts CSVs (comma-separated file paths or empty for all)"
-    )
-    args = parser.parse_args()
-
-    base_dir = BASE_DIR
-    state_manager = StateManager(base_dir)
-
-    workflow_path = IMAGE_WORKFLOW_PATH
-    if not workflow_path.exists():
-        logger.error(f"Workflow file not found: {workflow_path}")
-        return 1
-
-    try:
-        comfy_client = ImageComfyClient(
-            api_url=COMFY_API_URL,
-            workflow_path=workflow_path,
-            poll_timeout=3600,
-            poll_interval=2,
-        )
-    except FileNotFoundError as exc:
-        logger.error("Workflow load failed: %s", exc)
-        return 1
-
-    llm_timeout = float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "180"))
-    prompt_builder = VisualPromptBuilder(
-        api_base_url=LLM_API_BASE_URL,
-        api_key=LLM_API_KEY,
-        model_name=LLM_MODEL_NAME,
-        request_timeout=llm_timeout,
-    )
-
-    # Pre-flight connection checks: verify ComfyUI before processing (LLM activates on-demand)
-    print("\n" + "=" * 60)
-    print("Pre-flight Connection Checks:")
-    try:
-        require_services(comfy=True, llm=False)
-        print("  [Info] LLM (Gemma-4-E2B) will activate on-demand when prompt generation is needed.")
-    except ConnectionError as exc:
-        print(f"\n{exc}\n")
-        return 1
-    print("=" * 60 + "\n")
-
-    # Production Mode Selection: Mass-produce (default in 10s), Specific ID, Group Range, Fun Facts, CSV List, or Ready Scripts CSV
-
-    is_cli_fun_facts = args.fun_facts_only or (args.video_type and args.video_type.lower() == "fun_facts")
-
-    if is_cli_fun_facts and not args.script_id and args.csv_list is None and args.ready_scripts_csv is None and args.mass_ready_scripts_csv is None:
-        print("\n[CLI Option] Fun Facts mode active: targeting Fun Facts scripts only.")
-        target_script_ids = None
-        selected_mode = "fun_facts"
-    else:
-        target_script_ids, selected_mode = prompt_production_mode(
-            stage_title="Part C: Image Generation",
-            asset_name="scene illustrations",
-            timeout=10.0,
-            script_id_arg=args.script_id,
-            auto=args.auto,
-            require_existing_state=True,
-            base_dir=base_dir,
-            return_mode=True,
-            allow_fun_facts_mode=True,
-            allow_csv_list_mode=True,
-            csv_folder_name="image_to_change",
-            csv_path_arg=args.csv_list,
-            allow_ready_scripts_mode=True,
-            ready_scripts_path_arg=args.ready_scripts_csv,
-            allow_mass_ready_scripts_mode=True,
-            mass_ready_scripts_path_arg=args.mass_ready_scripts_csv,
-        )
-        if is_cli_fun_facts:
-            selected_mode = "fun_facts"
-
-    while True:
-        # Determine target video type filter
-        target_video_type = None
-        if selected_mode == "fun_facts" or args.fun_facts_only:
-            target_video_type = "fun_facts"
-        elif args.video_type and args.video_type.lower() != "all":
-            target_video_type = args.video_type.lower()
-
-        target_language = args.language if args.language and args.language.lower() != "all" else None
-
-        # Query pending scripts via Pipeline Status Tracker
-        try:
-            tracker = get_status_tracker(base_dir)
-            pending_rows = tracker.get_pending_scripts(
-                "image_generation",
-                script_id=target_script_ids,
-                language=target_language,
-                video_type=target_video_type,
-                force=args.force
-            )
-            pending = [state_manager.get_script_state(r["ID"]) for r in pending_rows]
-            if target_script_ids:
-                pending.sort(key=lambda s: target_script_ids.index(s.get("id", "")) if s.get("id", "") in target_script_ids else 9999)
-        except Exception:
-            all_scripts = state_manager.get_all_scripts()
-            pending = []
-            for script in all_scripts:
-                script_id = script.get("id")
-                if target_script_ids and script_id not in target_script_ids:
-                    continue
-                if target_language:
-                    slang = (script.get("content_metadata", {}).get("language") or "").lower()
-                    if slang != target_language.lower():
-                        continue
-                if target_video_type:
-                    svtype = (script.get("content_metadata", {}).get("video_type") or "").lower()
-                    if target_video_type == "fun_facts" and svtype not in ("fun_facts", "funfacts"):
-                        continue
-                    elif target_video_type != "fun_facts" and svtype != target_video_type:
-                        continue
-
-                if is_expression_done(script_id):
-                    continue
-
-                status = script.get("status", {})
-                if status.get("script_generation") == "done":
-                    if args.force or status.get("image_generation") != "done":
-                        pending.append(script)
-
-        if not pending:
-            scope_label = f" ({target_video_type.upper()})" if target_video_type else ""
-            if target_script_ids:
-                print(f"None of the target script(s) are pending for image generation (already illustrated or missing state). Use --force to regenerate.")
-            else:
-                print(f"No pending video scripts for image generation{scope_label}.")
-
-            if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
-                try:
-                    create_more = input("\nDo you want to select another group or scope of scripts? [y/N]: ").strip().lower()
-                except (KeyboardInterrupt, EOFError):
-                    return 0
-                if create_more in ("y", "yes"):
-                    if selected_mode == "fun_facts":
-                        target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
-                    elif selected_mode == "ready_scripts":
-                        target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
-                    elif selected_mode == "mass_ready_scripts":
-                        target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
-                    else:
-                        target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
-                    if target_script_ids:
-                        continue
-            return 0
-
-        print(f"\nFound {len(pending)} pending script(s) for image generation:")
-        print(f"Target IDs: {', '.join([s['id'] for s in pending[:12]])}{'...' if len(pending) > 12 else ''}\n")
-        
-        success_count = 0
-        for i, script in enumerate(pending, start=1):
-            try:
-                print(f"[{i}/{len(pending)}] Processing Script ID: {script.get('id', '')} for Images...")
-                if process_script(script, state_manager, comfy_client, prompt_builder, args.force, args.seed, base_dir):
-                    success_count += 1
-                    time.sleep(0.3)  # Cooldown between script image sets ("go ahead, don't stop")
-                else:
-                    print(f"Failed to generate images for script ID {script.get('id', '')}.", file=sys.stderr)
-                    return 1
-            except Exception as exc:
-                print(f"Unexpected error processing script ID {script.get('id', '')}: {exc}", file=sys.stderr)
-                traceback.print_exc()
-                return 1
-
-        print(f"\n[Completed] Process complete. Successfully generated {success_count} image set(s).")
-
-        # If in group_range, fun_facts, ready_scripts, or mass_ready_scripts mode, prompt whether to process more
-        if selected_mode in ("group_range", "fun_facts", "ready_scripts", "mass_ready_scripts") and not args.auto:
-            try:
-                create_more = input("\nDo you want to generate images for more scripts? [y/N]: ").strip().lower()
-            except (KeyboardInterrupt, EOFError):
-                print("\nFinished image generation session.")
-                break
-
-            if create_more in ("y", "yes"):
-                if selected_mode == "fun_facts":
-                    target_script_ids = prompt_fun_facts_mode(require_existing_state=True, base_dir=base_dir)
-                elif selected_mode == "ready_scripts":
-                    target_script_ids = prompt_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
-                elif selected_mode == "mass_ready_scripts":
-                    target_script_ids = prompt_mass_ready_scripts_mode(require_existing_state=True, base_dir=base_dir)
-                else:
-                    target_script_ids = prompt_group_range(require_existing_state=True, base_dir=base_dir)
-                if target_script_ids:
-                    continue
-                else:
-                    break
-            else:
-                print("\nFinished image generation session.")
-                break
-        else:
-            break
-
-    ensure_llama_stopped()
-    return 0
-
-if __name__ == "__main__":
-    sys.exit(main())
-

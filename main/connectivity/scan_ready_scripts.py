@@ -2,7 +2,7 @@
 """
 scan_ready_scripts.py — Interactive CLI for Scanning Ready Scripts (Columns E through H).
 
-Scans Google Sheets for rows where script_ready is True (and video_ready is False),
+Scans Google Sheets for approved scripts that still need production,
 extracts ID and expression, and groups them into date-named CSV tracking files:
 <OUTPUT_DIR>/connectivity/ready_scripts/<YYYY-MM-DD>_ready_scripts.csv
 
@@ -72,8 +72,8 @@ def print_banner(output_dir: Path) -> None:
     print("=" * 66)
     print("       LINGOVERSE — SCAN READY SCRIPTS BY DATE (FEATURE 5)")
     print("=" * 66)
-    print(" Target Rule     : script_ready is TRUE and video_ready is FALSE")
-    print(" Exclusion Rule  : video_ready is TRUE (already completed video)")
+    print(" Target Rule     : script_ready is TRUE and production is pending")
+    print(" Exclusion Rule  : legacy completion flag or scheduled with completed assembly")
     print(f" Output Directory: {output_dir}")
     print(" Output Schema   : ID, expression")
     print(" Naming Format   : <YYYY-MM-DD>_ready_scripts.csv")
@@ -206,7 +206,7 @@ def run_all_sheets_flow(
     print("=" * 66)
     print(f"  Sheets Scanned         : {summary['successful_sheets']}/{summary['total_sheets']}")
     print(f"  Total Rows Evaluated   : {summary['total_evaluated']}")
-    print(f"  Completed Videos Skips : {summary['total_video_ready_excluded']} (video_ready == True)")
+    print(f"  Completed Videos Skips : {summary['total_video_ready_excluded']}")
     print(f"  Total Ready Scripts    : {summary['total_ready']}")
     print(f"  Daily Files Created    : {save_result['total_files']}")
     print("-" * 66)

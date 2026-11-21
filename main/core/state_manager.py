@@ -18,6 +18,11 @@ TYPE_MAP = {
     "F": "fun_facts",
 }
 
+DOWNSTREAM_STAGES = (
+    "voice_generation", "image_generation", "thumbnail_generation", "video_assembly", "drive_upload",
+)
+
+
 def resolve_lang_and_type(script_id: str, state: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
     """Resolves (language, video_type) from canonical script_id or state dict.
     Returns lowercase pairs like ('english', 'expression'), ('french', 'game'), ('italian', 'roleplay'), ('spanish', 'fun_facts').

@@ -104,12 +104,14 @@ class JobManager:
     Guarantees a single GPU execution lane so multiple stages/jobs never contend for VRAM.
     """
 
-    def __init__(self):
+    def __init__(self, base_dir=None, *, on_job_finished=None):
+        self._on_job_finished = on_job_finished
         self._jobs: Dict[str, JobResponse] = {}
-        self._queue: queue.Queue[str] = queue.Queue()
+        self._queue: queue.Queue[str | None] = queue.Queue()
         self._cancelled_jobs: Set[str] = set()
         self._current_job_id: Optional[str] = None
         self._lock = threading.Lock()
+        self._closed = False
 
         # WebSocket subscribers: job_id -> set of (ws, loop)
         self._subscribers: Dict[str, Set[tuple[WebSocket, asyncio.AbstractEventLoop]]] = {}
@@ -117,18 +119,35 @@ class JobManager:
 
         # Registered stage adapters
         self._adapters: Dict[JobStage, BaseStageAdapter] = {
-            JobStage.SCRIPTS: ScriptsAdapter(),
-            JobStage.VOICE: VoiceAdapter(),
-            JobStage.IMAGES: ImagesAdapter(),
-            JobStage.THUMBNAILS: ThumbnailsAdapter(),
-            JobStage.ASSEMBLY: AssemblyAdapter(),
-            JobStage.CHALKBOARD: ChalkboardAdapter(),
-            JobStage.DRIVE_UPLOAD: DriveAdapter(),
+            JobStage.SCRIPTS: ScriptsAdapter(base_dir),
+            JobStage.VOICE: VoiceAdapter(base_dir),
+            JobStage.IMAGES: ImagesAdapter(base_dir),
+            JobStage.THUMBNAILS: ThumbnailsAdapter(base_dir),
+            JobStage.ASSEMBLY: AssemblyAdapter(base_dir),
+            JobStage.CHALKBOARD: ChalkboardAdapter(base_dir),
+            JobStage.DRIVE_UPLOAD: DriveAdapter(base_dir),
         }
 
         # Start background worker daemon
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
+
+    def close(self) -> None:
+        """Stop accepting work and let the current adapter unwind before shutdown."""
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            active_ids = [
+                job_id for job_id, job in self._jobs.items()
+                if job.status in (JobStatus.QUEUED, JobStatus.RUNNING)
+            ]
+        for job_id in active_ids:
+            self.cancel_job(job_id)
+        self._queue.put(None)
+        self._worker_thread.join(timeout=30)
+        if self._worker_thread.is_alive():
+            logger.warning("Production worker did not stop within 30 seconds.")
 
     def register_adapter(self, stage: JobStage, adapter: BaseStageAdapter) -> None:
         """Registers a stage execution adapter."""
@@ -156,6 +175,8 @@ class JobManager:
         )
 
         with self._lock:
+            if self._closed:
+                raise RuntimeError("Production worker is closed.")
             self._jobs[job_id] = job
             self._queue.put(job_id)
 
@@ -272,15 +293,14 @@ class JobManager:
     def _worker_loop(self) -> None:
         """Sequential worker daemon that processes jobs one by one."""
         while True:
+            job_id = self._queue.get()
             try:
-                job_id = self._queue.get()
-                if not job_id:
-                    continue
+                if job_id is None:
+                    return
 
                 with self._lock:
                     job = self._jobs.get(job_id)
                     if not job or job.status == JobStatus.CANCELLED:
-                        self._queue.task_done()
                         continue
 
                     job.status = JobStatus.RUNNING
@@ -289,6 +309,8 @@ class JobManager:
 
                 self._broadcast_job_event(job_id, {"type": "job_started", "job_id": job_id})
                 self._execute_job(job)
+                if self._on_job_finished:
+                    self._on_job_finished()
 
             except Exception as exc:
                 logger.error(f"[Worker Error] Unhandled exception in job loop: {exc}", exc_info=True)
@@ -379,26 +401,14 @@ class JobManager:
 
         except Exception as exc:
             with self._lock:
-                if self.is_cancelled(job_id):
-                    job.status = JobStatus.CANCELLED
-                    job.finished_at = time.time()
-                    emit_log("Job execution halted (cancelled by user).")
-                    self._broadcast_job_event(job_id, {"type": "job_cancelled", "job_id": job_id})
-                    return
-                err_msg = str(exc)
-                emit_log(f"FATAL EXCEPTION: {err_msg}")
-                job.status = JobStatus.FAILED
+                cancelled = self.is_cancelled(job_id)
+                job.status = JobStatus.CANCELLED if cancelled else JobStatus.FAILED
                 job.finished_at = time.time()
-                job.error = err_msg
-            self._broadcast_job_event(job_id, {"type": "job_failed", "job_id": job_id, "error": err_msg})
-
-
-_JOB_MANAGER_INSTANCE: Optional[JobManager] = None
-
-
-def get_job_manager() -> JobManager:
-    """Returns the singleton JobManager instance."""
-    global _JOB_MANAGER_INSTANCE
-    if _JOB_MANAGER_INSTANCE is None:
-        _JOB_MANAGER_INSTANCE = JobManager()
-    return _JOB_MANAGER_INSTANCE
+                if not cancelled:
+                    job.error = str(exc)
+            if cancelled:
+                emit_log("Job execution halted (cancelled by user).")
+                self._broadcast_job_event(job_id, {"type": "job_cancelled", "job_id": job_id})
+            else:
+                emit_log(f"FATAL EXCEPTION: {exc}")
+                self._broadcast_job_event(job_id, {"type": "job_failed", "job_id": job_id, "error": str(exc)})

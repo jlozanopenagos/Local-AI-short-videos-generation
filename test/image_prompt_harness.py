@@ -113,7 +113,7 @@ class FakeLLM:
 
 
 def make_builder(llm: FakeLLM):
-    from _C_image_generation.core.prompt_builder import VisualPromptBuilder
+    from video_creation._C_image_generation.core.prompt_builder import VisualPromptBuilder
 
     builder = VisualPromptBuilder(api_base_url="http://fake/v1", api_key="fake", model_name="fake")
     builder._client = llm
@@ -130,8 +130,7 @@ def load_state(script_id: str) -> Dict[str, Any]:
 
 
 def _scene_names_for(state: Dict[str, Any]) -> List[str]:
-    from _B_voice_generation.core.script_parser import parse_sections
-    from _C_image_generation import main as c_main  # noqa: F401  (ensures path setup)
+    from video_creation._B_voice_generation.core.script_parser import parse_sections
 
     sections = parse_sections(state.get("script_text", ""))
     return [k.strip().lower() for k in sections.keys()]
@@ -141,9 +140,9 @@ def capture_script(state: Dict[str, Any], *, include_single_scene: bool = True) 
     """Run the real pipeline entry points against a fake LLM and return everything observed."""
     import copy
 
-    from _B_voice_generation.core.script_parser import parse_sections
-    from _C_image_generation import main as c_main
-    from _C_image_generation.core import prompt_builder as pb
+    from video_creation._B_voice_generation.core.script_parser import parse_sections
+    from video_creation._C_image_generation import service as c_main
+    from video_creation._C_image_generation.core import prompt_builder as pb
 
     state = copy.deepcopy(state)
     script_id = state["id"]
@@ -225,7 +224,7 @@ def capture_script(state: Dict[str, Any], *, include_single_scene: bool = True) 
 
 def capture_sanitizer() -> Dict[str, str]:
     """Single and double application (production applies it twice: storyboard, then process_script)."""
-    from _C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+    from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
 
     out: Dict[str, str] = {}
     for probe in SANITIZER_PROBES:
@@ -236,7 +235,7 @@ def capture_sanitizer() -> Dict[str, str]:
 
 
 def capture_environment_cases() -> Dict[str, str]:
-    from _C_image_generation.core.prompt_builder import resolve_anchor_environment
+    from video_creation._C_image_generation.core.prompt_builder import resolve_anchor_environment
 
     cases = {
         "scenario_bakery": dict(script_text="x", scenario="at a bakery counter"),

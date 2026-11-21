@@ -131,15 +131,14 @@ class TestVoiceCharacterization(unittest.TestCase):
         self.comfy_input_dir = self.tmp_root / "comfy_input"
         self.comfy_input_dir.mkdir(parents=True, exist_ok=True)
 
-        self.real_sm = StateManager(config.BASE_DIR)
+        self.fixture_dir = Path(__file__).resolve().parents[1] / "fixtures" / "image_prompts" / "states"
         self.test_sm = StateManager(self.base_dir)
 
     def tearDown(self):
         self._tmp.cleanup()
 
     def _prepare_golden_state(self, script_id: str) -> dict:
-        self.assertTrue(self.real_sm.script_exists(script_id), f"Missing golden script {script_id}")
-        raw = copy.deepcopy(self.real_sm.get_script_state(script_id))
+        raw = json.loads((self.fixture_dir / f"script_{script_id}.json").read_text(encoding="utf-8"))
         lang = config.resolve_script_language(raw)
         vtype = config.resolve_script_video_type(raw)
         # Clear legacy speakers_voice so fresh casting runs cleanly inside test sandbox

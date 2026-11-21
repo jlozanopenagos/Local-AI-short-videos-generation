@@ -20,7 +20,7 @@ if str(MAIN_DIR) not in sys.path:
 from config import BASE_DIR
 
 from core.llama_manager import get_llama_manager
-from core.state_manager import StateManager, resolve_lang_and_type
+from core.state_manager import DOWNSTREAM_STAGES, StateManager, resolve_lang_and_type
 from video_creation._A_video_scripts.api import generate_script_for_payload
 from video_creation._A_video_scripts.registry import ScriptEngineRegistry
 from webui.jobs.adapters.base import BaseStageAdapter
@@ -327,15 +327,12 @@ class ScriptsAdapter(BaseStageAdapter):
                 state["content_metadata"] = content_meta
                 state["status"]["script_generation"] = "done"
 
-                # If script was regenerated, invalidate downstream voice so it stays in sync!
-                state["status"]["voice_generation"] = "pending"
+                state["status"].update(dict.fromkeys(DOWNSTREAM_STAGES, "pending"))
+                assets = state.setdefault("assets", {})
+                assets.pop("image_prompts", None)
+                assets.pop("images", None)
 
                 sm.save_script_state(script_id, state)
-                try:
-                    from webui.routers.scripts import _get_indexed_scripts
-                    _get_indexed_scripts(force_refresh=True)
-                except Exception:
-                    pass
                 success_count += 1
                 emit_log(
                     f"[{script_id}] Successfully generated script ({result.spoken_words} spoken words, "

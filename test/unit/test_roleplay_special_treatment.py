@@ -39,7 +39,7 @@ from video_creation._A_video_scripts.prompts.prompt_builder import (
     validate_params,
 )
 # pyrefly: ignore [missing-import]
-from video_creation._A_video_scripts.main import validate_idiomatic_roleplay
+from video_creation._A_video_scripts.legacy_generation import validate_idiomatic_roleplay
 
 
 # ---------------------------------------------------------------------------

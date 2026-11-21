@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import tempfile
 import unittest
 import wave
@@ -40,6 +41,8 @@ from video_creation._G_video_assembly.core.video_assembler import VideoAssembler
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FFMPEG_BIN = (REPO_ROOT / "main" / "video_creation" / "_G_video_assembly" / "ffmpeg.exe").resolve()
 FFPROBE_BIN = (REPO_ROOT / "main" / "video_creation" / "_G_video_assembly" / "ffprobe.exe").resolve()
+FFMPEG_AVAILABLE = FFMPEG_BIN.is_file() or shutil.which("ffmpeg")
+FFPROBE_AVAILABLE = FFPROBE_BIN.is_file() or shutil.which("ffprobe")
 
 
 def _write_silent_wav(path: Path, duration_sec: float, sample_rate: int = 22050) -> None:
@@ -177,9 +180,10 @@ class TestMotionTransitionsAndAudio(unittest.TestCase):
         self.assertIn("+0.04000*between(t,10.000,13.000)", rp_expr)
 
 
-@unittest.skipUnless(FFMPEG_BIN.exists() and FFPROBE_BIN.exists(), "Bundled ffmpeg.exe/ffprobe.exe required")
 class TestRealFfmpegTypedAssemblySmoke(unittest.TestCase):
     def test_end_to_end_assemble_all_four_video_types(self):
+        if not (FFMPEG_AVAILABLE and FFPROBE_AVAILABLE):
+            self.fail("Install FFmpeg and FFprobe to run production assembly tests.")
         """Renders synthetic short videos for EXPRESSION, GAME, ROLEPLAY, and FUN_FACTS via real FFmpeg."""
         type_configs = [
             ("EE99", "expression", "english", ["hook", "setup", "payoff"]),
@@ -263,7 +267,7 @@ class TestRealFfmpegTypedAssemblySmoke(unittest.TestCase):
                     self.assertTrue(out_mp4.exists())
                     self.assertGreater(out_mp4.stat().st_size, 5000)
 
-                    probe = ffmpeg.probe(out_mp4.as_posix(), cmd=FFPROBE_BIN.as_posix())
+                    probe = ffmpeg.probe(out_mp4.as_posix(), cmd=FFPROBE_BIN.as_posix() if FFPROBE_BIN.is_file() else "ffprobe")
                     v_streams = [s for s in probe["streams"] if s["codec_type"] == "video"]
                     a_streams = [s for s in probe["streams"] if s["codec_type"] == "audio"]
                     self.assertEqual(len(v_streams), 1)
@@ -275,37 +279,62 @@ class TestRealFfmpegTypedAssemblySmoke(unittest.TestCase):
                     self.assertAlmostEqual(actual_dur, expected_dur, delta=0.35)
 
 
-class TestForceDeleteExistingVideo(unittest.TestCase):
-    def test_delete_existing_final_video_removes_canonical_and_asset_paths(self):
-        """Verifies Stage G helper deletes old .mp4 files and resets status/assets before re-assembly."""
-        # pyrefly: ignore [missing-import]
-        from video_creation._G_video_assembly.main import delete_existing_final_video
+class TestAssemblyReplacement(unittest.TestCase):
+    def test_replacement_publishes_only_after_successful_render(self):
+        from video_creation._G_video_assembly import service as assembly
 
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = Path(tmp) / "script_EE99"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            canonical_mp4 = out_dir / "script_EE99_final.mp4"
-            canonical_mp4.write_bytes(b"old-canonical-video")
-            custom_mp4 = Path(tmp) / "legacy_location" / "custom_EE99.mp4"
-            custom_mp4.parent.mkdir(parents=True, exist_ok=True)
-            custom_mp4.write_bytes(b"old-custom-video")
+            out_dir = Path(tmp)
+            (out_dir / "images").mkdir()
+            audio = out_dir / "audio.wav"
+            audio.touch()
+            (out_dir / "timings.json").write_text("{}", encoding="utf-8")
+            subtitles = out_dir / "subtitles.ass"
+            subtitles.touch()
+            final_video = out_dir / "script_EE99_final.mp4"
+            final_video.write_bytes(b"previous render")
 
             script_data = {
                 "id": "EE99",
-                "assets": {"final_video": str(custom_mp4)},
-                "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "done"},
+                "assets": {
+                    "audio_path": str(audio),
+                    "image_dir": str(out_dir / "images"),
+                    "final_video": str(final_video),
+                },
+                "status": {
+                    "voice_generation": "done",
+                    "image_generation": "done",
+                    "video_assembly": "done",
+                },
             }
+            state_manager = mock.Mock()
+            assembler = mock.Mock()
 
-            deleted = delete_existing_final_video(script_data, out_dir)
-            self.assertEqual(len(deleted), 2)
-            self.assertFalse(canonical_mp4.exists())
-            self.assertFalse(custom_mp4.exists())
-            self.assertNotIn("final_video", script_data["assets"])
-            self.assertEqual(script_data["status"]["video_assembly"], "pending")
+            def render(*args, **kwargs):
+                output = args[5]
+                self.assertNotEqual(output, final_video)
+                self.assertEqual(final_video.read_bytes(), b"previous render")
+                output.write_bytes(b"replacement render")
+                return assembler.assemble.call_count == 2
 
-            # Idempotent second call when files are already gone
-            deleted_again = delete_existing_final_video(script_data, out_dir)
-            self.assertEqual(deleted_again, [])
+            assembler.assemble.side_effect = render
+            with mock.patch.object(assembly, "get_script_output_dir", return_value=out_dir), \
+                 mock.patch.object(assembly, "resolve_bank_music", return_value=None), \
+                 mock.patch.object(assembly, "resolve_opening_closure_paths", return_value=(None, None)):
+                def assemble():
+                    return assembly.process_script(
+                        script_data, state_manager, assembler=assembler,
+                        ass_path=subtitles, regenerate_subtitles=False, dialect="default",
+                    )
+
+                self.assertFalse(assemble())
+                self.assertEqual(final_video.read_bytes(), b"previous render")
+                state_manager.save_script_state.assert_not_called()
+                self.assertTrue(assemble())
+
+            self.assertEqual(final_video.read_bytes(), b"replacement render")
+            self.assertFalse(list(out_dir.glob(".assembly-*")))
+            state_manager.save_script_state.assert_called_once_with("EE99", script_data)
 
 
 if __name__ == "__main__":

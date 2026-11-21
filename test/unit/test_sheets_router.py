@@ -19,7 +19,6 @@ if "webui" in sys.modules and not hasattr(sys.modules["webui"], "__path__"):
 # pyrefly: ignore[missing-import]
 from webui.routers.sheets import (
     router,
-    _SHEETS_SYNC_STATE,
     _run_sheets_sync_worker,
     _count_existing_csvs,
     reset_sheets_sync_status,

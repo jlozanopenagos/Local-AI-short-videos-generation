@@ -1,212 +1,48 @@
-# Shorts Automation: Automated Generative Short-Form Video Pipeline
+# Shorts Automation
 
-An enterprise-grade, deterministic automated pipeline engineered for high-throughput production of educational vertical short-form videos (**YouTube Shorts**, **TikTok**, **Instagram Reels**) tailored for language learners across four target languages: **English**, **French**, **Spanish**, and **Italian**.
+Shorts Studio produces vertical language-learning videos in English, French, Spanish, and Italian. Each language supports Expression, Game, Roleplay, and Fun Facts.
 
-The architecture combines local multi-modal generative AI backends (**ComfyUI Diffusion & TTS**, **faster-whisper**, **Transformers MusicGen**, and **FFmpeg** compositing) with an OpenAI-compatible LLM for organic, retention-optimized pedagogical scriptwriting.
+This repository contains the production studio. The separate `GoogleSheet_UI_auditor` project handles editorial review and release planning in Google Sheets. `ComfyUI_windows_portable` supplies the rendering and speech runtime. The studio also has a Gemini tool for reviewing image prompts.
 
-> [!NOTE]
-> **Repository Boundary**: `shorts_automation` is a standalone, independent Git repository dedicated exclusively to automated generative video production. While it shares the broader ecosystem objective with sibling projects (e.g. `GoogleSheet_UI_auditor`), it is completely isolated and decoupled, exchanging data only via Google Sheets Apps Script Web App endpoints and standardized CSV schemas.
+## Start the studio
 
----
+Run these commands from the repository root in PowerShell. For a new setup, configure the local llama.cpp and ComfyUI services, their model and voice assets, and FFmpeg and FFprobe. Configure Sheets, Drive, and Gemini for the features you use.
 
-## Repository Architecture
-
-The codebase is strictly organized into two isolated domains:
-
-```text
-shorts_automation/
-├── .git/                               # Central Git version control repository
-├── .gitignore                          # Global exclusion rules protecting secrets, media & cache
-├── main/                               # Production pipeline and core applications
-│   ├── config/                         # Central configuration, paths, and health checks
-│   ├── connectivity/                   # Google Sheets integration suite (fetch, sync, safe publish)
-│   ├── core/                           # Shared infrastructure, DB models, state machine, llama manager
-│   ├── database/                       # Centralized expression stores (SQLite + CSV)
-│   ├── input/                          # Proprietary prompt CSV queues & brand image assets
-│   ├── state/                          # Runtime script state artifacts (JSON)
-│   ├── tools/                          # CLI utilities (webui, llama, comfy, check_script_changes, modifiers)
-│   ├── webui/                          # Modern WebUI studio (FastAPI server + React 19 SPA frontend)
-│   ├── video_creation/                 # 6 generation stages (_A through _G)
-│   ├── main.py                         # Primary execution orchestrator
-│   ├── requirements.txt                # Production runtime dependencies
-│   ├── system_prompts_editor.csv       # External LLM system prompts for script doctoring
-│   ├── .env.example                    # Environment variable configuration template
-│   └── README.md                       # Comprehensive operational manual
-└── test/                               # Isolated QA test suite and validation layer
-    ├── connectivity/                   # Google Sheets integration & data contract tests
-    ├── integration/                    # DB, status tracker, schema contracts, security & mock service health tests
-    ├── unit/                           # Pure unit tests for core pipeline modules
-    ├── webui/                          # WebUI API & Job Manager test layer
-    ├── conftest.py                     # Shared pytest/unittest fixtures & sys.path setup
-    ├── pytest.ini                      # Pytest discovery settings and custom test markers
-    ├── README.md                       # Test suite documentation & CLI execution guide
-    ├── requirements-test.txt           # Test-specific dependencies (pytest)
-    └── run_tests.py                    # Standalone CLI test runner (zero external dependencies)
-```
-
----
-
-## Quick Start
-
-### 1. Prerequisites
-- Python 3.10+ (Windows `py` launcher or `python3`)
-- NVIDIA GPU with 6GB+ VRAM (recommended for local ComfyUI generation)
-- Local ComfyUI instance with Qwen3-TTS and Flux workflows
-
-### 2. Environment Setup
 ```powershell
-# Copy environment template inside main/
 Copy-Item main/.env.example main/.env
-
-# Install production dependencies
-pip install -r main/requirements.txt
-```
-
-### 3. Running the Pipeline
-
-#### Option A: Modern WebUI Dashboard (Recommended)
-Launch the unified browser-based management studio:
-```powershell
+py -m pip install -r main/requirements.txt
 py main/tools/webui.py
 ```
-Automatically launches FastAPI, serves the React 19 SPA on `http://127.0.0.1:8190`, and opens your default browser with access to Dashboard, Job Queue, Google Sheets Sync, and Mass Assets Creation.
 
-#### Option B: Terminal Orchestrator & CLI Stages
-```powershell
-# Run the master orchestrator
-py main/main.py
+The launcher serves the studio on `http://127.0.0.1:8190` by default. For an existing setup, keep your configured `main/.env`.
 
-# Run individual generation stages (with interactive 10s countdown or CLI flags)
-py main/video_creation/_A_video_scripts/main.py --script-id EE01 --force
-py main/video_creation/_B_voice_generation/main.py --auto --candidates 3
-# Optional neutral accent override or engine rollback: --accent es_latam_neutral --engine typed|legacy
-py main/video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/batch.csv
-py main/video_creation/_G_video_assembly/main.py --script-id EE01
-```
+## Production workflow
 
-### 4. Running the Automated QA Test Suite
-The test layer requires zero external dependencies and runs completely in memory or isolated temporary sandboxes:
-```powershell
-# Run all 450 automated tests across 48 test files in 4 QA layers (unit, integration & contracts, connectivity, webui)
-py test/run_tests.py
+1. Generate a lesson script from **Script Catalog**, or bring reviewed Google Sheets revisions into existing local scripts with **Sheets Sync**.
+2. Queue **Voice**, **Scene Images**, and **Thumbnails** from the catalog or **Mass Creation**. Mass Creation accepts pasted IDs, an ID CSV, or a catalog selection. It offers image seeds, voice accents and engine selection, and recasting.
+3. Queue **Video Assembly** after voice and images complete. FFmpeg combines the audio, illustrations, subtitles, music, and branding into a vertical MP4. Enable subtitle reuse to keep existing captions when available.
+4. Track execution in **Queue**, inspect media in the script details, and use **Drive Upload** to deliver the finished video and thumbnail.
 
-# Run specific layers
-py test/run_tests.py --unit
-py test/run_tests.py --integration
-py test/run_tests.py --contract
-py test/run_tests.py --security
-py test/run_tests.py --connectivity
-py test/run_tests.py --webui
-```
+Per-script JSON under `main/state/` records production status and references to assets. Generated media lives under the configured `OUTPUT_DIR`. Use the live catalog or the status tools for inventory.
 
-### 5. Expression Database & CLI Tools
-```powershell
-# View database statistics across all languages
-py main/tools/database/db.py stats
+The WebUI is the production entry point. Operator tools cover service supervision, voice and music bank generation, teaser extraction, and database and Sheets maintenance.
 
-# Synchronize input CSV queues with SQLite expressions.db
-py main/tools/database/sync_prompts.py
+## Verification
 
-# Run real-time pipeline audit dashboard across all languages
-py main/tools/auditing/status_scraper.py
+Run `py -m pytest test -m "not live"` after completing the [test setup](test/README.md). The suite includes an isolated Sheets-to-MP4 workflow with real FFmpeg, a browser retry and preview check, and focused engine tests. Windows CI builds the frontend and runs the deterministic and browser checks. The real ComfyUI GPU test is opt-in.
 
-# Mass reset pipeline stage status across state files (e.g. voice_generation to pending)
-py main/tools/database/reset_stage_status.py --stage voice_generation --yes
+## Project guides
 
-# Audit and synchronize Column D script corrections (from Google Sheets) to State JSONs
-py main/tools/check_script_changes.py --check-only
-py main/tools/check_script_changes.py --apply
+- [Architecture and configuration](main/README.md)
+- [Studio and API](main/webui/README.md)
+- [Sheets and Drive](main/connectivity/README.md)
+- [State schema](main/state/README.md)
+- [Operator tools](main/tools/README.md)
+- [Contributor guidance](main/AGENTS.md)
 
-# Headless ComfyUI Supervisor (Windowless background daemon, zero QuickEdit freezes)
-py main/tools/comfy.py start
-py main/tools/comfy.py status
-py main/tools/comfy.py logs -f
-py main/tools/comfy.py stop
+## Historical release notes
 
-# Headless LLM Supervisor (llama.cpp server management & VRAM arbitration)
-py main/tools/llama.py start
-py main/tools/llama.py status
-py main/tools/llama.py logs -f
-py main/tools/llama.py stop
-```
-
-### 6. Google Sheets Connectivity Suite
-```powershell
-# Feature 1: Synchronize Google Sheets to local connectivity CSVs (3 or 4 columns)
-py main/connectivity/sync_sheets.py
-
-# Feature 2: Pull Column D (SCRIPT_CHANGED) revisions to input/csv/script_to_change/
-py main/connectivity/fetch_corrected_scripts.py
-
-# Feature 2b: Audit and apply Column D script changes to local state JSONs (resetting downstream stages)
-py main/tools/check_script_changes.py --check-only
-py main/tools/check_script_changes.py --apply
-
-# Feature 3: Reconcile local scripts to match Google Sheets order into scripts_to_post/
-py main/connectivity/reconcile_scripts.py
-
-# Feature 4: Safely publish scripts to Google Sheets (3-col or 4-col options)
-py main/connectivity/post_scripts.py
-
-# Feature 5: Scan ready scripts (Columns E-H) and export daily CSVs by date
-py main/connectivity/scan_ready_scripts.py --all
-```
-
-### 7. Google Drive Sync & Asset Export Suite
-```powershell
-# Upload all completed videos & companion thumbnails to structured Google Drive folders
-py main/connectivity/sync_drive.py --all
-
-# Upload a single script's video and thumbnail bundle
-py main/connectivity/sync_drive.py --script-id EE01
-
-# Filter by language and video format
-py main/connectivity/sync_drive.py --all --language spanish --video-type game
-```
-
----
-
-## Documentation Links
-
-- **[main/README.md](main/README.md)**: Full operational manual, narrative engineering principles, 4 content formats, hardware optimization guide, and modifier ecosystem.
-- **[main/webui/README.md](main/webui/README.md)**: WebUI backend manual, API endpoints, job runner, SSE streaming, and launcher.
-- **[main/webui/frontend/README.md](main/webui/frontend/README.md)**: WebUI frontend architecture, React 19 SPA, 4 primary views, and build workflow.
-- **[main/connectivity/README.md](main/connectivity/README.md)**: Google Sheets connectivity manual, Option A routing, Apps Script deployment, and safe publishing rules.
-- **[main/AGENTS.md](main/AGENTS.md)**: System architecture, agent guidelines, prompt rules, and developer directives.
-- **[main/input/csv/README.md](main/input/csv/README.md)**: Prompt queue schemas and `script_to_change` verbatim ingestion guide.
-- **[main/state/README.md](main/state/README.md)**: State directory architecture, GAME format rules, and downstream stage invalidation.
-- **[test/README.md](test/README.md)**: QA engineering principles, test suite structure, and CI test runner guide.
-
----
-
-## Current Production State & Asset Inventory
-
-The pipeline manages a canonical master catalog of **1,224 language learning scripts** across four target languages and four video formats, coordinated through `main/core/state_manager.py` and persistent output storage at `D:\AI\output\video_assets`.
-
-### 1. Script State Catalog Breakdown
-- **Total Master Scripts**: **1,224**
-  - **English (372)**: 100 Expression (`EE`), 100 Game (`EG`), 100 Roleplay (`ER`), 72 Fun Facts (`EF`)
-  - **French (270)**: 90 Expression (`FE`), 90 Game (`FG`), 90 Roleplay (`FR`)
-  - **Spanish (279)**: 93 Expression (`SE`), 93 Game (`SG`), 93 Roleplay (`SR`)
-  - **Italian (303)**: 105 Expression (`IE`), 105 Game (`IG`), 105 Roleplay (`IR`)
-- **Stage A (Script Generation)**: **1,223 / 1,224 DONE** (99.9% complete)
-
-### 2. Physical Assets on Disk (`D:\AI\output\video_assets`)
-- **Master Voiceovers (`*_master.wav`)**: **190 completed audio files**
-- **Scene Image Sets (`images/` folders with ≥4 PNGs)**: **249 completed scene sets**
-- **YouTube Thumbnails (`thumbnail.png`)**: **803 completed thumbnails**
-- **Final Assembled Videos (`*_final.mp4`)**: **155 completed videos**
-- **Standing BGM Jam Bank (`D:\AI\output\bank_music`)**: **160 pre-rendered music tracks** (10 curated jams per category across all 16 language/type matrices)
-
-> [!NOTE]
-> **State Machine Invalidation Behavior**: Whenever Column D script edits are synced from Google Sheets or applied via `check_script_changes.py --apply`, downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) are intentionally invalidated back to `"pending"`. This architectural safety gate ensures modified spoken wording is deterministically re-rendered into audio, subtitles, and video, explaining why 155 `.mp4` videos exist on disk while the tracking database marks scripts as pending re-render.
-
-### 3. QA Testing Metrics
-- **Automated Tests**: **450 tests across 48 test files passing 100%** across Unit, Integration & Schema Contracts, Connectivity, WebUI API, and Google Drive Sync layers (`py test/run_tests.py`).
-
----
-
-## Recent Changes
+These notes describe earlier releases. Use the instructions above for the current workflow.
 
 ### Latest Release: Stage B Modular Voice Generation (`voice/`), 68-Clip VoiceDesign Bank & Broadcast Mastering
 - **Modular Language & Video-Type Voice Package (`_B_voice_generation/voice/`)**:
@@ -235,7 +71,7 @@ The pipeline manages a canonical master catalog of **1,224 language learning scr
   - **Unified Credential Resolution**: Auto-resolves credentials from `--credentials`, `GOOGLE_APPLICATION_CREDENTIALS`, or `main/credentials/` (`token.json` -> `service_account.json` -> `client_secret.json`).
 - **Cultural World Atlas (124 Culturally Grounded Worlds) & Stage G Modular Video Assembly (`_G_video_assembly/assembly/`)**:
   - **Cultural Worlds & Gemini Auditor Reroll**: Replaced generic studio/workshop/greenhouse/drafting-vest tropes with **124 culturally authentic venues** across 4 languages (36 English, 32 Spanish, 28 French, 28 Italian), Triplet Collision Guard, and automatic Cultural World reroll excluding prior drafts.
-  - **Per-Type Editing Grammar & Forced Mass Assembly**: Decoupled `assembly/types/{expression,game,roleplay,fun_facts}/` with cosine-eased Ken Burns motion, **Lower-Middle Safe Zone** subtitles, `ROLEPLAY` speaker color-coding, frame-accurate `xfade` transitions, and forced delete-and-recreate in `AssemblyAdapter`.
+  - **Per-Type Editing Grammar & Forced Mass Assembly**: Decoupled `assembly/types/{expression,game,roleplay,fun_facts}/` with cosine-eased Ken Burns motion, **Lower-Middle Safe Zone** subtitles, `ROLEPLAY` speaker color-coding, frame-accurate `xfade` transitions, and staged replacement in `AssemblyAdapter`.
 - **QA Test Suite**: Isolated `test_chalkboard_adapter.py` into a temporary sandbox and expanded verified coverage to **436 automated tests across 46 test files** passing 100% (`py test/run_tests.py`).
 
 ### Previous Release: Google Drive Sync Suite, Single Source of Truth Visual Anchors & Prompt Auditor 2.0

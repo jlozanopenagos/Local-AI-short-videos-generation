@@ -12,8 +12,6 @@ from PIL import Image, ImageDraw
 from video_creation._C_image_generation.core.chalkboard_renderer import (
     parse_quiz_exercise, fit_option_text, render_chalkboard_image, _get_font
 )
-# pyrefly: ignore[missing-import]
-from config import GAME_IMAGES_DIR
 
 
 class TestChalkboardRenderer(unittest.TestCase):
@@ -52,11 +50,10 @@ B) conTRACT"""
 
     def test_render_chalkboard_image_open_question_creates_image(self):
         """Verifies render_chalkboard_image runs end-to-end on an open question without options."""
-        empty_cb = GAME_IMAGES_DIR / "empty_chalkboard.png"
-        if not empty_cb.exists():
-            self.skipTest("empty_chalkboard.png not found")
         exercise_text = "A Natale ci riuniamo a cena soltanto con i miei parenti a casa mia. Qual è l'errore?"
         with tempfile.TemporaryDirectory() as tmp_dir:
+            empty_cb = Path(tmp_dir) / "empty_chalkboard.png"
+            Image.new("RGB", (576, 1024), "#254a40").save(empty_cb)
             dest = Path(tmp_dir) / "test_ig09_output.png"
             out = render_chalkboard_image(empty_cb, exercise_text, dest)
             self.assertTrue(out.exists())
@@ -87,12 +84,11 @@ B) conTRACT"""
 
     def test_render_chalkboard_image_fg19_creates_image(self):
         """Verifies render_chalkboard_image runs end-to-end on FG19 and produces target 576x1024 image."""
-        empty_cb = GAME_IMAGES_DIR / "empty_chalkboard.png"
-        if not empty_cb.exists():
-            self.skipTest("empty_chalkboard.png not found")
         exercise_text = """Il faut choisir vite ! Il dit:
 A: Napoléon était un un grand homme respecté dans toute l'Europe. B: Napoléon était un un homme grand respecté dans toute l'Europe."""
         with tempfile.TemporaryDirectory() as tmp_dir:
+            empty_cb = Path(tmp_dir) / "empty_chalkboard.png"
+            Image.new("RGB", (576, 1024), "#254a40").save(empty_cb)
             dest = Path(tmp_dir) / "test_fg19_output.png"
             out = render_chalkboard_image(empty_cb, exercise_text, dest)
             self.assertTrue(out.exists())
@@ -101,9 +97,6 @@ A: Napoléon était un un grand homme respecté dans toute l'Europe. B: Napoléo
 
     def test_render_chalkboard_image_four_options_creates_image(self):
         """Verifies render_chalkboard_image runs end-to-end with 4 options and produces valid image."""
-        empty_cb = GAME_IMAGES_DIR / "empty_chalkboard.png"
-        if not empty_cb.exists():
-            self.skipTest("empty_chalkboard.png not found")
         exercise_text = """Where is the mistake?
 "It depends ___ your decision."
 A) depend on
@@ -111,6 +104,8 @@ B) depend of
 C) depend from
 D) depend about"""
         with tempfile.TemporaryDirectory() as tmp_dir:
+            empty_cb = Path(tmp_dir) / "empty_chalkboard.png"
+            Image.new("RGB", (576, 1024), "#254a40").save(empty_cb)
             dest = Path(tmp_dir) / "test_four_opts_output.png"
             out = render_chalkboard_image(empty_cb, exercise_text, dest)
             self.assertTrue(out.exists())

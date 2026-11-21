@@ -121,10 +121,9 @@ class TestWatchdog(unittest.TestCase):
     @patch("video_creation._C_image_generation.core.comfy_client.time.sleep")
     def test_comfy_image_auto_interrupt_on_stall(self, mock_sleep, mock_load):
         client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
-        client.ensure_clean_slate = MagicMock()
         client._prepare_workflow = MagicMock(return_value={})
         client._queue_prompt = MagicMock(return_value="prompt-img")
-        client.interrupt = MagicMock(return_value=True)
+        client._http_post = MagicMock()
         client._download_image = MagicMock()
 
         success_history = {
@@ -147,7 +146,10 @@ class TestWatchdog(unittest.TestCase):
         )
 
         self.assertEqual(res, dest_path)
-        client.interrupt.assert_called_once()
+        self.assertEqual(
+            [call.kwargs["json"] for call in client._http_post.call_args_list],
+            [{"delete": ["prompt-img"]}, {"prompt_id": "prompt-img"}],
+        )
         self.assertEqual(client._queue_prompt.call_count, 2)
 
     @patch.object(ImageComfyClient, "_load_and_convert_workflow", return_value={})
@@ -165,6 +167,27 @@ class TestWatchdog(unittest.TestCase):
         mock_post.assert_called_once()
 
     @patch.object(ImageComfyClient, "_load_and_convert_workflow", return_value={})
+    def test_cancelled_batch_cleans_up_only_its_queued_prompts(self, mock_load):
+        client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
+        client._prepare_workflow = MagicMock(return_value={})
+        client._queue_prompt = MagicMock(side_effect=["first-owned-id", "second-owned-id"])
+        client._http_post = MagicMock()
+        tasks = [
+            {"prompt_text": "First", "filename_prefix": "Z/1", "dest_path": Path("first.png")},
+            {"prompt_text": "Second", "filename_prefix": "Z/2", "dest_path": Path("second.png")},
+        ]
+        cancelled = MagicMock(side_effect=[False, False, True])
+
+        with self.assertRaises(InterruptedError):
+            client.generate_images_batch(tasks, check_cancelled=cancelled)
+
+        self.assertEqual(
+            [call.kwargs["json"] for call in client._http_post.call_args_list],
+            [{"delete": ["first-owned-id", "second-owned-id"]},
+             {"prompt_id": "first-owned-id"}, {"prompt_id": "second-owned-id"}],
+        )
+
+    @patch.object(ImageComfyClient, "_load_and_convert_workflow", return_value={})
     def test_generate_images_batch_empty_tasks(self, mock_load):
         """Verify generate_images_batch returns empty dict when no tasks provided."""
         client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
@@ -176,7 +199,6 @@ class TestWatchdog(unittest.TestCase):
     def test_generate_images_batch_fifo_pipeline(self, mock_sleep, mock_load):
         """Verify generate_images_batch enqueues all tasks upfront and collects images in order."""
         client = ImageComfyClient("http://127.0.0.1:8188", Path("dummy_workflow.json"))
-        client.ensure_clean_slate = MagicMock()
         client._prepare_workflow = MagicMock(return_value={})
         client._queue_prompt = MagicMock(side_effect=["prompt-1", "prompt-2", "prompt-3"])
         client._download_image = MagicMock()

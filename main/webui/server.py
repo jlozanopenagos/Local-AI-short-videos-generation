@@ -5,6 +5,9 @@ webui/server.py — FastAPI application factory, CORS setup, and router mounting
 from __future__ import annotations
 
 import sys
+from contextlib import asynccontextmanager
+
+from starlette.concurrency import run_in_threadpool
 from pathlib import Path
 
 # pyrefly: ignore[missing-import]
@@ -18,17 +21,41 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+from webui.jobs.manager import JobManager
 from webui.settings import STATIC_DIR, WEBUI_DEV_MODE
 from webui.routers import system, scripts, media, jobs, sheets, drive
 
 
-def create_app() -> FastAPI:
+def create_app(base_dir: Path | None = None) -> FastAPI:
     """Builds and configures the FastAPI application."""
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        try:
+            yield
+        finally:
+            await run_in_threadpool(app.state.job_manager.close)
+
     app = FastAPI(
+        lifespan=lifespan,
         title="LingoVerse Shorts Studio API",
         description="Localhost REST and WebSocket API for AI Shorts Automation.",
         version="1.0.0",
     )
+
+    catalog = scripts.ScriptCatalog(base_dir or BASE_DIR)
+    sheets_workspace = sheets.SheetsWorkspace()
+    app.state.job_manager = JobManager(base_dir, on_job_finished=catalog.invalidate)
+    app.state.base_dir = base_dir
+
+    @app.middleware("http")
+    async def bind_workspace(request, call_next):
+        token = scripts._catalog.set(catalog)
+        sheets_token = sheets._workspace.set(sheets_workspace)
+        try:
+            return await call_next(request)
+        finally:
+            sheets._workspace.reset(sheets_token)
+            scripts._catalog.reset(token)
 
     # CORS configuration: allows Vite dev server when WEBUI_DEV_MODE is enabled
     origins = ["http://127.0.0.1:8190", "http://localhost:8190"]
@@ -61,12 +88,6 @@ def create_app() -> FastAPI:
     app.include_router(jobs.ws_router)
     app.include_router(sheets.router)
     app.include_router(drive.router)
-
-    # Pre-warm script cache on startup in background
-    @app.on_event("startup")
-    def startup_cache_warmup():
-        import threading
-        threading.Thread(target=scripts._get_indexed_scripts, daemon=True).start()
 
     # Serve SPA index.html with strict no-cache headers so browsers always load the latest bundle
     @app.get("/", include_in_schema=False)

@@ -13,9 +13,11 @@ from pathlib import Path
 TEST_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TEST_DIR.parent
 MAIN_DIR = REPO_ROOT / "main"
-for p in [str(TEST_DIR), str(MAIN_DIR), str(REPO_ROOT)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+for path in (TEST_DIR, REPO_ROOT, MAIN_DIR):
+    path_text = str(path)
+    if path_text in sys.path:
+        sys.path.remove(path_text)
+    sys.path.insert(0, path_text)
 
 
 # Reconfigure stdout for Windows console UTF-8 support if available

@@ -21,6 +21,9 @@ from webui.jobs.adapters.base import BaseStageAdapter
 class DriveAdapter(BaseStageAdapter):
     """Executes on-demand Google Drive uploads via the WebUI job runner."""
 
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or BASE_DIR
+
     def run(
         self,
         script_ids: List[str],
@@ -29,7 +32,7 @@ class DriveAdapter(BaseStageAdapter):
         emit_progress: Callable[[int, int, str], None],
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
-        sm = StateManager(base_dir=BASE_DIR)
+        sm = StateManager(base_dir=self.base_dir)
         total = len(script_ids)
         success_count = 0
         failed_ids: List[str] = []
@@ -77,7 +80,7 @@ class DriveAdapter(BaseStageAdapter):
                 deleted_cnt = res.get("deleted_existing_count", 0)
                 if deleted_cnt > 0:
                     emit_log(
-                        f"[{script_id}] Deleted {deleted_cnt} existing item(s) on Drive and uploaded new version -> {res['folder_url']}"
+                        f"[{script_id}] Uploaded replacement files and retired {deleted_cnt} previous Drive item(s) -> {res['folder_url']}"
                     )
                 else:
                     emit_log(f"[{script_id}] SUCCESS -> {res['folder_url']}")

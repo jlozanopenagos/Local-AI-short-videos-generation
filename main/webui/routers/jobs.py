@@ -7,9 +7,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
-from webui.jobs.manager import get_job_manager
 from webui.jobs.models import JobCreateRequest, JobResponse
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
@@ -17,27 +16,27 @@ ws_router = APIRouter(tags=["WebSockets"])
 
 
 @router.post("", status_code=202, response_model=JobResponse)
-def create_job(request: JobCreateRequest) -> JobResponse:
+def create_job(request: JobCreateRequest, http_request: Request) -> JobResponse:
     """Enqueues a new background pipeline stage execution job."""
     if not request.script_ids:
         raise HTTPException(status_code=400, detail="Must provide at least one script_id.")
 
-    jm = get_job_manager()
+    jm = http_request.app.state.job_manager
     job = jm.enqueue_job(request)
     return job
 
 
 @router.get("", response_model=List[JobResponse])
-def list_jobs(limit: int = 50) -> List[JobResponse]:
+def list_jobs(http_request: Request, limit: int = 50) -> List[JobResponse]:
     """Lists recent pipeline jobs."""
-    jm = get_job_manager()
+    jm = http_request.app.state.job_manager
     return jm.list_jobs(limit=limit)
 
 
 @router.get("/{job_id}", response_model=JobResponse)
-def get_job(job_id: str) -> JobResponse:
+def get_job(job_id: str, http_request: Request) -> JobResponse:
     """Gets current status, progress, and logs for a specific job."""
-    jm = get_job_manager()
+    jm = http_request.app.state.job_manager
     job = jm.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
@@ -45,9 +44,9 @@ def get_job(job_id: str) -> JobResponse:
 
 
 @router.post("/{job_id}/cancel")
-def cancel_job(job_id: str) -> Dict[str, Any]:
+def cancel_job(job_id: str, http_request: Request) -> Dict[str, Any]:
     """Cancels a queued or currently executing job."""
-    jm = get_job_manager()
+    jm = http_request.app.state.job_manager
     ok = jm.cancel_job(job_id)
     if not ok:
         raise HTTPException(status_code=400, detail=f"Cannot cancel job '{job_id}' (does not exist or already finished).")
@@ -59,7 +58,7 @@ async def job_websocket_endpoint(websocket: WebSocket, job_id: str):
     """
     WebSocket endpoint streaming live logs and progress events for a specific job.
     """
-    jm = get_job_manager()
+    jm = websocket.app.state.job_manager
     job = jm.get_job(job_id)
     if not job:
         await websocket.close(code=4004, reason="Job not found")
@@ -87,7 +86,7 @@ async def system_websocket_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint streaming global queue and system health events.
     """
-    jm = get_job_manager()
+    jm = websocket.app.state.job_manager
     await websocket.accept()
     jm.register_system_subscriber(websocket)
     try:

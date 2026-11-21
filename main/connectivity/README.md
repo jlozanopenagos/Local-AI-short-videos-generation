@@ -15,7 +15,7 @@ main/connectivity/
 ├── reconcile_scripts.py                 # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                      # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
 ├── scan_ready_scripts.py                # Principal Runner 5: Scans ready scripts and exports by date
-├── sync_drive.py                        # Principal Runner 6: Clean delete-before-upload sync to Google Drive
+├── sync_drive.py                        # Principal Runner 6: Google Drive bundle replacement
 ├── core/                                # Shared infrastructure & HTTP client
 │   ├── endpoints.py                     # All 16 endpoints, Option A master router & spreadsheet ID extractor
 │   ├── client.py                        # Resilient HTTP GET & POST client (302 redirects, auto-retries, error parsing)
@@ -152,8 +152,8 @@ main/connectivity/
   - `[0] Exit`
 - **Shortcuts**: Supports compound inputs directly on the menu prompt (e.g., `1.1` for operation 1 with 3 columns, `1.2` or `4.2` for 4 columns).
 ### 5. Scan Ready Scripts by Date (`scan_ready_scripts.py`)
-- **Action**: Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked.
-- **Exclusion Rule**: If `video_ready` is checked (`TRUE`), the ID is strictly **SKIPPED** (video is already done).
+- **Action**: Scans Google Sheets for approved scripts that still need production.
+- **Exclusion Rule**: An undated `video_ready` row preserves the legacy completion rule. If the row has a release date (Column H), the scanner checks the local assembly status before excluding it.
 - **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to canonical `YYYY-MM-DD`). Supports both 4-digit (`2026-09-23`) and 2-digit (`23/09/26`) year notations across `/`, `-`, and `.` separators.
 - **Primary Export**:
   `<OUTPUT_DIR>/connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
@@ -163,12 +163,7 @@ main/connectivity/
   - **Error Handling (`error_report.csv`)**: If any script is marked `script_ready` but has an empty `SCRIPT_CHANGE` cell, it is logged to `<OUTPUT_DIR>/connectivity\ready_scripts\error_report.csv` with schema `ID,problem`. Valid scripts continue to be exported normally.
   - **Auto-Pruning Errors**: When the user subsequently fixes `SCRIPT_CHANGE` in Google Sheets and re-scans, resolved IDs are automatically removed from `error_report.csv` (and the file is deleted once all errors are cleared).
 - **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, records are saved to `undated_ready_scripts.csv` (and `undated_ready_scripts_to_work_with.csv` if requested). When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from the undated files.
-- **Pipeline Integration**:
-  The generated `<YYYY-MM-DD>_ready_scripts.csv` files are automatically discovered and ingested across downstream pipeline stages:
-  - `_B_voice_generation/main.py --from-ready-scripts` (or Option `[6]`)
-  - `_C_image_generation/main.py --from-ready-scripts` (or Option `[6]`)
-  - `_F_thumbnail_image_generation/main.py --from-ready-scripts` (or Option `[5]`)
-  - `_G_video_assembly/main.py --from-ready-scripts` (or Option `[5]`)
+- **Pipeline Integration**: Apply Sheets revisions in **Sheets Sync**, then select the corresponding IDs in **Mass Creation**. You can upload a scanner export as the ID CSV and queue each required production stage in the studio.
 - **Interactive Options**:
   - `[1] Scan ALL 16 Google Sheets and export by date (Default)`
   - `[2] Scan a specific sheet`
@@ -187,7 +182,7 @@ main/connectivity/
   ```
 
 ### 6. Google Drive Clean Replacement Sync (`sync_drive.py`)
-- **Action**: Uploads completed `<script_id>.mp4` and `<script_id>_thumbnail.png` bundles to Google Drive using clean delete-before-upload replacement.
+- **Action**: Uploads completed `<script_id>.mp4` and `<script_id>_thumbnail.png` bundles to Google Drive and retires the old files after both replacements are uploaded.
 - **Credential Resolution & Setup**: Resolves credentials in strict priority order: explicit `--credentials` flag -> `GOOGLE_APPLICATION_CREDENTIALS` env var -> `main/credentials/` (`token.json` -> `service_account.json` -> `client_secret.json`). See [`../credentials/README.md`](../credentials/README.md) for OAuth 2.0 Desktop App and Service Account setup instructions.
 - **Drive Folder Hierarchy (`DEFAULT_ROOT_FOLDER_ID = "15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z"`)**:
   ```text
@@ -197,11 +192,11 @@ main/connectivity/
                          ├── <script_id>.mp4
                          └── <script_id>_thumbnail.png
   ```
-- **Clean Delete-Before-Upload Replacement**:
-  - **Local Validation First**: Confirms BOTH local video and thumbnail exist on disk BEFORE deleting anything on Drive (`FileNotFoundError` raised early if either asset is missing).
-  - **Duplicate Folder & Stale File Purge**: Calls `delete_duplicate_folders()` to remove any duplicate same-name `<script_id>` folders under `<video_type>`, then `clear_folder()` to remove all existing non-trashed children inside `<script_id>` (paginated queries with `supportsAllDrives=True, includeItemsFromAllDrives=True`).
+- **Bundle Replacement**:
+  - **Local Validation**: Checks that the video and thumbnail exist before calling Drive.
+  - **Replacement Order**: Captures existing video and thumbnail IDs, uploads both replacements, and saves the new links. It then removes the previous video and thumbnail versions that use the canonical filenames.
   - **Permission-Safe Deletion (`delete_file`)**: Attempts permanent `files().delete()`, falls back automatically to `trashed: True` on HTTP 400/403, safely ignores HTTP 404, and evicts `_folder_cache` entries on deletion.
-  - **Fresh Resumable Uploads**: `upload_or_update_file()` deletes matching existing file(s) before creating fresh files via `files().create(...)`. `upload_script_to_drive()` returns `deleted_existing_count` and persists `drive_upload` status/URLs via `StateManager`.
+  - **Upload Failure**: If the thumbnail upload fails after the video upload completes, sync attempts to remove the new video and leaves the previous bundle available.
 - **Usage**:
   ```powershell
   # Upload a single script bundle
@@ -274,7 +269,7 @@ from connectivity import scan_sheet_ready_scripts, scan_all_sheets_ready_scripts
 summary = scan_all_sheets_ready_scripts()
 save_ready_scripts_by_date(summary["date_groups"])  # saves to <OUTPUT_DIR>/connectivity\ready_scripts
 
-# 6. Upload video + thumbnail bundles to Google Drive (delete-before-upload replacement)
+# 6. Upload video + thumbnail bundles to Google Drive (bundle replacement)
 from connectivity.drive_sync import GoogleDriveClient, upload_script_to_drive, upload_completed_scripts_to_drive
 client = GoogleDriveClient()
 client.authenticate()

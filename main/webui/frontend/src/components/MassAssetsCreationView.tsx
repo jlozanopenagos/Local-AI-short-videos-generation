@@ -48,6 +48,11 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
 
   // Options
   const [forceRegenerate, setForceRegenerate] = useState<boolean>(true)
+  const [seed, setSeed] = useState('')
+  const [accent, setAccent] = useState('')
+  const [voiceEngine, setVoiceEngine] = useState('')
+  const [recast, setRecast] = useState(false)
+  const [keepSubtitles, setKeepSubtitles] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -269,9 +274,22 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
     setErrorMessage(null)
 
     try {
-      const job = await createJob(targetStage, targetIds, {
-        force: targetStage === 'assembly' ? true : forceRegenerate,
-      })
+      const options: Record<string, unknown> = { force: targetStage === 'assembly' || forceRegenerate }
+      if (targetStage === 'images' && seed) {
+        const seedValue = Number(seed)
+        if (!Number.isSafeInteger(seedValue) || seedValue < 1) {
+          throw new Error('Image seed must be a positive whole number.')
+        }
+        options.seed = seedValue
+      }
+      if (targetStage === 'voice') {
+        if (accent.trim()) options.accent = accent.trim()
+        if (voiceEngine) options.voice_engine = voiceEngine
+        options.recast = recast
+        if (recast) options.force = true
+      }
+      if (targetStage === 'assembly') options.keep_subtitles = keepSubtitles
+      const job = await createJob(targetStage, targetIds, options)
       onJobStarted(job.job_id)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : String(err))
@@ -791,11 +809,44 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
               </strong>
               <span className="checkbox-hint">
                 {targetStage === 'assembly'
-                  ? 'mass video assembly always forces all targeted IDs: any existing final video (.mp4) is deleted and created again from scratch.'
+                  ? 'renders a replacement for every selected script and publishes it after the render succeeds.'
                   : 're-creates and overwrites existing asset files for all targeted IDs, resetting downstream status.'}
               </span>
             </span>
           </label>
+
+          {targetStage === 'images' && (
+            <label>
+              Image seed (optional)
+              <input className="search-input" type="number" min="1" step="1" value={seed} onChange={(e) => setSeed(e.target.value)} />
+            </label>
+          )}
+          {targetStage === 'voice' && (
+            <>
+              <label>
+                Accent override
+                <input className="search-input" value={accent} placeholder="e.g. es_latam_neutral" onChange={(e) => setAccent(e.target.value)} />
+              </label>
+              <label>
+                Voice engine
+                <select className="search-input" value={voiceEngine} onChange={(e) => setVoiceEngine(e.target.value)}>
+                  <option value="">Configured default</option>
+                  <option value="typed">Typed</option>
+                  <option value="legacy">Legacy</option>
+                </select>
+              </label>
+              <label className="checkbox-label">
+                <input type="checkbox" checked={recast} onChange={(e) => setRecast(e.target.checked)} />
+                Choose new voices
+              </label>
+            </>
+          )}
+          {targetStage === 'assembly' && (
+            <label className="checkbox-label">
+              <input type="checkbox" checked={keepSubtitles} onChange={(e) => setKeepSubtitles(e.target.checked)} />
+              Reuse existing subtitles
+            </label>
+          )}
 
           {/* ComfyUI Service Warning */}
           {isComfyRequired && !comfyOnline && (

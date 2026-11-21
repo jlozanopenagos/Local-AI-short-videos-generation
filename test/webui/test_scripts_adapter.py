@@ -5,7 +5,10 @@ Verifies Stage A script creation via the WebUI background job runner (Phase 3).
 
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -21,9 +24,9 @@ from video_creation._A_video_scripts.common.base_engine import ScriptGenerationR
 # pyrefly: ignore[missing-import]
 from webui.jobs.adapters.scripts import ScriptsAdapter
 # pyrefly: ignore[missing-import]
-from webui.jobs.manager import get_job_manager
 # pyrefly: ignore[missing-import]
-from webui.jobs.models import JobCreateRequest, JobStage, JobStatus
+from core.state_manager import DOWNSTREAM_STAGES, StateManager
+from webui.jobs.models import JobStage
 # pyrefly: ignore[missing-import]
 from webui.server import create_app
 
@@ -32,11 +35,19 @@ class TestScriptsAdapter(unittest.TestCase):
     """Verifies ScriptsAdapter execution and WebUI API integration."""
 
     def setUp(self):
-        self.app = create_app()
+        workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(workspace.cleanup)
+        self.base_dir = Path(workspace.name)
+        self.state_manager = StateManager(self.base_dir)
+        fixture = Path(__file__).resolve().parents[1] / "fixtures/image_prompts/states/script_SG01.json"
+        state = json.loads(fixture.read_text(encoding="utf-8"))
+        state["id"] = "SG02"
+        state["status"] = {"script_generation": "pending", **dict.fromkeys(DOWNSTREAM_STAGES, "done")}
+        self.state_manager.save_script_state("SG02", state)
+        self.app = create_app(self.base_dir)
         self.client = TestClient(self.app)
-        self.jm = get_job_manager()
-        self.adapter = ScriptsAdapter()
-        self.jm.register_adapter(JobStage.SCRIPTS, self.adapter)
+        self.jm = self.app.state.job_manager
+        self.addCleanup(self.jm.close)
 
     def test_scripts_adapter_is_registered_in_job_manager(self):
         self.assertIn(JobStage.SCRIPTS, self.jm._adapters)
@@ -44,7 +55,7 @@ class TestScriptsAdapter(unittest.TestCase):
 
     @patch("webui.jobs.adapters.scripts.generate_script_for_payload")
     @patch("webui.jobs.adapters.scripts.get_llama_manager")
-    def test_scripts_adapter_run_lifecycle_updates_state(self, mock_get_lm, mock_generate):
+    def test_generate_endpoint_runs_real_adapter_and_persists_result(self, mock_get_lm, mock_generate):
         mock_lm = MagicMock()
         mock_lm.is_reachable.return_value = True
         mock_get_lm.return_value = mock_lm
@@ -68,24 +79,6 @@ class TestScriptsAdapter(unittest.TestCase):
             is_valid=True,
         )
 
-        adapter = ScriptsAdapter()
-        logs = []
-        progresses = []
-
-        res = adapter.run(
-            script_ids=["SG02"],
-            options={"force": True},
-            emit_log=lambda l: logs.append(l),
-            emit_progress=lambda c, t, s: progresses.append((c, t, s)),
-            check_cancelled=lambda: False,
-        )
-
-        self.assertEqual(res["success_count"], 1)
-        self.assertEqual(len(res["failed_ids"]), 0)
-        self.assertTrue(any("Successfully generated script" in log for log in logs))
-        self.assertEqual(progresses[-1], (1, 1, "SG02"))
-
-    def test_post_script_generate_endpoint_enqueues_job(self):
         resp = self.client.post("/api/scripts/SG02/generate", json={"force": True})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -93,11 +86,21 @@ class TestScriptsAdapter(unittest.TestCase):
         self.assertEqual(data["script_id"], "SG02")
         self.assertTrue(data.get("job_id"))
 
-        # Verify job is registered in JobManager
-        job = self.jm.get_job(data["job_id"])
-        self.assertIsNotNone(job)
-        self.assertEqual(job.stage, JobStage.SCRIPTS)
-        self.assertEqual(job.script_ids, ["SG02"])
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            job = self.client.get(f"/api/jobs/{data['job_id']}").json()
+            if job["status"] in {"completed", "failed", "cancelled"}:
+                break
+            time.sleep(0.01)
+        self.assertEqual(job["status"], "completed", job)
+        self.assertEqual(job["stage"], "scripts")
+        self.assertEqual(job["script_ids"], ["SG02"])
+        self.assertEqual(job["progress"]["current"], 1)
+        updated = self.state_manager.get_script_state("SG02")
+        self.assertEqual(updated["status"]["script_generation"], "done")
+        for stage in DOWNSTREAM_STAGES:
+            self.assertEqual(updated["status"][stage], "pending")
+        self.assertEqual(updated["content_metadata"]["script"]["title"], "Mock Game Title")
 
 
 if __name__ == "__main__":

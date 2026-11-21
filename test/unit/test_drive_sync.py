@@ -92,7 +92,7 @@ class TestDriveSync(unittest.TestCase):
         mock_files.create.assert_called_once()
 
     def test_upload_or_update_file_handles_new_and_replace(self):
-        """Verify upload_or_update_file creates new files and deletes all existing duplicates before re-uploading."""
+        """Verify upload_or_update_file creates new files and deletes all existing duplicates after re-uploading."""
         mock_service = MagicMock()
         client = GoogleDriveClient(root_folder_id="ROOT123")
         client._service = mock_service
@@ -114,7 +114,7 @@ class TestDriveSync(unittest.TestCase):
             mock_files.create.assert_called_once()
             mock_files.delete.assert_not_called()
 
-            # Case B: Duplicate existing files -> deletes every existing file ID, then creates fresh upload
+            # Case B: Duplicate existing files -> uploads a fresh file, then deletes previous file IDs
             mock_files.create.reset_mock()
             mock_files.delete.reset_mock()
             mock_files.update.reset_mock()
@@ -239,8 +239,11 @@ class TestDriveSync(unittest.TestCase):
             "TYPE_EXPR_ID",   # Step 2: video type folder
             "SCRIPT_EE01_ID", # Step 3: script ID folder
         ]
-        mock_client.delete_duplicate_folders.return_value = 0
-        mock_client.clear_folder.return_value = 2
+        mock_client.list_named_files.side_effect = [
+            [{"id": "OLD_VIDEO", "name": "EE01.mp4"}],
+            [{"id": "OLD_THUMB", "name": "EE01_thumbnail.png"}],
+        ]
+        mock_client.delete_file.return_value = True
         mock_client.upload_or_update_file.side_effect = [
             {"id": "VID_999", "name": "EE01.mp4", "web_view_link": "https://drive.google.com/file/d/VID_999/view"},
             {"id": "THUMB_888", "name": "EE01_thumbnail.png", "web_view_link": "https://drive.google.com/file/d/THUMB_888/view"},
@@ -279,16 +282,16 @@ class TestDriveSync(unittest.TestCase):
         self.assertEqual(result["video"]["name"], "EE01.mp4")
         self.assertEqual(result["thumbnail"]["name"], "EE01_thumbnail.png")
 
-        mock_client.delete_duplicate_folders.assert_called_once_with(
-            "EE01",
-            parent_id="TYPE_EXPR_ID",
-            keep_folder_id="SCRIPT_EE01_ID",
-        )
-        mock_client.clear_folder.assert_called_once_with("SCRIPT_EE01_ID")
+        mock_client.delete_duplicate_folders.assert_not_called()
+        mock_client.clear_folder.assert_not_called()
+        mock_client.delete_file.assert_has_calls([
+            call("OLD_VIDEO", "EE01.mp4"),
+            call("OLD_THUMB", "EE01_thumbnail.png"),
+        ])
 
         call_names = [c[0] for c in mock_client.mock_calls]
-        self.assertLess(call_names.index("delete_duplicate_folders"), call_names.index("upload_or_update_file"))
-        self.assertLess(call_names.index("clear_folder"), call_names.index("upload_or_update_file"))
+        last_upload = max(i for i, name in enumerate(call_names) if name == "upload_or_update_file")
+        self.assertLess(last_upload, call_names.index("delete_file"))
 
         # Verify state was saved with drive status
         self.assertTrue(mock_sm.save_script_state.called)
@@ -297,6 +300,30 @@ class TestDriveSync(unittest.TestCase):
         self.assertEqual(saved_data["status"]["drive_upload"], "done")
         self.assertEqual(saved_data["assets"]["drive_folder_id"], "SCRIPT_EE01_ID")
         self.assertIn("drive.google.com/drive/folders/SCRIPT_EE01_ID", saved_data["assets"]["drive_folder_url"])
+
+    def test_failed_thumbnail_upload_keeps_previous_drive_files(self):
+        client = MagicMock()
+        client.list_named_files.side_effect = [
+            [{"id": "OLD_VIDEO", "name": "EE01.mp4"}],
+            [{"id": "OLD_THUMB", "name": "EE01_thumbnail.png"}],
+        ]
+        client.upload_or_update_file.side_effect = [
+            {"id": "NEW_VIDEO"}, OSError("thumbnail upload failed"),
+        ]
+        state = MagicMock()
+        state.load_script_state.return_value = {
+            "id": "EE01",
+            "content_metadata": {"language": "english", "video_type": "expression"},
+            "assets": {"final_video": "old.mp4", "thumbnail_path": "thumb.png"},
+        }
+
+        with patch("pathlib.Path.exists", return_value=True):
+            with self.assertRaisesRegex(OSError, "thumbnail upload failed"):
+                upload_script_to_drive("EE01", client=client, state_mgr=state)
+
+        client.delete_file.assert_called_once_with("NEW_VIDEO", "EE01.mp4")
+        client.delete_duplicate_folders.assert_not_called()
+        state.save_script_state.assert_not_called()
 
     def test_upload_script_to_drive_missing_local_file_does_not_delete_remote(self):
         """Verify missing local assets fail before any Drive lookup or deletion."""

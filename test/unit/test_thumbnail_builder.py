@@ -5,10 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 # pyrefly: ignore[missing-import]
-from PIL import Image
+from PIL import Image, ImageDraw
 
-# pyrefly: ignore[missing-import]
-from config import THUMBNAIL_MODELS_DIR
 # pyrefly: ignore [missing-import]
 from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import (
     clean_thumbnail_title,
@@ -51,25 +49,18 @@ class TestThumbnailChalkboardRenderer(unittest.TestCase):
         }
         self.assertEqual(extract_thumbnail_title(state_fallback), "Break a leg")
 
-    def test_detect_chalkboard_bounds_on_models(self):
-        """Verify chalkboard detection finds a valid green board region above Tito on language models."""
-        for lang in ("english", "french", "spanish", "italian"):
-            model_path = THUMBNAIL_MODELS_DIR / lang / f"{lang}_thumbnail_model.png"
-            if not model_path.exists():
-                continue
-            with Image.open(model_path) as im:
-                x1, y1, x2, y2 = detect_chalkboard_bounds(im)
-                self.assertGreater(x2 - x1, 300)
-                self.assertGreater(y2 - y1, 200)
-                self.assertLess(y2, 820)  # Above Tito's head/ears
+    def test_detect_chalkboard_bounds_in_synthetic_thumbnail(self):
+        with Image.new("RGB", (576, 1024), "#af8761") as image:
+            ImageDraw.Draw(image).rectangle((65, 100, 515, 550), fill="#285640")
+            x1, y1, x2, y2 = detect_chalkboard_bounds(image)
+            self.assertGreater(x2 - x1, 300)
+            self.assertGreater(y2 - y1, 200)
+            self.assertLess(y2, 820)
 
     def test_render_thumbnail_chalkboard_creates_576x1024_image(self):
-        """Verify render_thumbnail_chalkboard renders 576x1024 PNGs for both colon and single-block titles."""
-        model_path = THUMBNAIL_MODELS_DIR / "english" / "english_thumbnail_model.png"
-        if not model_path.exists():
-            self.skipTest("english_thumbnail_model.png not found")
-
         with tempfile.TemporaryDirectory() as tmp_dir:
+            model_path = Path(tmp_dir) / "model.png"
+            Image.new("RGB", (576, 1024), "#285640").save(model_path)
             dest_colon = Path(tmp_dir) / "thumb_colon.png"
             out1 = render_thumbnail_chalkboard(
                 model_path, "The Secret Theater Phrase: Break a Leg", dest_colon

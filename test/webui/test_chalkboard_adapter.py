@@ -20,10 +20,10 @@ from fastapi.testclient import TestClient
 # pyrefly: ignore[missing-import]
 from webui.jobs.adapters.chalkboard import ChalkboardAdapter
 # pyrefly: ignore[missing-import]
-from webui.jobs.manager import get_job_manager
 # pyrefly: ignore[missing-import]
 from webui.jobs.models import JobCreateRequest, JobStage, JobStatus
 # pyrefly: ignore[missing-import]
+from core.state_manager import StateManager
 from webui.server import create_app
 
 
@@ -31,9 +31,14 @@ class TestChalkboardAdapter(unittest.TestCase):
     """Verifies ChalkboardAdapter execution and /render-chalkboard endpoint."""
 
     def setUp(self):
-        self.app = create_app()
+        workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(workspace.cleanup)
+        base_dir = Path(workspace.name)
+        StateManager(base_dir).save_script_state("EE01", {"id": "EE01"})
+        self.app = create_app(base_dir)
         self.client = TestClient(self.app)
-        self.jm = get_job_manager()
+        self.jm = self.app.state.job_manager
+        self.addCleanup(self.jm.close)
         self.adapter = ChalkboardAdapter()
         self.jm.register_adapter(JobStage.CHALKBOARD, self.adapter)
 

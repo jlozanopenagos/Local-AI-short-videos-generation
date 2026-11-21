@@ -29,6 +29,9 @@ from webui.jobs.adapters.base import BaseStageAdapter
 class ChalkboardAdapter(BaseStageAdapter):
     """Executes native chalk typography rendering on empty_chalkboard.png for Game scripts."""
 
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or BASE_DIR
+
     def run(
         self,
         script_ids: List[str],
@@ -37,7 +40,7 @@ class ChalkboardAdapter(BaseStageAdapter):
         emit_progress: Callable[[int, int, str], None],
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
-        sm = StateManager(base_dir=BASE_DIR)
+        sm = StateManager(base_dir=self.base_dir)
         force = options.get("force", True)
 
         total = len(script_ids)
@@ -88,7 +91,7 @@ class ChalkboardAdapter(BaseStageAdapter):
                 failed_ids.append(canonical_id)
                 continue
 
-            out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=BASE_DIR) / "images"
+            out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=self.base_dir) / "images"
             out_dir.mkdir(parents=True, exist_ok=True)
             dest_path = out_dir / f"script_{canonical_id}_challenge.png"
 

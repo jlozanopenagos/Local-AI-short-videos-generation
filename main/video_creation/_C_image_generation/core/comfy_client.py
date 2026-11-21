@@ -112,44 +112,28 @@ class ImageComfyClient:
             logger.warning("Could not free memory via API: %s", e)
             return False
 
-    def interrupt(self) -> bool:
-        """Interrupts currently executing prompt in ComfyUI."""
-        url = f"{self.api_url}/interrupt"
+    def interrupt(self, prompt_id: str) -> None:
+        """Interrupt a prompt only if that ID is currently executing."""
         try:
-            resp = self._http_post(url, timeout=30)
-            return resp.status_code == 200
-        except Exception as e:
-            logger.warning("Could not interrupt ComfyUI execution: %s", e)
-            return False
+            response = self._http_post(
+                f"{self.api_url}/interrupt", json={"prompt_id": prompt_id}, timeout=15,
+            )
+            response.raise_for_status()
+        except Exception as exc:
+            logger.warning("Could not interrupt ComfyUI prompt %s: %s", prompt_id, exc)
 
-    def clear_queue(self) -> bool:
-        """Clears all pending items in ComfyUI queue."""
-        url = f"{self.api_url}/queue"
+    def cancel_prompts(self, prompt_ids: list[str]) -> None:
+        if not prompt_ids:
+            return
         try:
-            resp = self._http_post(url, json={"clear": True}, timeout=15)
-            return resp.status_code == 200
-        except Exception as e:
-            logger.warning("Could not clear ComfyUI queue: %s", e)
-            return False
-
-    def ensure_clean_slate(self) -> None:
-        """Checks if ComfyUI has stuck running or pending tasks and cleans them up."""
-        try:
-            resp = self._http_get(f"{self.api_url}/queue", timeout=15)
-            if resp.status_code == 200:
-                data = resp.json()
-                running = data.get("queue_running", [])
-                pending = data.get("queue_pending", [])
-                if running or pending:
-                    logger.warning(
-                        "[Watchdog] Detected %d running / %d pending tasks in ComfyUI queue. Cleaning slate...",
-                        len(running), len(pending)
-                    )
-                    self.interrupt()
-                    self.clear_queue()
-                    time.sleep(1.0)
-        except Exception:
-            pass
+            response = self._http_post(
+                f"{self.api_url}/queue", json={"delete": prompt_ids}, timeout=15,
+            )
+            response.raise_for_status()
+        except Exception as exc:
+            logger.warning("Could not remove pending ComfyUI prompts: %s", exc)
+        for prompt_id in prompt_ids:
+            self.interrupt(prompt_id)
 
     # ── Workflow loading ──────────────────────────────────────────────────────
 
@@ -298,8 +282,6 @@ class ImageComfyClient:
 
         while time.time() - start_time < limit:
             if check_cancelled and check_cancelled():
-                self.interrupt()
-                self.clear_queue()
                 raise InterruptedError("ComfyUI generation cancelled by user.")
 
             history = self._get_history(prompt_id)
@@ -390,8 +372,6 @@ class ImageComfyClient:
         """
         vram_guard = self.pool.vram_guard("IMAGE_GENERATION") if self.pool else contextlib.nullcontext()
         with vram_guard:
-            self.ensure_clean_slate()
-
             last_error = None
             for attempt in range(1, max_retries + 1):
                 cur_seed = seed if seed is not None else random.randint(1, 10**15)
@@ -410,6 +390,7 @@ class ImageComfyClient:
                     negative_prompt=negative_prompt,
                 )
 
+                prompt_id = None
                 try:
                     logger.info("Queuing prompt…")
                     prompt_id = self._queue_prompt(wf)
@@ -428,9 +409,8 @@ class ImageComfyClient:
                     _safe_print(
                         f"[Watchdog] ComfyUI image generation stalled (> {stall_timeout}s). Auto-interrupting...",
                     )
-                    self.interrupt()
-                    time.sleep(3.0)
-                    self.ensure_clean_slate()
+                    if prompt_id:
+                        self.cancel_prompts([prompt_id])
                     if attempt < max_retries:
                         _safe_print(
                             f"[Watchdog] Retrying image generation (attempt {attempt + 1}/{max_retries})... "
@@ -443,9 +423,6 @@ class ImageComfyClient:
                             "ComfyUI generation error (%s). Retrying (attempt %d/%d)...",
                             exc, attempt + 1, max_retries,
                         )
-                        self.interrupt()
-                        time.sleep(3.0)
-                        self.ensure_clean_slate()
 
             raise last_error or RuntimeError("Failed to generate image after retries.")
 
@@ -494,73 +471,74 @@ class ImageComfyClient:
 
         vram_guard = self.pool.vram_guard("IMAGE_GENERATION") if self.pool else contextlib.nullcontext()
         with vram_guard:
-            self.ensure_clean_slate()
-
             while remaining_tasks:
-                # 1. Enqueue all remaining tasks into ComfyUI's FIFO queue
-                queued = []
-                for task in remaining_tasks:
-                    cur_seed = task.get("seed") if task.get("seed") is not None else random.randint(1, 10**15)
-                    wf = self._prepare_workflow(
-                        prompt_text=task["prompt_text"],
-                        filename_prefix=task["filename_prefix"],
-                        seed=cur_seed,
-                        steps=task.get("steps", 6),
-                        width=task.get("width", 576),
-                        height=task.get("height", 1024),
-                        negative_prompt=task.get("negative_prompt"),
-                    )
-                    prompt_id = self._queue_prompt(wf)
-                    queued.append({
-                        "prompt_id": prompt_id,
-                        "task": task,
-                    })
-                    logger.info("Batch queued '%s' -> prompt_id=%s", task.get("section_name"), prompt_id)
-
-                failed_idx = None
-                for i, item in enumerate(queued):
-                    if check_cancelled and check_cancelled():
-                        self.interrupt()
-                        self.clear_queue()
-                        raise InterruptedError("Batch image generation cancelled by user.")
-                    pid = item["prompt_id"]
-                    task = item["task"]
-                    sec = task.get("section_name", f"scene_{i+1}")
-                    dest = Path(task["dest_path"])
-                    t0 = time.time()
-
-                    try:
-                        history = self._poll_for_completion(
-                            pid,
-                            timeout_seconds=stall_timeout,
-                            check_cancelled=check_cancelled,
+                pending_ids: list[str] = []
+                queued: list[dict[str, Any]] = []
+                try:
+                    # 1. Enqueue all remaining tasks into ComfyUI's FIFO queue
+                    for task in remaining_tasks:
+                        cur_seed = task.get("seed") if task.get("seed") is not None else random.randint(1, 10**15)
+                        wf = self._prepare_workflow(
+                            prompt_text=task["prompt_text"],
+                            filename_prefix=task["filename_prefix"],
+                            seed=cur_seed,
+                            steps=task.get("steps", 6),
+                            width=task.get("width", 576),
+                            height=task.get("height", 1024),
+                            negative_prompt=task.get("negative_prompt"),
                         )
-                        filename, subfolder, file_type = self._find_image_output(history)
-                        self._download_image(filename, subfolder, file_type, dest)
-                        dur = time.time() - t0
-                        results[sec] = dest
-                        if progress_callback:
-                            try:
-                                progress_callback(sec, len(results), len(tasks), dur)
-                            except Exception:
-                                pass
-                    except TimeoutError as te:
-                        _safe_print(
-                            f"[Watchdog] Batch image generation stalled on '{sec}' (> {stall_timeout}s). "
-                            "Auto-interrupting and clearing queue..."
-                        )
-                        self.interrupt()
-                        time.sleep(2.0)
-                        self.clear_queue()
-                        self.ensure_clean_slate()
-                        failed_idx = i
-                        break
+                        if check_cancelled and check_cancelled():
+                            raise InterruptedError("Batch image generation cancelled by user.")
+                        prompt_id = self._queue_prompt(wf)
+                        pending_ids.append(prompt_id)
+                        queued.append({
+                            "prompt_id": prompt_id,
+                            "task": task,
+                        })
+                        logger.info("Batch queued '%s' -> prompt_id=%s", task.get("section_name"), prompt_id)
+
+                    failed_idx = None
+                    for i, item in enumerate(queued):
+                        if check_cancelled and check_cancelled():
+                            raise InterruptedError("Batch image generation cancelled by user.")
+                        pid = item["prompt_id"]
+                        task = item["task"]
+                        sec = task.get("section_name", f"scene_{i+1}")
+                        dest = Path(task["dest_path"])
+                        t0 = time.time()
+
+                        try:
+                            history = self._poll_for_completion(
+                                pid,
+                                timeout_seconds=stall_timeout,
+                                check_cancelled=check_cancelled,
+                            )
+                            pending_ids.remove(pid)
+                            filename, subfolder, file_type = self._find_image_output(history)
+                            self._download_image(filename, subfolder, file_type, dest)
+                            dur = time.time() - t0
+                            results[sec] = dest
+                            if progress_callback:
+                                try:
+                                    progress_callback(sec, len(results), len(tasks), dur)
+                                except Exception:
+                                    pass
+                        except TimeoutError:
+                            _safe_print(
+                                f"[Watchdog] Batch image generation stalled on '{sec}' (> {stall_timeout}s). "
+                                "Cancelling outstanding prompts from this batch..."
+                            )
+                            failed_idx = i
+                            break
+
+                finally:
+                    self.cancel_prompts(pending_ids)
 
                 if failed_idx is None:
                     # All queued items finished successfully
                     break
                 else:
-                    # Retry failed task and any remaining tasks that were cleared from queue
+                    # Retry the stalled task and remaining prompts from this batch
                     stalled_task = queued[failed_idx]["task"]
                     retries_left = stalled_task.get("_retries", max_retries - 1)
                     if retries_left <= 0:

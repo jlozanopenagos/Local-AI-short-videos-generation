@@ -1,6 +1,6 @@
-# Shorts Automation: Automated Generative Short-Form Video Pipeline
+# Shorts Studio architecture
 
-An enterprise-grade, deterministic automated pipeline engineered for high-throughput production of educational vertical short-form videos (**YouTube Shorts**, **TikTok**, **Instagram Reels**) tailored for language learners across four target languages: **English**, **French**, **Spanish**, and **Italian**.
+Shorts Studio is a WebUI for producing educational vertical videos in English, French, Spanish, and Italian. Start with the [repository quick start](../README.md) to configure and launch the studio.
 
 The architecture combines local multi-modal generative AI backends (**ComfyUI Diffusion & TTS**, **faster-whisper**, **Transformers MusicGen**, and **FFmpeg** compositing) with an OpenAI-compatible LLM for organic, retention-optimized pedagogical scriptwriting.
 
@@ -14,13 +14,13 @@ The architecture combines local multi-modal generative AI backends (**ComfyUI Di
 5. [Data Architecture & State Machine Design](#data-architecture--state-machine-design)
 6. [Hardware Optimization: Low-VRAM (6GB) Engineering & Dual-Process Arbitration](#hardware-optimization-low-vram-6gb-engineering--dual-process-arbitration)
 7. [The Standing Music Bank Design Pattern](#the-standing-music-bank-design-pattern)
-8. [Interactive CLI & Modifier Ecosystem](#interactive-cli--modifier-ecosystem)
+8. [Operator Tools](#operator-tools)
 9. [Modern WebUI Management Studio](#modern-webui-management-studio)
 10. [Google Sheets & Drive Connectivity Suite](#google-sheets--drive-connectivity-suite)
 11. [External Script Doctoring & LLM Ingestion](#external-script-doctoring--llm-ingestion)
 12. [Prerequisites & Installation](#prerequisites--installation)
 13. [Configuration & Environment Matrix](#configuration--environment-matrix)
-14. [CLI Operational Reference Manual](#cli-operational-reference-manual)
+14. [Studio production and maintenance](#studio-production-and-maintenance)
 15. [Repository Directory Index](#repository-directory-index)
 
 ---
@@ -152,7 +152,7 @@ Content strategy is divided across four distinct formats, each strictly governed
 - **`SPECIAL_TREATMENT` Classification System**:
   - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
   - **Idiomatic Arc (Error #4 Fix)**: For multi-word figurative idioms, the LLM is instructed to enforce active usage modeling: P2 drops the full idiom in Part 1; P1 reacts to literal image while P2 clarifies in ≤1 sentence in Part 2; P2 demonstrates a new real-life usage in Part 3; and **P1 must use the complete idiom in an original sentence in Part 4** (the proof of learning).
-  - **Automated Quality Gate**: `validate_idiomatic_roleplay()` in `_A_video_scripts/main.py` verifies both the full idiom in Part 1 and P1 active usage in Part 4, triggering auto-retries with targeted feedback upon failure.
+  - **Automated Quality Gate**: Stage A's Roleplay validation rules verifies both the full idiom in Part 1 and P1 active usage in Part 4, triggering auto-retries with targeted feedback upon failure.
 
 ### 3. GAME: Fast-Paced Interactive Trivia
 - **Trivia Standard**: Pure educational quiz game—no fictional narratives or roleplay acting.
@@ -233,7 +233,7 @@ When `is_stress_pronunciation_vital()` detects heteronyms or syllable stress top
 In `_G_video_assembly/core/subtitle_builder.py`, word-level animated subtitles (Hormozi style) preserve mixed-case syllable capitalization (`PREsent` vs `preSENT`, `PROject` vs `proJECT`) while rendering all other words in uppercase. Viewers visually see the exact syllable being emphasized in real time.
 
 ### 6. Full Feature Parity Across Production Tools & Streamlined Voice Modifier
-All Stage B execution paths (`video_creation/_B_voice_generation/main.py`, `voice_modifier.py`, and WebUI `VoiceAdapter`) share the single unified orchestrator in `voice/common/orchestrator.py` (`synthesize_script_voice()`):
+The WebUI `VoiceAdapter` and maintenance `voice_modifier.py` share the single unified orchestrator in `voice/common/orchestrator.py` (`synthesize_script_voice()`):
 - `--candidates <INT>`: Configurable candidate sampling (default 3 for stress scripts).
 - `--script-id <ID>`: Targeted single-script execution.
 - `--genders <STR>`: Comma-separated speaker gender overrides (e.g. `'male, female, female'`).
@@ -374,42 +374,13 @@ To eliminate repetitive inference overhead and avoid slow per-video music genera
 
 ---
 
-## Interactive CLI & Modifier Ecosystem
+## Operator Tools
 
-Every pipeline stage provides an interactive terminal interface managed by `core/cli_prompt.py`:
-
-```
-=========================================================
-  Lingoverse Automation - Part A: Script Generation
-=========================================================
-Select execution mode:
-  [1] Mass-produce all pending assets
-  [2] Select specific script(s) by ID (e.g. EE01, EE02)
-  [3] Number Range Groups (e.g. 10 - 20)
----------------------------------------------------------
-Enter choice (1-3) [default: 1 in 10s]:
-```
-
-- **Interactive 10s Countdown**: Automatically defaults to mass-producing pending assets if unattended.
-- **Range Expander**: Option `[3]` prompts for start and end integers (e.g. `10` to `20`), automatically expanding across active formats (`EE10..EE20`, `EG10..EG20`, `ER10..ER20`).
-
-### Dedicated CLI Modifier Utilities
-Located in `tools/modifiers/`:
-- **`script_modifier.py`**: Ingests custom text scripts verbatim, normalizes JSON structure, enforces canonical key order (`title` first), and updates review CSVs in `scripts_to_see/`.
-- **`voice_modifier.py`**: Audition reference voices from `open-swara`, manually cast actors per character, and re-generate voiceovers.
-- **`image_modifier.py`**: Comprehensive visual direction and interactive image modifier suite:
-  - *Single Scene Recreation Mode*: Re-steer scene prompts, sample seeds, and regenerate individual scene frames.
-  - *Batch / Group Recreation Mode (`modify_group_interactive`)*: Re-prompts and regenerates ALL scenes for a script simultaneously, anchored to an updated general prompt for total visual coherence across the entire video.
-  - *Dual-Character Gender Casting*: For Roleplays, interactively prompts for `PERSON_ONE` and `PERSON_TWO` genders independently, updating `speakers_gender` in the state machine with locked wardrobes and hairstyles.
-  - *120-Second (2-Minute) Timeout*: Features an extended `GENDER_SELECTION_TIMEOUT = 120.0s`, allowing creators deliberate time to inspect character casting and prompt directives.
-  - *Chalkboard Live Editor*: Edit quiz questions and options directly with instant CPU-based re-rendering of 576x1024 chalkboard graphics.
-- **`subtitles_modifier.py`**: Inspect subtitle timings, execute find/replace on `.ass` files, and re-render final MP4s in seconds without re-running Whisper.
-
----
+Use the [operator tools](tools/README.md) for service supervision, media bank preparation, teaser extraction, and targeted maintenance. Use the studio to queue standard production stages.
 
 ## Modern WebUI Management Studio
 
-In addition to the interactive CLI, the pipeline features a browser-based management studio (`main/webui/`) powered by a **React 19 + TypeScript + Vite + Tailwind CSS** frontend and a **FastAPI** backend:
+The production entry point is the browser-based studio (`main/webui/`) powered by a **React 19 + TypeScript + Vite** frontend and a **FastAPI** backend:
 
 - **Launch Command**:
   ```powershell
@@ -422,7 +393,7 @@ In addition to the interactive CLI, the pipeline features a browser-based manage
   2. **Script Catalog (`ScriptList.tsx` & `ScriptDetailModal.tsx`)**: Filter/search all scripts, inspect sections/audio/images/SEO metadata, run the **Gemini Prompt Auditor** (auto-rerolling Cultural Worlds), redo single scenes or queue a full image rebuild preserving your edited `general_prompt` (`preserve_general_prompt=True` via two-phase Llama + ComfyUI handoff), render Game chalkboards, or upload a single script to Google Drive (`POST /api/drive/scripts/{script_id}/upload`).
   3. **Queue (`JobQueueView.tsx`)**: Task runner with live terminal log streaming via WebSockets (`/ws/jobs/{job_id}`), progress bars, and cancellation controls.
   4. **Mass Assets Creation Studio (`MassAssetsCreationView.tsx`)**:
-     - Targeted batch execution across all **7 stages**: **Script Dialogues** (Stage A), **Scene Images** (Stage C — `preserve_general_prompt=False` so `force` / `regenerate_prompts` rebuilds both `general_prompt` and storyboard `image_prompts`), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), **Chalkboard Images** (Game only, CPU), **Video Assembly** (Stage G — targeted IDs always force delete-and-recreate once Stage B + C prerequisites pass), and **Google Drive Upload** (`drive_upload` — clean delete-before-upload replacement).
+     - Targeted batch execution across all **7 stages**: **Script Dialogues** (Stage A), **Scene Images** (Stage C — `preserve_general_prompt=False` so `force` / `regenerate_prompts` rebuilds both `general_prompt` and storyboard `image_prompts`), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), **Chalkboard Images** (Game only, CPU), **Video Assembly** (Stage G — targeted IDs always render a replacement before publishing it once Stage B + C prerequisites pass), and **Google Drive Upload** (`drive_upload` — bundle replacement after both uploads succeed).
      - Accepts arbitrary ID lists, CSV drag-and-drop, or one-click catalog presets with real-time validation (`POST /api/scripts/validate-ids`).
   5. **Google Sheets Sync (`GoogleSheetsSyncView.tsx`)**: 4-step interactive workflow across all 16 sheets (including `FUN_FACTS`) fetching Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`), running format-aware diffs, applying edits to state JSONs (invalidating stale titles/anchors on topic change & resetting downstream stages), and syncing tracking manifests.
   6. **Bingo Matrix (`BingoMatrixView.tsx`)**: At-a-glance asset readiness matrix across all 16 language/format matrices.
@@ -440,7 +411,7 @@ main/connectivity/
 ├── reconcile_scripts.py            # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                 # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
 ├── scan_ready_scripts.py           # Principal Runner 5: Scans ready scripts and exports by date
-├── sync_drive.py                   # Principal Runner 6: Clean delete-before-upload sync to Google Drive
+├── sync_drive.py                   # Principal Runner 6: Replace a Google Drive video and thumbnail bundle
 ├── core/                           # Endpoints registry & resilient HTTP client (redirects & retries)
 ├── apps_script/                    # Apps Script Web App implementation (doGet/doPost) & deployment guide
 ├── drive_sync/                     # Google Drive API v3 client (`drive_client.py`) & replacement sync (`sync_service.py`)
@@ -547,62 +518,19 @@ OUTPUT_DIR=./output
 
 ---
 
-## CLI Operational Reference Manual
+## Studio production and maintenance
 
-### Master Pipeline Execution
+Launch the studio with `python tools/webui.py` from this directory. Start a script from **Script Catalog**, or use **Mass Creation** to paste IDs, upload an ID CSV, or choose scripts from the catalog. Queue voice, scenes, thumbnails, and assembly in order. Use **Queue** to see progress and logs, and **Media Players** in the script details to inspect the assets. Assembly requires completed voice and scene stages.
+
+Mass Creation includes optional image seeds, voice accent and engine overrides, voice recasting, and subtitle reuse. **Sheets Sync** applies remote script revisions. **Drive Upload** delivers completed video and thumbnail pairs.
+
+### Standalone maintenance tools
+
+Music-bank creation, voice-bank creation, teaser extraction, and database and auditing tasks have separate operator tools.
+
 ```bash
-# Launch end-to-end interactive runner (executes Part A & B sequentially)
-python main.py
-```
-
-### Stage-by-Stage Execution
-```bash
-# Part A: Script Generation
-python video_creation/_A_video_scripts/main.py
-python video_creation/_A_video_scripts/main.py --script-id EE01 --force
-python video_creation/_A_video_scripts/main.py --fun-facts --language english
-python video_creation/_A_video_scripts/main.py --from-csv input/csv/script_to_change/my_list.csv
-python video_creation/_A_video_scripts/main.py --from-ready-scripts
-python video_creation/_A_video_scripts/main.py --from-mass-ready-scripts
-
-# Part B: Voice Generation (TTS + Modular voice/ + VoiceDesign Bank)
-python video_creation/_B_voice_generation/main.py
-python video_creation/_B_voice_generation/main.py --script-id EE01 --force
-python video_creation/_B_voice_generation/main.py --script-id SE01 --accent es_latam_neutral --engine typed --force
-python video_creation/_B_voice_generation/main.py --auto
-python video_creation/_B_voice_generation/main.py --fun-facts --language spanish
-python video_creation/_B_voice_generation/main.py --from-csv input/csv/voice_to_change/voice_batch.csv
-python video_creation/_B_voice_generation/main.py --from-ready-scripts
-python video_creation/_B_voice_generation/main.py --from-mass-ready-scripts
-python video_creation/_B_voice_generation/voice_modifier.py --script-id ER114 --genders "male, female, female" --accent es_spain_castilian
-python video_creation/_B_voice_generation/tools/build_voice_bank.py --dry-run
-python video_creation/_B_voice_generation/tools/build_voice_bank.py --language french --speaker-ids fr_f_actor_03 --candidates 2 --force
-
-# Part C: Scene Image Generation
-python video_creation/_C_image_generation/main.py
-python video_creation/_C_image_generation/main.py --script-id EE01 --seed 42 --force
-python video_creation/_C_image_generation/main.py --auto
-python video_creation/_C_image_generation/main.py --video-type roleplay
-python video_creation/_C_image_generation/main.py --fun-facts --language english
-python video_creation/_C_image_generation/main.py --from-csv input/csv/image_to_change/image_batch.csv
-python video_creation/_C_image_generation/main.py --from-ready-scripts
-# Interactive Visual Modifier (Single scene & Batch group recreation, Dual gender casting, Chalkboard editor)
-python tools/modifiers/image_modifier.py
-
-# Part D: Standing Music Bank Generation
 python video_creation/_D_music_generation/main.py --language english --video-type expression
-
-# Part F: Thumbnail Generation
-python video_creation/_F_thumbnail_image_generation/main.py --script-id EE01
-python video_creation/_F_thumbnail_image_generation/main.py --from-ready-scripts
-
-# Part G: Video Assembly (targeted IDs force delete-and-recreate; VIDEO_ASSEMBLY_ENGINE=legacy|typed|legacy:<type>)
-python video_creation/_G_video_assembly/main.py --script-id EE01
-python video_creation/_G_video_assembly/main.py --script-id EE01 --keep-subtitles
-python video_creation/_G_video_assembly/main.py --from-ready-scripts
-
-# Create a Little Short / Teaser Clip (interactive or scripted)
-python video_creation/_G_video_assembly/little_short_creation.py
+python video_creation/_B_voice_generation/tools/build_voice_bank.py --dry-run
 python video_creation/_G_video_assembly/little_short_creation.py --id EE01 --lapse 10-16
 ```
 
@@ -661,7 +589,7 @@ python connectivity/post_scripts.py
 # Feature 5: Scan ready scripts across all sheets and export daily tracking CSVs
 python connectivity/scan_ready_scripts.py --all
 
-# Feature 6: Clean delete-before-upload sync to Google Drive
+# Feature 6: Replace a Google Drive video and thumbnail bundle
 python connectivity/sync_drive.py --script-id EE01
 python connectivity/sync_drive.py --all
 python connectivity/sync_drive.py --all --language spanish --video-type game
@@ -686,7 +614,7 @@ shorts_automation/
 │   │   ├── reconcile_scripts.py        # Principal Runner 3: Audits & reorganizes local scripts
 │   │   ├── post_scripts.py             # Principal Runner 4: Posts scripts to Google Sheets
 │   │   ├── scan_ready_scripts.py       # Principal Runner 5: Scans ready scripts and exports by date
-│   │   ├── sync_drive.py               # Principal Runner 6: Google Drive delete-before-upload sync CLI
+│   │   ├── sync_drive.py               # Principal Runner 6: Google Drive bundle replacement CLI
 │   │   ├── core/                       # Option A endpoints router & resilient HTTP client
 │   │   ├── apps_script/                # Apps Script Web App implementation & deployment guide
 │   │   ├── drive_sync/                 # Google Drive API v3 client (drive_client.py) & sync_service.py
@@ -698,7 +626,7 @@ shorts_automation/
 │   │   └── README.md                   # Full connectivity manual and deployment guide
 │   ├── credentials/                    # Local OAuth2 / Service Account JSONs (gitignored) & setup guide
 │   ├── core/                           # Shared infrastructure and utilities
-│   │   ├── cli_prompt.py               # Interactive CLI menus with 10s countdown timers
+│   │   ├── cli_prompt.py               # Shared prompts for operator utilities
 │   │   ├── expression_db.py            # SQLite + CSV hybrid database implementation
 │   │   ├── gemini_auditor.py           # Gemini Prompt Auditor (cfg=1.0 positive rules + Cultural World reroll)
 │   │   ├── state_manager.py            # Script state machine and lifecycle manager
@@ -758,7 +686,6 @@ shorts_automation/
 │   │   ├── _D_music_generation/        # Standing Music Bank generator and catalog
 │   │   ├── _F_thumbnail_image_generation/ # Native CPU chalkboard thumbnail renderer
 │   │   └── _G_video_assembly/          # Modular assembly/ (types/ + languages/), Whisper subtitles, audio ducking & FFmpeg
-│   ├── main.py                         # Primary execution orchestrator
 │   ├── requirements.txt                # Production runtime dependencies
 │   ├── system_prompts_editor.csv       # External LLM system prompts for script doctoring
 │   ├── .env.example                    # Environment variable configuration template
@@ -773,7 +700,7 @@ shorts_automation/
     ├── pytest.ini                      # Pytest discovery settings and custom test markers
     ├── README.md                       # Test suite documentation & CLI execution guide
     ├── requirements-test.txt           # Test-specific dependencies (pytest)
-    └── run_tests.py                    # Standalone CLI test runner (zero external dependencies)
+    └── pytest.ini                      # Test discovery and execution markers
 ```
 
 ---

@@ -1,5 +1,5 @@
 """
-webui/routers/scripts.py — Query, filter, paginate, and inspect scripts and pipeline states.
+webui/routers/scripts.py â€” Query, filter, paginate, and inspect scripts and pipeline states.
 Supports all 1,200+ scripts across Expression, Roleplay, Game, and Fun Facts formats.
 """
 
@@ -9,11 +9,13 @@ import json
 import math
 import sys
 import time
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 # pyrefly: ignore[missing-import]
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Request, Query
 # pyrefly: ignore[missing-import]
 from pydantic import BaseModel
 
@@ -23,19 +25,27 @@ if str(BASE_DIR) not in sys.path:
 
 from core.state_manager import StateManager
 from core.expression_db import is_expression_done, get_all_done_expression_ids
-from video_creation._C_image_generation.main import ensure_llama_stopped
+from core.llama_manager import ensure_llama_stopped
 from config import resolve_static_scene_path
 
 router = APIRouter(prefix="/api/scripts", tags=["Scripts"])
 
-# In-memory index cache for instant catalog filtering across 1,200+ scripts
-_SCRIPT_CACHE: List[Dict[str, Any]] = []
-_CACHE_TIMESTAMP: float = 0.0
-CACHE_TTL_SECONDS: float = 600.0
+@dataclass
+class ScriptCatalog:
+    base_dir: Path
+    entries: list[dict[str, Any]] = field(default_factory=list)
+    timestamp: float = 0.0
+
+    def invalidate(self) -> None:
+        self.timestamp = 0.0
+
+
+_catalog = ContextVar("script_catalog", default=ScriptCatalog(BASE_DIR))
+CACHE_TTL_SECONDS = 600.0
 
 
 def _get_state_manager() -> StateManager:
-    return StateManager(BASE_DIR)
+    return StateManager(_catalog.get().base_dir)
 
 
 def _normalize_stage(status_val: Any) -> str:
@@ -48,21 +58,21 @@ def _normalize_stage(status_val: Any) -> str:
 
 
 def _normalize_language(raw_lang: Any) -> str:
-    """Normalizes multilingual labels (e.g. Español, Français, ENGLISH) to canonical keys."""
+    """Normalizes multilingual labels (e.g. EspaÃ±ol, FranÃ§ais, ENGLISH) to canonical keys."""
     if not raw_lang:
         return "english"
     clean = str(raw_lang).split("|")[0].strip().lower()
-    if clean in ("español", "espanol", "spanish", "sp", "es"):
+    if clean in ("espaÃ±ol", "espanol", "spanish", "sp", "es"):
         return "spanish"
-    elif clean in ("français", "francais", "french", "fr"):
+    elif clean in ("franÃ§ais", "francais", "french", "fr"):
         return "french"
-    elif clean in ("english", "ingles", "inglés", "en"):
+    elif clean in ("english", "ingles", "inglÃ©s", "en"):
         return "english"
     elif clean in ("italian", "italiano", "it"):
         return "italian"
     elif clean in ("german", "deutsch", "de"):
         return "german"
-    elif clean in ("portuguese", "português", "portugues", "pt"):
+    elif clean in ("portuguese", "portuguÃªs", "portugues", "pt"):
         return "portuguese"
     return clean
 
@@ -278,7 +288,7 @@ def _build_script_summary(
     is_done_flag = (
         (str(s_id).strip().upper() in done_ids_set)
         if done_ids_set is not None
-        else is_expression_done(s_id)
+        else (_catalog.get().base_dir == BASE_DIR and is_expression_done(s_id))
     )
 
     return {
@@ -316,36 +326,34 @@ def _build_script_summary(
 
 
 def _update_cached_script(canonical_id: str, state_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Updates a single script entry in _SCRIPT_CACHE in-place (O(1)) without re-scanning all 1,200+ files."""
-    global _SCRIPT_CACHE
+    """Updates a script summary without scanning the workspace again."""
+    catalog = _catalog.get()
     summary = _build_script_summary(state_data, force_disk_images=True)
     if not summary:
         return None
-    if _SCRIPT_CACHE:
+    if catalog.entries:
         cid_upper = canonical_id.strip().upper()
         replaced = False
-        for idx, item in enumerate(_SCRIPT_CACHE):
+        for idx, item in enumerate(catalog.entries):
             if str(item.get("script_id", "")).upper() == cid_upper:
-                _SCRIPT_CACHE[idx] = summary
+                catalog.entries[idx] = summary
                 replaced = True
                 break
         if not replaced:
-            _SCRIPT_CACHE.append(summary)
-            _SCRIPT_CACHE.sort(key=lambda x: x["script_id"])
+            catalog.entries.append(summary)
+            catalog.entries.sort(key=lambda x: x["script_id"])
     return summary
 
 
 def _get_indexed_scripts(force_refresh: bool = False) -> List[Dict[str, Any]]:
-    global _SCRIPT_CACHE, _CACHE_TIMESTAMP
-    now = time.time()
-    sm = _get_state_manager()
-    is_mock = hasattr(sm.get_all_scripts, "assert_called") or hasattr(sm.get_all_scripts, "return_value")
-    if not is_mock and not force_refresh and _SCRIPT_CACHE and (now - _CACHE_TIMESTAMP < CACHE_TTL_SECONDS):
-        return _SCRIPT_CACHE
+    catalog = _catalog.get()
+    now = time.monotonic()
+    if not force_refresh and catalog.timestamp and now - catalog.timestamp < CACHE_TTL_SECONDS:
+        return catalog.entries
 
-    raw_scripts = sm.get_all_scripts()
+    raw_scripts = _get_state_manager().get_all_scripts()
     try:
-        done_ids_set = get_all_done_expression_ids()
+        done_ids_set = get_all_done_expression_ids() if catalog.base_dir == BASE_DIR else set()
     except Exception:
         done_ids_set = None
 
@@ -357,9 +365,8 @@ def _get_indexed_scripts(force_refresh: bool = False) -> List[Dict[str, Any]]:
 
     # Sort naturally by script ID (e.g. EE01, EE02, FR01, SE01)
     indexed.sort(key=lambda x: x["script_id"])
-    if not is_mock:
-        _SCRIPT_CACHE = indexed
-        _CACHE_TIMESTAMP = now
+    catalog.entries = indexed
+    catalog.timestamp = now
     return indexed
 
 
@@ -794,9 +801,8 @@ class ScriptGenerateRequest(BaseModel):
 
 
 @router.post("/{script_id}/generate")
-def generate_script_endpoint(script_id: str, payload: Optional[ScriptGenerateRequest] = None) -> Dict[str, Any]:
+def generate_script_endpoint(script_id: str, request: Request, payload: Optional[ScriptGenerateRequest] = None) -> Dict[str, Any]:
     """Triggers Stage A script generation for a specific script directly via the WebUI job runner."""
-    from webui.jobs.manager import get_job_manager
     from webui.jobs.models import JobCreateRequest, JobStage
 
     sm = _get_state_manager()
@@ -804,7 +810,7 @@ def generate_script_endpoint(script_id: str, payload: Optional[ScriptGenerateReq
     if not sm.script_exists(canonical_id):
         raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
 
-    jm = get_job_manager()
+    jm = request.app.state.job_manager
     opts = payload.options if payload and payload.options else {}
     if payload and payload.force:
         opts["force"] = True
@@ -930,7 +936,7 @@ def render_chalkboard_endpoint(script_id: str, payload: Optional[RenderChalkboar
         raise HTTPException(status_code=500, detail=f"Chalkboard template not found: {empty_chalkboard_path}")
 
     # Determine script images directory
-    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=BASE_DIR) / "images"
+    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=_catalog.get().base_dir) / "images"
     out_dir.mkdir(parents=True, exist_ok=True)
     dest_path = out_dir / f"script_{canonical_id}_challenge.png"
 
@@ -1009,7 +1015,7 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
 
             # Check actual physical asset files for Google Drive upload readiness
             from connectivity.drive_sync.sync_service import resolve_script_assets
-            video_path, thumb_path = resolve_script_assets(state, base_dir=BASE_DIR)
+            video_path, thumb_path = resolve_script_assets(state, base_dir=_catalog.get().base_dir)
             has_vid = bool(video_path and video_path.exists())
             has_thumb = bool(thumb_path and thumb_path.exists())
             can_upload = has_vid and has_thumb
@@ -1062,6 +1068,7 @@ class RedoSceneImageRequest(BaseModel):
 
 @router.post("/{script_id}/scenes/{scene_type}/redo-image")
 def redo_scene_image_endpoint(
+    request: Request,
     script_id: str,
     scene_type: str,
     payload: Optional[RedoSceneImageRequest] = None
@@ -1084,7 +1091,7 @@ def redo_scene_image_endpoint(
     from core.state_manager import resolve_lang_and_type
     from video_creation._C_image_generation.core.comfy_client import ImageComfyClient
     from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
-    from video_creation._C_image_generation.main import ensure_llama_stopped
+    from core.llama_manager import ensure_llama_stopped
 
     sm = _get_state_manager()
     canonical_id = script_id.strip().upper()
@@ -1123,17 +1130,16 @@ def redo_scene_image_endpoint(
 
     # 3. Resolve destination path
     lang, _ = resolve_lang_and_type(canonical_id)
-    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=BASE_DIR) / "images"
+    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=_catalog.get().base_dir) / "images"
     out_dir.mkdir(parents=True, exist_ok=True)
     dest_path = out_dir / f"script_{canonical_id}_{sec_lower}.png"
 
     seed = payload.seed if (payload and payload.seed is not None) else random.randint(1, 10**15)
 
     # 4. Enqueue Asynchronous Single-Scene Generation in JobManager
-    from webui.jobs.manager import get_job_manager
     from webui.jobs.models import JobCreateRequest, JobStage
 
-    job_mgr = get_job_manager()
+    job_mgr = request.app.state.job_manager
     job = job_mgr.enqueue_job(JobCreateRequest(
         stage=JobStage.IMAGES,
         script_ids=[canonical_id],
@@ -1162,6 +1168,7 @@ class RedoAllImagesRequest(BaseModel):
 
 @router.post("/{script_id}/redo-all-images")
 def redo_all_images_endpoint(
+    request: Request,
     script_id: str,
     payload: Optional[RedoAllImagesRequest] = None,
 ) -> Dict[str, Any]:
@@ -1217,12 +1224,11 @@ def redo_all_images_endpoint(
     _update_cached_script(canonical_id, state_data)
 
     # 3. Enqueue Asynchronous Full-Script Generation in JobManager
-    from webui.jobs.manager import get_job_manager
     from webui.jobs.models import JobCreateRequest, JobStage
 
     seed = payload.seed if (payload and payload.seed is not None and payload.seed > 0) else None
 
-    job_mgr = get_job_manager()
+    job_mgr = request.app.state.job_manager
     job = job_mgr.enqueue_job(JobCreateRequest(
         stage=JobStage.IMAGES,
         script_ids=[canonical_id],
