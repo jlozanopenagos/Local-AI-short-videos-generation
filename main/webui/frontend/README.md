@@ -14,6 +14,10 @@ Modern, high-performance Web Single Page Application (SPA) for managing, monitor
 
 ---
 
+## Voice controls
+
+Use Voice with Force to regenerate audio and enable Recast if you want Studio to pick different references. Review the resulting audio in the Script Detail modal. The active voice bank is configured on the backend.
+
 ## The 6 Primary Navigation Views
 
 The WebUI is structured around 6 tabs in the top navigation bar (`Navbar.tsx`):
@@ -23,7 +27,7 @@ The WebUI is structured around 6 tabs in the top navigation bar (`Navbar.tsx`):
 
 ### 2. Script Catalog & Detail Inspection (`ScriptList.tsx` & `ScriptDetailModal.tsx`)
 - **System Health Telemetry (`SystemCard.tsx`)**: Live connectivity status for the LLM Server, ComfyUI, and hardware/VRAM telemetry with start/stop controls.
-- **Filterable Catalog**: Search and filter across all 1,224 scripts by language, video format, and stage status.
+- **Filterable Catalog**: Search and filter available scripts by language, video format, and stage status.
 - **Script Detail Modal (`ScriptDetailModal.tsx`)**: Inspects script sections, audio waveform, scene storyboard illustrations, thumbnail preview, and YouTube SEO metadata:
   - **Gemini Prompt Auditor**: Calls `POST /api/scripts/{script_id}/gemini-audit-prompt` to enforce purely-positive Z-Image-Turbo rules and automatically reroll a fresh Cultural World excluding the previous draft's setting.
   - **Single-Scene & Full-Set Image Redo**: Redo individual scene frames, or trigger **Queue Redo (All Images)** to preserve your saved/edited `general_prompt` (`preserve_general_prompt=True`) while running the two-phase Llama -> ComfyUI rebuild of all scene prompts and PNGs.

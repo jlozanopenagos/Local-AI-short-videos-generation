@@ -78,15 +78,14 @@ def main():
         print(f"Opening browser at {url}...")
         _open_browser_when_ready(url)
 
-    from webui.server import create_app
-    app = create_app()
-
     uvicorn.run(
-        app,
+        "webui.server:create_app",
+        factory=True,
         host=args.host,
         port=args.port,
         log_level="info",
         reload=args.reload,
+        timeout_graceful_shutdown=5,
     )
 
 

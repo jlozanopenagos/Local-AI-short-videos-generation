@@ -62,6 +62,38 @@ def inject_game_option_micro_pauses(text: str, pause_seconds: float = 0.26) -> s
     return re.sub(r"\s+", " ", shaped).strip()
 
 
+def inject_learner_sentence_pauses(text: str, video_type: str, pause_seconds: float = 0.28) -> str:
+    """Inserts `[pause:Xs]` between sentences in multi-sentence pedagogical segments
+    for EXPRESSION, FUN_FACTS, and ROLEPLAY (never GAME) so Qwen3-TTS inserts clean
+    learner-friendly breathing pauses without altering captions.
+    """
+    vtype = (video_type or "").strip().lower()
+    if not text or vtype == "game" or pause_seconds <= 0:
+        return text
+    if len(re.sub(r"\[.*?\]", " ", text).split()) < 12:
+        return text
+    # Avoid duplicating existing pause tags or breaking ellipses/abbreviations
+    tag = f"[pause:{pause_seconds:.2f}]"
+    sentence_break_re = re.compile(r"([.?!])(\s+)(?=[A-ZÀ-Ÿ¿¡\"'«])")
+
+    def _repl(match: re.Match) -> str:
+        punct = match.group(1)
+        start_idx = match.start()
+        prefix = text[: start_idx + 1]
+        if _ABBREV_END_RE.search(prefix):
+            return match.group(0)
+        # Skip ellipses (`...`)
+        if punct == "." and start_idx >= 1 and text[start_idx - 1] == ".":
+            return match.group(0)
+        after = text[match.end() :]
+        if after.startswith("[pause:"):
+            return match.group(0)
+        return f"{punct} {tag} "
+
+    shaped = sentence_break_re.sub(_repl, text)
+    return re.sub(r"\s+", " ", shaped).strip()
+
+
 def _restore_controlled_interrobang_and_ellipsis(cleaned: str, raw_text: Optional[str]) -> str:
     """Restores safe expressive cues (`?!` / crisp `...`) from raw script text when flattened."""
     if not raw_text:
@@ -91,6 +123,7 @@ def prepare_tts_prosody_text(
     use_option_micro_pauses: bool = False,
     option_micro_pause_sec: float = 0.26,
     enforce_inverted_punctuation: bool = False,
+    continuous_turn: bool = False,
 ) -> Tuple[str, Dict[str, Any]]:
     """Prepares spoken text for Qwen3-TTS with language/type prosody cues without mutating captions.
 
@@ -116,6 +149,8 @@ def prepare_tts_prosody_text(
     sec_low = (section or "").strip().lower()
     if (video_type or "").lower() == "game" and "challenge" in sec_low and use_option_micro_pauses:
         shaped = inject_game_option_micro_pauses(shaped, pause_seconds=option_micro_pause_sec)
+    elif not continuous_turn and (video_type or "").lower() in ("expression", "fun_facts", "roleplay"):
+        shaped = inject_learner_sentence_pauses(shaped, video_type=video_type, pause_seconds=0.28)
 
     stripped = shaped.strip()
     flags = {

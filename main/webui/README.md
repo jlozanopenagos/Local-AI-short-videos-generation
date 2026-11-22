@@ -2,7 +2,11 @@
 
 High-performance FastAPI application serving the modern browser-based management studio and background task execution engine for the `shorts_automation` pipeline.
 
----
+## Start and stop
+
+Launch with `py main/tools/webui.py` from the repository root. Studio listens on port 8190 by default. Use `--dev --reload` for development. On Ctrl+C, Uvicorn gives in-flight connections up to five seconds to drain before application cleanup. The job manager then gives its worker up to 30 seconds to unwind. ComfyUI and llama.cpp have separate service controls.
+
+The worker serializes production jobs. The voice adapter can queue a required next take ahead within a single job, and cancellation targets the prompts that job submitted. The image batch queue is separate.
 
 ## Architecture Overview
 
@@ -52,7 +56,7 @@ main/webui/
   - Request payload:
     ```json
     {
-      "stage": "scripts" | "voice" | "images" | "music" | "assembly" | "thumbnails" | "chalkboard" | "drive_upload",
+      "stage": "scripts" | "voice" | "images" | "assembly" | "thumbnails" | "chalkboard" | "drive_upload",
       "script_ids": ["EE01", "EE02"],
       "options": {
         "force": true,

@@ -4,6 +4,8 @@ This folder contains command-line utilities and interactive review tools for the
 
 ---
 
+Run production jobs in Studio. These commands cover service lifecycle, local asset QA, and operator maintenance. Run the test suite with Pytest.
+
 ## Folder Organization Overview
 
 | Subdirectory | Focus / Responsibility | Tools Included |

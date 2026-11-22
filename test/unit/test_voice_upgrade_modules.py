@@ -25,6 +25,7 @@ from video_creation._B_voice_generation.core.acoustic_evaluator import evaluate_
 # pyrefly: ignore[missing-import]
 from video_creation._B_voice_generation.core.audio_processor import (
     concatenate_audios,
+    enforce_learner_pace_safety_net,
     master_and_normalize_audio,
     measure_lufs,
 )
@@ -218,7 +219,7 @@ class TestVoiceUpgradeModules(unittest.TestCase):
         for p in (seg1, seg2, seg3):
             _write_tone(p, lambda t, d: 180.0 + 30.0 * np.sin(2 * np.pi * 4.0 * t), duration=0.6)
 
-        # FUN_FACTS: 0.45s pre_discovery_gap before discovery
+        # FUN_FACTS: 0.60s pre_discovery_gap before discovery
         ff_profile = get_video_type_voice_profile("fun_facts")
         ff_out = self.root / "ff" / "script_EF99_master.wav"
         concatenate_audios(
@@ -231,7 +232,22 @@ class TestVoiceUpgradeModules(unittest.TestCase):
             mastering_preset=ff_profile.mastering,
         )
         ff_timings = json.loads((ff_out.parent / "timings.json").read_text(encoding="utf-8"))
-        self.assertAlmostEqual(ff_timings["discovery"]["start"] - ff_timings["hook"]["end"], 0.45, delta=0.02)
+        self.assertAlmostEqual(ff_timings["discovery"]["start"] - ff_timings["hook"]["end"], 0.60, delta=0.02)
+
+        # EXPRESSION: 0.70s pre_example_gap before example
+        ex_profile = get_video_type_voice_profile("expression")
+        ex_out = self.root / "ex" / "script_EE99_master.wav"
+        concatenate_audios(
+            [
+                {"path": seg1, "section": "discovery", "speaker": "Narrator"},
+                {"path": seg2, "section": "example", "speaker": "Narrator"},
+            ],
+            ex_out,
+            pause_choreography=ex_profile.pauses,
+            mastering_preset=ex_profile.mastering,
+        )
+        ex_timings = json.loads((ex_out.parent / "timings.json").read_text(encoding="utf-8"))
+        self.assertAlmostEqual(ex_timings["example"]["start"] - ex_timings["discovery"]["end"], 0.70, delta=0.02)
 
         # GAME: 2.20s pressure_gap preserved before answer
         gm_profile = get_video_type_voice_profile("game")
@@ -248,7 +264,7 @@ class TestVoiceUpgradeModules(unittest.TestCase):
         gm_timings = json.loads((gm_out.parent / "timings.json").read_text(encoding="utf-8"))
         self.assertAlmostEqual(gm_timings["answer"]["start"] - gm_timings["pressure"]["end"], 2.20, delta=0.02)
 
-        # ROLEPLAY: dynamic 0.24s cliffhanger turn gap after ?/!
+        # ROLEPLAY: dynamic 0.48s cliffhanger turn gap after ?/!
         rp_profile = get_video_type_voice_profile("roleplay")
         rp_out = self.root / "rp" / "script_ER99_master.wav"
         concatenate_audios(
@@ -261,12 +277,15 @@ class TestVoiceUpgradeModules(unittest.TestCase):
             mastering_preset=rp_profile.mastering,
         )
         rp_timings = json.loads((rp_out.parent / "timings.json").read_text(encoding="utf-8"))
-        self.assertAlmostEqual(rp_timings["dialogue_part_2"]["start"] - rp_timings["dialogue_part_1"]["end"], 0.24, delta=0.02)
+        self.assertAlmostEqual(rp_timings["dialogue_part_2"]["start"] - rp_timings["dialogue_part_1"]["end"], 0.48, delta=0.02)
 
     def test_roleplay_emotion_tier_classifier(self):
+        self.assertEqual(classify_roleplay_energy_tier("Frustrated", "What?!"), "frustrated")
+        self.assertEqual(classify_roleplay_energy_tier("Imbarazzato", "Ma davvero?!"), "embarrassed")
+        self.assertEqual(classify_roleplay_energy_tier("Paniquée", "Vite."), "surprised_urgent")
         self.assertEqual(classify_roleplay_energy_tier("Surpris", "Comment ça?!", "dialogue_part_2"), "surprised_urgent")
         self.assertEqual(classify_roleplay_energy_tier("enthousiaste", "C'est génial !", "dialogue_part_4"), "high_energy")
-        self.assertEqual(classify_roleplay_energy_tier("calm", "Sure, let's look at the menu.", "dialogue_part_1"), "baseline")
+        self.assertEqual(classify_roleplay_energy_tier("calm", "Sure, let's look at the menu.", "dialogue_part_1"), "reassuring")
 
     def test_broadcast_mastering_eq_lufs_and_peak_ceiling(self):
         """Verifies per-type scipy DSP chain boosts 3.5kHz presence over 250Hz mud & nails LUFS/peak targets."""
@@ -302,7 +321,10 @@ class TestVoiceUpgradeModules(unittest.TestCase):
 
         summary = build_voice_bank(bank_dir=self.root / "dry_bank", dry_run=True)
         self.assertTrue(summary["dry_run"])
-        self.assertEqual(summary["planned_baseline_clips"], len(personas))
+        self.assertEqual(summary["planned_baseline_clips"], sum(not p.get("audition") for p in personas))
+        auditions = build_voice_bank(bank_dir=self.root / "auditions", dry_run=True, auditions_only=True)
+        self.assertEqual(auditions["by_language"], dict.fromkeys(("english", "french", "italian", "spanish"), 6))
+        self.assertEqual(auditions["planned_variant_clips"], 40)
         self.assertGreater(summary["planned_variant_clips"], 0)
 
         filtered = build_voice_bank(
@@ -390,6 +412,9 @@ class TestVoiceUpgradeModules(unittest.TestCase):
         self.assertTrue(_passes_gender_pitch_gate("male", 155.0)[0])
         self.assertFalse(_passes_gender_pitch_gate("male", 170.0, mf_energy_ratio=0.04)[0])
         self.assertFalse(_passes_gender_pitch_gate("female", 170.0)[0])
+        self.assertFalse(_passes_gender_pitch_gate("female", 185.0, 170.0, 0.07)[0])
+        self.assertTrue(_passes_gender_pitch_gate("female", 185.0, 170.0, 0.07, lower_register=True)[0])
+        self.assertFalse(_passes_gender_pitch_gate("female", 275.0, 230.0, 0.02, lower_register=True)[0])
         self.assertFalse(_passes_gender_pitch_gate("female", 325.0)[0])
         self.assertFalse(_passes_gender_pitch_gate("female", 215.0, p25_f0=170.0, mf_energy_ratio=0.08)[0])
         self.assertFalse(_passes_gender_pitch_gate("female", 220.0, p25_f0=205.0, mf_energy_ratio=0.25)[0])
@@ -453,6 +478,48 @@ class TestVoiceUpgradeModules(unittest.TestCase):
             )
             _, second_p, _ = vm2.get_speaker_voice("Narrator", "spanish")
             self.assertNotEqual(first_p.name, second_p.name)
+
+    def test_learner_pace_profiles_pauses_and_safety_net(self):
+        """Verifies learner pace overrides, intra-sentence pauses for non-GAME, and ffmpeg atempo safety net."""
+        exp = get_video_type_voice_profile("expression")
+        rp = get_video_type_voice_profile("roleplay")
+        ff = get_video_type_voice_profile("fun_facts")
+        gm = get_video_type_voice_profile("game")
+
+        self.assertTrue(exp.apply_pace_safety_net)
+        self.assertTrue(rp.apply_pace_safety_net)
+        self.assertTrue(ff.apply_pace_safety_net)
+        self.assertFalse(gm.apply_pace_safety_net)
+        self.assertEqual(exp.target_cps_override, 11.2)
+        self.assertIsNone(gm.target_cps_override)
+
+        # Multi-sentence non-GAME text gets [pause:0.28] between sentences; GAME does not
+        multi = (
+            "Have you ever heard someone say break a leg before a show? "
+            "It sounds strange, right! Today you will learn what it really means."
+        )
+        shaped_exp, _ = prepare_tts_prosody_text(multi, language="english", video_type="expression", section="hook")
+        shaped_gm, _ = prepare_tts_prosody_text(multi, language="english", video_type="game", section="hook")
+        self.assertIn("[pause:0.28]", shaped_exp)
+        self.assertNotIn("[pause:0.28]", shaped_gm)
+
+        # Gentle pitch-preserving safety net slows fast audio capped at 12% (factor >= 0.88)
+        fast_wav = self.root / "fast_seg.wav"
+        _write_tone(fast_wav, lambda t, d: 180.0 + 20.0 * np.sin(2 * np.pi * 3.0 * t), duration=3.0)
+        # 12 words in 3.0s = 240 WPM (> 145 max_wpm) -> stretched by 0.88
+        applied, factor, before_wpm, after_wpm = enforce_learner_pace_safety_net(
+            fast_wav,
+            word_count=12,
+            max_wpm=145.0,
+            target_wpm=135.0,
+            max_slowdown=0.12,
+        )
+        self.assertTrue(applied)
+        self.assertAlmostEqual(factor, 0.88, delta=0.005)
+        self.assertGreater(before_wpm, 230.0)
+        self.assertLess(after_wpm, before_wpm)
+        new_dur = float(sf.info(str(fast_wav)).duration)
+        self.assertGreater(new_dur, 3.30)
 
 
 if __name__ == "__main__":

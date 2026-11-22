@@ -31,8 +31,8 @@ ITALIAN_VOICE_PROFILE = LanguageVoiceProfile(
     ),
     enforce_inverted_punctuation=False,
     instruct_prosody_hint=(
-        "Energia italiana brillante, solare e teatrale con ampie escursioni melodiche, "
-        "picchi espressivi coinvolgenti su domande ed esclamazioni, vocali aperte e doppie consonanti nitide (tt, nn, ll)."
+        "Ritmo chiaro, posato e ben scandito per chi studia l'italiano, espressività solare e naturale con ampie escursioni melodiche, "
+        "picchi espressivi su domande ed esclamazioni, vocali aperte e doppie consonanti nitide (tt, nn, ll)."
     ),
     accent_instruct_hints={
         "it_standard": (

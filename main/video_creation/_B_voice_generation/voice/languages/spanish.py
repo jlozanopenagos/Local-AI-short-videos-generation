@@ -32,8 +32,8 @@ SPANISH_VOICE_PROFILE = LanguageVoiceProfile(
     ),
     enforce_inverted_punctuation=True,
     instruct_prosody_hint=(
-        "Ritmo silábico ágil y expresivo, vocales puras y nítidas, entonación ascendente marcada en preguntas (¿?) "
-        "y energía vibrante en exclamaciones (¡!), acento neutro comprensible sin modismos locales."
+        "Ritmo silábico claro, pausado y bien articulado para estudiantes de idiomas, vocales puras y nítidas, "
+        "entonación ascendente marcada en preguntas (¿?) y energía cálida en exclamaciones (¡!), acento neutro comprensible sin modismos locales."
     ),
     accent_instruct_hints={
         "es_latam_neutral": (

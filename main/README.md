@@ -61,8 +61,8 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  ┌───────────────────────────────────────────────────────────────────┐
  │               STAGE 2: video_creation/_B_voice_generation         │
  │   - Modular voice/ Split (4 Languages x 4 Video Types + Rollback) │
- │   - 68-Clip 1.7B-VoiceDesign Bank & Anti-Repetition Casting       │
- │   - Neutral ES (75/25), English ICL Lock & Roleplay 3-Tier Energy │
+ │   - 1.7B-VoiceDesign Bank & Anti-Repetition Casting       │
+ │   - Accent routing, ICL references & Roleplay acting cues │
  │   - Syntactic Carrier Prosody, ?/! Contours & Stress Gating       │
  │   - Per-Type Pause Choreography & Scipy Broadcast Mastering       │
  └───────────────┬────────────────┬──────────────────┬───────────────┘
@@ -200,7 +200,7 @@ Content strategy is divided across four distinct formats, each strictly governed
 
 ## Voice Generation: Modular Architecture, VoiceDesign Bank & Syntactic Carrier Prosody
 
-Stage 2 (`_B_voice_generation`) runs exclusively on **Qwen3-TTS** (`1.7B-Base` cloning + `1.7B-VoiceDesign` reference bank), combining a modular `voice/` package (split cleanly by target language and video type) with the **Syntactic Carrier & Continuous Prosody Architecture**, a **68-clip Qwen3-TTS 1.7B-VoiceDesign Reference Bank**, and per-type **broadcast DSP vocal mastering**:
+Stage 2 (`_B_voice_generation`) runs exclusively on **Qwen3-TTS** (`1.7B-Base` cloning + `1.7B-VoiceDesign` reference bank), combining a modular `voice/` package (split cleanly by target language and video type) with the **Syntactic Carrier & Continuous Prosody Architecture**, a curated local **Qwen3-TTS 1.7B-VoiceDesign reference bank**, and per-type **broadcast DSP vocal mastering**:
 
 ### 1. Tokenizer Fragmentation & The Citation Monotone Trap
 - **The BPE Tokenizer Flaw**: In autoregressive TTS models (such as Qwen3-TTS), sub-word tokenizers split artificial phonetic respellings (`pri-ZENT`, `PRAHJ-ekt`) or hyphenated words into fragmented tokens. This causes the neural vocoder to hallucinate tense, unnatural vowel phonemes (e.g. `/reɪ/` "ray-cord" instead of reduced `/rɪˈkɔːrd/`).
@@ -232,22 +232,11 @@ When `is_stress_pronunciation_vital()` detects heteronyms or syllable stress top
 ### 5. Syllable Stress Subtitle Synchronization (`subtitle_builder.py`)
 In `_G_video_assembly/core/subtitle_builder.py`, word-level animated subtitles (Hormozi style) preserve mixed-case syllable capitalization (`PREsent` vs `preSENT`, `PROject` vs `proJECT`) while rendering all other words in uppercase. Viewers visually see the exact syllable being emphasized in real time.
 
-### 6. Full Feature Parity Across Production Tools & Streamlined Voice Modifier
-The WebUI `VoiceAdapter` and maintenance `voice_modifier.py` share the single unified orchestrator in `voice/common/orchestrator.py` (`synthesize_script_voice()`):
-- `--candidates <INT>`: Configurable candidate sampling (default 3 for stress scripts).
-- `--script-id <ID>`: Targeted single-script execution.
-- `--genders <STR>`: Comma-separated speaker gender overrides (e.g. `'male, female, female'`).
-- `--accent <STR>`: Optional neutral accent lock (e.g. `es_latam_neutral`, `es_spain_castilian`, `en_us_neutral`, `en_uk_neutral`).
-- `--engine <typed|legacy>`: Runtime override selecting the modular `typed` engine or instant `legacy` fallback.
-- Prominence scoring, reference fallback, dynamic acting emotion inference, and `--recast` / WebUI `recast` option parity.
+### 6. Studio voice jobs
 
-**Interactive Voice Modifier Workflow (`voice_modifier.py`)**:
-- **Immediate Pre-Flight Connection Checks**: Verifies ComfyUI availability before prompting for Script ID.
-- **Streamlined Gender Selection**: Eliminates tedious manual `.wav` file selection. Users choose only the gender (`male` / `female`) for each speaker, with pressing `Enter` keeping state defaults.
-- **Automated Random Voice Casting**: Selects fresh, non-repeating reference voices matching `main.py` via `VoiceCastingEngine`.
-- **Strict Roleplay Voice Distinctness**: In multi-speaker roleplay scripts, the **Narrator and any character sharing the same gender are strictly guaranteed to receive distinct reference voices (`canonical_speaker_identity`)**.
-- **Automatic Downstream State Invalidation**: Sets `status.video_assembly = "pending"` in the state JSON so that video assembly is ready to be re-run with the updated master audio track.
-- **Intermediate File Sanitization**: Automatically purges stale `.flac` and `.wav` clips before synthesizing.
+Studio's Voice job calls `synthesize_script_voice()` through the shared adapter. **Force** rerenders the selected scripts. **Recast** requests a different cast. The job supports accent and engine overrides, and the catalog reads the generated master WAV and section timings. A failed forced render preserves the previous master and timings.
+
+Studio keeps one known candidate ahead when a section already requires multiple takes. Conditional retries wait for the acoustic checks. Narrator recovery uses a bounded attempt and can select from finished takes when it times out. Studio cancels only the ComfyUI prompts owned by its voice job. The standalone voice modifier remains as a maintenance utility.
 
 ### 7. Multilingual Native Diction Guidance
 Non-English pronunciation scripts receive native articulatory guidance tailored to each language's phonology:
@@ -266,11 +255,15 @@ Each target language owns an independent `LanguageVoiceProfile` under `voice/lan
 - **Italian (`voice/languages/italian.py`)**: High-energy melodic prosody, wide pitch excursions, and crisp double consonants (`it_standard`, `narrator_temp=0.87`, `dialogue_temp=0.83`).
 - **Sampling Ceilings & Calm High-Impact Recovery**: `compute_segment_sampling()` caps `temperature <= 0.90` and `subtalker_temperature <= 0.86` (protecting `GAME` `challenge` neutrality), and if all high-impact candidates (`hook`, `answer`, `payoff`, etc.) fail `evaluate_voice_take()`, `orchestrator.py` automatically runs one calmer recovery retry (`temp - 0.10`, `sub_temp - 0.06`, `seed + 1999`).
 
-### 10. 68-Clip Qwen3-TTS 1.7B-VoiceDesign Bank & Roleplay 3-Tier Energy Switching
-Built offline via `video_creation/_B_voice_generation/tools/build_voice_bank.py` using `workflows/Qwen3-TTS VoiceDesign.json` and `data/voice_bank_personas.json` (**28 personas**: 8 Spanish, 8 Italian, 6 French, 6 English), producing **68 active `PCM_16` WAV clips** indexed in `<VOICE_BANK_DIR>/voice_bank_manifest.json` (`28` baselines + `40` Roleplay variants across **20 Roleplay actors**):
-- **Roleplay Same-Speaker Emotional Shifts (`voice/types/roleplay/emotion.py`)**: Each of the 20 Roleplay actors stores `baseline`, `high_energy`, and `surprised_urgent` takes of the exact same speaker voice, switched per turn via `resolve_roleplay_turn_reference()` for expressive emotional shifts with zero timbre drift.
-- **Tiered Pool Priority**: Curated VoiceDesign clips and cleaned `open_swara` clips (`sanitize_ref_transcript()`, `LOW_QUALITY_OPEN_SWARA` filtering) take priority over demoted `kokoro_golden` alias clips.
-- **Octave-Proof HPS + Spectral Gender-Pitch Gate (`_passes_gender_pitch_gate`)**: Rejects gender-flipped or childlike draws during bank builds using 3-harmonic HPS `f0`, `P25` F0, low/high band ratio `M/F_E` (`80–165 Hz` / `180–340 Hz`: `male` `85–195 Hz`, `M/F_E >= 0.08`; `female` `200–285 Hz`, `P25 >= 195 Hz`, `M/F_E <= 0.05`), and Whisper `lang_prob` checks, while requiring purely affirmative English `voice_instruction` descriptions.
+### 10. Local voice bank and format-specific delivery
+
+The current workstation bank contains **52 baseline voices and 40 same-speaker variants**, indexed in `<VOICE_BANK_DIR>/voice_bank_manifest.json`. The builder and persona catalog are versioned here. The active WAVs and manifest are local runtime assets. Casting uses the available curated and Open Swara references, with Kokoro reference clips available as a fallback.
+
+- **Expression and Fun Facts** synthesize each narration section continuously, with separate directions for the opening, discovery, explanation, and payoff.
+- **Game** keeps a single narrator, even option emphasis, and fixed option spacing. The question and reveal get separate directions.
+- **Roleplay** gives each character a continuous turn, an acting cue, and the other character's preceding line as instruction-only context. The cast stays pinned. When a matching acted reference is available Studio can use it for that speaker, with the baseline as fallback. The bank contains baseline, high-energy, and urgent clips, and supports further acted reference tiers.
+
+Build staged auditions with `--auditions-only --bank-dir <scratch-bank> --skip-variants`. Filter with `--language` or `--speaker-ids` for a small batch. Use `--promote-from <scratch-bank> --speaker-ids <approved-ids>` to add reviewed and validated references to the active bank. Add `--dry-run` to inspect the selection first.
 
 ### 11. Per-Type Pause Choreography & Scipy Broadcast Vocal Mastering
 Stage B applies format-specific pause timing and pure `numpy` + `scipy` DSP mastering (`voice/common/dsp_mastering.py`: HPF, mud cut, warmth, presence EQ, air shelf, split-band de-esser, soft-knee RMS compressor, ITU-R BS.1770 LUFS target leveling, and `-1.0 dBFS` / `0.891` true-peak soft limiter):
@@ -673,11 +666,10 @@ shorts_automation/
 │   │   ├── _A_video_scripts/           # Scriptwriting, prompt rules, and metadata synthesis
 │   │   ├── _B_voice_generation/        # Stage B modular Qwen3-TTS & VoiceDesign bank suite
 │   │   │   ├── core/                   # comfy_client.py, acoustic_evaluator.py, audio_processor.py, voice_manager.py, script_parser.py, stress_enhancer.py
-│   │   │   ├── data/                   # voice_bank_personas.json (28 personas) & ref transcript CSVs
+│   │   │   ├── data/                   # voice_bank_personas.json (active and audition personas) & ref transcript CSVs
 │   │   │   ├── tools/                  # build_voice_bank.py (1.7B-VoiceDesign bank + HPS/spectral gate)
 │   │   │   ├── voice/                  # Modular common/ (casting, punctuation, dsp_mastering, orchestrator), languages/ (4), types/ (4)
 │   │   │   ├── voice_modifier.py       # Interactive recaster & modifier (100% parity with orchestrator)
-│   │   │   └── main.py                 # Batch/CLI Stage B voice generation runner
 │   │   ├── _C_image_generation/        # Scene illustration & visual direction suite
 │   │   │   ├── core/                   # prompt_builder.py, chalkboard_renderer.py, comfy_client.py
 │   │   │   ├── visual/                 # Modular common/style/sanitizer, 124 Cultural Worlds (languages/), and typed rules (types/)
@@ -699,8 +691,7 @@ shorts_automation/
     ├── conftest.py                     # Shared pytest/unittest fixtures & sys.path setup
     ├── pytest.ini                      # Pytest discovery settings and custom test markers
     ├── README.md                       # Test suite documentation & CLI execution guide
-    ├── requirements-test.txt           # Test-specific dependencies (pytest)
-    └── pytest.ini                      # Test discovery and execution markers
+    └── requirements-test.txt           # Test-specific dependencies
 ```
 
 ---

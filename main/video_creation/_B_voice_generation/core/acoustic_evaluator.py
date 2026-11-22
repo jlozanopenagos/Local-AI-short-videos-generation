@@ -439,12 +439,38 @@ def compute_intonation_metrics(audio_data: np.ndarray, sr: int) -> Dict[str, flo
     }
 
 
+def reference_median_pitch(path: Path) -> float | None:
+    """Return a voiced median for a local reference, when measurable."""
+    try:
+        data, sr = sf.read(path)
+    except (OSError, RuntimeError):
+        return None
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+    voiced = _extract_voiced_pitches(data, sr)
+    return float(np.median(voiced)) if len(voiced) >= 12 else None
+
+
+def max_window_pitch_shift(data: np.ndarray, sr: int, reference_f0: float) -> float | None:
+    """Compare two-second voiced windows in semitones to the cast reference."""
+    shifts = []
+    for start in range(0, len(data), sr):
+        window = data[start:start + 2 * sr]
+        if len(window) < sr:
+            continue
+        voiced = _extract_voiced_pitches(window, sr)
+        if len(voiced) >= 12:
+            shifts.append(float(12 * np.log2(np.median(voiced) / reference_f0)))
+    return max(shifts, default=None)
+
+
 def evaluate_voice_take(
     audio_path: Union[str, Path],
     target_text: str = "",
     language: str = "english",
     video_type: Optional[str] = None,
     section: Optional[str] = None,
+    reference_f0: Optional[float] = None,
 ) -> Tuple[float, bool, List[str], Dict[str, Any]]:
     """Evaluates an individual synthesized speech take against per-language acoustic quality criteria:
     - Pitch variance (rejects flat robotic monotone per language floor)
@@ -491,13 +517,16 @@ def evaluate_voice_take(
         try:
             from video_creation._B_voice_generation.voice.common.engine import is_typed_voice_enabled
             from video_creation._B_voice_generation.voice.languages import get_language_voice_profile
+            from video_creation._B_voice_generation.voice.types import get_video_type_voice_profile
         except (ImportError, ModuleNotFoundError):
             try:
                 from ..voice.common.engine import is_typed_voice_enabled  # type: ignore[no-redef]
                 from ..voice.languages import get_language_voice_profile  # type: ignore[no-redef]
+                from ..voice.types import get_video_type_voice_profile  # type: ignore[no-redef]
             except (ImportError, ValueError):
                 from voice.common.engine import is_typed_voice_enabled  # type: ignore[no-redef]
                 from voice.languages import get_language_voice_profile  # type: ignore[no-redef]
+                from voice.types import get_video_type_voice_profile  # type: ignore[no-redef]
 
         if is_typed_voice_enabled(video_type or "", language):
             env = get_language_voice_profile(language).acoustic_gate
@@ -512,6 +541,12 @@ def evaluate_voice_take(
             check_exc = env.check_exclamation_lift
             min_q_ratio = env.min_question_f0_ratio
             min_exc_rms_ratio = env.min_exclamation_rms_ratio
+            if video_type:
+                v_prof = get_video_type_voice_profile(video_type)
+                if v_prof.target_cps_override is not None:
+                    target_cps = float(v_prof.target_cps_override)
+                if v_prof.max_cps_override is not None:
+                    max_cps = float(v_prof.max_cps_override)
     except Exception:
         pass
 
@@ -525,13 +560,16 @@ def evaluate_voice_take(
     frame_rms = [np.sqrt(np.mean(data[j:j + hop] ** 2)) for j in range(0, len(data) - hop, hop)]
     max_silent_frames = 0
     cur_silent_frames = 0
+    # Edge padding is trimmed during mastering. Count only quiet runs bounded by speech.
+    heard_speech = False
     for r in frame_rms:
-        if r < 0.008:
-            cur_silent_frames += 1
-            if cur_silent_frames > max_silent_frames:
-                max_silent_frames = cur_silent_frames
-        else:
+        if r >= 0.008:
+            if heard_speech:
+                max_silent_frames = max(max_silent_frames, cur_silent_frames)
+            heard_speech = True
             cur_silent_frames = 0
+        elif heard_speech:
+            cur_silent_frames += 1
     max_silence_sec = max_silent_frames * 0.02
 
     issues = []
@@ -576,20 +614,26 @@ def evaluate_voice_take(
             if rms_ratio < min_exc_rms_ratio and var_ratio < (min_var_ratio + 0.025):
                 issues.append(f"Flat exclamation energy (RMS peak ratio {rms_ratio:.2f} < {min_exc_rms_ratio:.2f})")
 
+    window_shift = max_window_pitch_shift(data, sr, reference_f0) if reference_f0 else None
+    if window_shift is not None and window_shift > 6.0:
+        issues.append(f"Sustained high register (+{window_shift:.1f} semitones versus reference)")
+
     passes_gate = len(issues) == 0
 
     # Calculate continuous score [0.0 - 1.0+]
     pitch_score = min(1.0, max(0.0, (var_ratio - 0.08) / 0.08))
     tempo_diff = abs(cps - target_cps)
-    tempo_score = min(1.0, max(0.0, 1.0 - (tempo_diff / 8.0)))
+    tempo_score = min(1.0, max(0.0, 1.0 - (tempo_diff / 5.0)))
     energy_score = min(1.0, max(0.0, rms / 0.15))
     penalty = 0.5 ** len(issues)
 
-    composite_score = round((0.45 * pitch_score + 0.35 * tempo_score + 0.20 * energy_score + q_bonus) * penalty, 2)
+    composite_score = round((0.40 * pitch_score + 0.40 * tempo_score + 0.20 * energy_score + q_bonus) * penalty, 2)
 
     metrics = {
         "duration": round(duration, 2),
         "mean_f0": mean_f0,
+        "reference_f0": reference_f0,
+        "max_window_shift_semitones": window_shift,
         "std_f0": std_f0,
         "pitch_variance": var_ratio,
         "pitch_score": round(pitch_score, 2),
@@ -642,8 +686,8 @@ def select_best_general_candidate(
         print(f"    Take #{idx} ({cand.name}): Score = {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s{issue_str}")
         scored.append((cand, score, passes, metrics))
 
-    # Sort descending by score
-    scored.sort(key=lambda x: x[1], reverse=True)
+    # Prefer a take that passed the checks, then compare scores.
+    scored.sort(key=lambda x: (x[2], x[1]), reverse=True)
     winner_cand, best_score, best_passes, best_metrics = scored[0]
 
     print(f"  -> Winner Selected: {winner_cand.name} (Score: {best_score:.2f}, PitchVar: {best_metrics['pitch_variance']*100:.1f}%)")

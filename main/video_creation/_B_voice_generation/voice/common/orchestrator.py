@@ -3,11 +3,13 @@ voice/common/orchestrator.py — Unified Stage B synthesis orchestrator shared b
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional, Set
 
 import config
@@ -29,10 +31,14 @@ except (ImportError, ModuleNotFoundError):
 try:
     from video_creation._B_voice_generation.core.acoustic_evaluator import (
         evaluate_voice_take,
+        reference_median_pitch,
         select_best_general_candidate,
         select_best_voice_candidate,
     )
-    from video_creation._B_voice_generation.core.audio_processor import concatenate_audios
+    from video_creation._B_voice_generation.core.audio_processor import (
+        concatenate_audios,
+        enforce_learner_pace_safety_net,
+    )
     from video_creation._B_voice_generation.core.comfy_client import ComfyClient
     from video_creation._B_voice_generation.core.script_parser import (
         extract_language_from_label,
@@ -49,6 +55,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     from core.acoustic_evaluator import (  # type: ignore[no-redef]
         evaluate_voice_take,
+        reference_median_pitch,
         select_best_general_candidate,
         select_best_voice_candidate,
     )
@@ -70,6 +77,7 @@ from .engine import (
     is_typed_voice_enabled,
     resolve_voice_context,
 )
+from .delivery import INTENT_NAMES, continuous_narration, delivery_direction, roleplay_turn_direction, turn_intent
 from .punctuation import prepare_tts_prosody_text
 
 
@@ -356,14 +364,14 @@ def _build_context_and_style(
                 if speaker_personality
                 else f"Charismatic YouTube Shorts storyteller and viral language mentor in a {language} roleplay narrative"
             )
-            st = "magnetic storyteller cadence, snappy conversational momentum, expressive theatrical inflection, lively and captivating rhythm, warm human flow"
+            st = "measured, articulate learner-friendly cadence, expressive theatrical inflection, distinct word boundaries, warm human flow"
         else:
             ctx = (
                 f"Character '{speaker}' ({speaker_personality}) in a {language} conversational dialogue"
                 if speaker_personality
                 else f"Character '{speaker}' participating in a {language} conversational dialogue"
             )
-            st = "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
+            st = "natural theatrical dialogue, clear learner-friendly conversational pacing, distinct word boundaries, expressive emotional inflection, warm authentic flow"
         return ctx, st
 
     if is_dialogue and speaker_personality:
@@ -376,9 +384,9 @@ def _build_context_and_style(
         ctx = f"Narrator introducing a language learning topic in {language}"
 
     st = (
-        "magnetic storyteller cadence, lively conversational tempo, fast and engaging, clear dynamic intonation, natural and punchy"
+        "charismatic language-coach cadence, measured unhurried tempo for language learners, distinct word boundaries, clear dynamic intonation, warm human flow"
         if not is_dialogue
-        else "natural theatrical dialogue, lively conversational banter, confident engaging cadence, expressive emotional inflection, warm authentic momentum"
+        else "natural theatrical dialogue, clear learner-friendly conversational pacing, distinct word boundaries, expressive emotional inflection, warm authentic flow"
     )
     return ctx, st
 
@@ -405,9 +413,18 @@ def synthesize_script_voice(
     explicit_accent: Optional[str] = None,
     engine_mode: Optional[str] = None,
     mark_video_assembly_pending: bool = False,
+    quality_preview: Optional[str] = None,
+    preview_sections: Optional[Set[str]] = None,
+    narrator_pitch_anchor: Optional[float] = None,
+    narrator_reference: Optional[tuple[Path, str]] = None,
 ) -> bool:
     """Runs complete Stage B synthesis for one script across legacy or typed voice profiles."""
     script_id = script_data["id"]
+    if quality_preview and (quality_preview not in {"baseline", "direction", "reference", "continuity", "roleplay"} or
+                            not base_dir or Path(base_dir).resolve() == Path(config.BASE_DIR).resolve()):
+        raise ValueError("Voice-quality previews require a supported mode and a separate workspace.")
+    if (preview_sections or narrator_pitch_anchor is not None or narrator_reference) and not quality_preview:
+        raise ValueError("Section and pitch overrides are only available for voice-quality previews.")
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
     label = metadata.get("LABEL", "english")
@@ -433,7 +450,7 @@ def synthesize_script_voice(
     script_output_dir = get_script_output_dir(script_id, clean_language, base_dir, video_type=video_type)
     script_output_dir.mkdir(parents=True, exist_ok=True)
 
-    for ext in ("*.flac", "*.wav"):
+    for ext in ("segment_*.flac", "segment_*.wav"):
         for old_file in script_output_dir.glob(ext):
             try:
                 old_file.unlink()
@@ -446,11 +463,22 @@ def synthesize_script_voice(
     print(f"Language: {clean_language.upper()} | Type: {video_type.upper()} (Label: {label})")
     print("=" * 60)
 
-    segments = get_script_segments(script_id, script_text, label)
+    narrator_only = video_type.lower() in {"game", "expression", "fun_facts"}
+    continuous_narrator = (
+        use_typed and video_type.lower() in {"expression", "fun_facts"}
+        and quality_preview != "baseline"
+    )
+    parser_options = {
+        "narrator_only": narrator_only,
+        "merge_narration_paragraphs": continuous_narrator or bool(
+            quality_preview and quality_preview not in {"baseline", "roleplay"}
+        ),
+    }
+    segments = get_script_segments(script_id, script_text, label, **parser_options)
     if not segments:
         script_dict = script_data.get("content_metadata", {}).get("script")
         if script_dict and isinstance(script_dict, dict):
-            segments = get_script_segments(script_id, json.dumps(script_dict), label)
+            segments = get_script_segments(script_id, json.dumps(script_dict), label, **parser_options)
             if segments:
                 script_data["script_text"] = json.dumps(script_dict, indent=2)
                 state_manager.save_script_state(script_id, script_data)
@@ -514,23 +542,39 @@ def synthesize_script_voice(
             "dialect": dialect_hint or "default",
             "video_type": type_profile.video_type,
         }
-    state_manager.save_script_state(script_id, script_data)
-
     vtype_upper = video_type.upper()
     is_game = vtype_upper == "GAME" or any(s.get("section") in ["challenge", "pressure"] for s in segments)
     is_roleplay = vtype_upper == "ROLEPLAY" or any("dialogue" in (s.get("section") or "").lower() for s in segments)
     is_script_stress_vital = is_stress_pronunciation_vital(script_data)
 
     segments_to_concat: List[Dict[str, Any]] = []
+    preview_trace: list[dict] = []
+    reference_pitches: dict[Path, float | None] = {}
 
+    previous_character_turn = None
     for seg in segments:
-        idx = seg["index"]
         speaker = seg["speaker"]
+        is_dialogue = seg["is_dialogue"]
+        is_roleplay_character = (
+            use_typed and vtype_upper == "ROLEPLAY" and is_dialogue
+            and speaker.casefold() in {"person_one", "person_two"}
+        )
+        previous_line = ""
+        if is_roleplay_character:
+            if previous_character_turn and previous_character_turn[0] != speaker.casefold():
+                previous_line = previous_character_turn[1]
+            previous_character_turn = (speaker.casefold(), seg["text"])
+        else:
+            previous_character_turn = None
+        if preview_sections and seg["section"].casefold() not in preview_sections:
+            continue
+        idx = seg["index"]
         text = seg["text"]
         raw_text = seg.get("raw_text", text)
-        emotion = seg["emotion"]
+        original_emotion = seg["emotion"]
+        emotion = original_emotion
         language = seg["language"]
-        is_dialogue = seg["is_dialogue"]
+        continuous_roleplay = is_roleplay_character and quality_preview in (None, "direction", "reference", "roleplay")
         sec_name = (seg.get("section") or "").lower()
         is_seg_stress_vital = is_script_stress_vital or is_stress_pronunciation_vital(script_data, text)
 
@@ -589,7 +633,7 @@ def synthesize_script_voice(
             gender, ref_voice_path, seed = voice_manager.resolve_turn_voice(
                 speaker=speaker,
                 language=clean_language,
-                emotion=emotion,
+                emotion=original_emotion or emotion,
                 text=target_text,
                 section=sec_name,
                 video_type=video_type,
@@ -605,7 +649,10 @@ def synthesize_script_voice(
                 use_option_micro_pauses=type_profile.use_option_micro_pauses,
                 option_micro_pause_sec=type_profile.pauses.option_micro_pause,
                 enforce_inverted_punctuation=lang_profile.enforce_inverted_punctuation,
+                continuous_turn=continuous_roleplay or continuous_narrator,
             )
+            if continuous_roleplay or continuous_narrator:
+                target_text = continuous_narration(target_text)
             if not is_seg_stress_vital and lang_profile.instruct_prosody_hint:
                 style = f"{style}. {lang_profile.instruct_prosody_hint}"
             is_diag_spk = "dialogue" in context.lower() or ("character" in context.lower() and "narrator" not in context.lower())
@@ -624,6 +671,30 @@ def synthesize_script_voice(
         else:
             gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
 
+        is_narrator = speaker.casefold() == "narrator"
+        intent = turn_intent(original_emotion, emotion)
+        if quality_preview:
+            if is_narrator and quality_preview not in {"baseline", "roleplay"}:
+                target_text = continuous_narration(target_text)
+            if quality_preview in {"direction", "reference"}:
+                gender, ref_voice_path, _ = voice_manager.get_speaker_voice(speaker, clean_language)
+                bank = voice_manager.bank_manifest
+                if quality_preview == "reference" and bank and ref_voice_path:
+                    # For a narrator, use one alternate reference across the entire short.
+                    # Roleplay actors may select another reference for their existing identity.
+                    tier = "high_energy" if is_narrator or intent == 2 else (
+                        "surprised_urgent" if intent in (0, 3) else "baseline"
+                    )
+                    variant = bank.find_speaker_energy_variant(
+                        ref_voice_path.name, tier, open_swara_dir=voice_manager.open_swara_dir,
+                    )
+                    if variant and variant.is_file():
+                        ref_voice_path = variant
+            seed_key = f"{script_id}:{idx}:{speaker}".encode()
+            seed = int.from_bytes(hashlib.sha256(seed_key).digest()[:6], "big")
+
+        if narrator_reference and is_narrator:
+            ref_voice_path = narrator_reference[0]
         ref_filename = voice_manager.prepare_voice_in_comfy(ref_voice_path)
         pers_log = f" | Persona: '{context}'" if context else ""
         print(f"[{speaker}] Ref: '{ref_filename}' | Acting tone: '{emotion}' | Energy: '{energy}'{pers_log}")
@@ -649,11 +720,75 @@ def synthesize_script_voice(
         if turn_accent_hint is not None:
             gen_extra["accent_hint"] = turn_accent_hint
 
+        if narrator_reference and is_narrator:
+            gen_extra.update(use_icl=True, ref_text=narrator_reference[1])
+        if continuous_roleplay:
+            gen_extra["delivery_direction"] = roleplay_turn_direction(clean_language, intent, previous_line)
+        elif (
+            is_narrator and use_typed and not detected_stress_words and (
+                continuous_narrator
+                or (vtype_upper in {"GAME", "ROLEPLAY"} and quality_preview is None)
+            )
+        ) or quality_preview in {"direction", "reference"}:
+            gen_extra["delivery_direction"] = delivery_direction(
+                clean_language, sec_name, is_narrator, intent, video_type=video_type,
+            )
+
         eval_vtype = video_type if use_typed else None
         eval_sec = sec_name if use_typed else None
 
         try:
-            if is_seg_stress_vital and detected_stress_words:
+            if quality_preview and not (is_seg_stress_vital and detected_stress_words):
+                if ref_voice_path not in reference_pitches:
+                    reference_pitches[ref_voice_path] = reference_median_pitch(ref_voice_path) if ref_voice_path else None
+                takes = []
+                for take_index in range(seg_candidates + 1):
+                    take_seed = seed + take_index * 777
+                    take = dest_path.with_name(f"{dest_path.stem}_preview_{take_index + 1}.flac")
+                    take_options = dict(gen_extra)
+                    if take_index >= seg_candidates and sampling_overrides:
+                        calmer = dict(sampling_overrides)
+                        for key in ("temperature", "subtalker_temperature"):
+                            if key in calmer:
+                                calmer[key] = round(max(0.6, float(calmer[key]) - 0.08), 3)
+                        take_options["sampling_overrides"] = calmer
+                    comfy_client.generate_voice_segment(
+                        ref_audio_name=ref_filename, target_text=target_text, language=language,
+                        gender=gender, context=context, emotion=emotion, energy=energy, style=style,
+                        output_prefix=f"{output_prefix}_preview_{take_index + 1}",
+                        dest_path=take, seed=take_seed, **take_options,
+                    )
+                    score, passed, issues, metrics = evaluate_voice_take(
+                        take, target_text, language, eval_vtype, eval_sec,
+                        reference_f0=(narrator_pitch_anchor if is_narrator and narrator_pitch_anchor
+                                      else reference_pitches[ref_voice_path]),
+                    )
+                    takes.append((passed, score, take, take_seed, issues, metrics))
+                    if passed and take_index + 1 >= seg_candidates:
+                        break
+
+                winner = max(takes, key=lambda item: (item[0], item[1]))
+                shutil.copyfile(winner[2], dest_path)
+                preview_trace.append({
+                    "section": sec_name, "speaker": speaker,
+                    "original_emotion": original_emotion, "inferred_emotion": emotion,
+                    "intensity": energy,
+                    "acting_intent": INTENT_NAMES[intent] if intent is not None else None,
+                    "reference": ref_voice_path.name if ref_voice_path else None,
+                    "text_sent": target_text,
+                    "direction": gen_extra.get("delivery_direction"),
+                    "winner_seed": winner[3], "review_required": not winner[0],
+                    "takes": [
+                        {"file": item[2].name, "seed": item[3], "passed": item[0],
+                         "score": item[1], "issues": item[4], "metrics": item[5]}
+                        for item in takes
+                    ],
+                })
+                (script_output_dir / "voice_preview.json").write_text(
+                    json.dumps({"mode": quality_preview, "segments": preview_trace}, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+            elif is_seg_stress_vital and detected_stress_words:
                 candidate_paths = []
                 num_takes = max(2, seg_candidates)
                 for take_idx in range(num_takes):
@@ -685,40 +820,47 @@ def synthesize_script_voice(
                     dest_path=dest_path,
                 )
             elif seg_candidates > 1:
-                candidate_paths = []
-                for take_idx in range(seg_candidates):
-                    take_seed = seed + (take_idx * 777)
-                    take_prefix = f"{output_prefix}_take{take_idx+1}"
-                    take_filename = f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx+1}.flac"
-                    take_path = script_output_dir / take_filename
-                    print(f"  [High-Impact Take #{take_idx+1}/{seg_candidates}]: Generating candidate with seed {take_seed}...")
-                    comfy_client.generate_voice_segment(
-                        ref_audio_name=ref_filename,
-                        target_text=target_text,
-                        language=language,
-                        gender=gender,
-                        context=context,
-                        emotion=emotion,
-                        energy=energy,
-                        style=style,
-                        output_prefix=take_prefix,
-                        dest_path=take_path,
-                        seed=take_seed,
-                        **gen_extra,
+                workflow_inputs = dict(
+                    ref_audio_name=ref_filename,
+                    target_text=target_text,
+                    language=language,
+                    gender=gender,
+                    context=context,
+                    emotion=emotion,
+                    energy=energy,
+                    style=style,
+                    **gen_extra,
+                )
+                takes = [
+                    (
+                        script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx + 1}.flac",
+                        {"output_prefix": f"{output_prefix}_take{take_idx + 1}", "seed": seed + take_idx * 777},
                     )
-                    candidate_paths.append(take_path)
+                    for take_idx in range(seg_candidates)
+                ]
+                studio_voice = getattr(comfy_client, "check_cancelled", None) is not None
+                queue_candidates = getattr(comfy_client, "generate_voice_candidates", None)
+                if studio_voice and queue_candidates is not None and not quality_preview:
+                    queue_candidates(takes, **workflow_inputs)
+                else:
+                    for take_path, take_inputs in takes:
+                        comfy_client.generate_voice_segment(
+                            dest_path=take_path, **take_inputs, **workflow_inputs,
+                        )
+                candidate_paths = [path for path, _ in takes]
 
                 if use_typed:
-                    any_clean = any(
+                    candidate_ratings = [
                         evaluate_voice_take(
                             cp,
                             target_text=target_text,
                             language=language,
                             video_type=eval_vtype,
                             section=eval_sec,
-                        )[1]
+                        )
                         for cp in candidate_paths
-                    )
+                    ]
+                    any_clean = any(rating[1] for rating in candidate_ratings)
                     if not any_clean:
                         calm_samp = dict(sampling_overrides or {})
                         calm_samp["temperature"] = round(max(0.72, float(calm_samp.get("temperature", 0.84)) - 0.10), 3)
@@ -730,21 +872,30 @@ def synthesize_script_voice(
                             f"  [Pitch/Quality Recovery]: All high-impact takes flagged; retrying calmly "
                             f"(temp={calm_samp['temperature']}, sub={calm_samp['subtalker_temperature']}, seed={calm_seed})..."
                         )
-                        comfy_client.generate_voice_segment(
-                            ref_audio_name=ref_filename,
-                            target_text=target_text,
-                            language=language,
-                            gender=gender,
-                            context=context,
-                            emotion=emotion,
-                            energy=energy,
-                            style=style,
-                            output_prefix=f"{output_prefix}_calm",
-                            dest_path=calm_path,
-                            seed=calm_seed,
-                            **calm_extra,
-                        )
-                        candidate_paths.append(calm_path)
+                        if studio_voice:
+                            longest_take = max(rating[3].get("duration", 0.0) for rating in candidate_ratings)
+                            calm_extra.update(stall_timeout=int(max(90, min(180, 20 + 10 * longest_take))), max_retries=1)
+                        try:
+                            comfy_client.generate_voice_segment(
+                                ref_audio_name=ref_filename,
+                                target_text=target_text,
+                                language=language,
+                                gender=gender,
+                                context=context,
+                                emotion=emotion,
+                                energy=energy,
+                                style=style,
+                                output_prefix=f"{output_prefix}_calm",
+                                dest_path=calm_path,
+                                seed=calm_seed,
+                                **calm_extra,
+                            )
+                            candidate_paths.append(calm_path)
+                        except TimeoutError:
+                            if not studio_voice:
+                                raise
+                            print("  [Pitch/Quality Recovery]: Time budget reached. Using the completed takes.")
+
 
                 select_best_general_candidate(
                     candidate_paths=candidate_paths,
@@ -809,35 +960,96 @@ def synthesize_script_voice(
                         video_type=eval_vtype,
                         section=eval_sec,
                     )
+        except InterruptedError:
+            return False
         except Exception as exc:
             print(f"API Error on segment {idx}: {exc}", file=sys.stderr)
             return False
+
+        spoken_clean = re.sub(r"\[pause:\d+(?:\.\d+)?\]", " ", target_text)
+        seg_words = len(spoken_clean.split())
+        if use_typed and type_profile is not None and type_profile.apply_pace_safety_net:
+            target_wpm_mid = sum(type_profile.target_wpm_range) / 2.0
+            stretched, factor, before_wpm, after_wpm = enforce_learner_pace_safety_net(
+                dest_path,
+                word_count=seg_words,
+                max_wpm=type_profile.max_wpm,
+                target_wpm=target_wpm_mid,
+                max_slowdown=0.12,
+            )
+            if stretched:
+                print(f"  [Pace Safety Net]: Gently slowed {factor:.2f}x ({before_wpm:.0f} -> {after_wpm:.0f} WPM)")
 
         segments_to_concat.append({
             "path": dest_path,
             "section": seg["section"],
             "speaker": speaker,
             "is_cliffhanger": bool(prosody_flags.get("is_cliffhanger", False)),
+            "word_count": seg_words,
         })
+
+    if not segments_to_concat:
+        print(f"No selected sections were available for {script_id}.")
+        return False
 
     print(f"\nSyntheses complete. Merging {len(segments_to_concat)} segments...")
     master_path = script_output_dir / f"script_{script_id}_master.wav"
 
     try:
-        merged_file = concatenate_audios(
-            segments_metadata=segments_to_concat,
-            output_path=master_path,
-            pause_choreography=type_profile.pauses if use_typed else None,
-            mastering_preset=type_profile.mastering if use_typed else None,
-        )
+        with TemporaryDirectory(prefix=".voice-master-", dir=script_output_dir) as staging:
+            staged_master = Path(staging) / master_path.name
+            merged_file = concatenate_audios(
+                segments_metadata=segments_to_concat,
+                output_path=staged_master,
+                pause_choreography=type_profile.pauses if use_typed else None,
+                mastering_preset=type_profile.mastering if use_typed else None,
+            )
+            if merged_file:
+                staged_timings = Path(staging) / "timings.json"
+                timings = script_output_dir / "timings.json"
+                backup = Path(staging) / "previous-timings.json"
+                if timings.exists():
+                    shutil.copyfile(timings, backup)
+                staged_timings.replace(timings)
+                try:
+                    staged_master.replace(master_path)
+                except OSError:
+                    if backup.exists():
+                        backup.replace(timings)
+                    else:
+                        timings.unlink(missing_ok=True)
+                    raise
+                merged_file = master_path
         if merged_file:
+            try:
+                import soundfile as sf
+                master_dur = float(sf.info(str(merged_file)).duration)
+                total_words = sum(int(s.get("word_count", 0)) for s in segments_to_concat)
+                total_wpm = (total_words / (master_dur / 60.0)) if master_dur > 0 else 0.0
+                timings_path = merged_file.parent / "timings.json"
+                avg_gap = 0.0
+                num_gaps = max(0, len(segments_to_concat) - 1)
+                if timings_path.exists() and num_gaps > 0:
+                    t_map = json.loads(timings_path.read_text(encoding="utf-8"))
+                    ordered_secs = sorted(t_map.values(), key=lambda x: x["start"])
+                    gaps = [max(0.0, b["start"] - a["end"]) for a, b in zip(ordered_secs, ordered_secs[1:])]
+                    avg_gap = sum(gaps) / len(gaps) if gaps else 0.0
+                print(
+                    f"  [Pace QA]: Words: {total_words} | Duration: {master_dur:.2f}s | "
+                    f"Total WPM: {total_wpm:.1f} | Gaps: {num_gaps} (avg {avg_gap:.2f}s)"
+                )
+            except Exception:
+                pass
             print(f"Successfully generated master audio: {merged_file}")
             if "assets" not in script_data:
                 script_data["assets"] = {}
             script_data["assets"]["audio_path"] = str(merged_file)
             if "status" not in script_data:
                 script_data["status"] = {}
-            script_data["status"]["voice_generation"] = "done"
+            needs_review = bool(quality_preview and (
+                preview_sections or any(segment["review_required"] for segment in preview_trace)
+            ))
+            script_data["status"]["voice_generation"] = "pending" if needs_review else "done"
             if mark_video_assembly_pending:
                 script_data["status"]["video_assembly"] = "pending"
             state_manager.save_script_state(script_id, script_data)

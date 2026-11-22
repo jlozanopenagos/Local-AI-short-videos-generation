@@ -31,8 +31,8 @@ FRENCH_VOICE_PROFILE = LanguageVoiceProfile(
     ),
     enforce_inverted_punctuation=False,
     instruct_prosody_hint=(
-        "Esprit parisien vif, pétillant et complice, musicalité française legato authentique, "
-        "groupes rythmiques chantants avec appui expressif en fin de groupe, liaisons naturelles soignées et sourire dans la voix."
+        "Débit posé, clair et bien articulé pour les apprenants, musicalité française legato authentique, "
+        "groupes rythmiques chantants avec pauses naturelles entre les idées, liaisons soignées et sourire dans la voix."
     ),
     accent_instruct_hints={
         "fr_standard": (

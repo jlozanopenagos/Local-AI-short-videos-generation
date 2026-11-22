@@ -31,8 +31,8 @@ ENGLISH_VOICE_PROFILE = LanguageVoiceProfile(
     ),
     enforce_inverted_punctuation=False,
     instruct_prosody_hint=(
-        "Punchy stress-timed creator rhythm, strong stressed-to-unstressed contrast, "
-        "authentic vowel reduction, crisp interrogative pitch rise on questions, and vibrant conversational momentum."
+        "Clear, measured learner-friendly stress-timed rhythm with distinct word boundaries, "
+        "authentic vowel reduction, crisp interrogative pitch rise on questions, and warm unhurried phrasing."
     ),
     accent_instruct_hints={
         "en_us_neutral": "Clear, energetic General American storyteller accent with natural conversational rhythm.",

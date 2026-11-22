@@ -1,10 +1,102 @@
 import json
+import shutil
+import subprocess
 # pyrefly: ignore [missing-import]
 import numpy as np
 # pyrefly: ignore [missing-import]
 import soundfile as sf
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+
+def _find_ffmpeg_binary() -> Optional[str]:
+    """Locates ffmpeg executable (bundled under _G_video_assembly or system PATH)."""
+    bundled = Path(__file__).resolve().parents[2] / "_G_video_assembly" / "ffmpeg.exe"
+    if bundled.exists():
+        return str(bundled)
+    return shutil.which("ffmpeg")
+
+
+def apply_ffmpeg_atempo_slowdown(audio_path: Path, tempo_factor: float) -> bool:
+    """Applies a pitch-preserving ffmpeg `atempo` slowdown to `audio_path` in place.
+
+    `tempo_factor` is clamped to `[0.88, 1.0]` (at most 12% slowdown).
+    Returns True if the file was modified.
+    """
+    factor = max(0.88, min(1.0, float(tempo_factor)))
+    if factor >= 0.995 or not audio_path.exists():
+        return False
+    ffmpeg_bin = _find_ffmpeg_binary()
+    if not ffmpeg_bin:
+        return False
+
+    tmp_path = audio_path.with_name(f"{audio_path.stem}_atempo{audio_path.suffix}")
+    cmd = [
+        ffmpeg_bin,
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(audio_path),
+        "-filter:a",
+        f"atempo={factor:.4f}",
+        str(tmp_path),
+    ]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if res.returncode == 0 and tmp_path.exists() and tmp_path.stat().st_size > 0:
+            shutil.move(str(tmp_path), str(audio_path))
+            return True
+    except Exception:
+        pass
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+    return False
+
+
+def enforce_learner_pace_safety_net(
+    audio_path: Path,
+    word_count: int,
+    max_wpm: float,
+    target_wpm: float,
+    max_slowdown: float = 0.12,
+) -> Tuple[bool, float, float, float]:
+    """Gentle pitch-preserving slowdown safety net (max 12%) if a segment exceeds `max_wpm`.
+
+    Returns `(applied, tempo_factor, before_wpm, after_wpm)`.
+    """
+    if word_count < 6 or not audio_path.exists():
+        return False, 1.0, 0.0, 0.0
+    try:
+        info = sf.info(str(audio_path))
+        duration = float(info.duration)
+    except Exception:
+        return False, 1.0, 0.0, 0.0
+    if duration <= 0.2:
+        return False, 1.0, 0.0, 0.0
+
+    before_wpm = word_count / (duration / 60.0)
+    if before_wpm <= max_wpm:
+        return False, 1.0, before_wpm, before_wpm
+
+    min_factor = max(0.85, 1.0 - max(0.0, min(0.15, float(max_slowdown))))
+    desired_factor = float(target_wpm) / before_wpm
+    tempo_factor = max(min_factor, min(0.99, desired_factor))
+
+    if apply_ffmpeg_atempo_slowdown(audio_path, tempo_factor):
+        try:
+            new_dur = float(sf.info(str(audio_path)).duration)
+            after_wpm = word_count / (new_dur / 60.0) if new_dur > 0 else before_wpm
+        except Exception:
+            after_wpm = before_wpm * tempo_factor
+        return True, tempo_factor, before_wpm, after_wpm
+
+    return False, 1.0, before_wpm, before_wpm
 
 def trim_audio_silence(
     data: np.ndarray,
@@ -149,6 +241,10 @@ def _resolve_transition_pause(prev_seg: Dict, cur_seg: Dict, pauses: Dict[str, f
     if pause_choreography is not None:
         if cur_sec in ("discovery", "reveal") and prev_sec != cur_sec and pause_choreography.pre_discovery_gap is not None:
             return float(pause_choreography.pre_discovery_gap)
+        if cur_sec == "example" and prev_sec != "example" and getattr(pause_choreography, "pre_example_gap", None) is not None:
+            return float(pause_choreography.pre_example_gap)
+        if prev_sec == "example" and cur_sec == "payoff" and getattr(pause_choreography, "example_to_payoff_gap", None) is not None:
+            return float(pause_choreography.example_to_payoff_gap)
         if prev_sec == "hook" and cur_sec != "hook" and pause_choreography.hook_to_next_gap is not None:
             return float(pause_choreography.hook_to_next_gap)
         if prev_sec == "answer" and cur_sec == "explanation" and pause_choreography.answer_to_explanation_gap is not None:
@@ -221,8 +317,11 @@ def concatenate_audios(
             continue
 
         data, sr = sf.read(str(path))
-        # Trim both leading dead latency and trailing dead silence
-        data = trim_audio_silence(data, sr, threshold=0.012, pad_leading=0.025, pad_trailing=0.05)
+        # Trim leading dead latency and trailing silence (slightly gentler tail pad for non-GAME learner formats)
+        is_learner_padded = pause_choreography is not None and float(getattr(pause_choreography, "option_micro_pause", 0.0) or 0.0) == 0.0
+        pad_lead = 0.04 if is_learner_padded else 0.025
+        pad_trail = 0.10 if is_learner_padded else 0.05
+        data = trim_audio_silence(data, sr, threshold=0.012, pad_leading=pad_lead, pad_trailing=pad_trail)
 
         if master_samplerate is None:
             master_samplerate = sr

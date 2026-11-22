@@ -2,13 +2,13 @@
 from ...common.models import PauseChoreography
 
 FUN_FACTS_PAUSE_CHOREOGRAPHY = PauseChoreography(
-    section_gap=0.34,
-    dialogue_section_gap=0.20,
-    dialogue_gap=0.15,
-    dialogue_cliffhanger_gap=0.24,
-    paragraph_gap=0.22,
+    section_gap=0.50,
+    dialogue_section_gap=0.25,
+    dialogue_gap=0.20,
+    dialogue_cliffhanger_gap=0.32,
+    paragraph_gap=0.32,
     pressure_gap=2.20,
-    hook_to_next_gap=0.32,
-    pre_discovery_gap=0.45,
+    hook_to_next_gap=0.50,
+    pre_discovery_gap=0.60,
     option_micro_pause=0.0,
 )

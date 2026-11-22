@@ -59,6 +59,7 @@ class VoiceAdapter(BaseStageAdapter):
         emit_log(f"Initializing voice clients for {total} script(s)...")
         voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
         comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
+        comfy_client.check_cancelled = check_cancelled
 
         for idx, script_id in enumerate(script_ids, start=1):
             if check_cancelled():
@@ -117,7 +118,7 @@ class VoiceAdapter(BaseStageAdapter):
                     else:
                         last_err = f"Process returned false after {dur:.1f}s"
                         emit_log(f"[{script_id}] Voice attempt {attempt}/{max_attempts} failed.")
-                        if attempt < max_attempts:
+                        if attempt < max_attempts and not check_cancelled():
                             time.sleep(2.0)
                 except Exception as exc:
                     last_err = str(exc)

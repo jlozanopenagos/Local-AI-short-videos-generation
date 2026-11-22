@@ -252,7 +252,10 @@ def extract_language_from_label(label: str) -> str:
         return "italian"
     return "english"  # default
 
-def get_script_segments(script_id: str, script_text: str, label: str) -> List[Dict[str, str]]:
+def get_script_segments(
+    script_id: str, script_text: str, label: str, *,
+    narrator_only: bool = False, merge_narration_paragraphs: bool = False,
+) -> List[Dict[str, str]]:
     """Splits a full script into a chronological sequence of segments to be voiced."""
     language = extract_language_from_label(label)
     sections = parse_sections(script_text)
@@ -290,7 +293,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
         if not sec_text:
             continue
             
-        if sec == "content" or "dialogue" in sec:
+        if not narrator_only and (sec == "content" or "dialogue" in sec):
             # CONTENT/DIALOGUE has dialogue segments
             dialogue_turns = parse_content_dialogue(sec_text)
             for turn in dialogue_turns:
@@ -309,7 +312,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
         else:
             # Other sections are spoken by Narrator
             # Split into paragraphs to maintain pacing
-            paragraphs = [p.strip() for p in sec_text.split("\n\n") if p.strip()]
+            paragraphs = [sec_text] if merge_narration_paragraphs else [p.strip() for p in sec_text.split("\n\n") if p.strip()]
             for p in paragraphs:
                 cleaned_p, p_emotion = clean_text_and_extract_emotions(p)
                 if cleaned_p:

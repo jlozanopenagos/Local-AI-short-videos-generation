@@ -47,6 +47,8 @@ class PauseChoreography:
     pressure_gap: float = 2.20
     hook_to_next_gap: Optional[float] = None
     pre_discovery_gap: Optional[float] = None
+    pre_example_gap: Optional[float] = None
+    example_to_payoff_gap: Optional[float] = None
     dialogue_to_payoff_gap: Optional[float] = None
     answer_to_explanation_gap: Optional[float] = None
     option_micro_pause: float = 0.0
@@ -121,6 +123,11 @@ class VideoTypeVoiceProfile:
     neutral_challenge_lock: bool = False
     support_multi_energy_roles: bool = False
     preferred_narrator_archetypes: Tuple[str, ...] = ("warm_narrator", "energetic_host")
+    target_cps_override: Optional[float] = None
+    max_cps_override: Optional[float] = None
+    target_wpm_range: Tuple[float, float] = (130.0, 145.0)
+    max_wpm: float = 155.0
+    apply_pace_safety_net: bool = False
 
 
 @dataclass(frozen=True)

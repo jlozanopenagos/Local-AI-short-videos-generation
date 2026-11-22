@@ -1,15 +1,16 @@
 """
 tools/build_voice_bank.py — Offline Two-Stage Reference Voice Bank Builder.
 
-Stage 1: Synthesizes high-energy native `baseline` reference clips via `Qwen3-TTS-12Hz-1.7B-VoiceDesign`
-         using expressive native scripts (real `?` and `!`) and audits them with AcousticGate + Whisper.
+Stage 1: Synthesizes native `baseline` reference clips via `Qwen3-TTS-12Hz-1.7B-VoiceDesign`
+         using native scripts and audits them with AcousticGate + Whisper.
 Stage 2: Unloads VoiceDesign (single-model 6GB VRAM discipline), then clones same-speaker
-         `high_energy` and `surprised_urgent` roleplay variants from each baseline clip via `1.7B-Base`
-         ICL best-of-N selection so character timbre stays 100% locked across emotions.
+         Roleplay acting variants from each baseline clip via `1.7B-Base` ICL.
 """
 from __future__ import annotations
 
 import argparse
+import shutil
+from tempfile import NamedTemporaryFile
 import json
 import sys
 import uuid
@@ -40,7 +41,6 @@ from config import (  # pyrefly: ignore[missing-import]
 
 try:
     from video_creation._B_voice_generation.core.acoustic_evaluator import (
-        compute_intonation_metrics,
         compute_pitch_metrics,
         evaluate_voice_take,
         get_whisper_model,
@@ -51,7 +51,6 @@ try:
     from video_creation._B_voice_generation.voice.common.bank_manifest import sanitize_ref_transcript
 except (ImportError, ModuleNotFoundError):
     from core.acoustic_evaluator import (  # type: ignore[no-redef]
-        compute_intonation_metrics,
         compute_pitch_metrics,
         evaluate_voice_take,
         get_whisper_model,
@@ -175,8 +174,76 @@ def _save_manifest_merged(manifest_path: Path, new_entries: List[Dict[str, Any]]
     )
     payload = {"version": "1.0", "voices": ordered}
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    with NamedTemporaryFile(mode="w", dir=manifest_path.parent, encoding="utf-8", delete=False) as stream:
+        temp_path = Path(stream.name)
+        json.dump(payload, stream, indent=2, ensure_ascii=False)
+    try:
+        temp_path.replace(manifest_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
     return ordered
+
+
+def promote_audition_voices(source: Path, destination: Path, speaker_ids: list[str], *, dry_run: bool) -> dict:
+    """Publish reviewed, passing audition clips without rebuilding or replacing existing voices."""
+    source, destination = source.resolve(), destination.resolve()
+    if source == destination or not speaker_ids:
+        raise ValueError("Choose a separate audition bank and explicit speaker IDs.")
+    manifest_name = "voice_bank_manifest.json"
+    staged = json.loads((source / manifest_name).read_text(encoding="utf-8"))["voices"]
+    manifest_path = destination / manifest_name
+    existing = json.loads(manifest_path.read_text(encoding="utf-8"))["voices"] if manifest_path.exists() else []
+    by_id = {entry["voice_id"]: entry for entry in existing}
+    existing_paths = {Path(entry["rel_path"]).as_posix().casefold() for entry in existing}
+    selected = [
+        entry for entry in staged
+        if entry["speaker_id"] in speaker_ids and entry["active"] and entry["lang_prob"] >= 0.95
+    ]
+    passing_baselines = {entry["speaker_id"] for entry in selected if entry["energy_tier"] == "baseline"}
+    if missing := set(speaker_ids) - passing_baselines:
+        raise ValueError(f"No passing audition baseline for {', '.join(sorted(missing))}.")
+
+    copies = []
+    seen_ids, seen_paths = set(), set()
+    for entry in selected:
+        rel = Path(entry["rel_path"])
+        path_key = rel.as_posix().casefold()
+        voice_id = entry["voice_id"]
+        if voice_id in seen_ids or path_key in seen_paths:
+            raise ValueError(f"Duplicate audition reference: {voice_id} ({rel})")
+        seen_ids.add(voice_id)
+        seen_paths.add(path_key)
+        origin, target = (source / rel).resolve(), (destination / rel).resolve()
+        if rel.is_absolute() or not origin.is_relative_to(source) or not target.is_relative_to(destination):
+            raise ValueError(f"Reference path escapes its voice bank: {rel}")
+        if origin.suffix.lower() != ".wav" or not origin.is_file() or not origin.stat().st_size:
+            raise ValueError(f"Missing audition WAV: {origin}")
+        if entry["voice_id"] in by_id:
+            if by_id[entry["voice_id"]] == entry and target.is_file() and target.read_bytes() == origin.read_bytes():
+                continue
+            raise ValueError(f"Voice ID already exists: {entry['voice_id']}")
+        if path_key in existing_paths or (
+            target.exists() and target.read_bytes() != origin.read_bytes()
+        ):
+            raise ValueError(f"Voice path already exists: {target}")
+        copies.append((entry, origin, target))
+
+    if copies and not dry_run:
+        for _, origin, target in copies:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                with origin.open("rb") as audio:
+                    output = target.open("xb")
+                    try:
+                        with output:
+                            shutil.copyfileobj(audio, output)
+                    except OSError:
+                        target.unlink(missing_ok=True)
+                        raise
+        _save_manifest_merged(manifest_path, [entry for entry, _, _ in copies])
+
+    return {"dry_run": dry_run, "speaker_ids": sorted(passing_baselines),
+            "new_clips": len(copies), "manifest_path": str(manifest_path)}
 
 
 def _verify_whisper_language(wav_path: Path, expected_lang: str) -> float:
@@ -247,6 +314,8 @@ def _passes_gender_pitch_gate(
     mean_f0: float,
     p25_f0: Optional[float] = None,
     mf_energy_ratio: Optional[float] = None,
+    *,
+    lower_register: bool = False,
 ) -> Tuple[bool, str]:
     """Rejects gender-flipped or childlike/shrill baseline draws using HPS F0, P25 F0, and M/F energy ratio."""
     gend = (gender or "").strip().lower()
@@ -258,12 +327,15 @@ def _passes_gender_pitch_gate(
         if mf_energy_ratio is not None and mf_energy_ratio < 0.08:
             return False, f"Male low-band ratio too thin (M/F_E={mf_energy_ratio:.2f} < 0.08; likely female)"
         return True, ""
-    if not (200.0 <= mean_f0 <= 285.0):
-        return False, f"Female HPS pitch out of range ({mean_f0:.1f} Hz; expected 200-285 Hz)"
-    if p25_f0 is not None and p25_f0 < 195.0:
-        return False, f"Female P25 pitch too low ({p25_f0:.1f} Hz < 195.0 Hz; likely male)"
-    if mf_energy_ratio is not None and mf_energy_ratio > 0.05:
-        return False, f"Female low-band energy too heavy (M/F_E={mf_energy_ratio:.2f} > 0.05; likely male)"
+    min_f0, max_f0, min_p25, max_ratio = (
+        (175.0, 245.0, 160.0, 0.10) if lower_register else (200.0, 285.0, 195.0, 0.05)
+    )
+    if not (min_f0 <= mean_f0 <= max_f0):
+        return False, f"Female HPS pitch out of range ({mean_f0:.1f} Hz; expected {min_f0:g}-{max_f0:g} Hz)"
+    if p25_f0 is not None and p25_f0 < min_p25:
+        return False, f"Female P25 pitch too low ({p25_f0:.1f} Hz < {min_p25:g} Hz)"
+    if mf_energy_ratio is not None and mf_energy_ratio > max_ratio:
+        return False, f"Female low-band energy too heavy (M/F_E={mf_energy_ratio:.3f} > {max_ratio:g})"
     return True, ""
 
 
@@ -322,9 +394,19 @@ def _generate_baseline_for_persona(
     out_dir.mkdir(parents=True, exist_ok=True)
     final_wav = out_dir / f"{lang}_{gend}_{sid}_baseline.wav"
 
+    # A staged lower-register clip must meet the same gate when a build resumes.
+    import soundfile as sf
+
     if final_wav.exists() and not force:
         stats = _normalize_reference_clip(final_wav, final_wav) if final_wav.stat().st_size > 0 else {"f0_mean": 0.0, "f0_var": 0.0, "snr_db": 0.0, "duration_s": 0.0}
         lang_prob = _verify_whisper_language(final_wav, lang)
+        active = lang_prob >= 0.90
+        if persona.get("lower_register"):
+            data, sr = sf.read(final_wav)
+            f0, p25, ratio = _compute_spectral_gender_metrics(data, sr)
+            pitch_ok, _ = _passes_gender_pitch_gate(gend, f0, p25, ratio, lower_register=True)
+            active = lang_prob >= 0.95 and pitch_ok
+            stats.update(f0_hps=f0, mf_ratio=ratio)
         print(f"    [Skip existing] {final_wav.name} | dur={stats['duration_s']}s | f0_var={stats['f0_var']*100:.1f}% | lang_prob={lang_prob}", flush=True)
         return {
             "voice_id": f"{sid}_baseline",
@@ -338,12 +420,9 @@ def _generate_baseline_for_persona(
             "ref_text": persona["ref_text"],
             "source": "voice_design",
             "lang_prob": lang_prob,
-            "active": lang_prob >= 0.90,
+            "active": active,
             **stats,
         }
-
-    # pyrefly: ignore[missing-import]
-    import soundfile as sf
 
     candidates: List[Tuple[Path, float, float, float, bool, float, float, float]] = []
     num_takes = max(1, int(max_candidates))
@@ -371,6 +450,7 @@ def _generate_baseline_for_persona(
             hps_f0,
             p25_f0=p25_f0,
             mf_energy_ratio=mf_ratio,
+            lower_register=persona.get("lower_register", False),
         )
         score, passes_gate, _, metrics = evaluate_voice_take(tmp_flac, target_text=persona["ref_text"], language=lang)
         lang_prob = _verify_whisper_language(tmp_flac, lang)
@@ -429,6 +509,15 @@ def _generate_baseline_for_persona(
     }
 
 
+_ROLEPLAY_VARIANT_DELIVERY = {
+    "high_energy": "Playful excitement, quick and conversational, with a clear stress on the key word.",
+    "surprised_urgent": "Restrained urgency, speaking quickly with a brief hesitation and a steady register.",
+    "reassuring": "Reassure a worried friend, with warm emphasis and an unhurried landing.",
+    "frustrated": "Hold back irritation, using clipped consonants and firm stress in a steady register.",
+    "embarrassed": "Sound briefly flustered, hesitate, then recover with a quieter, matter-of-fact finish.",
+}
+
+
 def _generate_roleplay_variants(
     baseline_entry: Dict[str, Any],
     persona: Dict[str, Any],
@@ -449,7 +538,7 @@ def _generate_roleplay_variants(
     sid = baseline_entry["speaker_id"]
     out_dir = bank_dir / lang / gend
     baseline_wav = bank_dir / baseline_entry["rel_path"]
-    if not baseline_wav.exists():
+    if not baseline_entry["active"] or not baseline_wav.exists():
         return []
 
     ref_copy = comfy_input_dir / baseline_wav.name
@@ -458,13 +547,19 @@ def _generate_roleplay_variants(
     created: List[Dict[str, Any]] = []
     num_takes = max(1, int(max_candidates))
     try:
-        for tier in ("high_energy", "surprised_urgent"):
+        for tier_index, tier in enumerate(_ROLEPLAY_VARIANT_DELIVERY, start=1):
             target_text = variant_texts.get(tier)
             if not target_text:
                 continue
             final_wav = out_dir / f"{lang}_{gend}_{sid}_{tier}.wav"
             if final_wav.exists() and not force:
                 stats = _normalize_reference_clip(final_wav, final_wav)
+                active = True
+                if persona.get("lower_register"):
+                    data, sr = sf.read(final_wav)
+                    f0, p25, ratio = _compute_spectral_gender_metrics(data, sr)
+                    active, _ = _passes_gender_pitch_gate(gend, f0, p25, ratio, lower_register=True)
+                    stats.update(f0_hps=f0, mf_ratio=ratio)
                 print(f"    [Skip variant] {final_wav.name} | dur={stats['duration_s']}s | f0_var={stats['f0_var']*100:.1f}%", flush=True)
                 created.append({
                     **baseline_entry,
@@ -472,13 +567,14 @@ def _generate_roleplay_variants(
                     "energy_tier": tier,
                     "rel_path": f"{lang}/{gend}/{final_wav.name}",
                     "ref_text": target_text,
+                    "active": active,
                     **stats,
                 })
                 continue
 
-            best_cands: List[Tuple[Path, float, float]] = []
+            best_cands: List[Tuple[Path, float, float, float, float, bool]] = []
             for idx in range(num_takes):
-                seed = int(persona["seed"]) + (1000 if tier == "high_energy" else 2000) + idx * 111
+                seed = int(persona["seed"]) + (1000 * tier_index) + idx * 111
                 tmp_flac = out_dir / f"{sid}_{tier}_c{idx+1}.flac"
                 base_client.generate_voice_segment(
                     ref_audio_name=baseline_wav.name,
@@ -486,9 +582,10 @@ def _generate_roleplay_variants(
                     language=lang,
                     gender=gend,
                     context=f"Character roleplay actor performing {tier} line in {lang}",
-                    emotion="excited and hyped" if tier == "high_energy" else "shocked, incredulous, urgent",
-                    energy="very high",
-                    style="vibrant expressive theatrical delivery",
+                    emotion=tier,
+                    energy="medium",
+                    style="natural conversational dialogue",
+                    delivery_direction=_ROLEPLAY_VARIANT_DELIVERY[tier],
                     output_prefix=f"audio/var_{sid}_{tier}_{idx+1}",
                     dest_path=tmp_flac,
                     seed=seed,
@@ -500,24 +597,26 @@ def _generate_roleplay_variants(
                 data, sr = sf.read(str(tmp_flac))
                 if data.ndim > 1:
                     data = data[:, 0]
-                var_f0, _, var_mf = _compute_spectral_gender_metrics(data, sr)
+                var_f0, var_p25, var_mf = _compute_spectral_gender_metrics(data, sr)
                 var_gender_ok = (80.0 <= var_f0 <= 215.0 and var_mf >= 0.06) if gend == "male" else (195.0 <= var_f0 <= 295.0 and var_mf <= 0.06)
+                if persona.get("lower_register"):
+                    var_gender_ok, _ = _passes_gender_pitch_gate(
+                        gend, var_f0, var_p25, var_mf, lower_register=True,
+                    )
                 score, _, _, metrics = evaluate_voice_take(tmp_flac, target_text=target_text, language=lang)
-                into = compute_intonation_metrics(data, sr)
                 rank = (
                     (10.0 if var_gender_ok else 0.0)
                     + score
-                    + (0.20 * into["final_25pct_f0_ratio"] if tier == "surprised_urgent" else 0.15 * into["rms_peak_ratio"])
                     + 0.25 * metrics.get("pitch_variance", 0.0)
                 )
-                best_cands.append((tmp_flac, rank, score, var_f0, var_mf))
+                best_cands.append((tmp_flac, rank, score, var_f0, var_mf, var_gender_ok))
 
             best_cands.sort(key=lambda item: item[1], reverse=True)
             best_score = best_cands[0][2]
             best_var_f0 = best_cands[0][3]
             best_var_mf = best_cands[0][4]
             stats = _normalize_reference_clip(best_cands[0][0], final_wav)
-            for p, _, _, _, _ in best_cands[1:]:
+            for p, _, _, _, _, _ in best_cands[1:]:
                 if p.exists():
                     try:
                         p.unlink()
@@ -541,7 +640,7 @@ def _generate_roleplay_variants(
                 "ref_text": target_text,
                 "source": "voice_design",
                 "lang_prob": baseline_entry.get("lang_prob", 1.0),
-                "active": True,
+                "active": best_cands[0][5] if persona.get("lower_register") else True,
                 "f0_hps": best_var_f0,
                 "mf_ratio": best_var_mf,
                 **stats,
@@ -567,10 +666,17 @@ def build_voice_bank(
     dry_run: bool = False,
     clean_transcripts: bool = True,
     candidates: int = 2,
+    auditions_only: bool = False,
 ) -> Dict[str, Any]:
     """Builds or dry-run validates the VoiceDesign reference voice bank + Roleplay energy variants."""
     catalog = load_persona_catalog(personas_path)
     personas = catalog["personas"]
+    if auditions_only:
+        if bank_dir.resolve() == VOICE_BANK_DIR.resolve():
+            raise ValueError("Use a separate --bank-dir for auditions.")
+        personas = [p for p in personas if p.get("audition")]
+    elif not speaker_ids:
+        personas = [p for p in personas if not p.get("audition")]
     if language_filter:
         lang_low = language_filter.strip().lower()
         personas = [p for p in personas if p["language"].lower() == lang_low]
@@ -589,7 +695,16 @@ def build_voice_bank(
         total_t, mod_t = clean_ref_transcripts_file(REF_TRANSCRIPTS_PATH)
         print(f"[Transcript Cleaner] Audited {total_t} ref_transcripts entries; repaired {mod_t} typos.", flush=True)
 
-    roleplay_count = sum(1 for p in personas if "roleplay_actor" in p.get("archetypes", []))
+    roleplay_personas = [p for p in personas if "roleplay_actor" in p.get("archetypes", [])]
+    variant_prompts = catalog.get("energy_variant_prompts", {})
+    variants_by_speaker = {
+        p["speaker_id"]: {
+            **variant_prompts.get(p["language"], {}),
+            **p.get("acting_variant_prompts", {}),
+        }
+        for p in roleplay_personas
+    }
+    planned_variants = sum(len(prompts) for prompts in variants_by_speaker.values())
     by_lang: Dict[str, int] = {}
     for p in personas:
         by_lang[p["language"]] = by_lang.get(p["language"], 0) + 1
@@ -599,9 +714,9 @@ def build_voice_bank(
         return {
             "dry_run": True,
             "personas_count": len(personas),
-            "roleplay_actors": roleplay_count,
+            "roleplay_actors": len(roleplay_personas),
             "planned_baseline_clips": len(personas),
-            "planned_variant_clips": 0 if skip_variants else (roleplay_count * 2),
+            "planned_variant_clips": 0 if skip_variants else planned_variants,
             "candidates": candidates,
             "by_language": by_lang,
             "bank_dir": str(bank_dir),
@@ -643,13 +758,12 @@ def build_voice_bank(
     vd_client.free_memory(unload_models=True)
 
     if not skip_variants:
-        variant_prompts = catalog.get("energy_variant_prompts", {})
         roleplay_targets = [(p, ent) for p, ent in baselines if "roleplay_actor" in p.get("archetypes", [])]
-        print(f"\n[Stage 2/2] Cloning {len(roleplay_targets) * 2} same-speaker Roleplay energy variants via 1.7B-Base...", flush=True)
+        variant_count = sum(len(variants_by_speaker[p["speaker_id"]]) for p, _ in roleplay_targets)
+        print(f"\n[Stage 2/2] Cloning {variant_count} same-speaker Roleplay energy variants via 1.7B-Base...", flush=True)
         base_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
         for p, ent in roleplay_targets:
-            lang = p["language"].lower()
-            v_texts = variant_prompts.get(lang, {})
+            v_texts = variants_by_speaker[p["speaker_id"]]
             variants = _generate_roleplay_variants(
                 baseline_entry=ent,
                 persona=p,
@@ -676,7 +790,10 @@ def build_voice_bank(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build curated 1.7B-VoiceDesign reference voice bank + Roleplay variants.")
+    parser.add_argument("--bank-dir", type=Path, default=VOICE_BANK_DIR, help="Output bank directory for staging auditions")
     parser.add_argument("--language", type=str, default=None, choices=["english", "french", "spanish", "italian"], help="Filter to one language")
+    parser.add_argument("--auditions-only", action="store_true", help="Build only the new audition personas")
+    parser.add_argument("--promote-from", type=Path, help="Copy reviewed voices from this audition bank into --bank-dir")
     parser.add_argument("--speaker-ids", type=str, default=None, help="Comma-separated speaker_ids to rebuild selectively")
     parser.add_argument("--limit", type=int, default=None, help="Maximum personas to process")
     parser.add_argument("--candidates", type=int, default=2, help="Max candidate takes per clip (default: 2)")
@@ -691,15 +808,24 @@ def main() -> int:
         print(f"[Transcript Cleaner] Audited {total} entries; repaired {mod} typos.")
 
     speaker_ids_list = [s.strip() for s in args.speaker_ids.split(",") if s.strip()] if args.speaker_ids else None
+    if args.promote_from:
+        if not speaker_ids_list:
+            parser.error("--promote-from requires --speaker-ids")
+        print(json.dumps(promote_audition_voices(
+            args.promote_from, args.bank_dir, speaker_ids_list, dry_run=args.dry_run,
+        ), indent=2))
+        return 0
     summary = build_voice_bank(
+        bank_dir=args.bank_dir,
         language_filter=args.language,
         speaker_ids=speaker_ids_list,
         limit=args.limit,
         force=args.force,
         skip_variants=args.skip_variants,
         dry_run=args.dry_run,
-        clean_transcripts=not args.dry_run,
+        clean_transcripts=not args.dry_run and args.bank_dir.resolve() == VOICE_BANK_DIR.resolve(),
         candidates=args.candidates,
+        auditions_only=args.auditions_only,
     )
     print(json.dumps(summary, indent=2))
     return 0

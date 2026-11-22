@@ -40,22 +40,15 @@ Run `py -m pytest test -m "not live"` after completing the [test setup](test/REA
 - [Operator tools](main/tools/README.md)
 - [Contributor guidance](main/AGENTS.md)
 
+## Voice generation today
+
+Studio sends scripts to Qwen3-TTS through ComfyUI. Expression and Fun Facts use continuous narration per section. Game keeps one narrator and preserves even option timing. Roleplay keeps the actors assigned to their characters and renders each turn continuously with context and an acting direction. Narrator direction is format-specific across all four languages.
+
+The local workstation's curated bank currently has 52 distinct voices plus 40 same-speaker reference variants. Local audio assets and the active bank manifest live in the configured runtime, while the persona catalog and builder are versioned here. Use Voice with Force to rerender and enable Recast only to audition a different cast.
+
 ## Historical release notes
 
-These notes describe earlier releases. Use the instructions above for the current workflow.
-
-### Latest Release: Stage B Modular Voice Generation (`voice/`), 68-Clip VoiceDesign Bank & Broadcast Mastering
-- **Modular Language & Video-Type Voice Package (`_B_voice_generation/voice/`)**:
-  - Decoupled Stage B into `voice/common/` (`models.py`, `engine.py`, `bank_manifest.py`, `casting.py`, `punctuation.py`, `dsp_mastering.py`, `orchestrator.py`), `voice/languages/{english,french,spanish,italian}.py`, and `voice/types/{expression,game,roleplay,fun_facts}/` (`pauses.py`, `mastering.py`, `profile.py`, plus `roleplay/emotion.py`), backed by a unified `synthesize_script_voice()` orchestrator across `main.py`, `voice_modifier.py`, and WebUI `VoiceAdapter` plus instant `VOICE_ENGINE=typed|legacy|legacy:<type/lang>` rollback.
-- **68-Clip Qwen3-TTS 1.7B-VoiceDesign Reference Bank & Spectral Gender-Pitch Gate (`tools/build_voice_bank.py`, `data/voice_bank_personas.json`, `workflows/Qwen3-TTS VoiceDesign.json`)**:
-  - Built an offline 1.7B-VoiceDesign bank of **68 active `PCM_16` clips** across **28 personas** (8 Spanish, 8 Italian, 6 French, 6 English), including **20 Roleplay actors** with 3 matched energy tiers (`28 baseline`, `20 high_energy`, `20 surprised_urgent` of the exact same speaker voice for emotional turns with zero timbre drift).
-  - Enforces affirmative-English adult register prompts, Whisper `lang_prob` verification, and an octave-proof 3-harmonic HPS + `P25` + low/high spectral energy ratio `M/F_E` gate (`male`: `85–195 Hz`, `M/F_E >= 0.08`; `female`: `200–285 Hz`, `P25 >= 195 Hz`, `M/F_E <= 0.05`).
-- **Per-Language Vocal Prints, Neutral Anti-Repetition Casting & English ICL Locking**:
-  - Deterministic `VoiceCastingEngine` (`casting_history.json`) prioritizes curated VoiceDesign clips blended with cleaned `open_swara` clips while demoting `kokoro_golden` to fallback; enforces a **neutral-only 75/25 Spanish accent mix** (`es_latam_neutral` / `es_spain_castilian`) with automatic Spain/LatAm dialect locking, non-destructive `¿`/`¡` injection, Parisian *esprit français* musicality, energetic Italian prosody, and `_has_manifest_ref_text()` English VoiceDesign ICL locking (`use_icl=True`) to eliminate mid-video voice drift.
-- **Per-Type Pause Choreography, Calm Recovery Retry & Broadcast DSP Mastering**:
-  - Added pure `numpy` + `scipy` broadcast vocal mastering (`GAME` `-15.0 LUFS` / `3.2:1`, `EXPRESSION` `-15.2 LUFS` / `2.9:1`, `FUN_FACTS` `-15.2 LUFS` / `2.8:1` with `+2.6 dB` presence boost & `+1.0 dB` air shelf; `ROLEPLAY` `-16.0 LUFS` / `2.2:1` with `+1.5 dB` presence boost; `-1.0 dBFS` soft-clip limiter), sampling caps (`temp <= 0.90`, `subtalker_temperature <= 0.86`), a 1-shot calm recovery retry (`temp - 0.10`, `sub_temp - 0.06`, `seed + 1999`) when high-impact segments fail quality gating, and format-specific pauses preserving `GAME` `pressure_gap = 2.20s` and Syntactic Carrier heteronym stress precision.
-- **CLI / WebUI Parity & QA Test Suite**:
-  - Added `--accent` and `--engine` CLI flags alongside WebUI `VoiceAdapter` (`accent`, `voice_engine`, `recast`) support, and expanded the QA suite (`test_voice_characterization.py`, `test_voice_upgrade_modules.py`) to **450 automated tests across 48 test files** passing 100% (`py test/run_tests.py`).
+These notes describe earlier releases. Use the workflow and verification instructions above for the current project.
 
 ### Previous Release: Stage C Late-Teen Cropped Framing, Preserved General Prompt Redo, Google Sheets Sync & Cultural World Atlas
 - **Stage C Late-Teen (`17-year-old`, `1:7`) Proportions, Cropped `hook` Framing & Sanitizer Hardening**:
@@ -72,7 +65,7 @@ These notes describe earlier releases. Use the instructions above for the curren
 - **Cultural World Atlas (124 Culturally Grounded Worlds) & Stage G Modular Video Assembly (`_G_video_assembly/assembly/`)**:
   - **Cultural Worlds & Gemini Auditor Reroll**: Replaced generic studio/workshop/greenhouse/drafting-vest tropes with **124 culturally authentic venues** across 4 languages (36 English, 32 Spanish, 28 French, 28 Italian), Triplet Collision Guard, and automatic Cultural World reroll excluding prior drafts.
   - **Per-Type Editing Grammar & Forced Mass Assembly**: Decoupled `assembly/types/{expression,game,roleplay,fun_facts}/` with cosine-eased Ken Burns motion, **Lower-Middle Safe Zone** subtitles, `ROLEPLAY` speaker color-coding, frame-accurate `xfade` transitions, and staged replacement in `AssemblyAdapter`.
-- **QA Test Suite**: Isolated `test_chalkboard_adapter.py` into a temporary sandbox and expanded verified coverage to **436 automated tests across 46 test files** passing 100% (`py test/run_tests.py`).
+- **QA Test Suite**: Isolated `test_chalkboard_adapter.py` into a temporary sandbox and expanded verified coverage to **436 automated tests across 46 test files** in that release.
 
 ### Previous Release: Google Drive Sync Suite, Single Source of Truth Visual Anchors & Prompt Auditor 2.0
 - **Google Drive Export & Mass Drive Upload Suite**:

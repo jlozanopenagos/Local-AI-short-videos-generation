@@ -8,6 +8,13 @@ from typing import Optional
 
 from ...common.bank_manifest import VoiceBankManifest
 
+_ACTING_REFERENCE_CUES = {
+    "embarrassed": ("embarrass", "fluster", "gêné", "gene", "avergonz", "imbarazz"),
+    "frustrated": ("frustr", "exasp", "annoy", "angry", "furious", "agacé", "agace",
+                   "énerv", "enerv", "molest", "enoj", "enfad", "arrabbi", "infastid"),
+    "reassuring": ("reassur", "rassur", "calm", "tranquil", "rilassat", "encourag"),
+}
+
 _SURPRISED_URGENT_KEYWORDS = (
     # English
     "surpris", "shock", "incredul", "baffl", "panick", "anxious", "urgenc", "terrified",
@@ -68,11 +75,13 @@ EXTENDED_ROLEPLAY_EMOTIONS = {
 
 def classify_roleplay_energy_tier(emotion: str, text: str, section: str = "") -> str:
     """Maps a dialogue turn's acting emotion & text cues to one of 3 Voice Bank energy tiers:
-    `'baseline'`, `'high_energy'`, or `'surprised_urgent'`.
+    Acting-specific references take precedence over punctuation and energy cues.
     """
     emo_low = (emotion or "").lower()
     txt_low = (text or "").lower()
-    combined = f"{emo_low} {txt_low}"
+    for tier, cues in _ACTING_REFERENCE_CUES.items():
+        if any(cue in emo_low for cue in cues):
+            return tier
 
     if any(k in emo_low for k in _SURPRISED_URGENT_KEYWORDS) or ("?!" in text) or ("!?" in text):
         return "surprised_urgent"
@@ -82,7 +91,7 @@ def classify_roleplay_energy_tier(emotion: str, text: str, section: str = "") ->
         return "surprised_urgent"
     if "!" in text:
         return "high_energy"
-    if any(k in combined for k in ("frustrat", "panic", "stress", "anxious", "nervous", "worried", "peur", "miedo", "paura")):
+    if any(k in txt_low for k in ("panic", "stress", "anxious", "nervous", "worried", "peur", "miedo", "paura")):
         return "surprised_urgent"
     return "baseline"
 
@@ -95,11 +104,7 @@ def resolve_roleplay_turn_reference(
     manifest: Optional[VoiceBankManifest],
     open_swara_dir: Optional[Path] = None,
 ) -> Path:
-    """Switches to the SAME speaker's `high_energy` or `surprised_urgent` take when available.
-
-    Guarantees 100% speaker timbre continuity across turns while letting `1.7B-Base` ICL
-    deliver genuine emotional dynamics. Falls back safely to `base_voice_path` if no variant exists.
-    """
+    """Use a matching reference for the cast speaker when one exists."""
     if manifest is None or base_voice_path is None:
         return base_voice_path
     tier = classify_roleplay_energy_tier(emotion, text, section)

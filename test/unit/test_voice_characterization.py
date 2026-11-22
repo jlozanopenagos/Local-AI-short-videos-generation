@@ -98,6 +98,7 @@ class RecordingFakeComfyClient:
             "dest_path": str(dest_path),
             "seed": seed,
             "sampling_overrides": sampling_overrides,
+            "delivery_direction": kwargs.get("delivery_direction"),
             "accent_hint": accent_hint,
         })
         # Duration roughly proportional to text length to produce healthy ~13.5 CPS
@@ -150,6 +151,38 @@ class TestVoiceCharacterization(unittest.TestCase):
         out_dir.mkdir(parents=True, exist_ok=True)
         return raw
 
+    def test_failed_forced_voice_merge_preserves_previous_master_and_timings(self):
+        script_id = "EG01"
+        script = self._prepare_golden_state(script_id)
+        output = config.get_script_output_dir(script_id, "english", self.base_dir, video_type="game")
+        master = output / f"script_{script_id}_master.wav"
+        timings = output / "timings.json"
+        master.write_bytes(b"previous usable master")
+        timings.write_bytes(b'{"hook":{"start":0,"end":1}}')
+        script["assets"]["audio_path"] = str(master)
+        script["status"]["voice_generation"] = "done"
+        self.test_sm.save_script_state(script_id, script)
+
+        def failed_merge(**kwargs):
+            staged = kwargs["output_path"]
+            staged.write_bytes(b"partial replacement")
+            return None
+
+        with patch(
+            "video_creation._B_voice_generation.voice.common.orchestrator.concatenate_audios",
+            side_effect=failed_merge,
+        ):
+            self.assertFalse(synthesize_script_voice(
+                script, self.test_sm, RecordingFakeComfyClient(),
+                VoiceManager(self.open_swara_dir, self.comfy_input_dir),
+                force=True, candidates=1, base_dir=self.base_dir, engine_mode="typed",
+            ))
+        self.assertEqual(master.read_bytes(), b"previous usable master")
+        self.assertEqual(timings.read_bytes(), b'{"hook":{"start":0,"end":1}}')
+        updated = self.test_sm.get_script_state(script_id)
+        self.assertEqual(updated["assets"]["audio_path"], str(master))
+        self.assertEqual(updated["status"]["voice_generation"], "done")
+
     def test_all_16_golden_ids_legacy_and_typed_invariants(self):
         """Runs all 16 Golden IDs offline in both `legacy` and `typed` mode and verifies core invariants."""
         for engine_mode in ("legacy", "typed"):
@@ -172,6 +205,33 @@ class TestVoiceCharacterization(unittest.TestCase):
                     )
                     self.assertTrue(ok, f"[{engine_mode}] synthesize_script_voice failed on {sid}")
                     self.assertGreater(len(fake_comfy.calls), 0, f"[{engine_mode}] Zero TTS calls for {sid}")
+                    directed_turns = [
+                        call for call in fake_comfy.calls if call["delivery_direction"]
+                    ]
+                    if engine_mode == "typed" and vtype == "roleplay":
+                        self.assertGreaterEqual(len({call["delivery_direction"] for call in directed_turns}), 2, sid)
+                        narrated = [call for call in directed_turns if "_Narrator" in call["output_prefix"]]
+                        self.assertTrue(narrated, sid)
+                        directed_turns = [call for call in directed_turns if call not in narrated]
+                        self.assertTrue(all("dialogue" in call["context"].lower() for call in directed_turns), sid)
+                        self.assertTrue(all("[pause:" not in call["target_text"] and "\n" not in call["target_text"]
+                                            for call in directed_turns), sid)
+                        self.assertTrue(any("«" in call["delivery_direction"] for call in directed_turns), sid)
+                        for call in directed_turns:
+                            direction = call["delivery_direction"]
+                            if "«" in direction:
+                                previous = direction.split("«", 1)[1].split("»", 1)[0]
+                                self.assertNotIn(previous, call["target_text"], sid)
+                    elif engine_mode == "typed" and vtype in {"expression", "fun_facts"}:
+                        self.assertTrue(directed_turns, sid)
+                        self.assertTrue(all("_Narrator" in call["output_prefix"] for call in fake_comfy.calls), sid)
+                        self.assertTrue(all("[pause:" not in call["target_text"] and "\n" not in call["target_text"]
+                                            for call in fake_comfy.calls), sid)
+                    elif engine_mode == "typed" and vtype == "game":
+                        self.assertTrue(directed_turns, sid)
+                        self.assertTrue(all("_Narrator" in call["output_prefix"] for call in directed_turns), sid)
+                    else:
+                        self.assertFalse(directed_turns, sid)
 
                     updated = self.test_sm.get_script_state(sid)
                     master_wav = Path(updated["assets"]["audio_path"])
