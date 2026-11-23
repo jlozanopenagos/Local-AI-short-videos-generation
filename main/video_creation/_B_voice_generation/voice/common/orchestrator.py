@@ -1022,6 +1022,7 @@ def synthesize_script_voice(
                 merged_file = master_path
         if merged_file:
             try:
+                # pyrefly: ignore[missing-import]
                 import soundfile as sf
                 master_dur = float(sf.info(str(merged_file)).duration)
                 total_words = sum(int(s.get("word_count", 0)) for s in segments_to_concat)

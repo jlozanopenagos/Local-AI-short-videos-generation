@@ -4,7 +4,7 @@ assembly/types/base.py — Abstract AssemblyProfile contract for video-type edit
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Set
+from typing import Dict, FrozenSet, List, Set
 
 from ..common.audio_mix import AudioMixSpec
 from ..common.easing import MotionSpec
@@ -20,6 +20,7 @@ class AssemblyProfile(ABC):
     aliases: List[str] = []
     fps: int = 25
     companion_fallbacks: Dict[str, List[str]] = {}
+    locked_visual_sections: FrozenSet[str] = frozenset()
 
     @abstractmethod
     def get_motion_spec(
@@ -58,3 +59,7 @@ class AssemblyProfile(ABC):
     def get_suppress_subtitle_sections(self) -> Set[str]:
         """Returns section names where animated subtitles are suppressed (e.g. `challenge` chalkboard)."""
         return set()
+
+    def get_locked_visual_sections(self) -> FrozenSet[str]:
+        """Returns section names whose visual window must stay locked to exact audio timestamps."""
+        return self.locked_visual_sections

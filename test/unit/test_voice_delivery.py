@@ -201,3 +201,30 @@ def test_voice_gate_ignores_edge_silence_but_flags_a_mid_line_freeze(tmp_path):
     for path, expected in [(edges, False), (internal, True)]:
         _, _, issues, _ = qa.evaluate_voice_take(path, "An example line of dialogue.", "english")
         assert any("Internal silence freeze" in issue for issue in issues) is expected
+
+def test_automatic_narrator_casting_prefers_format_and_avoids_reviewed_extremes(tmp_path):
+    from types import SimpleNamespace
+    from video_creation._B_voice_generation.voice.common.casting import VoiceCastingEngine
+    from video_creation._B_voice_generation.voice.languages import get_language_voice_profile
+
+    def record(speaker_id, *archetypes):
+        return (tmp_path / f"{speaker_id}.wav", speaker_id, 0, SimpleNamespace(
+            speaker_id=speaker_id, archetypes=archetypes, accent="en_us_neutral",
+        ))
+
+    extreme = record("en_m_us_host_01", "energetic_host", "warm_narrator")
+    hosts = [record("host1", "energetic_host"), record("host2", "energetic_host")]
+    narrators = [record("narrator1", "warm_narrator"), record("narrator2", "warm_narrator")]
+    engine = VoiceCastingEngine()
+    with patch.object(engine, "_build_candidate_records", return_value=[extreme, *hosts, *narrators]) as pool:
+        def choose(video_type):
+            return engine.select_speaker_voice(
+                open_swara_dir=tmp_path, language="english", gender="male", role="Narrator",
+                video_type=video_type, all_paths=[], manifest=None, is_acceptable_fn=lambda *_: True,
+                lang_profile=get_language_voice_profile("english"), used_identities=set(),
+                used_filenames=set(), dialect_hint="en_us_neutral",
+            )
+        assert choose("game") == hosts[0][0]
+        assert choose("fun_facts") == narrators[0][0]
+        pool.return_value = [extreme]
+        assert choose("fun_facts") == extreme[0]

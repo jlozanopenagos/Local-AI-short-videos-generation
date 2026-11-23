@@ -41,44 +41,61 @@ logger = logging.getLogger("webui.jobs")
 
 
 class _JobLogCapture:
-    """Captures sys.stdout/sys.stderr within a worker job run and emits clean lines to emit_log."""
+    """Captures sys.stdout/sys.stderr within a worker job run and emits clean lines per thread."""
 
     def __init__(self, emit_fn: Callable[[str], None], original_stream):
         self.emit_fn = emit_fn
         self.original_stream = original_stream
-        self._buf = ""
+        self._buffers: Dict[int, str] = {}
+        self._lock = threading.Lock()
 
     def write(self, s: str) -> int:
-        if self.original_stream:
-            try:
-                self.original_stream.write(s)
-                self.original_stream.flush()
-            except Exception:
-                pass
-
         if not s:
             return 0
 
-        self._buf += s
-        while "\n" in self._buf:
-            line, self._buf = self._buf.split("\n", 1)
-            clean = line.replace("\r", " ").strip()
-            # Ignore empty lines or long decorative divider lines (e.g. === or ---)
-            if clean and not (clean.startswith("=") and clean.endswith("=") and len(clean) > 10):
-                self.emit_fn(clean)
+        tid = threading.get_ident()
+        lines_to_emit: List[str] = []
+        with self._lock:
+            if self.original_stream:
+                try:
+                    self.original_stream.write(s)
+                    self.original_stream.flush()
+                except Exception:
+                    pass
+
+            buf = self._buffers.get(tid, "") + s
+            while "\n" in buf:
+                line, buf = buf.split("\n", 1)
+                clean = line.replace("\r", " ").strip()
+                # Ignore empty lines or long decorative divider lines (e.g. === or ---)
+                if clean and not (clean.startswith("=") and clean.endswith("=") and len(clean) > 10):
+                    lines_to_emit.append(clean)
+            if buf:
+                self._buffers[tid] = buf
+            else:
+                self._buffers.pop(tid, None)
+
+        for clean in lines_to_emit:
+            self.emit_fn(clean)
         return len(s)
 
     def flush(self) -> None:
-        if self._buf.strip():
-            clean = self._buf.replace("\r", " ").strip()
-            if clean and not (clean.startswith("=") and clean.endswith("=") and len(clean) > 10):
-                self.emit_fn(clean)
-            self._buf = ""
-        if self.original_stream:
-            try:
-                self.original_stream.flush()
-            except Exception:
-                pass
+        leftovers: List[str] = []
+        with self._lock:
+            for buf in self._buffers.values():
+                if buf.strip():
+                    clean = buf.replace("\r", " ").strip()
+                    if clean and not (clean.startswith("=") and clean.endswith("=") and len(clean) > 10):
+                        leftovers.append(clean)
+            self._buffers.clear()
+            if self.original_stream:
+                try:
+                    self.original_stream.flush()
+                except Exception:
+                    pass
+
+        for clean in leftovers:
+            self.emit_fn(clean)
 
 
 class _JobLoggingHandler(logging.Handler):

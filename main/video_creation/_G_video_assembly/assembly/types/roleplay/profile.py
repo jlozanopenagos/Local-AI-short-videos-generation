@@ -23,13 +23,13 @@ _MOTION_MAP: Dict[str, MotionSpec] = {
 _DEFAULT_MOTION = MotionSpec(1.00, 1.06, 0.50, 0.50, 0.46, 0.44, "cosine")
 
 _TRANSITION_MAP: Dict[Tuple[str, str], TransitionSpec] = {
-    ("hook", "dialogue_part_1"): TransitionSpec("fade", 0.20),
-    ("dialogue_part_1", "dialogue_part_2"): TransitionSpec("smoothleft", 0.18),
-    ("dialogue_part_2", "dialogue_part_3"): TransitionSpec("smoothright", 0.18),
-    ("dialogue_part_3", "dialogue_part_4"): TransitionSpec("dissolve", 0.18),
-    ("dialogue_part_4", "payoff"): TransitionSpec("fade", 0.24),
+    ("hook", "dialogue_part_1"): TransitionSpec("fade", 0.34),
+    ("dialogue_part_1", "dialogue_part_2"): TransitionSpec("smoothleft", 0.34),
+    ("dialogue_part_2", "dialogue_part_3"): TransitionSpec("smoothright", 0.34),
+    ("dialogue_part_3", "dialogue_part_4"): TransitionSpec("dissolve", 0.34),
+    ("dialogue_part_4", "payoff"): TransitionSpec("fade", 0.36),
 }
-_DEFAULT_TRANSITION = TransitionSpec("fade", 0.24)
+_DEFAULT_TRANSITION = TransitionSpec("fade", 0.36)
 
 _SUBTITLE_STYLE = SubtitleStyleSpec(
     alignment=2,

@@ -17,6 +17,13 @@ from .bank_manifest import (
 from .models import LanguageVoiceProfile, VoiceBankEntry
 
 
+# Listening feedback from EF01. Keep these available for explicit casts and fallback.
+_NARRATOR_FALLBACK_SPEAKERS = frozenset({
+    "en_m_intimate_storyteller_09",  # Too understated in the short.
+    "en_m_us_host_01",              # Delivery sounded shouted.
+})
+
+
 def canonical_speaker_identity(path: Path, bank_entry: Optional[VoiceBankEntry] = None) -> str:
     """Returns a stable physical speaker identity (merging Kokoro alias filenames)."""
     if bank_entry is not None:
@@ -235,24 +242,30 @@ class VoiceCastingEngine:
             if accent_matched:
                 tiered_pool = accent_matched
 
-        # 4. Archetype affinity (e.g., energetic_host for GAME, warm_narrator for FUN_FACTS/EXPRESSION, roleplay_actor)
+        # 4. Choose the performance style before rotating among suitable voices.
         is_narrator = "narrator" in role.lower()
         vtype_low = (video_type or "expression").lower()
-        if not is_narrator:
-            preferred_arch = ("roleplay_actor", "expressive_actor")
-        elif vtype_low == "game":
-            preferred_arch = ("energetic_host", "warm_narrator")
+        if is_narrator:
+            preferred_pool = [
+                r for r in tiered_pool if r[3] is None or r[3].speaker_id not in _NARRATOR_FALLBACK_SPEAKERS
+            ]
+            if preferred_pool:
+                tiered_pool = preferred_pool
+            primary, secondary = ("energetic_host", "warm_narrator") if vtype_low == "game" else (
+                "warm_narrator", "energetic_host",
+            )
+            archetype_groups = ((primary,), (primary, secondary))
         else:
-            preferred_arch = ("warm_narrator", "energetic_host")
+            archetype_groups = (("roleplay_actor", "expressive_actor"),)
 
-        arch_matched = [
-            r for r in tiered_pool
-            if r[3] is not None and any(a in preferred_arch for a in r[3].archetypes)
-        ]
-        # Only narrow to archetype if we keep at least 2 distinct speakers so rotation still works
-        unique_arch_speakers = {r[1] for r in arch_matched}
-        if len(unique_arch_speakers) >= 2:
-            tiered_pool = arch_matched
+        for archetypes in archetype_groups:
+            matched = [
+                r for r in tiered_pool
+                if r[3] is not None and any(a in r[3].archetypes for a in archetypes)
+            ]
+            if len({r[1] for r in matched}) >= 2:
+                tiered_pool = matched
+                break
 
         # 5. Deduplicate Kokoro alias twins within candidate list so weights stay fair
         deduped: List[Tuple[Path, str, int, Optional[VoiceBankEntry]]] = []

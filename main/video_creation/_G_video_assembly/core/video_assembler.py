@@ -6,8 +6,11 @@ envelopes to the type-isolated profiles in `assembly/types/` and `assembly/langu
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import threading
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # pyrefly: ignore [missing-import]
 import ffmpeg
@@ -17,7 +20,9 @@ from config import resolve_static_scene_path
 try:
     from ..assembly.common.audio_mix import build_bgm_volume_expr
     from ..assembly.common.easing import build_zoompan_expressions
+    from ..assembly.common.pacing import compute_equalized_visual_durations
     from ..assembly.common.transitions import (
+        TransitionSpec,
         chain_clips_with_xfade,
         compute_clip_render_durations,
     )
@@ -26,7 +31,9 @@ try:
 except (ImportError, ValueError):
     from assembly.common.audio_mix import build_bgm_volume_expr  # type: ignore[no-redef]
     from assembly.common.easing import build_zoompan_expressions  # type: ignore[no-redef]
+    from assembly.common.pacing import compute_equalized_visual_durations  # type: ignore[no-redef]
     from assembly.common.transitions import (  # type: ignore[no-redef]
+        TransitionSpec,
         chain_clips_with_xfade,
         compute_clip_render_durations,
     )
@@ -75,7 +82,82 @@ def _build_card_stream(card_path: Path, duration_sec: float, fps: int, fade_in: 
     return stream
 
 
+_NVENC_PROBE_CACHE: Dict[str, bool] = {}
+_NVENC_PROBE_LOCK = threading.Lock()
+
+
+def _resolve_zoompan_canvas() -> Tuple[str, str]:
+    raw = os.getenv("ASSEMBLY_ZOOMPAN_SCALE", "2304x4096").strip().lower()
+    if "x" in raw:
+        w_part, h_part = raw.split("x", 1)
+        if w_part.isdigit() and h_part.isdigit() and int(w_part) > 0 and int(h_part) > 0:
+            return w_part, h_part
+    return "2304", "4096"
+
+
+def _probe_nvenc_available(ffmpeg_path: str) -> bool:
+    mode = os.getenv("VIDEO_ENCODER", "auto").strip().lower()
+    if mode in ("libx264", "cpu", "software"):
+        return False
+
+    with _NVENC_PROBE_LOCK:
+        if ffmpeg_path in _NVENC_PROBE_CACHE:
+            return _NVENC_PROBE_CACHE[ffmpeg_path]
+
+    available = False
+    try:
+        proc = subprocess.run(
+            [
+                ffmpeg_path,
+                "-hide_banner",
+                "-f", "lavfi",
+                "-i", "color=c=black:s=256x256:d=0.2",
+                "-c:v", "h264_nvenc",
+                "-pix_fmt", "yuv420p",
+                "-f", "null", "-",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+        available = proc.returncode == 0
+    except Exception:
+        available = False
+
+    with _NVENC_PROBE_LOCK:
+        _NVENC_PROBE_CACHE[ffmpeg_path] = available
+    return available
+
+
+def _build_output_kwargs(use_nvenc: bool, ffmpeg_threads: Optional[int] = None) -> Dict[str, Any]:
+    if use_nvenc:
+        kwargs: Dict[str, Any] = {
+            "vcodec": "h264_nvenc",
+            "preset": "p4",
+            "rc": "vbr",
+            "cq": "20",
+            "pix_fmt": "yuv420p",
+            "acodec": "aac",
+            "shortest": None,
+        }
+    else:
+        kwargs = {
+            "vcodec": "libx264",
+            "preset": "faster",
+            "crf": "20",
+            "pix_fmt": "yuv420p",
+            "acodec": "aac",
+            "shortest": None,
+        }
+    if ffmpeg_threads is not None and int(ffmpeg_threads) > 0:
+        kwargs["threads"] = int(ffmpeg_threads)
+    return kwargs
+
+
 class VideoAssembler:
+    def __init__(self, ffmpeg_threads: Optional[int] = None):
+        self.ffmpeg_threads = ffmpeg_threads
+
     def assemble(
         self,
         script_id: str,
@@ -150,11 +232,14 @@ class VideoAssembler:
                         break
 
             if img_path.exists():
+                fname_lower = img_path.name.lower()
+                is_cb = (sec_lower == "challenge") or ("challenge" in fname_lower) or ("chalkboard" in fname_lower)
                 available_sections.append({
                     "path": img_path,
                     "start": timing["start"],
                     "punch_in": punch_in,
                     "section": section,
+                    "is_chalkboard": is_cb,
                 })
             else:
                 print(f"Warning: Missing image for section '{section}': {img_path}")
@@ -190,6 +275,17 @@ class VideoAssembler:
         video_streams = []
 
         if profile is not None:
+            scene_durations = compute_equalized_visual_durations(
+                consolidated_sections,
+                scene_durations,
+                locked_sections=profile.get_locked_visual_sections(),
+            )
+            if scene_durations:
+                print(
+                    f"[Visual Pacing QA]: Clips: {len(scene_durations)} | "
+                    f"Total: {sum(scene_durations):.2f}s | Min: {min(scene_durations):.2f}s | "
+                    f"Max: {max(scene_durations):.2f}s | Avg: {sum(scene_durations)/len(scene_durations):.2f}s"
+                )
             transitions = [
                 profile.get_transition_spec(
                     consolidated_sections[i]["section"],
@@ -206,7 +302,7 @@ class VideoAssembler:
                 frames = max(2, int(round(render_durations[i] * fps)))
                 sec_name = current.get("section", "").lower()
                 file_name = current.get("path", Path()).name.lower()
-                is_chalkboard = (sec_name == "challenge") or ("challenge" in file_name) or ("chalkboard" in file_name)
+                is_chalkboard = bool(current.get("is_chalkboard", False)) or (sec_name == "challenge") or ("challenge" in file_name) or ("chalkboard" in file_name)
 
                 motion_spec = profile.get_motion_spec(
                     sec_name,
@@ -214,11 +310,12 @@ class VideoAssembler:
                     is_chalkboard=is_chalkboard,
                 )
                 z_expr, x_expr, y_expr = build_zoompan_expressions(motion_spec, frames)
+                zw, zh = _resolve_zoompan_canvas()
 
                 stream = (
                     ffmpeg.input(current["path"].resolve().as_posix(), thread_queue_size=16 + i)
-                    .filter("scale", "4608x8192", force_original_aspect_ratio="increase")
-                    .filter("crop", "4608", "8192")
+                    .filter("scale", f"{zw}x{zh}", force_original_aspect_ratio="increase")
+                    .filter("crop", zw, zh)
                     .filter("zoompan", z=z_expr, d=frames, x=x_expr, y=y_expr, s="576x1024", fps=fps)
                 )
                 video_streams.append(_normalize_video_stream(stream, fps=fps))
@@ -228,6 +325,7 @@ class VideoAssembler:
             # Legacy assembly branch (VIDEO_ASSEMBLY_ENGINE=legacy)
             main_duration = sum(scene_durations)
             vt_clean = str(video_type or "").strip().lower()
+            zw, zh = _resolve_zoompan_canvas()
             for i, current in enumerate(consolidated_sections):
                 frames = max(1, int(scene_durations[i] * fps))
                 sec_name = current.get("section", "").lower()
@@ -252,8 +350,8 @@ class VideoAssembler:
 
                 stream = (
                     ffmpeg.input(current["path"].resolve().as_posix(), thread_queue_size=16 + i)
-                    .filter("scale", "4608x8192", force_original_aspect_ratio="increase")
-                    .filter("crop", "4608", "8192")
+                    .filter("scale", f"{zw}x{zh}", force_original_aspect_ratio="increase")
+                    .filter("crop", zw, zh)
                     .filter("zoompan", z=z_expr, d=frames, x="iw/2-(iw/zoom/2)", y=y_expr, s="576x1024")
                     .filter("setsar", "1")
                     .filter("format", "yuv420p")
@@ -353,25 +451,36 @@ class VideoAssembler:
         ffmpeg_file = (Path(__file__).parent.parent / "ffmpeg.exe").resolve()
         ffmpeg_path = ffmpeg_file.as_posix() if ffmpeg_file.exists() else "ffmpeg"
 
-        print("Running FFMPEG to assemble final video...")
-        try:
+        use_nvenc = _probe_nvenc_available(ffmpeg_path)
+        print(f"Running FFMPEG to assemble final video [{'h264_nvenc' if use_nvenc else 'libx264'}]...")
+
+        def _run_encode(nvenc: bool) -> None:
+            out_kwargs = _build_output_kwargs(use_nvenc=nvenc, ffmpeg_threads=self.ffmpeg_threads)
             (
                 ffmpeg
                 .output(
                     concat_video,
                     final_audio,
                     output_path.as_posix(),
-                    vcodec="libx264",
-                    pix_fmt="yuv420p",
-                    acodec="aac",
-                    shortest=None,
+                    **out_kwargs,
                 )
                 .overwrite_output()
                 .run(cmd=ffmpeg_path, capture_stdout=True, capture_stderr=True)
             )
+
+        try:
+            _run_encode(use_nvenc)
             print(f"Video successfully assembled at {output_path}")
             return True
         except ffmpeg.Error as e:
+            if use_nvenc:
+                print("Notice: h264_nvenc encode failed; falling back to libx264...")
+                try:
+                    _run_encode(False)
+                    print(f"Video successfully assembled at {output_path}")
+                    return True
+                except ffmpeg.Error as fallback_err:
+                    e = fallback_err
             print("FFMPEG ERROR:")
-            print(e.stderr.decode("utf-8"))
+            print(e.stderr.decode("utf-8", errors="replace") if e.stderr else str(e))
             return False

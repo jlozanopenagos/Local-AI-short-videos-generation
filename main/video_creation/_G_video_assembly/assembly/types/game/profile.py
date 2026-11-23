@@ -3,7 +3,7 @@ assembly/types/game/profile.py — High-stakes quiz editing signature for GAME s
 """
 from __future__ import annotations
 
-from typing import Dict, Set, Tuple
+from typing import Dict, FrozenSet, Set, Tuple
 
 from ...common.audio_mix import AudioEnvelopeSegment, AudioMixSpec
 from ...common.easing import MotionSpec
@@ -24,10 +24,10 @@ _DEFAULT_MOTION = MotionSpec(1.00, 1.08, 0.50, 0.50, 0.46, 0.42, "cosine")
 _TRANSITION_MAP: Dict[Tuple[str, str], TransitionSpec] = {
     ("hook", "challenge"): TransitionSpec("smoothup", 0.18),
     ("challenge", "pressure"): TransitionSpec("fade", 0.18),
-    ("pressure", "answer"): TransitionSpec("circleopen", 0.22),
-    ("answer", "explanation"): TransitionSpec("smoothleft", 0.22),
+    ("pressure", "answer"): TransitionSpec("circleopen", 0.26),
+    ("answer", "explanation"): TransitionSpec("smoothleft", 0.34),
 }
-_DEFAULT_TRANSITION = TransitionSpec("smoothleft", 0.22)
+_DEFAULT_TRANSITION = TransitionSpec("smoothleft", 0.34)
 
 _SUBTITLE_STYLE = SubtitleStyleSpec(
     alignment=2,
@@ -54,6 +54,7 @@ class GameAssemblyProfile(AssemblyProfile):
     video_type = "game"
     type_codes = ["G"]
     aliases = ["game", "quiz"]
+    locked_visual_sections = frozenset({"challenge", "pressure"})
 
     def get_motion_spec(
         self,

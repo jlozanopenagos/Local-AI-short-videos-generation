@@ -8,28 +8,28 @@ NARRATOR = {
         "Build anticipation with timing and a steady conversational register.",
         "Give the reveal a brief beat. Slow slightly on the detail that resolves the question, then return to a conversational rhythm.",
         "Speak warmly as in everyday conversation, with a settled ending.",
-        "Read quoted words in your own narrator voice, at your usual pitch.",
+        "Keep your usual speaking register and conversational volume, including in quotes. Create contrast through timing and word stress.",
     ),
     "french": (
         "Accrochez l’auditeur dès les premiers mots. Appuyez tôt le détail inattendu, puis menez la question d’un seul élan.",
         "Créez l'attente par le rythme, dans un registre de conversation stable.",
         "Laissez un bref temps avant la révélation. Ralentissez sur le détail qui répond à la question, puis reprenez un rythme naturel.",
         "Parlez chaleureusement, comme dans une conversation, avec une fin posée.",
-        "Lisez les citations avec votre voix de narrateur, à votre hauteur habituelle.",
+        "Gardez votre registre et votre volume de conversation, citations comprises. Créez le contraste par le rythme et l’accentuation.",
     ),
     "italian": (
         "Apri con curiosità immediata. Dai subito risalto alla parola inattesa e porta avanti la domanda in un solo slancio.",
         "Crea attesa con il ritmo e mantieni un registro colloquiale stabile.",
         "Prenditi un istante prima della rivelazione. Rallenta sul dettaglio che risponde alla domanda, poi torna al ritmo della conversazione.",
         "Parla con calore, come in una conversazione, e chiudi con calma.",
-        "Leggi le citazioni con la tua voce di narratore e la tua altezza abituale.",
+        "Mantieni il registro e il volume della conversazione anche nelle citazioni. Crea contrasto con il ritmo e gli accenti.",
     ),
     "spanish": (
         "Abre con curiosidad desde las primeras palabras. Destaca pronto el detalle inesperado y lleva la pregunta de un solo impulso.",
         "Crea expectativa con el ritmo y mantén un registro conversacional estable.",
         "Deja un breve momento antes de revelar la respuesta. Baja un poco el ritmo en el detalle decisivo y vuelve al ritmo de conversación.",
         "Habla con calidez, como en una conversación, y termina con calma.",
-        "Lee las citas con tu propia voz de narrador, en tu registro habitual.",
+        "Mantén tu registro y volumen de conversación, también en las citas. Crea contraste con el ritmo y el énfasis.",
     ),
 }
 

@@ -259,6 +259,8 @@ Each target language owns an independent `LanguageVoiceProfile` under `voice/lan
 
 The current workstation bank contains **52 baseline voices and 40 same-speaker variants**, indexed in `<VOICE_BANK_DIR>/voice_bank_manifest.json`. The builder and persona catalog are versioned here. The active WAVs and manifest are local runtime assets. Casting uses the available curated and Open Swara references, with Kokoro reference clips available as a fallback.
 
+Automatic casting prefers a warm narrator for teaching and an expressive host for Game when the matching pool supports rotation. Voices flagged in listening review for overly subdued or forceful delivery stay available for deliberate casting or as fallbacks. Narrator instructions favor contrast through timing and word stress at conversational volume.
+
 - **Expression and Fun Facts** synthesize each narration section continuously, with separate directions for the opening, discovery, explanation, and payoff.
 - **Game** keeps a single narrator, even option emphasis, and fixed option spacing. The question and reveal get separate directions.
 - **Roleplay** gives each character a continuous turn, an acting cue, and the other character's preceding line as instruction-only context. The cast stays pinned. When a matching acted reference is available Studio can use it for that speaker, with the baseline as fallback. The bank contains baseline, high-energy, and urgent clips, and supports further acted reference tiers.

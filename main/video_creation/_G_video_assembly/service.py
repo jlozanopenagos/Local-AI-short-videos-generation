@@ -73,6 +73,61 @@ def resolve_bank_music(script_data: dict, script_output_dir: Path, base_dir: Pat
     print(f"[{script_id}] Notice: No background music found in bank ({lang}/{vtype}). Assembling video without BGM.")
     return None
 
+def resolve_assembly_prerequisites(
+    script_data: dict,
+    base_dir: Path = BASE_DIR,
+) -> tuple[bool, bool, Optional[Path], Optional[Path]]:
+    """Checks whether voice and image assets exist via state status OR actual files on disk."""
+    script_id = script_data["id"]
+    label = (
+        script_data.get("metadata", {}).get("LABEL")
+        or script_data.get("prompt_params", {}).get("TARGET_LANGUAGE", "english")
+    )
+    script_output_dir = get_script_output_dir(script_id, label, base_dir)
+    status = script_data.get("status", {}) or {}
+    assets = script_data.get("assets", {}) or {}
+
+    audio_path: Optional[Path] = None
+    audio_path_str = assets.get("audio_path")
+    if audio_path_str:
+        cand = Path(audio_path_str)
+        if cand.is_file():
+            audio_path = cand
+    if audio_path is None:
+        cand_audio = script_output_dir / f"script_{script_id}_master.wav"
+        if cand_audio.is_file():
+            audio_path = cand_audio
+
+    image_dir: Optional[Path] = None
+    image_dir_str = assets.get("image_dir")
+    if image_dir_str:
+        cand = Path(image_dir_str)
+        if cand.is_dir():
+            image_dir = cand
+    if image_dir is None:
+        cand_images = script_output_dir / "images"
+        if cand_images.is_dir():
+            image_dir = cand_images
+
+    has_voice_files = bool(
+        audio_path is not None
+        and audio_path.is_file()
+        and (audio_path.parent / "timings.json").is_file()
+    )
+    has_image_files = bool(
+        image_dir is not None
+        and image_dir.is_dir()
+        and (
+            any(image_dir.glob(f"script_{script_id}_*.png"))
+            or any(image_dir.glob("*.png"))
+        )
+    )
+
+    has_voice = (status.get("voice_generation") == "done") or has_voice_files
+    has_images = (status.get("image_generation") == "done") or has_image_files
+    return has_voice, has_images, audio_path, image_dir
+
+
 def process_script(
     script_data: dict,
     state_manager: StateManager,
@@ -97,40 +152,38 @@ def process_script(
     script_output_dir = get_script_output_dir(script_id, label, base_dir)
     script_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Verify prerequisites
-    status = script_data.get("status", {})
+    # Verify prerequisites (status 'done' OR actual assets present on disk)
+    status = script_data.get("status", {}) or {}
+    has_voice, has_images, resolved_audio, resolved_images = resolve_assembly_prerequisites(
+        script_data, base_dir=base_dir
+    )
+    if not has_voice:
+        print(f"Error: Voice generation for {script_id} is not marked as done and audio/timings are missing on disk.")
+        return False
+    if not has_images:
+        print(f"Error: Image generation for {script_id} is not marked as done and scene images are missing on disk.")
+        return False
+
     if status.get("voice_generation") != "done":
-        print(f"Error: Voice generation for {script_id} is not marked as done.")
-        return False
+        print(f"[{script_id}] Notice: voice_generation is '{status.get('voice_generation', 'missing')}' in state, but audio/timings exist on disk — proceeding.")
     if status.get("image_generation") != "done":
-        print(f"Error: Image generation for {script_id} is not marked as done.")
+        print(f"[{script_id}] Notice: image_generation is '{status.get('image_generation', 'missing')}' in state, but scene images exist on disk — proceeding.")
+
+    assets = script_data.setdefault("assets", {})
+    if resolved_audio is None:
+        print(f"Error: Missing master audio for script {script_id}")
         return False
+    if not assets.get("audio_path") or not Path(assets["audio_path"]).is_file():
+        assets["audio_path"] = str(resolved_audio)
 
-    assets = script_data.get("assets", {})
-    audio_path_str = assets.get("audio_path")
-    image_dir_str = assets.get("image_dir")
+    if resolved_images is None:
+        print(f"Error: Missing image directory for script {script_id}")
+        return False
+    if not assets.get("image_dir") or not Path(assets["image_dir"]).is_dir():
+        assets["image_dir"] = str(resolved_images)
 
-    # Fallback to canonical script_output_dir if path was moved or relocated
-    if not audio_path_str or not Path(audio_path_str).exists():
-        candidate_audio = script_output_dir / f"script_{script_id}_master.wav"
-        if candidate_audio.exists():
-            audio_path_str = str(candidate_audio)
-            assets["audio_path"] = audio_path_str
-        else:
-            print(f"Error: Missing master audio for script {script_id}")
-            return False
-
-    if not image_dir_str or not Path(image_dir_str).exists():
-        candidate_images = script_output_dir / "images"
-        if candidate_images.exists():
-            image_dir_str = str(candidate_images)
-            assets["image_dir"] = image_dir_str
-        else:
-            print(f"Error: Missing image directory for script {script_id}")
-            return False
-
-    audio_path = Path(audio_path_str)
-    image_dir = Path(image_dir_str)
+    audio_path = resolved_audio
+    image_dir = resolved_images
 
     # Dynamic BGM selection from Standing Music Bank
     bgm_path = resolve_bank_music(script_data, script_output_dir, base_dir=base_dir)

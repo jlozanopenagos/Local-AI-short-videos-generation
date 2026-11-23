@@ -4,11 +4,15 @@ import json
 import sys
 from pathlib import Path
 
+# pyrefly: ignore[missing-import]
 import numpy as np
+# pyrefly: ignore[missing-import]
 import soundfile as sf
+# pyrefly: ignore[missing-import]
 from scipy.signal import resample_poly
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "main"))
+# pyrefly: ignore[missing-import]
 from video_creation._B_voice_generation.core.audio_processor import measure_lufs
 
 
@@ -36,6 +40,7 @@ def match_loudness(samples, target=-23.0):
 
 
 def pitch_report(data, sr):
+    # pyrefly: ignore[missing-import]
     from librosa import pyin
     if sr != 12000:
         data = resample_poly(data, 12000, sr)
@@ -45,6 +50,7 @@ def pitch_report(data, sr):
 
 
 def embedding(encoder, data, sr):
+    # pyrefly: ignore[missing-import]
     import torch
     if sr != 16000:
         data = resample_poly(data, 16000, sr)
@@ -65,8 +71,11 @@ def main():
 
     encoder = None
     if args.ecapa_model:
+        # pyrefly: ignore[missing-import]
         import torch
+        # pyrefly: ignore[missing-import]
         from speechbrain.inference.speaker import EncoderClassifier
+        # pyrefly: ignore[missing-import]
         from speechbrain.utils.fetching import LocalStrategy
 
         torch.set_num_threads(2)

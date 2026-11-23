@@ -22,12 +22,12 @@ _MOTION_MAP: Dict[str, MotionSpec] = {
 _DEFAULT_MOTION = MotionSpec(1.00, 1.08, 0.50, 0.50, 0.44, 0.40, "cosine")
 
 _TRANSITION_MAP: Dict[Tuple[str, str], TransitionSpec] = {
-    ("hook", "setup"): TransitionSpec("smoothup", 0.26),
-    ("setup", "discovery"): TransitionSpec("fade", 0.26),
-    ("discovery", "explanation"): TransitionSpec("dissolve", 0.26),
-    ("explanation", "payoff"): TransitionSpec("fade", 0.28),
+    ("hook", "setup"): TransitionSpec("smoothup", 0.36),
+    ("setup", "discovery"): TransitionSpec("fade", 0.36),
+    ("discovery", "explanation"): TransitionSpec("dissolve", 0.36),
+    ("explanation", "payoff"): TransitionSpec("fade", 0.38),
 }
-_DEFAULT_TRANSITION = TransitionSpec("fade", 0.28)
+_DEFAULT_TRANSITION = TransitionSpec("fade", 0.36)
 
 _SUBTITLE_STYLE = SubtitleStyleSpec(
     alignment=2,

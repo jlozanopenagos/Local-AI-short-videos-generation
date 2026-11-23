@@ -280,7 +280,7 @@ class TestWebUIJobs(unittest.TestCase):
             mock_sm.get_script_state.return_value = state
             mock_sm_cls.return_value = mock_sm
 
-            adapter = AssemblyAdapter()
+            adapter = AssemblyAdapter(base_dir=Path(tmp))
             logs = []
             result = adapter.run(
                 script_ids=["IE07"],
@@ -417,6 +417,261 @@ class TestWebUIJobs(unittest.TestCase):
             check_cancelled=lambda: False,
         )
         self.assertFalse(mock_ensure.call_args.kwargs["preserve_general_prompt"])
+
+    @patch("webui.jobs.adapters.assembly.SubtitleBuilder")
+    @patch("webui.jobs.adapters.assembly.VideoAssembler")
+    @patch("webui.jobs.adapters.assembly.Transcriber")
+    @patch("webui.jobs.adapters.assembly.StateManager")
+    @patch("webui.jobs.adapters.assembly.process_script")
+    def test_assembly_adapter_mass_parallel_pool_and_preflight_skip(
+        self,
+        mock_process,
+        mock_sm_cls,
+        mock_transcriber_cls,
+        mock_assembler_cls,
+        mock_builder_cls,
+    ):
+        """Verify mass AssemblyAdapter runs workers in parallel, skips missing prereqs upfront, and tracks exact counts."""
+        import threading
+        # pyrefly: ignore[missing-import]
+        from webui.jobs.adapters.assembly import AssemblyAdapter
+
+        states = {
+            "MISSING": {
+                "id": "MISSING",
+                "status": {"voice_generation": "done", "image_generation": "pending", "video_assembly": "pending"},
+            },
+            "EF01": {
+                "id": "EF01",
+                "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "pending"},
+            },
+            "EE01": {
+                "id": "EE01",
+                "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "pending"},
+            },
+            "ER01": {
+                "id": "ER01",
+                "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "pending"},
+            },
+        }
+        mock_sm = MagicMock()
+        mock_sm.script_exists.side_effect = lambda sid: sid in states
+        mock_sm.get_script_state.side_effect = lambda sid: states[sid]
+        mock_sm_cls.return_value = mock_sm
+
+        barrier = threading.Barrier(2, timeout=3.0)
+        barrier_lock = threading.Lock()
+        barrier_used = {"count": 0}
+        conc_lock = threading.Lock()
+        active = {"cur": 0, "max": 0}
+
+        def _fake_process(**kwargs):
+            sid = kwargs["script_data"]["id"]
+            with conc_lock:
+                active["cur"] += 1
+                active["max"] = max(active["max"], active["cur"])
+            try:
+                should_wait = False
+                with barrier_lock:
+                    if barrier_used["count"] < 2:
+                        barrier_used["count"] += 1
+                        should_wait = True
+                if should_wait:
+                    barrier.wait()
+                return sid != "MISSING"
+            finally:
+                with conc_lock:
+                    active["cur"] -= 1
+
+        mock_process.side_effect = _fake_process
+
+        adapter = AssemblyAdapter()
+        logs = []
+        progress = []
+        result = adapter.run(
+            script_ids=["MISSING", "EF01", "EE01", "ER01"],
+            options={"force": True, "workers": 3, "auto_keep_subtitles": False},
+            emit_log=logs.append,
+            emit_progress=lambda cur, tot, sid: progress.append((cur, tot, sid)),
+            check_cancelled=lambda: False,
+        )
+
+        self.assertEqual(result["success_count"], 3)
+        self.assertEqual(result["failed_ids"], ["MISSING"])
+        self.assertEqual(result["total"], 4)
+        self.assertGreaterEqual(active["max"], 2)
+        self.assertEqual(mock_transcriber_cls.call_count, 1)
+        self.assertEqual(mock_process.call_count, 3)
+        self.assertTrue(any("3 parallel worker(s)" in l for l in logs))
+        self.assertEqual(progress[-1], (4, 4, None))
+
+    @patch("webui.jobs.adapters.assembly.SubtitleBuilder")
+    @patch("webui.jobs.adapters.assembly.VideoAssembler")
+    @patch("webui.jobs.adapters.assembly.Transcriber")
+    @patch("webui.jobs.adapters.assembly.StateManager")
+    @patch("webui.jobs.adapters.assembly.process_script")
+    def test_assembly_adapter_auto_reuses_fresh_subtitles_and_skips_whisper_boot(
+        self,
+        mock_process,
+        mock_sm_cls,
+        mock_transcriber_cls,
+        mock_assembler_cls,
+        mock_builder_cls,
+    ):
+        """Verify Option A skips Whisper when `.ass` is newer than `.wav` and re-enables Whisper if `.wav` updates."""
+        import os
+        import time
+        # pyrefly: ignore[missing-import]
+        from config import get_script_output_dir
+        # pyrefly: ignore[missing-import]
+        from webui.jobs.adapters.assembly import AssemblyAdapter
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            states = {}
+            wav_paths = {}
+            for sid in ("EF01", "EF02"):
+                out_dir = get_script_output_dir(sid, "english", tmp_dir)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                wav_p = out_dir / f"script_{sid}_master.wav"
+                ass_p = out_dir / f"script_{sid}_subtitles.ass"
+                wav_p.write_bytes(b"RIFFdummy")
+                ass_p.write_text("[Script Info]\nTitle: Test\n", encoding="utf-8")
+                now = time.time()
+                os.utime(wav_p, (now - 20, now - 20))
+                os.utime(ass_p, (now - 5, now - 5))
+                wav_paths[sid] = wav_p
+                states[sid] = {
+                    "id": sid,
+                    "metadata": {"LABEL": "english"},
+                    "status": {"voice_generation": "done", "image_generation": "done", "video_assembly": "done"},
+                }
+
+            mock_sm = MagicMock()
+            mock_sm.script_exists.return_value = True
+            mock_sm.get_script_state.side_effect = lambda sid: states[sid]
+            mock_sm_cls.return_value = mock_sm
+
+            regen_seen = {}
+
+            def _record_process(**kwargs):
+                regen_seen[kwargs["script_data"]["id"]] = kwargs["regenerate_subtitles"]
+                return True
+
+            mock_process.side_effect = _record_process
+            adapter = AssemblyAdapter(base_dir=tmp_dir)
+            logs = []
+            res_fresh = adapter.run(
+                script_ids=["EF01", "EF02"],
+                options={"workers": 2},
+                emit_log=logs.append,
+                emit_progress=lambda *_a: None,
+                check_cancelled=lambda: False,
+            )
+
+            self.assertEqual(res_fresh["success_count"], 2)
+            self.assertEqual(mock_transcriber_cls.call_count, 0)
+            self.assertEqual(regen_seen, {"EF01": False, "EF02": False})
+            self.assertTrue(any("skipping Whisper model load" in l for l in logs))
+
+            # Regenerate voice on EF02 -> newer WAV triggers Whisper only for EF02
+            future = time.time() + 20
+            os.utime(wav_paths["EF02"], (future, future))
+            regen_seen.clear()
+            res_mixed = adapter.run(
+                script_ids=["EF01", "EF02"],
+                options={"workers": 2},
+                emit_log=logs.append,
+                emit_progress=lambda *_a: None,
+                check_cancelled=lambda: False,
+            )
+
+            self.assertEqual(res_mixed["success_count"], 2)
+            self.assertEqual(mock_transcriber_cls.call_count, 1)
+            self.assertEqual(regen_seen, {"EF01": False, "EF02": True})
+
+    def test_job_log_capture_is_thread_safe(self):
+        """Verify _JobLogCapture preserves every complete line cleanly across concurrent worker threads."""
+        import threading
+        import time
+        # pyrefly: ignore[missing-import]
+        from webui.jobs.manager import _JobLogCapture
+
+        captured = []
+        cap = _JobLogCapture(captured.append, original_stream=None)
+
+        def _writer(tid: int):
+            for idx in range(50):
+                line = f"worker-{tid}-line-{idx}"
+                cap.write(line[:8])
+                time.sleep(0)
+                cap.write(line[8:] + "\n")
+
+        threads = [threading.Thread(target=_writer, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        cap.flush()
+
+        expected = {f"worker-{t}-line-{idx}" for t in range(4) for idx in range(50)}
+        self.assertEqual(len(captured), 200)
+        self.assertEqual(set(captured), expected)
+
+    @patch("webui.jobs.adapters.assembly.SubtitleBuilder")
+    @patch("webui.jobs.adapters.assembly.VideoAssembler")
+    @patch("webui.jobs.adapters.assembly.Transcriber")
+    @patch("webui.jobs.adapters.assembly.StateManager")
+    @patch("webui.jobs.adapters.assembly.process_script")
+    def test_assembly_adapter_proceeds_when_status_pending_but_disk_assets_exist(
+        self,
+        mock_process,
+        mock_sm_cls,
+        mock_transcriber_cls,
+        mock_assembler_cls,
+        mock_builder_cls,
+    ):
+        """Verify mass assembly proceeds when image_generation/voice_generation is 'pending' but real assets exist on disk."""
+        # pyrefly: ignore[missing-import]
+        from config import get_script_output_dir
+        # pyrefly: ignore[missing-import]
+        from webui.jobs.adapters.assembly import AssemblyAdapter
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            out_dir = get_script_output_dir("EG01", "English", tmp_dir)
+            img_dir = out_dir / "images"
+            img_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "script_EG01_master.wav").write_bytes(b"RIFFdummy")
+            (out_dir / "timings.json").write_text('{"hook":{"start":0.0,"end":1.0}}', encoding="utf-8")
+            (img_dir / "script_EG01_hook.png").write_bytes(b"PNGdummy")
+
+            state = {
+                "id": "EG01",
+                "metadata": {"LABEL": "English"},
+                "status": {"voice_generation": "done", "image_generation": "pending", "video_assembly": "pending"},
+                "assets": {},
+            }
+            mock_sm = MagicMock()
+            mock_sm.script_exists.return_value = True
+            mock_sm.get_script_state.return_value = state
+            mock_sm_cls.return_value = mock_sm
+            mock_process.return_value = True
+
+            adapter = AssemblyAdapter(base_dir=tmp_dir)
+            logs = []
+            res = adapter.run(
+                script_ids=["EG01"],
+                options={"force": True},
+                emit_log=logs.append,
+                emit_progress=lambda *_a: None,
+                check_cancelled=lambda: False,
+            )
+
+            self.assertEqual(res["success_count"], 1)
+            self.assertEqual(res["failed_ids"], [])
+            mock_process.assert_called_once()
+            self.assertTrue(any("scene images exist on disk" in l for l in logs))
 
 
 if __name__ == "__main__":
