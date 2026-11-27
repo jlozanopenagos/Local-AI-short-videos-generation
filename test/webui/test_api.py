@@ -1,8 +1,9 @@
 """
-test/webui/test_api.py — Unit tests for the Local Web UI FastAPI endpoints.
+test/webui/test_api.py â€” Unit tests for the Local Web UI FastAPI endpoints.
 """
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -20,8 +21,11 @@ from webui.server import create_app
 
 class TestWebUIApi(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
+        workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(workspace.cleanup)
+        self.app = create_app(Path(workspace.name))
         self.client = TestClient(self.app)
+        self.addCleanup(self.app.state.job_manager.close)
 
     def test_healthz_endpoint(self):
         """Verify /healthz probe returns 200 OK."""
@@ -162,11 +166,11 @@ class TestWebUIApi(unittest.TestCase):
         # 2. PUT script with updated chalkboard and dialogue
         update_payload = {
             "chalkboard_title": "Tomar el pelo (Updated)",
-            "chalkboard_exercise": "¿Qué significa me estás tomando el pelo?\nA) Broma\nB) Verdad",
+            "chalkboard_exercise": "Â¿QuÃ© significa me estÃ¡s tomando el pelo?\nA) Broma\nB) Verdad",
             "script_dict": {
                 "title": "Tomar el pelo (Updated)",
                 "hook": "New updated hook",
-                "challenge": "¿Qué significa?",
+                "challenge": "Â¿QuÃ© significa?",
             },
         }
         put_resp = self.client.put("/api/scripts/SG02", json=update_payload)
@@ -176,7 +180,7 @@ class TestWebUIApi(unittest.TestCase):
         self.assertEqual(saved_id, "SG02")
         self.assertEqual(
             saved_data["content_metadata"]["chalkboard_exercise"],
-            "¿Qué significa me estás tomando el pelo?\nA) Broma\nB) Verdad",
+            "Â¿QuÃ© significa me estÃ¡s tomando el pelo?\nA) Broma\nB) Verdad",
         )
         self.assertEqual(saved_data["content_metadata"]["target_expression"], "Tomar el pelo (Updated)")
         self.assertEqual(saved_data["content_metadata"]["script"]["hook"], "New updated hook")
@@ -307,16 +311,312 @@ class TestWebUIApi(unittest.TestCase):
         mock_audit.assert_called_once()
         self.assertEqual(mock_audit.call_args[1]["api_key"], "TEST_KEY")
 
-        # Verify state was saved with new prompt and image_generation = pending
-        self.assertTrue(mock_sm.save_script_state.called)
-        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
-        self.assertEqual(saved_id, "SR02")
-        self.assertEqual(saved_data["assets"]["general_prompt"], "Audited fresh skate plaza prompt")
-        self.assertEqual(saved_data["content_metadata"]["anchor_environment"], "Audited fresh skate plaza prompt")
-        self.assertEqual(saved_data["status"]["image_generation"], "pending")
-        self.assertEqual(saved_data["assets"]["image_prompts"], {})
+        # Verify state was NOT mutated or saved automatically (non-destructive draft)
+        self.assertFalse(mock_sm.save_script_state.called)
 
-        # Verify response stages
+        # Verify response returns audited draft for frontend review
         resp_data = resp.json()
-        self.assertEqual(resp_data["stages"]["images"], "pending")
+        self.assertEqual(resp_data["status"], "success")
+        self.assertEqual(resp_data["audited_prompt"], "Audited fresh skate plaza prompt")
+        self.assertEqual(resp_data["script_id"], "SR02")
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("webui.routers.scripts.ensure_llama_stopped")
+    @patch("webui.jobs.manager.JobManager.enqueue_job")
+    def test_redo_scene_image_endpoint_success(self, mock_enqueue, mock_stop_llama, mock_get_sm):
+        """Verify POST /api/scripts/{id}/scenes/{scene_type}/redo-image enqueues single scene redo job."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "IE07",
+            "content_metadata": {"language": "italian", "video_type": "expression", "topic": "Doppie consonanti"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "done",
+            },
+            "assets": {
+                "image_dir": "D:/test/images",
+                "images": ["D:/test/images/script_IE07_hook.png"],
+                "image_prompts": {"hook": "Narrator at Rome cafe with espresso"},
+            },
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        fake_job = MagicMock()
+        fake_job.job_id = "JOB12345"
+        mock_enqueue.return_value = fake_job
+
+        resp = self.client.post(
+            "/api/scripts/IE07/scenes/hook/redo-image",
+            json={"prompt": "Updated vibrant Rome cafe prompt with espresso cup"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "queued")
+        self.assertEqual(data["job_id"], "JOB12345")
+        self.assertIn("hook", data["message"])
+        self.assertIn("script_IE07_hook.png", data["image_file"])
+
+        # Verify job enqueue was called
+        mock_enqueue.assert_called_once()
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_redo_scene_image_missing_prompt(self, mock_get_sm):
+        """Verify 400 error when scene has no prompt in state and none passed in request."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "IE07",
+            "assets": {"image_prompts": {}},
+        }
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.post("/api/scripts/IE07/scenes/hook/redo-image", json={"prompt": ""})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("No prompt available", resp.json()["detail"])
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("webui.routers.scripts.ensure_llama_stopped")
+    @patch("webui.jobs.manager.JobManager.enqueue_job")
+    def test_redo_all_images_endpoint_success(self, mock_enqueue, mock_stop_llama, mock_get_sm):
+        """Verify POST /api/scripts/{id}/redo-all-images saves new general prompt, resets stages, and queues job."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+
+        state_doc = {
+            "id": "FE06",
+            "content_metadata": {"language": "french", "video_type": "expression", "topic": "C'est la vie"},
+            "status": {
+                "script_generation": "done",
+                "voice_generation": "done",
+                "image_generation": "done",
+                "video_assembly": "done",
+            },
+            "assets": {
+                "image_dir": "D:/test/images",
+                "images": ["D:/test/images/script_FE06_hook.png", "D:/test/images/script_FE06_explanation.png"],
+                "image_prompts": {
+                    "hook": "Old hook prompt",
+                    "explanation": "Old explanation prompt",
+                },
+                "general_prompt": "Old general prompt",
+            },
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        fake_job = MagicMock()
+        fake_job.job_id = "JOB99999"
+        mock_enqueue.return_value = fake_job
+
+        resp = self.client.post(
+            "/api/scripts/FE06/redo-all-images",
+            json={"general_prompt": "Brand new French bistro with atmospheric warm lighting"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "queued")
+        self.assertEqual(data["job_id"], "JOB99999")
+        self.assertEqual(data["script_id"], "FE06")
+
+        # Verify state was saved with reset stages and cleared prompts
+        mock_sm.save_script_state.assert_called_once()
+        saved_id, saved_data = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_id, "FE06")
+        self.assertEqual(saved_data["assets"]["general_prompt"], "Brand new French bistro with atmospheric warm lighting")
+        self.assertEqual(saved_data["assets"]["image_prompts"], {})
+        self.assertEqual(saved_data["status"]["image_generation"], "pending")
+        self.assertEqual(saved_data["status"]["video_assembly"], "pending")
+
+        # Verify enqueue was called with force=True, regenerate_prompts=True, and preserve_general_prompt=True
+        mock_enqueue.assert_called_once()
+        job_req = mock_enqueue.call_args[0][0]
+        self.assertEqual(job_req.stage.value, "images")
+        self.assertEqual(job_req.script_ids, ["FE06"])
+        self.assertEqual(job_req.options["force"], True)
+        self.assertEqual(job_req.options["regenerate_prompts"], True)
+        self.assertEqual(job_req.options["preserve_general_prompt"], True)
+
+    def test_drive_status_endpoint(self):
+        """Verify GET /api/drive/status returns drive configuration."""
+        with patch("webui.routers.drive.DEFAULT_ROOT_FOLDER_ID", "FAKE_DRIVE_ROOT_ID"):
+            resp = self.client.get("/api/drive/status")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("configured", data)
+        self.assertIn("root_folder_id", data)
+        self.assertEqual(data["root_folder_id"], "FAKE_DRIVE_ROOT_ID")
+
+    @patch("webui.routers.drive.upload_script_to_drive")
+    @patch("webui.routers.drive.StateManager")
+    def test_upload_single_script_endpoint(self, mock_sm_cls, mock_upload):
+        """Verify POST /api/drive/scripts/{id}/upload invokes upload_script_to_drive."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm_cls.return_value = mock_sm
+
+        mock_upload.return_value = {
+            "script_id": "EE01",
+            "folder_url": "https://drive.google.com/drive/folders/ABCDEF",
+            "video": {"name": "EE01.mp4", "id": "111"},
+            "thumbnail": {"name": "EE01_thumbnail.png", "id": "222"},
+        }
+
+        resp = self.client.post("/api/drive/scripts/EE01/upload")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["folder_url"], "https://drive.google.com/drive/folders/ABCDEF")
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_get_script_detail_exposes_thumbnail_variants(self, mock_get_sm):
+        """Verify GET /api/scripts/{id} exposes thumbnail_variants for dual Spanish thumbnails."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "SE01",
+            "content_metadata": {"language": "spanish", "video_type": "expression", "topic": "Tomar el pelo"},
+            "status": {"script_generation": "done", "thumbnail_generation": "done"},
+            "assets": {
+                "thumbnail_path": "/fake/output/SE01/thumbnail_latam.png",
+                "thumbnail_variants": {
+                    "latam": "/fake/output/SE01/thumbnail_latam.png",
+                    "spain": "/fake/output/SE01/thumbnail_spain.png",
+                },
+            },
+        }
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.get("/api/scripts/SE01")
+        self.assertEqual(resp.status_code, 200)
+        assets = resp.json()["assets"]
+        self.assertEqual(assets["thumbnail"], "/fake/output/SE01/thumbnail_latam.png")
+        self.assertEqual(
+            assets["thumbnail_variants"],
+            {
+                "latam": "/fake/output/SE01/thumbnail_latam.png",
+                "spain": "/fake/output/SE01/thumbnail_spain.png",
+            },
+        )
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("video_creation._F_thumbnail_image_generation.service.generate_thumbnail_for_script")
+    def test_render_thumbnail_endpoint_updates_text_and_renders(self, mock_gen_thumb, mock_get_sm):
+        """Verify POST /api/scripts/{id}/render-thumbnail saves thumbnail_title and re-renders thumbnail(s)."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        state_doc = {
+            "id": "SR08",
+            "content_metadata": {
+                "language": "spanish",
+                "video_type": "roleplay",
+                "script": {"title": "En Acción: embarazada"},
+            },
+            "status": {"script_generation": "done"},
+            "assets": {},
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        def _fake_render(data, state_mgr=None, base_dir=None):
+            data.setdefault("assets", {})["thumbnail_path"] = "/fake/output/SR08/thumbnail_latam.png"
+            data["assets"]["thumbnail_variants"] = {
+                "latam": "/fake/output/SR08/thumbnail_latam.png",
+                "spain": "/fake/output/SR08/thumbnail_spain.png",
+            }
+            data.setdefault("status", {})["thumbnail_generation"] = "done"
+            return True
+
+        mock_gen_thumb.side_effect = _fake_render
+
+        resp = self.client.post(
+            "/api/scripts/SR08/render-thumbnail",
+            json={"thumbnail_title": "¡Cuidado!: Embarazada"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["thumbnail_title"], "¡Cuidado!: Embarazada")
+        self.assertEqual(state_doc["content_metadata"]["thumbnail_title"], "¡Cuidado!: Embarazada")
+        self.assertEqual(data["script"]["thumbnail_title"], "¡Cuidado!: Embarazada")
+        mock_gen_thumb.assert_called_once()
+
+    @patch("webui.routers.drive.upload_script_to_drive")
+    @patch("webui.routers.drive.StateManager")
+    def test_upload_single_script_endpoint_supports_scoped_uploads_and_rejects_bad_scope(self, mock_sm_cls, mock_upload):
+        """Verify POST /api/drive/scripts/{id}/upload forwards 'thumbnail' and 'video' scopes cleanly."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = MagicMock()
+        mock_sm_cls.return_value = mock_sm
+
+        mock_upload.return_value = {
+            "script_id": "EE01",
+            "assets_scope": "thumbnail",
+            "folder_url": "https://drive.google.com/drive/folders/ABCDEF",
+            "video": None,
+            "thumbnail": {"name": "EE01_thumbnail.png", "id": "222"},
+        }
+
+        resp_thumb = self.client.post("/api/drive/scripts/EE01/upload", json={"scope": "thumbnail"})
+        self.assertEqual(resp_thumb.status_code, 200)
+        self.assertTrue(resp_thumb.json()["success"])
+        self.assertEqual(mock_upload.call_args.kwargs["assets_scope"], "thumbnail")
+
+        resp_vid = self.client.post("/api/drive/scripts/EE01/upload", json={"scope": "video"})
+        self.assertEqual(resp_vid.status_code, 200)
+        self.assertEqual(mock_upload.call_args.kwargs["assets_scope"], "video")
+
+        resp_bad = self.client.post("/api/drive/scripts/EE01/upload", json={"scope": "audio"})
+        self.assertEqual(resp_bad.status_code, 400)
+
+    def test_elevenlabs_status_never_leaks_api_key(self):
+        """Verify GET /api/system/elevenlabs-status reports config without leaking the secret key."""
+        with patch.dict("os.environ", {"ELEVENLABS_API_KEY": "sk_super_secret_should_never_leak"}):
+            resp = self.client.get("/api/system/elevenlabs-status?include_subscription=false")
+        self.assertEqual(resp.status_code, 200)
+        body_text = resp.text
+        self.assertNotIn("sk_super_secret_should_never_leak", body_text)
+        data = resp.json()
+        self.assertTrue(data["configured"])
+        self.assertEqual(data["default_model"], "eleven_v3")
+        self.assertEqual(len(data["models"]), 3)
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_estimate_voice_credits_hybrid_routing(self, mock_get_sm):
+        """Verify POST /api/scripts/estimate-voice-credits routes Roleplay/Expression to ElevenLabs and Game to Local."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.side_effect = lambda sid: sid in ("SR08", "SG02")
+        mock_sm.get_script_state.side_effect = lambda sid: (
+            {
+                "id": "SR08",
+                "content_metadata": {
+                    "language": "spanish",
+                    "video_type": "roleplay",
+                    "script": {"hook": "Una copa rota en la cena.", "dialogue_part_1": "PERSON_ONE (Anxious): Ay no!"},
+                },
+            }
+            if sid == "SR08"
+            else {
+                "id": "SG02",
+                "content_metadata": {
+                    "language": "spanish",
+                    "video_type": "game",
+                    "script": {"hook": "¿Sabes qué significa esto?"},
+                },
+            }
+        )
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.post(
+            "/api/scripts/estimate-voice-credits",
+            json={"script_ids": ["SR08", "SG02"], "voice_provider": "auto", "elevenlabs_model": "eleven_v3"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["elevenlabs_count"], 1)
+        self.assertEqual(data["local_count"], 1)
+        self.assertGreater(data["total_estimated_credits"], 0)
 

@@ -366,16 +366,12 @@ def select_best_voice_candidate(
     return dest_path
 
 
-def compute_pitch_metrics(audio_data: np.ndarray, sr: int) -> Tuple[float, float, float]:
-    """Computes mean pitch (F0), standard deviation, and variance ratio (std/mean) on voiced frames.
-    Uses short-term autocorrelation with energy gating.
-    Returns (mean_pitch_hz, std_pitch_hz, variance_ratio).
-    """
+def _extract_voiced_pitches(audio_data: np.ndarray, sr: int) -> List[float]:
     if len(audio_data.shape) > 1:
         audio_data = audio_data[:, 0]
     frame_len = int(0.03 * sr)
     hop = int(0.01 * sr)
-    pitches = []
+    pitches: List[float] = []
 
     for i in range(0, len(audio_data) - frame_len, hop):
         frame = audio_data[i:i + frame_len]
@@ -391,7 +387,15 @@ def compute_pitch_metrics(audio_data: np.ndarray, sr: int) -> Tuple[float, float
         peak_lag = min_lag + np.argmax(corr[min_lag:max_lag])
         if corr[0] > 0 and (corr[peak_lag] / corr[0]) > 0.40:
             pitches.append(sr / peak_lag)
+    return pitches
 
+
+def compute_pitch_metrics(audio_data: np.ndarray, sr: int) -> Tuple[float, float, float]:
+    """Computes mean pitch (F0), standard deviation, and variance ratio (std/mean) on voiced frames.
+    Uses short-term autocorrelation with energy gating.
+    Returns (mean_pitch_hz, std_pitch_hz, variance_ratio).
+    """
+    pitches = _extract_voiced_pitches(audio_data, sr)
     if len(pitches) < 8:
         return 0.0, 0.0, 0.0
     mean_f0 = float(np.mean(pitches))
@@ -400,16 +404,116 @@ def compute_pitch_metrics(audio_data: np.ndarray, sr: int) -> Tuple[float, float
     return round(mean_f0, 1), round(std_f0, 1), round(var_ratio, 3)
 
 
+def compute_intonation_metrics(audio_data: np.ndarray, sr: int) -> Dict[str, float]:
+    """Computes terminal pitch rise ratio (last 25% vs first 75% voiced F0) and RMS peak contrast."""
+    if len(audio_data.shape) > 1:
+        audio_data = audio_data[:, 0]
+    pitches = _extract_voiced_pitches(audio_data, sr)
+    final_25pct_f0_ratio = 1.0
+    f0_range_ratio = 0.0
+    if len(pitches) >= 12:
+        split_idx = max(4, int(len(pitches) * 0.75))
+        body = pitches[:split_idx]
+        tail = pitches[split_idx:]
+        if body and tail:
+            body_mean = float(np.mean(body))
+            tail_mean = float(np.mean(tail))
+            final_25pct_f0_ratio = tail_mean / max(1.0, body_mean)
+        med_f0 = float(np.median(pitches))
+        f0_range_ratio = float(np.percentile(pitches, 90) - np.percentile(pitches, 10)) / max(1.0, med_f0)
+
+    hop = max(1, int(0.02 * sr))
+    frame_rms = [float(np.sqrt(np.mean(audio_data[j:j + hop] ** 2))) for j in range(0, len(audio_data) - hop, hop)]
+    active_rms = [r for r in frame_rms if r > 0.012]
+    rms_peak_ratio = 1.0
+    if len(active_rms) >= 6:
+        med_rms = float(np.median(active_rms))
+        p95_rms = float(np.percentile(active_rms, 95))
+        rms_peak_ratio = p95_rms / max(1e-5, med_rms)
+
+    return {
+        "voiced_frames": float(len(pitches)),
+        "final_25pct_f0_ratio": round(final_25pct_f0_ratio, 3),
+        "f0_range_ratio": round(f0_range_ratio, 3),
+        "rms_peak_ratio": round(rms_peak_ratio, 3),
+    }
+
+
+def reference_median_pitch(path: Path) -> float | None:
+    """Return a voiced median for a local reference, when measurable."""
+    try:
+        data, sr = sf.read(path)
+    except (OSError, RuntimeError):
+        return None
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+    voiced = _extract_voiced_pitches(data, sr)
+    return float(np.median(voiced)) if len(voiced) >= 12 else None
+
+
+def compute_voice_quality_metrics(audio_data: np.ndarray, sr: int) -> Dict[str, float]:
+    """Computes harmonicity (HNR proxy via autocorrelation peak) and rapid F0 jump rate
+    to detect metallic buzz, vocal fry vibrations, and codec warble artifacts.
+    """
+    if len(audio_data.shape) > 1:
+        audio_data = audio_data[:, 0]
+    pitches = _extract_voiced_pitches(audio_data, sr)
+    rapid_f0_jump_rate = 0.0
+    if len(pitches) >= 10:
+        p_arr = np.asarray(pitches, dtype=np.float64)
+        st_diffs = np.abs(12.0 * np.log2(np.maximum(1.0, p_arr[1:]) / np.maximum(1.0, p_arr[:-1])))
+        rapid_f0_jump_rate = float(np.mean(st_diffs > 3.5))
+
+    frame_len = int(0.03 * sr)
+    hop = max(1, int(0.02 * sr))
+    min_lag = int(sr / 450)
+    max_lag = int(sr / 75)
+    ac_peaks: List[float] = []
+    for j in range(0, len(audio_data) - frame_len, hop):
+        fr = audio_data[j:j + frame_len]
+        if float(np.mean(fr ** 2)) < 0.002:
+            continue
+        corr = np.correlate(fr, fr, mode="full")[len(fr) - 1:]
+        if max_lag < len(corr) and corr[0] > 0:
+            ac_peaks.append(float(np.max(corr[min_lag:max_lag]) / corr[0]))
+
+    hnr_mean = float(np.mean(ac_peaks)) if ac_peaks else 1.0
+    hnr_p10 = float(np.percentile(ac_peaks, 10)) if len(ac_peaks) >= 10 else hnr_mean
+    return {
+        "hnr_mean": round(hnr_mean, 3),
+        "hnr_p10": round(hnr_p10, 3),
+        "rapid_f0_jump_rate": round(rapid_f0_jump_rate, 3),
+        "active_hnr_frames": float(len(ac_peaks)),
+    }
+
+
+def max_window_pitch_shift(data: np.ndarray, sr: int, reference_f0: float) -> float | None:
+    """Compare two-second voiced windows in semitones to the cast reference."""
+    shifts = []
+    for start in range(0, len(data), sr):
+        window = data[start:start + 2 * sr]
+        if len(window) < sr:
+            continue
+        voiced = _extract_voiced_pitches(window, sr)
+        if len(voiced) >= 12:
+            shifts.append(float(12 * np.log2(np.median(voiced) / reference_f0)))
+    return max(shifts, default=None)
+
+
 def evaluate_voice_take(
     audio_path: Union[str, Path],
     target_text: str = "",
-    language: str = "english"
+    language: str = "english",
+    video_type: Optional[str] = None,
+    section: Optional[str] = None,
+    reference_f0: Optional[float] = None,
 ) -> Tuple[float, bool, List[str], Dict[str, Any]]:
-    """Evaluates an individual synthesized speech take against acoustic quality criteria:
-    - Pitch variance (rejects flat robotic monotone < 11.0%)
-    - Tempo / Speech rate (rejects sluggish < 8.0 CPS or rushed > 19.0 CPS)
+    """Evaluates an individual synthesized speech take against per-language acoustic quality criteria:
+    - Pitch variance (rejects flat robotic monotone per language floor)
+    - Tempo / Speech rate (rejects sluggish or rushed tempo per language envelope)
     - Audio energy (rejects muffled / low RMS < 0.05)
     - Internal silence (rejects awkward mid-sentence freezes > 0.85s)
+    - Intonation contour checks on `?` (terminal pitch rise) and `!` (dynamic RMS/F0 peak lift)
 
     Returns:
         (composite_score, passes_quality_gate, issues_list, metrics_dict)
@@ -432,66 +536,164 @@ def evaluate_voice_take(
 
     rms = float(np.sqrt(np.mean(data ** 2)))
     mean_f0, std_f0, var_ratio = compute_pitch_metrics(data, sr)
+    intonation = compute_intonation_metrics(data, sr)
+    vq = compute_voice_quality_metrics(data, sr)
+
+    # Resolve language envelope when typed mode is enabled
+    min_var_ratio = 0.110
+    min_cps, max_cps, target_cps = 8.0, 19.0, 13.5
+    min_rms = 0.05
+    max_silence_allowed = 0.85
+    max_mean_f0 = 285.0
+    check_q = False
+    check_exc = False
+    min_q_ratio = 1.03
+    min_exc_rms_ratio = 1.55
+
+    try:
+        try:
+            from video_creation._B_voice_generation.voice.common.engine import is_typed_voice_enabled
+            from video_creation._B_voice_generation.voice.languages import get_language_voice_profile
+            from video_creation._B_voice_generation.voice.types import get_video_type_voice_profile
+        except (ImportError, ModuleNotFoundError):
+            try:
+                from ..voice.common.engine import is_typed_voice_enabled  # type: ignore[no-redef]
+                from ..voice.languages import get_language_voice_profile  # type: ignore[no-redef]
+                from ..voice.types import get_video_type_voice_profile  # type: ignore[no-redef]
+            except (ImportError, ValueError):
+                from voice.common.engine import is_typed_voice_enabled  # type: ignore[no-redef]
+                from voice.languages import get_language_voice_profile  # type: ignore[no-redef]
+                from voice.types import get_video_type_voice_profile  # type: ignore[no-redef]
+
+        if is_typed_voice_enabled(video_type or "", language):
+            env = get_language_voice_profile(language).acoustic_gate
+            min_var_ratio = env.min_pitch_variance
+            min_cps = env.min_cps
+            max_cps = env.max_cps
+            target_cps = env.target_cps
+            min_rms = env.min_rms
+            max_silence_allowed = env.max_internal_silence
+            max_mean_f0 = env.max_mean_f0
+            check_q = env.check_question_rise
+            check_exc = env.check_exclamation_lift
+            min_q_ratio = env.min_question_f0_ratio
+            min_exc_rms_ratio = env.min_exclamation_rms_ratio
+            if video_type:
+                v_prof = get_video_type_voice_profile(video_type)
+                if v_prof.target_cps_override is not None:
+                    target_cps = float(v_prof.target_cps_override)
+                if v_prof.max_cps_override is not None:
+                    max_cps = float(v_prof.max_cps_override)
+    except Exception:
+        pass
 
     # Calculate speech rate (characters per second of clean spoken text)
     clean_text = re.sub(r"\[.*?\]|\(.*?\)", "", target_text or "").strip()
     char_count = len(re.sub(r"\s+", "", clean_text))
-    cps = char_count / max(0.1, duration) if char_count > 0 else 12.0
+    cps = char_count / max(0.1, duration) if char_count > 0 else target_cps
 
-    # Check max internal silence (> 0.01 threshold)
+    # Check max internal silence (> 0.008 RMS threshold)
     hop = int(0.02 * sr)
     frame_rms = [np.sqrt(np.mean(data[j:j + hop] ** 2)) for j in range(0, len(data) - hop, hop)]
     max_silent_frames = 0
     cur_silent_frames = 0
+    # Edge padding is trimmed during mastering. Count only quiet runs bounded by speech.
+    heard_speech = False
     for r in frame_rms:
-        if r < 0.008:
-            cur_silent_frames += 1
-            if cur_silent_frames > max_silent_frames:
-                max_silent_frames = cur_silent_frames
-        else:
+        if r >= 0.008:
+            if heard_speech:
+                max_silent_frames = max(max_silent_frames, cur_silent_frames)
+            heard_speech = True
             cur_silent_frames = 0
+        elif heard_speech:
+            cur_silent_frames += 1
     max_silence_sec = max_silent_frames * 0.02
 
     issues = []
 
     # 1. Pitch Variance Check (reject monotone)
-    if var_ratio < 0.110:
-        issues.append(f"Monotone / robotic pitch variance ({var_ratio*100:.1f}% < 11.0%)")
+    if var_ratio < min_var_ratio:
+        issues.append(f"Monotone / robotic pitch variance ({var_ratio*100:.1f}% < {min_var_ratio*100:.1f}%)")
 
     # 2. Tempo Check
     if char_count > 10:
-        if cps < 8.0:
-            issues.append(f"Sluggish / dragging tempo ({cps:.1f} chars/s < 8.0)")
-        elif cps > 19.0:
-            issues.append(f"Rushed / slurred tempo ({cps:.1f} chars/s > 19.0)")
+        if cps < min_cps:
+            issues.append(f"Sluggish / dragging tempo ({cps:.1f} chars/s < {min_cps:.1f})")
+        elif cps > max_cps:
+            issues.append(f"Rushed / slurred tempo ({cps:.1f} chars/s > {max_cps:.1f})")
 
     # 3. Energy Check
-    if rms < 0.05:
-        issues.append(f"Very low audio volume / muffled (RMS: {rms:.4f} < 0.05)")
+    if rms < min_rms:
+        issues.append(f"Very low audio volume / muffled (RMS: {rms:.4f} < {min_rms})")
 
-    # 4. Silence Freeze Check
-    if duration > 2.5 and max_silence_sec > 0.85:
-        issues.append(f"Internal silence freeze ({max_silence_sec:.2f}s > 0.85s)")
+    # 4. Silence Freeze Check (allow natural breaths on multi-sentence / payoff / explicit-pause segments)
+    sec_low = (section or "").lower()
+    has_explicit_pause = "[pause:" in (target_text or "").lower()
+    sentence_breaks = len(re.findall(r"[.!?]+", clean_text))
+    effective_max_silence = max_silence_allowed
+    if has_explicit_pause or sec_low in ("hook", "payoff", "cta") or sentence_breaks >= 2:
+        effective_max_silence = max(max_silence_allowed, 1.35)
+    if duration > 2.5 and max_silence_sec > effective_max_silence:
+        issues.append(f"Internal silence freeze ({max_silence_sec:.2f}s > {effective_max_silence:.2f}s)")
 
-    # 5. Excessive Shrillness / High Pitch Check (reject ear-fatiguing high pitch > 285.0 Hz)
-    if mean_f0 > 285.0:
-        issues.append(f"Excessive shrillness / high pitch ({mean_f0:.1f} Hz > 285.0 Hz)")
+    # 5. Excessive Shrillness / High Pitch Check (anchor to reference_f0 when known)
+    effective_max_f0 = max(max_mean_f0, reference_f0 * 1.20) if reference_f0 else max_mean_f0
+    if mean_f0 > effective_max_f0:
+        issues.append(f"Excessive shrillness / high pitch ({mean_f0:.1f} Hz > {effective_max_f0:.1f} Hz)")
+
+    # 6. Punctuation Intonation Contour Checks (only when target_text contains ? or ! and enough voiced frames)
+    is_challenge_lock = (video_type or "").lower() == "game" and "challenge" in sec_low
+    voiced_n = intonation.get("voiced_frames", 0.0)
+    q_bonus = 0.0
+    if not is_challenge_lock and voiced_n >= 12:
+        word_count = len(clean_text.split())
+        if check_q and "?" in clean_text:
+            q_ratio = intonation["final_25pct_f0_ratio"]
+            q_bonus += min(0.15, max(0.0, (q_ratio - 1.0) * 0.8))
+            # Only enforce strict tail-F0 rising contour on short direct questions (<= 9 words);
+            # longer rhetorical hooks naturally drop pitch on the final clause.
+            if word_count <= 9 and q_ratio < min_q_ratio and not (clean_text.rstrip().endswith(".")):
+                issues.append(f"Flat question intonation (tail F0 ratio {q_ratio:.2f} < {min_q_ratio:.2f})")
+        elif check_exc and "!" in clean_text:
+            rms_ratio = intonation["rms_peak_ratio"]
+            q_bonus += min(0.15, max(0.0, (rms_ratio - 1.2) * 0.15))
+            if rms_ratio < min_exc_rms_ratio and var_ratio < (min_var_ratio + 0.025):
+                issues.append(f"Flat exclamation energy (RMS peak ratio {rms_ratio:.2f} < {min_exc_rms_ratio:.2f})")
+
+    window_shift = max_window_pitch_shift(data, sr, reference_f0) if reference_f0 else None
+    is_roleplay_char_sec = (video_type or "").lower() == "roleplay" and "dialogue" in sec_low
+    max_allowed_shift = 5.0 if is_roleplay_char_sec else 5.5
+    if window_shift is not None and window_shift > max_allowed_shift:
+        issues.append(f"Sustained high register (+{window_shift:.1f} semitones versus reference)")
+
+    # 7. Buzz / metallic vibration & erratic pitch-spike guards
+    if voiced_n >= 12 and vq["active_hnr_frames"] >= 8:
+        if vq["hnr_mean"] < 0.54 or vq["rapid_f0_jump_rate"] > 0.055:
+            issues.append(
+                f"Vocal buzz / metallic vibration artifact "
+                f"(HNR {vq['hnr_mean']:.2f}, F0 jumps {vq['rapid_f0_jump_rate']*100:.1f}%)"
+            )
+    if voiced_n >= 12 and var_ratio > 0.36:
+        issues.append(f"Excessive / erratic pitch swings ({var_ratio*100:.1f}% > 36.0%)")
 
     passes_gate = len(issues) == 0
 
-    # Calculate continuous score [0.0 - 1.0]
+    # Calculate continuous score [0.0 - 1.0+]
     pitch_score = min(1.0, max(0.0, (var_ratio - 0.08) / 0.08))
-    target_cps = 13.5
+    if var_ratio > 0.30:
+        pitch_score = max(0.0, pitch_score - (var_ratio - 0.30) * 3.0)
     tempo_diff = abs(cps - target_cps)
-    tempo_score = min(1.0, max(0.0, 1.0 - (tempo_diff / 8.0)))
+    tempo_score = min(1.0, max(0.0, 1.0 - (tempo_diff / 5.0)))
     energy_score = min(1.0, max(0.0, rms / 0.15))
     penalty = 0.5 ** len(issues)
 
-    composite_score = round((0.45 * pitch_score + 0.35 * tempo_score + 0.20 * energy_score) * penalty, 2)
+    composite_score = round((0.40 * pitch_score + 0.40 * tempo_score + 0.20 * energy_score + q_bonus) * penalty, 2)
 
     metrics = {
         "duration": round(duration, 2),
         "mean_f0": mean_f0,
+        "reference_f0": reference_f0,
+        "max_window_shift_semitones": window_shift,
         "std_f0": std_f0,
         "pitch_variance": var_ratio,
         "pitch_score": round(pitch_score, 2),
@@ -499,6 +701,11 @@ def evaluate_voice_take(
         "tempo_score": round(tempo_score, 2),
         "rms": round(rms, 4),
         "max_internal_silence": round(max_silence_sec, 2),
+        "final_25pct_f0_ratio": intonation["final_25pct_f0_ratio"],
+        "rms_peak_ratio": intonation["rms_peak_ratio"],
+        "hnr_mean": vq["hnr_mean"],
+        "hnr_p10": vq["hnr_p10"],
+        "rapid_f0_jump_rate": vq["rapid_f0_jump_rate"],
         "score": composite_score,
         "passes_gate": passes_gate,
         "issues": issues
@@ -511,7 +718,10 @@ def select_best_general_candidate(
     candidate_paths: List[Path],
     target_text: str,
     language: str,
-    dest_path: Path
+    dest_path: Path,
+    video_type: Optional[str] = None,
+    section: Optional[str] = None,
+    reference_f0: Optional[float] = None,
 ) -> Path:
     """Evaluates multiple voice takes and promotes the highest scoring candidate to dest_path.
     Cleans up all non-winning candidate files.
@@ -529,13 +739,21 @@ def select_best_general_candidate(
     print(f"  [Quality Gate]: Evaluating {len(candidate_paths)} candidate takes...")
     scored = []
     for idx, cand in enumerate(candidate_paths, 1):
-        score, passes, issues, metrics = evaluate_voice_take(cand, target_text, language)
+        eval_kwargs: Dict[str, Any] = {"video_type": video_type, "section": section}
+        if reference_f0 is not None:
+            eval_kwargs["reference_f0"] = reference_f0
+        score, passes, issues, metrics = evaluate_voice_take(
+            cand,
+            target_text,
+            language,
+            **eval_kwargs,
+        )
         issue_str = f" [Flagged: {', '.join(issues)}]" if issues else " [Clean]"
         print(f"    Take #{idx} ({cand.name}): Score = {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s{issue_str}")
         scored.append((cand, score, passes, metrics))
 
-    # Sort descending by score
-    scored.sort(key=lambda x: x[1], reverse=True)
+    # Prefer a take that passed the checks, then compare scores.
+    scored.sort(key=lambda x: (x[2], x[1]), reverse=True)
     winner_cand, best_score, best_passes, best_metrics = scored[0]
 
     print(f"  -> Winner Selected: {winner_cand.name} (Score: {best_score:.2f}, PitchVar: {best_metrics['pitch_variance']*100:.1f}%)")

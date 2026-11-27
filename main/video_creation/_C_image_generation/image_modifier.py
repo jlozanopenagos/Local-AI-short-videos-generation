@@ -37,7 +37,7 @@ from config import (
     IMAGE_DEFAULT_STEPS, IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT,
     IMAGE_STALL_TIMEOUT,
     LLM_API_BASE_URL, LLM_API_KEY, LLM_MODEL_NAME, require_services,
-    GAME_IMAGES_DIR, get_script_output_dir, resolve_script_language
+    GAME_IMAGES_DIR, get_script_output_dir, resolve_script_language, resolve_static_scene_path
 )
 # pyrefly: ignore [missing-import]
 from core.cli_prompt import timed_input
@@ -229,6 +229,8 @@ def modify_group_interactive(
         lexical_field=lexical_field_str,
         label=label,
         video_type=video_type,
+        language=label,
+        script_id=script_id,
     )
 
     stored_general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
@@ -571,6 +573,7 @@ def modify_group_interactive(
     }
 
 
+    character_anchors = script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None
     generated_scene_prompts: Dict[str, str] = {}
     try:
         ensure_llama_running()
@@ -587,6 +590,7 @@ def modify_group_interactive(
             lexical_field=lexical_field_str,
             anchor_environment=confirmed_general_prompt,
             general_prompt=confirmed_general_prompt,
+            character_anchors=character_anchors,
         )
         for s_key, s_prompt in storyboard_map.items():
             clean_p = sanitize_and_style_prompt(s_prompt)
@@ -666,15 +670,16 @@ def modify_group_interactive(
         print(f"[{idx}/{total_scenes}] Processing Scene: {sec.upper()}")
         print(f"{'─' * 60}")
 
-        # Specialized handling for GAME: PRESSURE (Static pre-made image)
+        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image — zero-copy)
         if video_type == "GAME" and sec.lower() == "pressure":
-            lang_key = resolve_script_language(script_data)
-            waiting_img = GAME_IMAGES_DIR / lang_key / f"{lang_key}_waiting.png"
-            if not waiting_img.exists():
-                waiting_img = GAME_IMAGES_DIR / "english" / "english_waiting.png"
-            if waiting_img.exists():
-                shutil.copy2(waiting_img, dest_image_path)
-                print(f"[OK] Copied static waiting image: {waiting_img.name} -> {dest_image_path.name}")
+            static_img = resolve_static_scene_path(
+                section_name=sec,
+                script_data=script_data,
+                video_type=video_type,
+                base_dir=base_dir,
+            )
+            if static_img and static_img.exists():
+                print(f"[OK] Section 'PRESSURE' resolved via centralized static asset: {static_img.name} (zero-copy skipped).")
                 continue
 
         # Specialized handling for GAME: CHALLENGE (High-Res Chalkboard Renderer)
@@ -986,6 +991,8 @@ def modify_scene_interactive(
             lexical_field=lexical_field_str,
             label=label,
             video_type=video_type,
+            language=label,
+            script_id=script_id,
         )
         stored_general_prompt = script_data.get("assets", {}).get("general_prompt", "").strip()
         general_prompt_val = stored_general_prompt or anchor_environment
@@ -1102,15 +1109,16 @@ def modify_scene_interactive(
             except (KeyboardInterrupt, EOFError):
                 pass
 
-        # Specialized handling for GAME: PRESSURE (Static pre-made image)
+        # Specialized handling for GAME: PRESSURE (Centralized static pre-made image — zero-copy)
         if video_type == "GAME" and chosen_section.lower() == "pressure":
-            print("\n[GAME] 'pressure' uses a static pre-made waiting image.")
-            lang_key = resolve_script_language(script_data)
-            waiting_img = GAME_IMAGES_DIR / lang_key / f"{lang_key}_waiting.png"
-            if not waiting_img.exists():
-                waiting_img = GAME_IMAGES_DIR / "english" / "english_waiting.png"
-            shutil.copy2(waiting_img, dest_image_path)
-            print(f"[SUCCESS] Copied static waiting image: {waiting_img.name} -> {dest_image_path.name}\n")
+            print("\n[GAME] 'pressure' uses a centralized static waiting image (zero-copy).")
+            static_img = resolve_static_scene_path(
+                section_name=chosen_section,
+                script_data=script_data,
+                video_type=video_type,
+            )
+            if static_img and static_img.exists():
+                print(f"[SUCCESS] Verified central static image: {static_img.name} (no duplicate copy needed).\n")
             _update_state_assets(script_data, script_id, images_dir, valid_sections, state_manager)
             try:
                 another = input("Do you want to recreate another image in this script? [y/N]: ").strip().lower()
@@ -1193,6 +1201,7 @@ def modify_scene_interactive(
             custom_prompt_text = existing_prompt
         elif opt_input == "5":
             print("\n[LLM] Regenerating cohesive, non-repetitive visual storyboard for all scenes...")
+            character_anchors = script_data.get("assets", {}).get("character_anchors") if isinstance(script_data.get("assets"), dict) else None
             new_storyboard = prompt_builder.build_storyboard_prompts(
                 script_text=script_text,
                 label=label,
@@ -1206,6 +1215,7 @@ def modify_scene_interactive(
                 lexical_field=lexical_field_str,
                 anchor_environment=anchor_environment,
                 general_prompt=general_prompt_val,
+                character_anchors=character_anchors,
             )
             if "assets" not in script_data or not isinstance(script_data["assets"], dict):
                 script_data["assets"] = {}
@@ -1368,13 +1378,13 @@ def modify_scene_interactive(
                     char_desc = (
                         f"Characters MUST be expressive youthful 2D cartoon teens: "
                         f"PERSON_ONE is a teen {p1_word} ({p1_g.upper()}) and PERSON_TWO is a companion teen {p2_word} ({p2_g.upper()}) (approx. 15-16 years old) "
-                        f"wearing authentic thematic scene costumes matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                        f"wearing stylish culturally authentic venue attire matching {anchor_environment} (NO plain blank t-shirts/hoodies, NO childish clothes, NO mature adults). "
                     )
                 else:
                     gender_word = "boy" if current_princ_gender == "male" else "girl"
                     char_desc = (
                         f"Protagonist MUST be an expressive youthful 2D cartoon teen {gender_word.upper()} (approx. 15-16 years old) "
-                        f"wearing authentic thematic scene costume/wardrobe matching {anchor_environment} (NO generic modern street clothes, NO plain t-shirts/hoodies, NO childish clothes, NO mature adults). "
+                        f"wearing stylish culturally authentic venue wardrobe matching {anchor_environment} (NO plain blank t-shirts/hoodies, NO childish clothes, NO mature adults). "
                     )
                 aug_scene = (
                     f"{scene_text}\n"
@@ -1417,11 +1427,11 @@ def modify_scene_interactive(
                         p2_word = "girl" if "f" in p2_g else "boy"
                         wardrobe_mandate = (
                             f"(Characters MUST be expressive youthful 2D cartoon teens: PERSON_ONE is a teen {p1_word} ({p1_g.upper()}) and PERSON_TWO is a teen {p2_word} ({p2_g.upper()}) "
-                            f"approx. 15-16 years old in authentic thematic costumes matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
+                            f"approx. 15-16 years old in stylish culturally authentic venue attire matching {anchor_environment}, NO plain blank clothes, NO childish clothes, NO mature adults)"
                         )
                     else:
                         gender_word = "boy" if current_princ_gender == "male" else "girl"
-                        wardrobe_mandate = f"(Protagonist MUST be a youthful 2D cartoon teen {gender_word.upper()} approx. 15-16 years old in authentic thematic costume matching {anchor_environment}, NO plain street clothes, NO childish clothes, NO mature adults)"
+                        wardrobe_mandate = f"(Protagonist MUST be a youthful 2D cartoon teen {gender_word.upper()} approx. 15-16 years old in stylish culturally authentic venue attire matching {anchor_environment}, NO plain blank clothes, NO childish clothes, NO mature adults)"
                     if more_notes:
                         aug_text = f"{scene_text}\n[VISUAL DIRECTOR GUIDANCE: {more_notes} {wardrobe_mandate}]"
                     else:

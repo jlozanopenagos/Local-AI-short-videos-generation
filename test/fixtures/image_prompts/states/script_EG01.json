@@ -1,0 +1,104 @@
+{
+  "assets": {
+    "character_anchors": {
+      "char1_age": "16-year-old high-school teenage girl (tall slender teenage proportions, mature teenage features, NOT a child)",
+      "char1_attire": "emerald-green velvet theatrical doublet with golden embroidery and charcoal trousers",
+      "char1_gender": "female",
+      "char1_hair": "short textured dark curls with neat side-part",
+      "continuity_summary": "Character appearance continuity: The protagonist is a 16-year-old high-school teenage girl with short textured dark curls with neat side-part wearing an emerald-green velvet theatrical doublet with golden embroidery and charcoal trousers.",
+      "has_two_characters": "False"
+    },
+    "general_prompt": "Medium shot, waist-up framing. Inside a richly detailed historic theater backstage, a youthful fourteen-year-old teen girl protagonist stands illuminated by warm vanity lights, dressed in an ornate Shakespearean Elizabethan theatrical costume featuring an emerald-green velvet bodice with intricate golden embroidery, slashed silk sleeves tied with satin ribbons, a stiff pleated lace ruff collar, and a layered sapphire kirtle. Holding a feathered quill and rolled theatrical parchment, her face glows with expressive theatrical wonder and wide cartoon eyes. Dressing room mirrors glowing with warm round bulbs, heavy crimson velvet stage curtains, wooden costume racks, and backstage pulleys create deep environmental perspective under rich cinematic spotlighting and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside a richly detailed historic theater backstage, a youthful fourteen-year-old teen girl protagonist stands illuminated by warm vanity lights, dressed in an ornate Shakespearean Elizabethan theatrical costume featuring an emerald-green velvet bodice with intricate golden embroidery, slashed silk sleeves tied with satin ribbons, a stiff pleated lace ruff collar, and a layered sapphire kirtle. Holding a feathered quill and rolled theatrical parchment, her face glows with expressive theatrical wonder and wide cartoon eyes. Dressing room mirrors glowing with warm round bulbs, heavy crimson velvet stage curtains, wooden costume racks, and backstage pulleys create deep environmental perspective under rich cinematic spotlighting and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Vocabulary",
+    "chalkboard_exercise": "Test sentence with ___\\nA) Alpha\\nB) Beta",
+    "character_anchors": {
+      "char1_age": "16-year-old high-school teenage girl (tall slender teenage proportions, mature teenage features, NOT a child)",
+      "char1_attire": "emerald-green velvet theatrical doublet with golden embroidery and charcoal trousers",
+      "char1_gender": "female",
+      "char1_hair": "short textured dark curls with neat side-part",
+      "continuity_summary": "Character appearance continuity: The protagonist is a 16-year-old high-school teenage girl with short textured dark curls with neat side-part wearing an emerald-green velvet theatrical doublet with golden embroidery and charcoal trousers.",
+      "has_two_characters": "False"
+    },
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "game_archetype": "FALSE_FRIEND_TRAP",
+    "language": "English",
+    "learning_objective": "To understand the theatrical tradition and native usage of the idiom 'Break a leg'.",
+    "related_content": [],
+    "script": {
+      "answer": "It is C! 'Break a leg' is a natural way to wish good luck for a performance or presentation. It actually means the opposite of what it sounds like, so don't be scared!",
+      "challenge": "Test sentence with ___\\nA) Alpha\\nB) Beta",
+      "explanation": "Break a leg isn't actually a literal wish for injury. It's a theatrical tradition, like a backstage blessing. So next time you want to wish someone luck on a show, just say 'Break a leg.' Your turn to sound like a native  -  try it in the comments!",
+      "hook": "You are about to present your project to the leaders of your company. Your best friend wrote this line, but something doesn't feel right",
+      "pressure": "Decide now! Type the answer before the show starts!",
+      "title": "Theater Superstitions Break A Leg"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "english_female_kokoro_golden_narrator.wav"
+    },
+    "subcategory": "Idioms",
+    "target_expression": "Break a leg",
+    "topic": "Break a leg",
+    "video_type": "GAME"
+  },
+  "id": "EG01",
+  "metadata": {
+    "DESCRIPTION": "Are you sure you know how to wish someone luck? Learn the native secret 'Break a leg' and why it's used for performances. It's a simple idiom that sounds scary but is actually a theatrical blessing. Try using this idiom in your next presentation. #EnglishIdioms #LearnEnglish #BreakALeg #SpeakBetter",
+    "FILENAME": "english_idioms_break-a-leg-presentation.mp4",
+    "HASHTAGS": "#BreakALeg #EnglishLearning #Idioms #SpeakBetter #LearnEnglish",
+    "LABEL": "English | Popular English Idioms | Presentation Context | Pragmatics",
+    "SHORT_DESCRIPTION": "Master the idiom 'Break a leg'. Find out why this theatrical phrase means good luck. #breakaleg #englishidioms",
+    "TAGS": "break a leg, english idioms, english for beginners, learning idioms, common english phrases, presentation tips, english vocabulary, english speaking practice, native english, useful english idioms",
+    "TITLE": "Theater Superstitions Break A Leg"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "Before stepping onto the stage, the director told the nervous actor to ___ tonight.",
+    "EMOTIONAL_TRIGGER": "Curiosity & Surprise",
+    "EXPRESSION": "Break a leg",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "FALSE_FRIEND_TRAP",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "english",
+    "LEXICAL_FIELD": "Performance & Theatre",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "EG01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Theater Superstitions",
+    "TARGET_EXPRESSION": "Break a leg",
+    "TOPIC": "Break a leg",
+    "TYPE": "game",
+    "angle": "",
+    "context": "Before stepping onto the stage, the director told the nervous actor to ___ tonight.",
+    "emotional_trigger": "Curiosity & Surprise",
+    "expression": "Break a leg",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "FALSE_FRIEND_TRAP",
+    "hook_angle": "",
+    "language": "english",
+    "lexical_field": "Performance & Theatre",
+    "pillar": "",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "EG01",
+    "special_treatment": "",
+    "subject": "Theater Superstitions",
+    "target_expression": "Break a leg",
+    "topic": "Break a leg",
+    "type": "game"
+  },
+  "script_text": "{\n  \"title\": \"Theater Superstitions Break A Leg\",\n  \"hook\": \"You are about to present your project to the leaders of your company. Your best friend wrote this line, but something doesn't feel right\",\n  \"challenge\": \"Your friend texts: 'Good luck in your presentation! I'm sure the board will love your proposal'. Which of these options was better to wish you real good luck?. A: Bad luck.  B: Break the room.  C: Break a leg.\",\n  \"pressure\": \"Decide now! Type the answer before the show starts!\",\n  \"answer\": \"It is C! 'Break a leg' is a natural way to wish good luck for a performance or presentation. It actually means the opposite of what it sounds like, so don't be scared!\",\n  \"explanation\": \"Break a leg isn't actually a literal wish for injury. It's a theatrical tradition, like a backstage blessing. So next time you want to wish someone luck on a show, just say 'Break a leg.' Your turn to sound like a native  -  try it in the comments!\"\n}"
+}

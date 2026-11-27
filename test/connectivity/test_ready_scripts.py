@@ -65,7 +65,7 @@ except (ImportError, ModuleNotFoundError):
 class TestReadyScriptsScanner(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.output_dir = Path(self.temp_dir.name)
+        self.output_dir = Path(self.temp_dir.name).resolve()
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -110,6 +110,20 @@ class TestReadyScriptsScanner(unittest.TestCase):
         self.assertEqual(normalize_date_str(None), "")
         self.assertEqual(normalize_date_str("not_a_date"), "")
 
+    def test_scheduled_approved_row_uses_local_assembly_status(self):
+        rows = [
+            {"ID": "FE01", "script_ready": True, "video_ready": True, "VIDEO DATE": "2026-11-25"},
+            {"ID": "FE02", "script_ready": True, "video_ready": True, "video_date": "2026-11-25"},
+        ]
+        with patch(f"{filter_ready_scripts.__module__}.StateManager") as manager:
+            manager.return_value.get_script_state.side_effect = [
+                {"status": {"video_assembly": "pending"}},
+                {"status": {"video_assembly": "done"}},
+            ]
+            result = filter_ready_scripts(rows)
+        self.assertEqual([row["ID"] for row in result["ready_records"]], ["FE01"])
+        self.assertEqual(result["video_ready_excluded_count"], 1)
+
     def test_filter_ready_scripts_core_logic(self):
         """
         Verify:
@@ -136,7 +150,7 @@ class TestReadyScriptsScanner(unittest.TestCase):
                 "script_ready": True,
                 "script_date": "2026-09-23",
                 "video_ready": True,
-                "video_date": "2026-09-24",
+                "video_date": "",
             },
             # 3. Not script ready (excluded)
             {
@@ -340,7 +354,8 @@ class TestReadyScriptsScanner(unittest.TestCase):
         mock_response.read.return_value = json.dumps(mock_payload).encode("utf-8")
         mock_response.__enter__.return_value = mock_response
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch(f"{scan_sheet_ready_scripts.__module__}.get_endpoint", return_value=("french", "expression", "https://script.google.com/macros/s/MOCK_ENDPOINT/exec")), \
+             patch("urllib.request.urlopen", return_value=mock_response):
             res = scan_sheet_ready_scripts("french", "expression")
 
         self.assertEqual(res["status"], "success")

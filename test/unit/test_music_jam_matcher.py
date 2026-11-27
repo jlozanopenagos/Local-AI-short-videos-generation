@@ -10,7 +10,7 @@ if "faster_whisper" not in sys.modules:
     sys.modules["faster_whisper"] = MagicMock()
 
 # pyrefly: ignore [missing-import]
-from video_creation._G_video_assembly.main import resolve_bank_music
+from video_creation._G_video_assembly.service import resolve_bank_music
 
 
 class TestMusicJamMatcher(unittest.TestCase):
@@ -64,7 +64,7 @@ class TestMusicJamMatcher(unittest.TestCase):
             }
         }
 
-        with patch("video_creation._G_video_assembly.main.BANK_MUSIC_DIR", str(self.bank_dir)), \
+        with patch("video_creation._G_video_assembly.service.BANK_MUSIC_DIR", str(self.bank_dir)), \
              patch("builtins.print"):
             result = resolve_bank_music(script_data, self.script_output_dir)
 
@@ -84,7 +84,7 @@ class TestMusicJamMatcher(unittest.TestCase):
             }
         }
 
-        with patch("video_creation._G_video_assembly.main.BANK_MUSIC_DIR", str(self.bank_dir)), \
+        with patch("video_creation._G_video_assembly.service.BANK_MUSIC_DIR", str(self.bank_dir)), \
              patch("builtins.print"):
             res1 = resolve_bank_music(script_data, self.script_output_dir)
             res2 = resolve_bank_music(script_data, self.script_output_dir)
@@ -104,7 +104,7 @@ class TestMusicJamMatcher(unittest.TestCase):
             }
         }
 
-        with patch("video_creation._G_video_assembly.main.BANK_MUSIC_DIR", str(self.bank_dir)), \
+        with patch("video_creation._G_video_assembly.service.BANK_MUSIC_DIR", str(self.bank_dir)), \
              patch("builtins.print"):
             result = resolve_bank_music(script_data, self.script_output_dir)
 

@@ -14,12 +14,15 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from core.state_manager import StateManager
-from video_creation._F_thumbnail_image_generation.main import generate_thumbnail_for_script
+from video_creation._F_thumbnail_image_generation.service import generate_thumbnail_for_script
 from webui.jobs.adapters.base import BaseStageAdapter
 
 
 class ThumbnailsAdapter(BaseStageAdapter):
     """Executes Stage F chalkboard thumbnail generation."""
+
+    def __init__(self, base_dir: Path | None = None):
+        self.base_dir = base_dir or BASE_DIR
 
     def run(
         self,
@@ -29,7 +32,7 @@ class ThumbnailsAdapter(BaseStageAdapter):
         emit_progress: Callable[[int, int, str], None],
         check_cancelled: Callable[[], bool],
     ) -> Dict[str, Any]:
-        sm = StateManager(base_dir=BASE_DIR)
+        sm = StateManager(base_dir=self.base_dir)
         force = options.get("force", False)
 
         total = len(script_ids)
@@ -57,19 +60,38 @@ class ThumbnailsAdapter(BaseStageAdapter):
                 success_count += 1
                 continue
 
-            try:
-                emit_log(f"[{script_id}] Rendering chalkboard title thumbnail...")
-                t0 = time.time()
-                ok = generate_thumbnail_for_script(state_data, state_mgr=sm, base_dir=BASE_DIR)
-                dur = time.time() - t0
-                if ok:
-                    emit_log(f"[{script_id}] ✓ Thumbnail successfully rendered in {dur:.1f}s.")
-                    success_count += 1
-                else:
-                    emit_log(f"[{script_id}] ✗ FAILED to generate thumbnail after {dur:.1f}s.")
-                    failed_ids.append(script_id)
-            except Exception as exc:
-                emit_log(f"[{script_id}] EXCEPTION: {exc}")
+            max_attempts = int(options.get("max_attempts", 3))
+            thumb_succeeded = False
+            last_err = ""
+
+            for attempt in range(1, max_attempts + 1):
+                if check_cancelled():
+                    emit_log(f"Job cancelled by user at script {script_id}.")
+                    break
+
+                try:
+                    emit_log(f"[{script_id}] Rendering chalkboard title thumbnail (attempt {attempt}/{max_attempts})...")
+                    t0 = time.time()
+                    ok = generate_thumbnail_for_script(state_data, state_mgr=sm, base_dir=self.base_dir)
+                    dur = time.time() - t0
+                    if ok:
+                        emit_log(f"[{script_id}] ✓ Thumbnail successfully rendered in {dur:.1f}s.")
+                        success_count += 1
+                        thumb_succeeded = True
+                        break
+                    else:
+                        last_err = f"Process returned false after {dur:.1f}s"
+                        emit_log(f"[{script_id}] Thumbnail attempt {attempt}/{max_attempts} failed.")
+                        if attempt < max_attempts:
+                            time.sleep(1.0)
+                except Exception as exc:
+                    last_err = str(exc)
+                    emit_log(f"[{script_id}] Thumbnail attempt {attempt}/{max_attempts} exception: {last_err}")
+                    if attempt < max_attempts:
+                        time.sleep(1.0)
+
+            if not thumb_succeeded and not check_cancelled():
+                emit_log(f"[{script_id}] ERROR: Thumbnail generation failed after {max_attempts} attempts: {last_err}")
                 failed_ids.append(script_id)
 
         emit_progress(total, total, None)

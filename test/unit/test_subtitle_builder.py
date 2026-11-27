@@ -1,12 +1,38 @@
 """
 test_layer/unit/test_subtitle_builder.py — Unit tests for ASS dynamic animated subtitle generation.
 """
+import os
+import re
 import unittest
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 # pyrefly: ignore [missing-import]
-from video_creation._G_video_assembly.core.subtitle_builder import SubtitleBuilder
+from video_creation._G_video_assembly.core.subtitle_builder import (
+    SubtitleBuilder,
+    align_tokens_to_whisper,
+    premerge_whisper_words,
+    tokenize_script_with_speakers,
+)
+
+
+def _extract_dialogue_events(content: str):
+    """Returns list of `(style_name, raw_text, plain_text)` from ASS `Dialogue:` lines."""
+    events = []
+    for line in content.splitlines():
+        if line.startswith("Dialogue:"):
+            parts = line.split(",", 9)
+            if len(parts) == 10:
+                style_name = parts[3].strip()
+                raw_text = parts[9].rstrip("\r\n")
+                plain_text = re.sub(r"\{[^}]*\}", "", raw_text)
+                events.append((style_name, raw_text, plain_text))
+    return events
+
+
+def _extract_dialogue_texts(content: str):
+    return [plain for _, _, plain in _extract_dialogue_events(content)]
 
 
 class TestSubtitleBuilder(unittest.TestCase):
@@ -61,8 +87,8 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.assertIn("0:01:05.25", content)
         self.assertIn("0:01:06.50", content)
 
-    def test_build_ass_preserves_heteronym_stress_casing(self):
-        """Verify that educational heteronym words preserve their syllable stress casing."""
+    def test_build_ass_normalizes_stress_ipa_and_phonetic_respellings_to_clean_subtitles(self):
+        """Verify that IPA symbols, phonetic respellings, and stress-capitalized heteronyms render as clean standard all-caps words."""
         words = [
             {"word": "Feel", "start": 0.0, "end": 0.2},
             {"word": "the", "start": 0.2, "end": 0.3},
@@ -81,19 +107,28 @@ class TestSubtitleBuilder(unittest.TestCase):
         self.builder.build_ass(words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
 
-        # Standard words are upper-cased for Hormozi short visual punch
-        self.assertIn("FEEL", content)
-        self.assertIn("NOUN", content)
-        self.assertIn("VERB", content)
-
-        # Crucial educational heteronyms preserve their exact syllable stress casing
-        self.assertIn("PREsent", content)
-        self.assertIn("preSENT", content)
-        # Ensure they were not crushed into flat all-caps PRESENT
         dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
-        self.assertEqual(texts[4], "PREsent")
-        self.assertEqual(texts[9], "preSENT")
+        self.assertEqual(len(dialogue_lines), 10)
+        texts = _extract_dialogue_texts(content)
+        self.assertEqual(texts[4], "PRESENT")
+        self.assertEqual(texts[9], "PRESENT.")
+
+        # Also verify raw IPA (/ˈrek.ɚd/, /rɪˈkɔːrd/) and phonetic respellings (COM-pluh-ment, WEH-ther, uh-FECT, PRO-ject)
+        ipa_words = [
+            {"word": "record", "start": 0.0, "end": 0.3},
+            {"word": "record", "start": 0.3, "end": 0.6},
+            {"word": "compliment", "start": 0.6, "end": 0.9},
+            {"word": "weather", "start": 0.9, "end": 1.2},
+            {"word": "affect", "start": 1.2, "end": 1.5},
+            {"word": "project", "start": 1.5, "end": 1.8},
+        ]
+        ipa_script_data = {
+            "script_text": "/ˈrek.ɚd/ /rɪˈkɔːrd/ COM-pluh-ment WEH-ther uh-FECT PRO-ject"
+        }
+        self.builder.build_ass(ipa_words, self.out_path, script_data=ipa_script_data)
+        ipa_content = self.out_path.read_text(encoding="utf-8")
+        ipa_texts = _extract_dialogue_texts(ipa_content)
+        self.assertEqual(ipa_texts, ["RECORD", "RECORD", "COMPLIMENT", "WEATHER", "AFFECT", "PROJECT"])
 
     def test_build_ass_homophone_forced_alignment(self):
         """Verify that homophones confused by Whisper (e.g. French ver/verre/vert/vers) are restored to exact script spelling."""
@@ -117,8 +152,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         # Verify that all 4 homophones are restored to their distinct script spellings
         self.assertEqual(texts, ["UN", "VER", "VERT", "VA", "VERS", "UN", "VERRE", "VERT."])
@@ -144,14 +178,13 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         # Should match golden script words, capitalized for Hormozi style
         self.assertEqual(texts, ["SAPEVI", "IL", "ALFABETO", "LETTERA", "GEI", "JEANS"])
 
-    def test_build_ass_strips_roleplay_speaker_labels(self):
-        """Verify that speaker labels like PERSON_ONE (Panicked): and PERSON_TWO: are stripped from subtitles."""
+    def test_build_ass_strips_roleplay_speaker_labels_and_color_codes_speakers(self):
+        """Verify speaker labels are stripped AND mapped to PersonOne (Gold) vs PersonTwo (Sky-Cyan) styles."""
         whisper_words = [
             {"word": "I", "start": 1.0, "end": 1.2},
             {"word": "forgot", "start": 1.2, "end": 1.5},
@@ -159,20 +192,34 @@ class TestSubtitleBuilder(unittest.TestCase):
         ]
         script_data = {
             "content_metadata": {
+                "video_type": "ROLEPLAY",
                 "script": {
-                    "dialogue_part_1": "PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax"
-                }
+                    "hook": "Listen now",
+                    "dialogue_part_1": "PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax",
+                },
             }
         }
-        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
+        timings_data = {
+            "hook": {"start": 0.0, "end": 0.9},
+            "dialogue_part_1": {"start": 0.9, "end": 2.5},
+        }
+        # First check speaker-aware tokenization directly
+        pairs = tokenize_script_with_speakers("PERSON_ONE (Panicked): I forgot\nPERSON_TWO (Calm): Relax")
+        self.assertEqual(pairs, [("I", "PERSON_ONE"), ("forgot", "PERSON_ONE"), ("Relax", "PERSON_TWO")])
+
+        self.builder.build_ass(whisper_words, self.out_path, script_data=script_data, timings_data=timings_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        events = _extract_dialogue_events(content)
+        texts = [plain for _, _, plain in events]
         self.assertNotIn("PERSON_ONE:", texts)
         self.assertNotIn("PERSON_TWO:", texts)
         self.assertNotIn("PANICKED", texts)
         self.assertNotIn("CALM", texts)
-        self.assertEqual(texts, ["I", "FORGOT", "RELAX"])
+        self.assertEqual(texts, ["LISTEN", "NOW", "I", "FORGOT", "RELAX"])
+        self.assertEqual(events[0][0], "Narrator")
+        self.assertEqual(events[2][0], "PersonOne")
+        self.assertEqual(events[3][0], "PersonOne")
+        self.assertEqual(events[4][0], "PersonTwo")
 
     def test_build_ass_french_conversational_colon_and_elision(self):
         """Verify that conversational colons (e.g. 'Dis juste :') are preserved and French elisions are aligned."""
@@ -204,8 +251,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         self.assertIn("DIS", texts)
         self.assertIn("JUSTE:", texts)
@@ -232,8 +278,7 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         self.assertNotIn("TOUR-UTILISE", texts)
         self.assertIn("TOUR", texts)
@@ -260,12 +305,122 @@ class TestSubtitleBuilder(unittest.TestCase):
         }
         self.builder.build_ass(whisper_words, self.out_path, script_data=script_data)
         content = self.out_path.read_text(encoding="utf-8")
-        dialogue_lines = [l for l in content.splitlines() if l.startswith("Dialogue:")]
-        texts = [l.split(",")[-1] for l in dialogue_lines]
+        texts = _extract_dialogue_texts(content)
 
         self.assertIn("L'AMICO", texts)
         self.assertIn("È", texts)
         self.assertIn("C'È", texts)
+
+    def test_build_ass_safe_zone_pop_in_and_type_styles(self):
+        """Verify Lower-Middle safe zone Alignment=2, kinetic pop-in tags, FUN_FACTS Highlight, and GAME Explanation style."""
+        # 1. FUN_FACTS: crisp white Default + Gold Highlight for numeric tokens
+        ff_script = {
+            "id": "IF01",
+            "content_metadata": {
+                "video_type": "FUN_FACTS",
+                "script": {"hook": "Solo 21 lettere"},
+            },
+        }
+        self.builder.build_ass(
+            [{"word": "Solo", "start": 0.0, "end": 0.3}, {"word": "21", "start": 0.3, "end": 0.6}, {"word": "lettere", "start": 0.6, "end": 1.0}],
+            self.out_path,
+            script_data=ff_script,
+        )
+        ff_content = self.out_path.read_text(encoding="utf-8")
+        self.assertIn("Style: Default,Arial,60,&H00FFFFFF,", ff_content)
+        self.assertIn("Style: Highlight,Arial,60,&H0000FFFF,", ff_content)
+        self.assertIn(",2,20,20,250,1", ff_content)
+        ff_events = _extract_dialogue_events(ff_content)
+        self.assertEqual(ff_events[0][0], "Default")
+        self.assertEqual(ff_events[1][0], "Highlight")
+        self.assertIn(r"\fscx88\fscy88\t(0,65,\fscx100\fscy100)", ff_events[1][1])
+
+        # 2. GAME: Gold in answer, crisp White Explanation style in explanation section
+        game_script = {
+            "id": "SG01",
+            "content_metadata": {
+                "video_type": "GAME",
+                "script": {"answer": "Opcion A", "explanation": "Significa caro"},
+            },
+        }
+        game_timings = {
+            "answer": {"start": 0.0, "end": 1.0},
+            "explanation": {"start": 1.0, "end": 2.0},
+        }
+        self.builder.build_ass([], self.out_path, script_data=game_script, timings_data=game_timings)
+        game_content = self.out_path.read_text(encoding="utf-8")
+        game_events = _extract_dialogue_events(game_content)
+        self.assertEqual([e[0] for e in game_events], ["Default", "Default", "Explanation", "Explanation"])
+
+        # 3. Legacy rollback toggle restores Alignment=5 and MarginV=150
+        with mock.patch.dict(os.environ, {"VIDEO_ASSEMBLY_ENGINE": "legacy"}):
+            self.builder.build_ass([{"word": "Legacy", "start": 0.0, "end": 0.5}], self.out_path)
+            legacy_content = self.out_path.read_text(encoding="utf-8")
+            self.assertIn(",5,10,10,150,1", legacy_content)
+            self.assertNotIn(r"\fscx", legacy_content)
+
+    def test_premerge_never_glues_ordinary_two_letter_words_like_le_verre(self):
+        """Regression for FF04: 'le' + 'verre' MUST NOT merge into 'le'verre', while real elisions ('l' + \"'ami\") DO merge."""
+        raw = [
+            {"word": "le", "start": 0.0, "end": 0.2},
+            {"word": "verre", "start": 0.2, "end": 0.6},
+            {"word": "pour", "start": 0.6, "end": 0.9},
+            {"word": "l", "start": 0.9, "end": 1.0},
+            {"word": "'ami", "start": 1.0, "end": 1.4},
+            {"word": "d'", "start": 1.4, "end": 1.5},
+            {"word": "abord", "start": 1.5, "end": 1.9},
+        ]
+        merged = premerge_whisper_words(raw)
+        self.assertEqual([w["word"] for w in merged], ["le", "verre", "pour", "l'ami", "d'abord"])
+
+    def test_collapse_recovery_repairs_frozen_word_and_speed_burst(self):
+        """Regression for FF04 / IG87 / SR33: frozen single word + rushed burst recovers to smooth weighted timing."""
+        tokens = ["Le", "verre", "pour", "boire.", "La", "couleur", "vert.", "Le", "mot", "vers."]
+        # Simulate Whisper dropping 6s and cramming everything into 0.5s at the end
+        collapsed_whisper = [
+            {"word": "Le", "start": 18.0, "end": 23.0},
+            {"word": "vers", "start": 23.5, "end": 23.8},
+        ]
+        aligned = align_tokens_to_whisper(
+            tokens,
+            collapsed_whisper,
+            default_start=18.0,
+            default_end=24.0,
+            section_name="discovery",
+        )
+        self.assertEqual(len(aligned), len(tokens))
+        durations = [round(a["end"] - a["start"], 2) for a in aligned]
+        # No frozen word > 1.8s and no 0.03s burst
+        self.assertLessEqual(max(durations), 1.5)
+        self.assertGreaterEqual(min(durations), 0.25)
+        self.assertAlmostEqual(aligned[0]["start"], 18.0, places=2)
+        self.assertAlmostEqual(aligned[-1]["end"], 24.0, places=2)
+
+    def test_build_ass_never_emits_overlapping_dialogue_cues(self):
+        """Regression for IE01 (0:30.87 SENTIRE/QUESTA & 0:34.70 A/USARLA): two words must NEVER overlap in time."""
+        raw_overlapping = [
+            {"word": "Sentire", "start": 30.87, "end": 31.12},
+            {"word": "questa", "start": 30.87, "end": 31.23},
+            {"word": "frase", "start": 31.20, "end": 31.64},
+            {"word": "a", "start": 34.70, "end": 34.95},
+            {"word": "usarla", "start": 34.70, "end": 35.14},
+        ]
+        self.builder.build_ass(raw_overlapping, self.out_path)
+        content = self.out_path.read_text(encoding="utf-8")
+
+        def _parse_t(ts: str) -> float:
+            h, m, s = ts.split(":")
+            return int(h) * 3600 + int(m) * 60 + float(s)
+
+        cues = []
+        for line in content.splitlines():
+            if line.startswith("Dialogue:"):
+                parts = line.split(",", 9)
+                cues.append((_parse_t(parts[1].strip()), _parse_t(parts[2].strip()), parts[9].strip()))
+        self.assertEqual(len(cues), 5)
+        for i in range(1, len(cues)):
+            self.assertGreaterEqual(cues[i][0], cues[i - 1][1], f"Overlap between {cues[i-1]} and {cues[i]}")
+            self.assertGreater(cues[i][1], cues[i][0])
 
 
 if __name__ == "__main__":

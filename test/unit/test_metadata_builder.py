@@ -12,7 +12,7 @@ from video_creation._A_video_scripts.core.metadata_builder import (
     _KEY_MAP,
 )
 # pyrefly: ignore [missing-import]
-from video_creation._A_video_scripts.main import extract_json_from_llm
+from video_creation._A_video_scripts.legacy_generation import extract_json_from_llm
 
 
 class TestMetadataBuilder(unittest.TestCase):

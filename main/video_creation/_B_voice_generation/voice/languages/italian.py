@@ -1,0 +1,42 @@
+"""voice/languages/italian.py — High-energy melodic prosodic print & geminate clarity for Italian."""
+from ..common.models import AcousticGateEnvelope, LanguageVoiceProfile, SamplingProfile
+
+ITALIAN_VOICE_PROFILE = LanguageVoiceProfile(
+    language="italian",
+    display_name="Italian",
+    default_accent_weights={"it_standard": 1.0},
+    narrator_sampling=SamplingProfile(
+        temperature=0.79,
+        top_p=0.92,
+        top_k=50,
+        subtalker_temperature=0.76,
+        repetition_penalty=1.03,
+    ),
+    dialogue_sampling=SamplingProfile(
+        temperature=0.80,
+        top_p=0.91,
+        top_k=50,
+        subtalker_temperature=0.77,
+        repetition_penalty=1.04,
+    ),
+    question_temp_delta=0.04,
+    exclamation_temp_delta=0.04,
+    acoustic_gate=AcousticGateEnvelope(
+        min_pitch_variance=0.135,
+        min_cps=8.0,
+        max_cps=18.5,
+        target_cps=13.0,
+        min_question_f0_ratio=1.04,
+        min_exclamation_rms_ratio=1.60,
+    ),
+    enforce_inverted_punctuation=False,
+    instruct_prosody_hint=(
+        "Ritmo chiaro, posato e ben scandito per chi studia l'italiano, espressività solare e naturale con ampie escursioni melodiche, "
+        "picchi espressivi su domande ed esclamazioni, vocali aperte e doppie consonanti nitide (tt, nn, ll)."
+    ),
+    accent_instruct_hints={
+        "it_standard": (
+            "Accento italiano standard neutro, solare, brillante e ricco di vitalità naturale."
+        ),
+    },
+)

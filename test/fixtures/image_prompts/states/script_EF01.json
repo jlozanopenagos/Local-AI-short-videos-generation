@@ -1,0 +1,89 @@
+{
+  "assets": {
+    "general_prompt": "Medium chest-up shot inside a candlelit medieval scriptorium workshop. A curious 14-year-old apprentice scribe dressed in an embroidered woolen doublet examines an antique parchment scroll upon an inclined oak drafting desk, illuminated by flickering iron lantern glow and flanked by stone arches and leather-bound tomes. Warm amber, rich ochre, and slate tones. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive youthful teen character design (approx. 13-15 years old), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (youthful teen protagonist, thematic costume, NO generic clothes, NO childish clothes, NO toys, NO toddlers, NO middle-aged adults, NO elderly, NO wrinkles, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium chest-up shot inside a candlelit medieval scriptorium workshop. A curious 14-year-old apprentice scribe dressed in an embroidered woolen doublet examines an antique parchment scroll upon an inclined oak drafting desk, illuminated by flickering iron lantern glow and flanked by stone arches and leather-bound tomes. Warm amber, rich ochre, and slate tones. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive youthful teen character design (approx. 13-15 years old), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (youthful teen protagonist, thematic costume, NO generic clothes, NO childish clothes, NO toys, NO toddlers, NO middle-aged adults, NO elderly, NO wrinkles, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D, NO realism, NO photograph, NO text).",
+    "category": "Grammar",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "English",
+    "learning_objective": "To understand the history and evolution of English spelling and silent letters.",
+    "related_content": [
+      "Silent Letters",
+      "English History",
+      "Linguistics"
+    ],
+    "script": {
+      "discovery": "Centuries ago, English speakers actually pronounced both letters out loud. You would literally say kuh-night and kuh-nee.\nOver time, that combination felt awkward to say quickly, so speakers slowly dropped the hard K sound.\nThen the printing press arrived in England. Early printers locked the spelling in place just as the spoken sound was disappearing.\nSo knight kept its old spelling, while the way people actually spoke moved on.",
+      "hook": "Have you fought with English words keeping letters you do not pronounce?",
+      "payoff": "That means silent letters are not just random mistakes. They are linguistic fossils trapped in time.\nWhat silent letter drives you completely crazy?",
+      "setup": "Here is the wild truth. In words like knight and knee, that K was not always silent.",
+      "title": "I am the shortest sentence ever"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "english_female_kokoro_golden_narrator.wav"
+    },
+    "subcategory": "Sentence Structure",
+    "target_expression": "'I am' is the Shortest Complete Sentence in English",
+    "topic": "'I am' is the Shortest Complete Sentence in English",
+    "video_type": "FUN_FACTS"
+  },
+  "id": "EF01",
+  "metadata": {
+    "DESCRIPTION": "Have you ever fought with English words keeping letters you don't pronounce? Discover the wild truth about silent letters like in knight and knee. These aren't mistakes; they are linguistic fossils showing how English pronunciation has evolved over centuries. What silent letter drives you completely crazy? Learn more about how spelling and sound changed! #EnglishTips #SilentLetters #LearnEnglish #LanguageFacts",
+    "FILENAME": "english-silent-letters-wild-truth-spelling-evolution.mp4",
+    "HASHTAGS": "#English #LearnEnglish #SpellingTips #LanguageLearning #EnglishFacts",
+    "LABEL": "English | Spelling | Language Curiosity | Pronunciation",
+    "SHORT_DESCRIPTION": "The wild truth about silent letters in English spelling. Discover how pronunciation has changed over time. #EnglishGrammar #Vocabulary #LearnEnglish",
+    "TAGS": "English spelling, silent letters, learning English, English pronunciation, grammar facts, vocabulary tips, how to pronounce words, linguistic curiosity, english tips",
+    "TITLE": "I am the shortest sentence ever"
+  },
+  "prompt_params": {
+    "ANGLE": "What is the shortest grammatically complete sentence you can possibly say in the entire English language?",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Curiosity & Surprise",
+    "EXPRESSION": "'I am' is the Shortest Complete Sentence in English",
+    "FACT_DETAILS": "The two-word statement 'I am' contains a subject pronoun ('I') and a finite predicate verb ('am'), making it the shortest grammatically complete declarative sentence in the English language.",
+    "FORMAT": "ONE_BIG_CURIOSITY",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "What is the shortest grammatically complete sentence you can possibly say in the entire English language?",
+    "LANGUAGE": "english",
+    "LEXICAL_FIELD": "",
+    "PILLAR": "GRAMMAR_CURIOSITIES",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "EF01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Grammar",
+    "TARGET_EXPRESSION": "'I am' is the Shortest Complete Sentence in English",
+    "TOPIC": "'I am' is the Shortest Complete Sentence in English",
+    "TYPE": "fun_facts",
+    "angle": "What is the shortest grammatically complete sentence you can possibly say in the entire English language?",
+    "context": "",
+    "emotional_trigger": "Curiosity & Surprise",
+    "expression": "'I am' is the Shortest Complete Sentence in English",
+    "fact_details": "The two-word statement 'I am' contains a subject pronoun ('I') and a finite predicate verb ('am'), making it the shortest grammatically complete declarative sentence in the English language.",
+    "format": "ONE_BIG_CURIOSITY",
+    "game_archetype": "",
+    "hook_angle": "What is the shortest grammatically complete sentence you can possibly say in the entire English language?",
+    "language": "english",
+    "lexical_field": "",
+    "pillar": "GRAMMAR_CURIOSITIES",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "EF01",
+    "special_treatment": "",
+    "subject": "Grammar",
+    "target_expression": "'I am' is the Shortest Complete Sentence in English",
+    "topic": "'I am' is the Shortest Complete Sentence in English",
+    "type": "fun_facts"
+  },
+  "script_text": "{\n  \"title\": \"I am the shortest sentence ever\",\n  \"hook\": \"Have you fought with English words keeping letters you do not pronounce?\",\n  \"setup\": \"Here is the wild truth. In words like knight and knee, that K was not always silent.\",\n  \"discovery\": \"Centuries ago, English speakers actually pronounced both letters out loud. You would literally say kuh-night and kuh-nee.\\nOver time, that combination felt awkward to say quickly, so speakers slowly dropped the hard K sound.\\nThen the printing press arrived in England. Early printers locked the spelling in place just as the spoken sound was disappearing.\\nSo knight kept its old spelling, while the way people actually spoke moved on.\",\n  \"payoff\": \"That means silent letters are not just random mistakes. They are linguistic fossils trapped in time.\\nWhat silent letter drives you completely crazy?\"\n}"
+}

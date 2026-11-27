@@ -1,0 +1,97 @@
+{
+  "assets": {
+    "general_prompt": "Vibrant 2D cartoon narrative illustration in a stylized, clean modern aesthetic with rich cinematic lighting and bold outlines. The scene is set in a sunlit modern apartment living room and creative study, featuring a minimalist focus work desk, a cozy conversation lounge area, and lush indoor botanical plants in the background. Character 1 (Left): A tall slender 15-year-old high-school student girl with dark wavy hair tied in an elegant ponytail, wearing a chic, pastel-colored oversized knit sweater and tailored jeans. Character 2 (Right): A tall slender 15-year-old high-school student boy with short textured chestnut-brown hair and a clean-cut neckline, dressed in a stylish, complementary earth-toned graphic t-shirt and slim trousers. The central focus is a luxurious display vitrine showcasing high-end, exclusive sneakers, dramatically lit to highlight their expensive details. Graphic props include a stylized credit card prominently displayed near the shoes and a large, ornate price tag with exaggerated numbers. The atmosphere is bright and engaging, featuring large cartoon eyes with visible sclera and specular highlights, creating a deep, rich interior depth suitable for a roleplay conversation. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Vibrant 2D cartoon narrative illustration in a stylized, clean modern aesthetic with rich cinematic lighting and bold outlines. The scene is set in a sunlit modern apartment living room and creative study, featuring a minimalist focus work desk, a cozy conversation lounge area, and lush indoor botanical plants in the background. Character 1 (Left): A tall slender 15-year-old high-school student girl with dark wavy hair tied in an elegant ponytail, wearing a chic, pastel-colored oversized knit sweater and tailored jeans. Character 2 (Right): A tall slender 15-year-old high-school student boy with short textured chestnut-brown hair and a clean-cut neckline, dressed in a stylish, complementary earth-toned graphic t-shirt and slim trousers. The central focus is a luxurious display vitrine showcasing high-end, exclusive sneakers, dramatically lit to highlight their expensive details. Graphic props include a stylized credit card prominently displayed near the shoes and a large, ornate price tag with exaggerated numbers. The atmosphere is bright and engaging, featuring large cartoon eyes with visible sclera and specular highlights, creating a deep, rich interior depth suitable for a roleplay conversation. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention.",
+      "PERSON_ONE": "Impressed, slightly overwhelmed by the price, and later relieved and practical.",
+      "PERSON_TWO": "Playful, dramatic, and knowledgeable about common slang/expressions."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "Spanish",
+    "learning_objective": "Learn the common Spanish idiom 'costar un ojo de la cara' and its usage to describe something extremely expensive.",
+    "related_content": [
+      "Spanish Idioms",
+      "Shopping Vocabulary",
+      "Slang for Expensive Things"
+    ],
+    "script": {
+      "dialogue_part_1": "PERSON_ONE (Asombrado): Esta chaqueta de cuero es preciosa, pero vi la etiqueta y no puedo creer la cifra que piden por ella.\nPERSON_TWO (Divertido): Déjala inmediatamente en su perchero antes de romperla, porque esa prenda exclusiva cuesta un ojo de la cara.",
+      "dialogue_part_2": "PERSON_ONE (Confundido): ¿Cuesta un ojo de la cara? ¿Qué intentas decirme con esa frase?",
+      "dialogue_part_3": "PERSON_TWO (Explicativo): Es una expresión muy popular que usamos para indicar que algo resulta exageradamente costoso o tiene un precio desorbitado.",
+      "dialogue_part_4": "PERSON_ONE (Aliviado): Ahora comprendo la exageración perfectamente. Buscaré una opción mucho más accesible para cuidar mi presupuesto sin gastar una fortuna.",
+      "hook": "Estás en una tienda elegante y un precio te deja paralizado. Descubre cómo expresarlo de forma muy natural en español.",
+      "payoff": "Costar un ojo de la cara significa ser extremadamente caro. ¿Conocías esta expresión española tan típica? Escribe tu ejemplo en los comentarios.",
+      "title": "Zapatillas de 800 Euros"
+    },
+    "speakers_gender": {
+      "Narrator": "male",
+      "PERSON_ONE": "female",
+      "PERSON_TWO": "male"
+    },
+    "speakers_voice": {
+      "Narrator": "spanish_male_kokoro_golden_baritone.wav",
+      "PERSON_ONE": "spanish_female_kokoro_golden_char1.wav",
+      "PERSON_TWO": "spanish_male_kokoro_golden_char2.wav"
+    },
+    "subcategory": "Idioms and Slang",
+    "target_expression": "Costar un ojo de la cara",
+    "topic": "Costar un ojo de la cara",
+    "video_type": "ROLEPLAY"
+  },
+  "id": "SR01",
+  "metadata": {
+    "DESCRIPTION": "¿Sabías que existe una expresión para cuando algo es súper caro? En este video descubres cómo usar 'costar un ojo de la cara' de forma natural en español. Te explicamos este modismo y por qué es tan útil para tus compras. ¿Cuál es tu expresión favorita? ¡Comenta abajo! #AprendeEspañol #Modismos",
+    "FILENAME": "spanish-compras-costar-un-ojo-de-la-cara.mp4",
+    "HASHTAGS": "#AprendeEspañol #Modismos #ComprarEnEspañol #Vocabulario #ExpresionesEspañolas",
+    "LABEL": "Spanish | shopping | expressing high cost | pragmatics",
+    "SHORT_DESCRIPTION": "La expresión perfecta para cuando un precio es desorbitado. Aprende a usar 'costar un ojo de la cara' y domina el vocabulario de compras. #Español #Modismos #AprenderEspañol",
+    "TAGS": "español, modismos, aprender español, comprar, vocabulario español, expresiones, cómo hablar español, dinero, expresiones comunes, ropa, idiom español",
+    "TITLE": "Zapatillas de 800 Euros"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Sorpresa & Curiosidad",
+    "EXPRESSION": "Costar un ojo de la cara",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "spanish",
+    "LEXICAL_FIELD": "Compras y dinero",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "En una tienda de zapatillas exclusivas: dos amigos miran una vitrina con zapatillas de 800 euros. Uno saca la tarjeta y el otro le agarra el brazo con cara de pánico: '¡Pero tío, déjalas ahí, que te van a costar un ojo de la cara!'",
+    "SCENARIO": "En una tienda de zapatillas exclusivas: dos amigos miran una vitrina con zapatillas de 800 euros. Uno saca la tarjeta y el otro le agarra el brazo con cara de pánico: '¡Pero tío, déjalas ahí, que te van a costar un ojo de la cara!'",
+    "SCRIPT_ID": "SR01",
+    "SPECIAL_TREATMENT": "idiomatic",
+    "SUBJECT": "Modismos populares en español",
+    "TARGET_EXPRESSION": "Costar un ojo de la cara",
+    "TOPIC": "Costar un ojo de la cara",
+    "TYPE": "roleplay",
+    "angle": "",
+    "context": "",
+    "emotional_trigger": "Sorpresa & Curiosidad",
+    "expression": "Costar un ojo de la cara",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "",
+    "language": "spanish",
+    "lexical_field": "Compras y dinero",
+    "pillar": "",
+    "roleplay_scenario": "En una tienda de zapatillas exclusivas: dos amigos miran una vitrina con zapatillas de 800 euros. Uno saca la tarjeta y el otro le agarra el brazo con cara de pánico: '¡Pero tío, déjalas ahí, que te van a costar un ojo de la cara!'",
+    "scenario": "En una tienda de zapatillas exclusivas: dos amigos miran una vitrina con zapatillas de 800 euros. Uno saca la tarjeta y el otro le agarra el brazo con cara de pánico: '¡Pero tío, déjalas ahí, que te van a costar un ojo de la cara!'",
+    "script_id": "SR01",
+    "special_treatment": "idiomatic",
+    "subject": "Modismos populares en español",
+    "target_expression": "Costar un ojo de la cara",
+    "topic": "Costar un ojo de la cara",
+    "type": "roleplay"
+  },
+  "script_text": "{\n  \"title\": \"Zapatillas de 800 Euros\",\n  \"hook\": \"Estás en una tienda elegante y un precio te deja paralizado. Descubre cómo expresarlo de forma muy natural en español.\",\n  \"dialogue_part_1\": \"PERSON_ONE (Asombrado): Esta chaqueta de cuero es preciosa, pero vi la etiqueta y no puedo creer la cifra que piden por ella.\\nPERSON_TWO (Divertido): Déjala inmediatamente en su perchero antes de romperla, porque esa prenda exclusiva cuesta un ojo de la cara.\",\n  \"dialogue_part_2\": \"PERSON_ONE (Confundido): ¿Cuesta un ojo de la cara? ¿Qué intentas decirme con esa frase?\",\n  \"dialogue_part_3\": \"PERSON_TWO (Explicativo): Es una expresión muy popular que usamos para indicar que algo resulta exageradamente costoso o tiene un precio desorbitado.\",\n  \"dialogue_part_4\": \"PERSON_ONE (Aliviado): Ahora comprendo la exageración perfectamente. Buscaré una opción mucho más accesible para cuidar mi presupuesto sin gastar una fortuna.\",\n  \"payoff\": \"Costar un ojo de la cara significa ser extremadamente caro. ¿Conocías esta expresión española tan típica? Escribe tu ejemplo en los comentarios.\"\n}"
+}

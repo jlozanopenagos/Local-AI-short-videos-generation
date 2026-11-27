@@ -1,5 +1,5 @@
 """
-webui/routers/scripts.py — Query, filter, paginate, and inspect scripts and pipeline states.
+webui/routers/scripts.py â€” Query, filter, paginate, and inspect scripts and pipeline states.
 Supports all 1,200+ scripts across Expression, Roleplay, Game, and Fun Facts formats.
 """
 
@@ -9,11 +9,13 @@ import json
 import math
 import sys
 import time
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 # pyrefly: ignore[missing-import]
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Request, Query
 # pyrefly: ignore[missing-import]
 from pydantic import BaseModel
 
@@ -22,18 +24,28 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from core.state_manager import StateManager
-from core.expression_db import is_expression_done
+from core.expression_db import is_expression_done, get_all_done_expression_ids
+from core.llama_manager import ensure_llama_stopped
+from config import resolve_static_scene_path
 
 router = APIRouter(prefix="/api/scripts", tags=["Scripts"])
 
-# In-memory index cache for instant catalog filtering across 1,200+ scripts
-_SCRIPT_CACHE: List[Dict[str, Any]] = []
-_CACHE_TIMESTAMP: float = 0.0
-CACHE_TTL_SECONDS: float = 20.0
+@dataclass
+class ScriptCatalog:
+    base_dir: Path
+    entries: list[dict[str, Any]] = field(default_factory=list)
+    timestamp: float = 0.0
+
+    def invalidate(self) -> None:
+        self.timestamp = 0.0
+
+
+_catalog = ContextVar("script_catalog", default=ScriptCatalog(BASE_DIR))
+CACHE_TTL_SECONDS = 600.0
 
 
 def _get_state_manager() -> StateManager:
-    return StateManager(BASE_DIR)
+    return StateManager(_catalog.get().base_dir)
 
 
 def _normalize_stage(status_val: Any) -> str:
@@ -46,21 +58,21 @@ def _normalize_stage(status_val: Any) -> str:
 
 
 def _normalize_language(raw_lang: Any) -> str:
-    """Normalizes multilingual labels (e.g. Español, Français, ENGLISH) to canonical keys."""
+    """Normalizes multilingual labels (e.g. EspaÃ±ol, FranÃ§ais, ENGLISH) to canonical keys."""
     if not raw_lang:
         return "english"
     clean = str(raw_lang).split("|")[0].strip().lower()
-    if clean in ("español", "espanol", "spanish", "sp", "es"):
+    if clean in ("espaÃ±ol", "espanol", "spanish", "sp", "es"):
         return "spanish"
-    elif clean in ("français", "francais", "french", "fr"):
+    elif clean in ("franÃ§ais", "francais", "french", "fr"):
         return "french"
-    elif clean in ("english", "ingles", "inglés", "en"):
+    elif clean in ("english", "ingles", "inglÃ©s", "en"):
         return "english"
     elif clean in ("italian", "italiano", "it"):
         return "italian"
     elif clean in ("german", "deutsch", "de"):
         return "german"
-    elif clean in ("portuguese", "português", "portugues", "pt"):
+    elif clean in ("portuguese", "portuguÃªs", "portugues", "pt"):
         return "portuguese"
     return clean
 
@@ -92,16 +104,28 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
         keys_lower = [k.lower() for k in keys]
 
         if any("dialogue_part" in k for k in keys_lower):
-            # Roleplay script
+            # Roleplay script (6 scenes)
             ordered_keys = ["hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"]
+        elif any(k in keys_lower for k in ["challenge", "pressure", "answer"]):
+            # Game script (5 scenes: hook, challenge, pressure, answer, explanation)
+            ordered_keys = ["hook", "challenge", "pressure", "answer", "explanation"]
         elif any(k in keys_lower for k in ["setup", "discovery", "example"]):
-            # Expression script
+            # Expression script (5 scenes)
             ordered_keys = ["hook", "setup", "discovery", "example", "payoff"]
+        elif any(k in keys_lower for k in ["setup", "discovery", "explanation"]):
+            # Fun Facts script (5 scenes)
+            ordered_keys = ["hook", "setup", "discovery", "explanation", "payoff"]
         elif any(k in keys_lower for k in ["question", "countdown", "reveal"]):
-            # Game script
+            # Legacy Game script
             ordered_keys = ["hook", "question", "options", "countdown", "reveal", "payoff"]
         else:
-            ordered_keys = [k for k in keys if k.lower() != "title"]
+            ordered_keys = [
+                k for k in keys
+                if k.lower() not in (
+                    "title", "game_archetype", "category", "subcategory",
+                    "topic", "learning_objective", "chalkboard_exercise"
+                )
+            ]
 
         for idx, key in enumerate(ordered_keys, start=1):
             # Find matching key in script_obj case-insensitively
@@ -117,22 +141,32 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
             voice_line = str(script_obj[matched_key]).strip()
             prompt = prompts_lower.get(key.lower(), "")
 
-            # Match image file by naming convention or index
+            # Match image file by naming convention
             img_file = None
             for fpath in img_list:
                 fname = Path(fpath).name.lower()
                 if key.lower() in fname:
                     img_file = fpath
                     break
+
+            # Centralized static scene asset resolution (e.g. GAME: pressure uses central Tito waiting image)
+            is_static_scene = False
+            if not img_file:
+                static_cand = resolve_static_scene_path(section_name=key, script_data=state_data)
+                if static_cand and static_cand.exists():
+                    img_file = str(static_cand)
+                    is_static_scene = True
+
             if not img_file and idx - 1 < len(img_list):
                 img_file = img_list[idx - 1]
 
             scenes.append({
                 "scene_type": key,
-                "label": key.replace("_", " ").title(),
+                "label": key.replace("_", " ").capitalize(),
                 "voice_line": voice_line,
                 "image_file": img_file,
                 "prompt": prompt,
+                "is_static": is_static_scene,
             })
 
         if scenes:
@@ -157,7 +191,7 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
 
             scenes.append({
                 "scene_type": sc_type,
-                "label": sc_type.replace("_", " ").title(),
+                "label": sc_type.replace("_", " ").capitalize(),
                 "voice_line": line,
                 "image_file": img_file,
                 "prompt": prompt,
@@ -178,7 +212,11 @@ def _extract_scenes_from_state(state_data: Dict[str, Any], img_list: List[str]) 
     return scenes
 
 
-def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _build_script_summary(
+    s: Dict[str, Any],
+    done_ids_set: Optional[set] = None,
+    force_disk_images: bool = False,
+) -> Optional[Dict[str, Any]]:
     s_id = s.get("id")
     if not s_id:
         return None
@@ -214,7 +252,12 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # Extract stages
     has_audio = bool(assets.get("audio_path") or assets.get("narration_audio"))
     has_images = bool(assets.get("image_dir"))
-    has_thumb = bool(assets.get("thumbnail_path"))
+    thumb_variants = (
+        dict(assets["thumbnail_variants"])
+        if isinstance(assets.get("thumbnail_variants"), dict)
+        else {}
+    )
+    has_thumb = bool(assets.get("thumbnail_path") or thumb_variants)
     has_video = bool(assets.get("video_path") or assets.get("final_video") or assets.get("final_video_path"))
 
     stages = {
@@ -223,6 +266,7 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "images": _normalize_stage(status.get("image_generation", "done" if has_images else "missing")),
         "thumbnails": _normalize_stage(status.get("thumbnail_generation", "done" if has_thumb else "missing")),
         "assembly": _normalize_stage(status.get("video_assembly", "done" if has_video else "missing")),
+        "drive": _normalize_stage(status.get("drive_upload", "missing")),
     }
 
     speakers_gender = meta.get("speakers_gender") or {}
@@ -232,16 +276,29 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     elif meta.get("gender"):
         gender = str(meta.get("gender"))
 
-    # Resolve image files if present
-    img_list = []
+    # Resolve image files: prefer cached list in state unless force_disk_images is requested
+    img_list: List[str] = []
+    cached_imgs = assets.get("images")
     image_dir_str = assets.get("image_dir")
-    if image_dir_str:
+    if not force_disk_images and isinstance(cached_imgs, list) and cached_imgs:
+        img_list = [str(f) for f in cached_imgs]
+    elif image_dir_str:
         p = Path(image_dir_str)
         if p.exists() and p.is_dir():
             img_list = [str(f) for f in sorted(p.glob("*.png"))]
 
-    # Poster image: prefer thumbnail, fallback to first scene image
-    poster = assets.get("thumbnail_path") or (img_list[0] if img_list else None)
+    # Poster image: prefer thumbnail, fallback to variant or first scene image
+    poster = (
+        assets.get("thumbnail_path")
+        or next(iter(thumb_variants.values()), None)
+        or (img_list[0] if img_list else None)
+    )
+
+    is_done_flag = (
+        (str(s_id).strip().upper() in done_ids_set)
+        if done_ids_set is not None
+        else (_catalog.get().base_dir == BASE_DIR and is_expression_done(s_id))
+    )
 
     return {
         "id": s_id,
@@ -262,7 +319,8 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "assets": {
             "audio": assets.get("audio_path") or assets.get("narration_audio"),
             "images": img_list,
-            "thumbnail": assets.get("thumbnail_path"),
+            "thumbnail": assets.get("thumbnail_path") or next(iter(thumb_variants.values()), None),
+            "thumbnail_variants": thumb_variants,
             "video": assets.get("video_path") or assets.get("final_video") or assets.get("final_video_path"),
             "poster": poster,
         },
@@ -270,31 +328,55 @@ def _build_script_summary(s: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "has_images": stages["images"] == "done",
         "has_video": stages["assembly"] == "done",
         "has_thumbnail": stages["thumbnails"] == "done",
+        "has_drive": stages["drive"] == "done",
+        "drive_folder_url": assets.get("drive_folder_url"),
         "is_ready_for_assembly": stages["voice"] == "done" and stages["images"] == "done" and stages["assembly"] != "done",
-        "is_db_done": is_expression_done(s_id),
+        "is_db_done": is_done_flag,
     }
 
 
-def _get_indexed_scripts(force_refresh: bool = False) -> List[Dict[str, Any]]:
-    global _SCRIPT_CACHE, _CACHE_TIMESTAMP
-    now = time.time()
-    sm = _get_state_manager()
-    is_mock = hasattr(sm.get_all_scripts, "assert_called") or hasattr(sm.get_all_scripts, "return_value")
-    if not is_mock and not force_refresh and _SCRIPT_CACHE and (now - _CACHE_TIMESTAMP < CACHE_TTL_SECONDS):
-        return _SCRIPT_CACHE
+def _update_cached_script(canonical_id: str, state_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Updates a script summary without scanning the workspace again."""
+    catalog = _catalog.get()
+    summary = _build_script_summary(state_data, force_disk_images=True)
+    if not summary:
+        return None
+    if catalog.entries:
+        cid_upper = canonical_id.strip().upper()
+        replaced = False
+        for idx, item in enumerate(catalog.entries):
+            if str(item.get("script_id", "")).upper() == cid_upper:
+                catalog.entries[idx] = summary
+                replaced = True
+                break
+        if not replaced:
+            catalog.entries.append(summary)
+            catalog.entries.sort(key=lambda x: x["script_id"])
+    return summary
 
-    raw_scripts = sm.get_all_scripts()
+
+def _get_indexed_scripts(force_refresh: bool = False) -> List[Dict[str, Any]]:
+    catalog = _catalog.get()
+    now = time.monotonic()
+    if not force_refresh and catalog.timestamp and now - catalog.timestamp < CACHE_TTL_SECONDS:
+        return catalog.entries
+
+    raw_scripts = _get_state_manager().get_all_scripts()
+    try:
+        done_ids_set = get_all_done_expression_ids() if catalog.base_dir == BASE_DIR else set()
+    except Exception:
+        done_ids_set = None
+
     indexed = []
     for raw in raw_scripts:
-        summary = _build_script_summary(raw)
+        summary = _build_script_summary(raw, done_ids_set=done_ids_set)
         if summary:
             indexed.append(summary)
 
     # Sort naturally by script ID (e.g. EE01, EE02, FR01, SE01)
     indexed.sort(key=lambda x: x["script_id"])
-    if not is_mock:
-        _SCRIPT_CACHE = indexed
-        _CACHE_TIMESTAMP = now
+    catalog.entries = indexed
+    catalog.timestamp = now
     return indexed
 
 
@@ -367,7 +449,7 @@ def list_scripts(
     all_scripts = _get_indexed_scripts()
     filtered = all_scripts
 
-    # Search filter
+    # Search filter with ID-priority ranking (exact ID -> prefix ID -> substring ID -> topic/title)
     if search and isinstance(search, str) and search.strip():
         s_term = search.lower().strip()
         filtered = [
@@ -378,6 +460,18 @@ def list_scripts(
             or s_term in s.get("lexical_field", "").lower()
             or s_term in s.get("scenario", "").lower()
         ]
+
+        def _search_rank(item: Dict[str, Any]):
+            sid_low = item["script_id"].lower()
+            if sid_low == s_term:
+                return (0, sid_low)
+            if sid_low.startswith(s_term):
+                return (1, sid_low)
+            if s_term in sid_low:
+                return (2, sid_low)
+            return (3, sid_low)
+
+        filtered.sort(key=_search_rank)
 
     # Language filter
     if language and isinstance(language, str) and language.lower() != "all":
@@ -435,9 +529,12 @@ class ScriptUpdateRequest(BaseModel):
     script_dict: Optional[Dict[str, Any]] = None
     chalkboard_exercise: Optional[str] = None
     chalkboard_title: Optional[str] = None
+    thumbnail_title: Optional[str] = None
     target_expression: Optional[str] = None
     general_prompt: Optional[str] = None
+    character_anchors: Optional[Dict[str, Any]] = None
     image_prompts: Optional[Dict[str, str]] = None
+    game_archetype: Optional[str] = None
 
 
 @router.get("/{script_id}")
@@ -449,7 +546,7 @@ def get_script(script_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found in state store.")
 
     state_data = sm.get_script_state(canonical_id)
-    summary = _build_script_summary(state_data) or {}
+    summary = _build_script_summary(state_data, force_disk_images=True) or {}
 
     meta = state_data.get("content_metadata") or {}
     p_params = state_data.get("prompt_params") or {}
@@ -478,6 +575,21 @@ def get_script(script_id: str) -> Dict[str, Any]:
     img_list = summary.get("assets", {}).get("images", [])
     scenes = _extract_scenes_from_state(state_data, img_list)
 
+    # Detect game archetype if applicable
+    game_archetype = ""
+    is_game = (
+        (meta.get("video_type") or p_params.get("VIDEO_TYPE") or "").upper() == "GAME"
+        or (len(canonical_id) >= 2 and canonical_id[1].upper() == "G")
+    )
+    if is_game:
+        from video_creation._A_video_scripts.types.game.archetypes import detect_game_archetype
+        game_archetype = (
+            meta.get("game_archetype")
+            or p_params.get("game_archetype")
+            or p_params.get("GAME_ARCHETYPE")
+            or detect_game_archetype({**p_params, **meta, "SCRIPT_ID": canonical_id})
+        )
+
     # YouTube publishing metadata
     youtube_metadata = {
         "title": raw_meta.get("TITLE") or summary.get("title", ""),
@@ -489,20 +601,28 @@ def get_script(script_id: str) -> Dict[str, Any]:
         "label": raw_meta.get("LABEL") or "",
     }
 
+    from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import extract_thumbnail_title
+    thumbnail_title = extract_thumbnail_title(state_data)
+
     return {
         **state_data,
         **summary,
         "script_dict": script_obj if isinstance(script_obj, dict) else {},
         "chalkboard_exercise": chalkboard_exercise,
         "chalkboard_title": chalkboard_title,
+        "thumbnail_title": thumbnail_title,
         "target_expression": target_expression,
+        "game_archetype": game_archetype,
         "story_scenario": p_params.get("ROLEPLAY_SCENARIO") or meta.get("story_scenario") or "",
         "base_setting": meta.get("base_setting") or meta.get("setting") or "",
         "lexical_field": p_params.get("LEXICAL_FIELD") or meta.get("lexical_field") or "",
         "learning_objective": meta.get("learning_objective") or "",
         "general_prompt": assets.get("general_prompt") or "",
+        "character_anchors": assets.get("character_anchors") or {},
         "speakers_voice": meta.get("speakers_voice") or {},
+        "speakers_elevenlabs_voice": meta.get("speakers_elevenlabs_voice") or {},
         "speakers_gender": meta.get("speakers_gender") or {},
+        "voice_profile_meta": meta.get("voice_profile_meta") or {},
         "character_personalities": meta.get("character_personalities") or {},
         "scenes": scenes,
         "youtube_metadata": youtube_metadata,
@@ -562,6 +682,18 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
         state_data["content_metadata"]["target_expression"] = payload.target_expression
         state_data["prompt_params"]["EXPRESSION"] = payload.target_expression
 
+    if payload.thumbnail_title is not None:
+        cleaned_thumb_title = payload.thumbnail_title.strip()
+        if cleaned_thumb_title:
+            state_data["content_metadata"]["thumbnail_title"] = cleaned_thumb_title
+        else:
+            state_data["content_metadata"].pop("thumbnail_title", None)
+
+    if payload.game_archetype is not None:
+        state_data["content_metadata"]["game_archetype"] = payload.game_archetype
+        state_data["prompt_params"]["game_archetype"] = payload.game_archetype
+        state_data["prompt_params"]["GAME_ARCHETYPE"] = payload.game_archetype
+
     if "assets" not in state_data or not isinstance(state_data["assets"], dict):
         state_data["assets"] = {}
     if "status" not in state_data or not isinstance(state_data["status"], dict):
@@ -571,7 +703,7 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     # If a new version of general prompt is saved:
     # - property 'image_generation' changes to 'pending'
     # - LLM must re-do all specific scene prompts, so existing image_prompts are invalidated
-    # - existing scene images are cleaned up so ComfyUI will re-generate them
+    # - existing scene images are preserved on disk (non-destructive editing)
     general_prompt_changed = False
     if payload.general_prompt is not None:
         curr_gp = str(state_data["assets"].get("general_prompt") or "").strip()
@@ -582,30 +714,29 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
             state_data["content_metadata"]["anchor_environment"] = new_gp
             state_data["status"]["image_generation"] = "pending"
             state_data["assets"]["image_prompts"] = {}
+            if payload.character_anchors is None:
+                state_data["assets"].pop("character_anchors", None)
+                if isinstance(state_data.get("content_metadata"), dict):
+                    state_data["content_metadata"].pop("character_anchors", None)
 
-            # Clean up obsolete scene images from disk
-            image_dir_str = state_data["assets"].get("image_dir")
-            if image_dir_str:
-                p = Path(image_dir_str)
-                if p.exists() and p.is_dir():
-                    for old_img in p.glob(f"script_{canonical_id}_*.png"):
-                        try:
-                            old_img.unlink()
-                        except Exception:
-                            pass
+    if payload.character_anchors is not None:
+        state_data["assets"]["character_anchors"] = payload.character_anchors
+        if isinstance(state_data.get("content_metadata"), dict):
+            state_data["content_metadata"]["character_anchors"] = payload.character_anchors
 
     # 5. Update specific scene prompts (only if general prompt did not just invalidate them)
     if payload.image_prompts is not None and not general_prompt_changed:
         if "image_prompts" not in state_data["assets"] or not isinstance(state_data["assets"]["image_prompts"], dict):
             state_data["assets"]["image_prompts"] = {}
         for sec_k, sec_prompt in payload.image_prompts.items():
-            state_data["assets"]["image_prompts"][sec_k] = sec_prompt
+            sec_clean = str(sec_k).strip().lower()
+            state_data["assets"]["image_prompts"][sec_clean] = str(sec_prompt).strip()
 
     # Save to disk
     sm.save_script_state(canonical_id, state_data)
 
-    # Invalidate in-memory cache so catalog updates immediately
-    _get_indexed_scripts(force_refresh=True)
+    # Update single item in in-memory cache immediately (O(1))
+    _update_cached_script(canonical_id, state_data)
 
     return get_script(canonical_id)
 
@@ -677,10 +808,8 @@ def toggle_script_stage(script_id: str, payload: StageToggleRequest) -> Dict[str
     # Save to disk
     sm.save_script_state(canonical_id, state_data)
 
-    # Invalidate cache so queries reflect the change immediately
-    _get_indexed_scripts(force_refresh=True)
-
-    summary = _build_script_summary(state_data)
+    # Update single item in in-memory cache immediately (O(1))
+    summary = _update_cached_script(canonical_id, state_data)
     return {
         "script_id": canonical_id,
         "stage": payload.stage,
@@ -688,6 +817,38 @@ def toggle_script_stage(script_id: str, payload: StageToggleRequest) -> Dict[str
         "new_status": target_val,
         "summary": summary,
     }
+
+
+class ScriptGenerateRequest(BaseModel):
+    force: bool = True
+    options: Optional[Dict[str, Any]] = None
+
+
+@router.post("/{script_id}/generate")
+def generate_script_endpoint(script_id: str, request: Request, payload: Optional[ScriptGenerateRequest] = None) -> Dict[str, Any]:
+    """Triggers Stage A script generation for a specific script directly via the WebUI job runner."""
+    from webui.jobs.models import JobCreateRequest, JobStage
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    jm = request.app.state.job_manager
+    opts = payload.options if payload and payload.options else {}
+    if payload and payload.force:
+        opts["force"] = True
+    else:
+        opts.setdefault("force", True)
+
+    job = jm.enqueue_job(
+        JobCreateRequest(
+            stage=JobStage.SCRIPTS,
+            script_ids=[canonical_id],
+            options=opts,
+        )
+    )
+    return {"status": "enqueued", "job_id": job.job_id, "script_id": canonical_id}
 
 
 class GeminiAuditRequest(BaseModel):
@@ -731,29 +892,162 @@ def gemini_audit_prompt(script_id: str, payload: Optional[GeminiAuditRequest] = 
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gemini Auditor error: {exc}")
 
-    # Update general prompt and anchor_environment
-    state_data["assets"]["general_prompt"] = audited_prompt
-    state_data["content_metadata"]["anchor_environment"] = audited_prompt
+    # Return the generated prompt as a draft for the user to review.
+    # Non-destructive: DO NOT overwrite state on disk and DO NOT delete existing images.
+    return {
+        "status": "success",
+        "audited_prompt": audited_prompt,
+        "character_anchors": state_data.get("assets", {}).get("character_anchors") or {},
+        "anchor_world_id": state_data.get("assets", {}).get("anchor_world_id", ""),
+        "anchor_world_title": state_data.get("assets", {}).get("anchor_world_title", ""),
+        "script_id": canonical_id,
+    }
 
-    # Mark image generation as pending and clear stale prompts & images
-    state_data["status"]["image_generation"] = "pending"
-    state_data["assets"]["image_prompts"] = {}
 
-    image_dir_str = state_data["assets"].get("image_dir")
-    if image_dir_str:
-        p = Path(image_dir_str)
-        if p.exists() and p.is_dir():
-            for old_img in p.glob(f"script_{canonical_id}_*.png"):
-                try:
-                    old_img.unlink()
-                except Exception:
-                    pass
+class RenderChalkboardRequest(BaseModel):
+    chalkboard_exercise: Optional[str] = None
 
-    # Save to state store
+
+@router.post("/{script_id}/render-chalkboard")
+def render_chalkboard_endpoint(script_id: str, payload: Optional[RenderChalkboardRequest] = None) -> Dict[str, Any]:
+    """
+    Renders high-resolution chalk typography directly onto empty_chalkboard.png for GAME scripts.
+    Saves script_{script_id}_challenge.png to the script's images directory and updates script state.
+    """
+    from config.settings import (
+        GAME_IMAGES_DIR,
+        IMAGE_DEFAULT_WIDTH,
+        IMAGE_DEFAULT_HEIGHT,
+        get_script_output_dir,
+    )
+    from core.state_manager import resolve_lang_and_type
+    from video_creation._C_image_generation.core.chalkboard_renderer import render_chalkboard_image
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    lang, video_type = resolve_lang_and_type(canonical_id)
+
+    if video_type != "game":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Script '{canonical_id}' is not a GAME video (video_type={video_type}). Chalkboard rendering only applies to G-series game scripts."
+        )
+
+    content_meta = state_data.setdefault("content_metadata", {})
+    if payload and payload.chalkboard_exercise is not None:
+        content_meta["chalkboard_exercise"] = payload.chalkboard_exercise
+        script_dict = content_meta.get("script")
+        if isinstance(script_dict, dict) and "challenge" in script_dict:
+            script_dict["challenge"] = payload.chalkboard_exercise
+
+    exercise_text = (
+        content_meta.get("chalkboard_exercise")
+        or (content_meta.get("script", {}).get("challenge") if isinstance(content_meta.get("script"), dict) else None)
+        or state_data.get("metadata", {}).get("chalkboard_exercise")
+    )
+    if not exercise_text or not str(exercise_text).strip():
+        raise HTTPException(
+            status_code=400,
+            detail=f"No chalkboard exercise text found for '{canonical_id}'. Please set chalkboard exercise text first."
+        )
+
+    empty_chalkboard_path = GAME_IMAGES_DIR / "empty_chalkboard.png"
+    if not empty_chalkboard_path.exists():
+        raise HTTPException(status_code=500, detail=f"Chalkboard template not found: {empty_chalkboard_path}")
+
+    # Determine script images directory
+    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=_catalog.get().base_dir) / "images"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = out_dir / f"script_{canonical_id}_challenge.png"
+
+    try:
+        render_chalkboard_image(
+            empty_chalkboard_path=empty_chalkboard_path,
+            exercise_text=str(exercise_text).strip(),
+            dest_path=dest_path,
+            target_size=(IMAGE_DEFAULT_WIDTH, IMAGE_DEFAULT_HEIGHT),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to render chalkboard image: {exc}")
+
+    # Update state assets
+    assets = state_data.setdefault("assets", {})
+    assets["image_dir"] = str(out_dir)
+    images_list = assets.get("images")
+    if not isinstance(images_list, list):
+        images_list = []
+    if str(dest_path) not in images_list:
+        images_list.append(str(dest_path))
+    assets["images"] = images_list
+
+    # Save state and update catalog cache in-place
     sm.save_script_state(canonical_id, state_data)
-    _get_indexed_scripts(force_refresh=True)
+    _update_cached_script(canonical_id, state_data)
 
-    return get_script(canonical_id)
+    return {
+        "status": "success",
+        "message": f"Chalkboard image rendered successfully for {canonical_id}",
+        "image_file": str(dest_path),
+        "script": get_script(canonical_id),
+    }
+
+
+class RenderThumbnailRequest(BaseModel):
+    thumbnail_title: Optional[str] = None
+
+
+@router.post("/{script_id}/render-thumbnail")
+def render_thumbnail_endpoint(
+    script_id: str,
+    payload: Optional[RenderThumbnailRequest] = None,
+) -> Dict[str, Any]:
+    """Updates thumbnail text content (if provided) and immediately re-renders the thumbnail image(s)."""
+    from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import extract_thumbnail_title
+    from video_creation._F_thumbnail_image_generation.service import generate_thumbnail_for_script
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    content_meta = state_data.setdefault("content_metadata", {})
+
+    if payload and payload.thumbnail_title is not None:
+        cleaned = payload.thumbnail_title.strip()
+        if cleaned:
+            content_meta["thumbnail_title"] = cleaned
+        else:
+            content_meta.pop("thumbnail_title", None)
+
+    try:
+        ok = generate_thumbnail_for_script(
+            state_data,
+            state_mgr=sm,
+            base_dir=_catalog.get().base_dir,
+        )
+    except FileNotFoundError as fnf:
+        raise HTTPException(status_code=400, detail=str(fnf))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to render thumbnail: {exc}")
+
+    if not ok:
+        raise HTTPException(status_code=500, detail=f"Thumbnail renderer returned false for {canonical_id}.")
+
+    _update_cached_script(canonical_id, state_data)
+    assets = state_data.get("assets") or {}
+    return {
+        "status": "success",
+        "message": f"Thumbnail rendered successfully for {canonical_id}",
+        "thumbnail_title": extract_thumbnail_title(state_data),
+        "thumbnail_path": assets.get("thumbnail_path"),
+        "thumbnail_variants": assets.get("thumbnail_variants") or {},
+        "script": get_script(canonical_id),
+    }
 
 
 class ValidateIdsRequest(BaseModel):
@@ -797,17 +1091,30 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
                 or "Unknown"
             )
 
+            # Check actual physical asset files for Google Drive upload readiness
+            from connectivity.drive_sync.sync_service import resolve_script_assets
+            video_path, thumb_path = resolve_script_assets(state, base_dir=_catalog.get().base_dir)
+            has_vid = bool(video_path and video_path.exists())
+            has_thumb = bool(thumb_path and thumb_path.exists())
+            can_upload = has_vid and has_thumb
+
             results.append({
                 "id": sid,
                 "exists": True,
                 "language": _normalize_language(lang),
                 "type": str(vtype).lower(),
                 "stages": {
+                    "scripts": "done" if state.get("script_text") or content_meta.get("script") else "missing",
                     "voice": _normalize_stage(status.get("voice_generation")),
                     "images": _normalize_stage(status.get("image_generation")),
                     "thumbnails": _normalize_stage(status.get("thumbnail_generation")),
                     "assembly": _normalize_stage(status.get("video_assembly")),
+                    "drive": _normalize_stage(status.get("drive_upload")),
                 },
+                "has_video": has_vid,
+                "has_thumbnail": has_thumb,
+                "can_upload_drive": can_upload,
+                "drive_uploaded": status.get("drive_upload") == "done",
             })
             valid_count += 1
         else:
@@ -817,6 +1124,10 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
                 "language": None,
                 "type": None,
                 "stages": {},
+                "has_video": False,
+                "has_thumbnail": False,
+                "can_upload_drive": False,
+                "drive_uploaded": False,
             })
             invalid_count += 1
 
@@ -825,6 +1136,247 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
         "valid_count": valid_count,
         "invalid_count": invalid_count,
         "total": len(results),
+    }
+
+
+class EstimateVoiceCreditsRequest(BaseModel):
+    script_ids: List[str]
+    voice_provider: str = "auto"
+    elevenlabs_model: str = "eleven_v3"
+
+
+@router.post("/estimate-voice-credits")
+def estimate_voice_credits_endpoint(payload: EstimateVoiceCreditsRequest) -> Dict[str, Any]:
+    """Estimates ElevenLabs credits and per-script provider routing before launching Stage B."""
+    from config import resolve_script_video_type
+    from video_creation._B_voice_generation.elevenlabs.tags import (
+        estimate_script_credits,
+        normalize_elevenlabs_model,
+        resolve_voice_provider,
+    )
+
+    sm = _get_state_manager()
+    model_id = normalize_elevenlabs_model(payload.elevenlabs_model)
+    items: List[Dict[str, Any]] = []
+    total_credits = 0
+    elevenlabs_count = 0
+    local_count = 0
+
+    for raw in payload.script_ids:
+        sid = raw.strip().upper().replace("SCRIPT_", "").replace(".JSON", "")
+        if not sid or not sm.script_exists(sid):
+            continue
+        state = sm.get_script_state(sid)
+        vtype = resolve_script_video_type(state)
+        provider = resolve_voice_provider(vtype, requested_provider=payload.voice_provider)
+        est = estimate_script_credits(state, model_id=model_id) if provider == "elevenlabs" else 0
+        if provider == "elevenlabs":
+            elevenlabs_count += 1
+            total_credits += est
+        else:
+            local_count += 1
+        items.append({
+            "id": sid,
+            "video_type": vtype,
+            "provider": provider,
+            "estimated_credits": est,
+        })
+
+    return {
+        "model_id": model_id,
+        "voice_provider": payload.voice_provider,
+        "total_estimated_credits": total_credits,
+        "elevenlabs_count": elevenlabs_count,
+        "local_count": local_count,
+        "items": items,
+    }
+
+
+class RedoSceneImageRequest(BaseModel):
+    prompt: Optional[str] = None
+    seed: Optional[int] = None
+
+
+@router.post("/{script_id}/scenes/{scene_type}/redo-image")
+def redo_scene_image_endpoint(
+    request: Request,
+    script_id: str,
+    scene_type: str,
+    payload: Optional[RedoSceneImageRequest] = None
+) -> Dict[str, Any]:
+    """
+    Regenerates a specific scene illustration for a script using ComfyUI with the existing
+    specific prompt (or updated prompt if provided) and a fresh random seed.
+    Updates the script's image asset, saves state, and refreshes the catalog cache.
+    """
+    import random
+    from config.settings import (
+        COMFY_API_URL,
+        IMAGE_WORKFLOW_PATH,
+        IMAGE_DEFAULT_STEPS,
+        IMAGE_DEFAULT_WIDTH,
+        IMAGE_DEFAULT_HEIGHT,
+        IMAGE_STALL_TIMEOUT,
+        get_script_output_dir,
+    )
+    from core.state_manager import resolve_lang_and_type
+    from video_creation._C_image_generation.core.comfy_client import ImageComfyClient
+    from video_creation._C_image_generation.core.prompt_builder import sanitize_and_style_prompt
+    from core.llama_manager import ensure_llama_stopped
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    sec_lower = scene_type.strip().lower()
+
+    # 1. Resolve prompt to use
+    prompt = None
+    if payload and payload.prompt and payload.prompt.strip():
+        prompt = payload.prompt.strip()
+    else:
+        assets = state_data.setdefault("assets", {})
+        prompts_map = assets.get("image_prompts") or {}
+        visual_prompts = state_data.get("visual_prompts") or {}
+        prompt = (
+            prompts_map.get(sec_lower)
+            or prompts_map.get(scene_type)
+            or visual_prompts.get(sec_lower)
+            or visual_prompts.get(scene_type)
+        )
+
+    if not prompt or not str(prompt).strip():
+        raise HTTPException(
+            status_code=400,
+            detail=f"No prompt available for scene '{scene_type}'. Please enter a prompt before regenerating."
+        )
+
+    # 2. Release LLM VRAM before launching ComfyUI task
+    try:
+        ensure_llama_stopped()
+    except Exception:
+        pass
+
+    # 3. Resolve destination path
+    lang, _ = resolve_lang_and_type(canonical_id)
+    out_dir = get_script_output_dir(canonical_id, language=lang, base_dir=_catalog.get().base_dir) / "images"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = out_dir / f"script_{canonical_id}_{sec_lower}.png"
+
+    seed = payload.seed if (payload and payload.seed is not None) else random.randint(1, 10**15)
+
+    # 4. Enqueue Asynchronous Single-Scene Generation in JobManager
+    from webui.jobs.models import JobCreateRequest, JobStage
+
+    job_mgr = request.app.state.job_manager
+    job = job_mgr.enqueue_job(JobCreateRequest(
+        stage=JobStage.IMAGES,
+        script_ids=[canonical_id],
+        options={
+            "scene": sec_lower,
+            "prompt": str(prompt).strip(),
+            "seed": seed,
+            "force": True,
+        }
+    ))
+
+    return {
+        "status": "queued",
+        "job_id": job.job_id,
+        "message": f"Scene '{scene_type}' regeneration queued in Job Manager (#{job.job_id}). Track live in the Queue tab.",
+        "image_file": str(dest_path),
+        "seed": seed,
+        "script": get_script(canonical_id),
+    }
+
+
+class RedoAllImagesRequest(BaseModel):
+    general_prompt: Optional[str] = None
+    seed: Optional[int] = None
+
+
+@router.post("/{script_id}/redo-all-images")
+def redo_all_images_endpoint(
+    request: Request,
+    script_id: str,
+    payload: Optional[RedoAllImagesRequest] = None,
+) -> Dict[str, Any]:
+    """
+    Queues a full regeneration of all scene illustrations for a script.
+    Saves any updated general_prompt into state, clears old scene prompts,
+    and enqueues a Stage C (IMAGES) job with force=True, regenerate_prompts=True,
+    and preserve_general_prompt=True.
+
+    Job Execution Flow:
+    1. Phase 1: Starts Llama -> runs ensure_image_prompts_for_script(force=True, preserve_general_prompt=True)
+       to keep the saved general prompt intact and produce fresh scene-specific prompts adhering to it
+       -> saves to state -> shuts down Llama.
+    2. Phase 2: Starts ComfyUI batch queue -> generates all scene images with the fresh prompts.
+    """
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{canonical_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    assets = state_data.setdefault("assets", {})
+    content_meta = state_data.setdefault("content_metadata", {})
+    status = state_data.setdefault("status", {})
+
+    # 1. If general prompt was provided, persist it; always reset scene prompts & downstream image/video status
+    if payload and payload.general_prompt is not None and payload.general_prompt.strip():
+        new_gp = payload.general_prompt.strip()
+        prev_gp = str(assets.get("general_prompt") or "").strip()
+        assets["general_prompt"] = new_gp
+        content_meta["anchor_environment"] = new_gp
+        if new_gp != prev_gp:
+            assets.pop("character_anchors", None)
+            content_meta.pop("character_anchors", None)
+
+    assets["image_prompts"] = {}
+    status["image_generation"] = "pending"
+    status["video_assembly"] = "pending"
+
+    # 2. Clear old generated images from disk
+    image_dir_str = state_data.get("assets", {}).get("image_dir")
+    if image_dir_str:
+        p = Path(image_dir_str)
+        if p.exists() and p.is_dir():
+            for old_img in p.glob(f"script_{canonical_id}_*.png"):
+                try:
+                    old_img.unlink()
+                except Exception:
+                    pass
+
+    # Save state & update cache
+    sm.save_script_state(canonical_id, state_data)
+    _update_cached_script(canonical_id, state_data)
+
+    # 3. Enqueue Asynchronous Full-Script Generation in JobManager
+    from webui.jobs.models import JobCreateRequest, JobStage
+
+    seed = payload.seed if (payload and payload.seed is not None and payload.seed > 0) else None
+
+    job_mgr = request.app.state.job_manager
+    job = job_mgr.enqueue_job(JobCreateRequest(
+        stage=JobStage.IMAGES,
+        script_ids=[canonical_id],
+        options={
+            "force": True,
+            "regenerate_prompts": True,
+            "preserve_general_prompt": True,
+            "seed": seed,
+        }
+    ))
+
+    return {
+        "status": "queued",
+        "job_id": job.job_id,
+        "script_id": canonical_id,
+        "message": f"Full redo for '{canonical_id}' queued in Job Manager (#{job.job_id})! Llama will generate new specific prompts from the general prompt, followed by ComfyUI image creation.",
+        "script": get_script(canonical_id),
     }
 
 

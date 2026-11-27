@@ -41,172 +41,68 @@ class TestSecurityAndPrivacy(unittest.TestCase):
             with self.subTest(rule=rule):
                 self.assertIn(rule, content, f"Rule '{rule}' missing from .gitignore")
 
+    def tracked_files(self, *patterns):
+        result = subprocess.run(
+            ["git", "-c", f"safe.directory={REPO_ROOT.as_posix()}", "ls-files", "-z", "--", *patterns],
+            cwd=REPO_ROOT, capture_output=True, check=True, timeout=15,
+        )
+        return [REPO_ROOT / path for path in result.stdout.decode("utf-8").split("\0") if path]
+
     def test_env_file_is_not_tracked_in_git(self):
-        try:
-            res = subprocess.run(
-                ["git", "ls-files", ".env", "main/.env"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            tracked_output = res.stdout.strip()
-            self.assertEqual(tracked_output, "", ".env file is tracked in git! Immediate security violation.")
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
+        self.assertFalse(self.tracked_files(".env", "main/.env"))
 
     def test_google_apps_script_is_not_tracked_in_git(self):
-        try:
-            res = subprocess.run(
-                ["git", "ls-files", "main/connectivity/google_apps_script.js", "main/connectivity/apps_script/google_apps_script.js"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            tracked_output = res.stdout.strip()
-            self.assertEqual(tracked_output, "", "google_apps_script.js is tracked in git! Should be ignored.")
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
+        self.assertFalse(self.tracked_files(
+            "main/connectivity/google_apps_script.js", "main/connectivity/apps_script/google_apps_script.js",
+        ))
 
     def test_private_input_csvs_are_not_tracked_in_git(self):
-        try:
-            res = subprocess.run(
-                ["git", "ls-files", "input/csv/", "main/input/csv/"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
+        for path in self.tracked_files("input/csv/", "main/input/csv/"):
+            self.assertTrue(
+                "sample_templates" in path.parts or path.name.endswith(".sample.csv") or
+                path.name in ("README.md", ".gitkeep"),
+                f"Private input file tracked: {path.relative_to(REPO_ROOT)}",
             )
-            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-            for filepath in tracked_files:
-                # Only README.md, .gitkeep, and *.sample.csv are permitted
-                is_sample = "sample_templates" in filepath or filepath.endswith(".sample.csv")
-                is_readme = filepath.endswith("README.md")
-                is_gitkeep = filepath.endswith(".gitkeep")
-                self.assertTrue(
-                    is_sample or is_readme or is_gitkeep,
-                    f"Private input file tracked in git: {filepath}"
-                )
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
-
-    def test_tracked_files_do_not_contain_hardcoded_openai_keys(self):
-        try:
-            res = subprocess.run(
-                ["git", "ls-files"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-            openai_key_regex = re.compile(r"sk-[A-Za-z0-9]{32,}")
-
-            for rel_path in tracked_files:
-                full_path = REPO_ROOT / rel_path
-                if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
-                    continue
-
-                try:
-                    content = full_path.read_text(encoding="utf-8", errors="ignore")
-                    matches = openai_key_regex.findall(content)
-                    self.assertEqual(
-                        len(matches), 0,
-                        f"Potential live OpenAI API key found in {rel_path}: {matches}"
-                    )
-                except Exception:
-                    continue
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
 
     def test_tracked_files_do_not_exceed_50mb(self):
-        try:
-            res = subprocess.run(
-                ["git", "ls-files"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-            max_size_bytes = 50 * 1024 * 1024  # 50MB
+        for path in self.tracked_files():
+            if path.is_file():
+                self.assertLess(path.stat().st_size, 50 * 1024 * 1024, f"Tracked file exceeds 50 MiB: {path.name}")
 
-            for rel_path in tracked_files:
-                full_path = REPO_ROOT / rel_path
-                if full_path.exists() and full_path.is_file():
-                    size = full_path.stat().st_size
-                    self.assertLess(
-                        size, max_size_bytes,
-                        f"Tracked file exceeds 50MB limit ({size / (1024*1024):.2f}MB): {rel_path}"
-                    )
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
+    def assert_no_match_in_tracked_text(self, pattern):
+        matches = []
+        for path in self.tracked_files():
+            if not path.is_file() or path == Path(__file__).resolve():
+                continue
+            content = path.read_bytes()
+            if b"\0" in content:
+                continue
+            if pattern.search(content.decode("utf-8", errors="replace")):
+                matches.append(path.relative_to(REPO_ROOT).as_posix())
+        self.assertFalse(matches, f"Sensitive pattern matched in: {', '.join(matches)}")
+
+    def test_tracked_files_do_not_contain_hardcoded_openai_keys(self):
+        self.assert_no_match_in_tracked_text(re.compile(r"sk-[A-Za-z0-9]{32,}"))
+
+    def test_tracked_files_do_not_contain_hardcoded_elevenlabs_or_gemini_keys(self):
+        self.assert_no_match_in_tracked_text(re.compile(r"\bsk_[0-9a-f]{32,}\b"))
+        self.assert_no_match_in_tracked_text(re.compile(r"\bAIza[0-9A-Za-z_-]{30,}\b"))
+        self.assert_no_match_in_tracked_text(re.compile(r"BEGIN (?:RSA )?PRIVATE KEY"))
 
     def test_tracked_files_do_not_contain_hardcoded_sheets_or_webapp_tokens(self):
-        """Ensure no live Google Apps Script deployment tokens or production sheet IDs are hardcoded in tracked files."""
-        try:
-            res = subprocess.run(
-                ["git", "ls-files"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-            webapp_token_regex = re.compile(r"AKfycb[A-Za-z0-9_-]{20,}")
+        self.assert_no_match_in_tracked_text(re.compile(r"AKfycb[A-Za-z0-9_-]{20,}"))
 
-            for rel_path in tracked_files:
-                full_path = REPO_ROOT / rel_path
-                if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
-                    continue
-
-                try:
-                    content = full_path.read_text(encoding="utf-8", errors="ignore")
-                    matches = webapp_token_regex.findall(content)
-                    self.assertEqual(
-                        len(matches), 0,
-                        f"Live Google Apps Script deployment token found in tracked file {rel_path}: {matches}"
-                    )
-                except Exception:
-                    continue
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
-
-    def test_tracked_files_do_not_contain_personal_local_paths(self):
-        """Ensure no personal local drive paths (e.g. C:/AI, D:/AI, D:/AI_video_generation, C:/Users/) are hardcoded in tracked files."""
-        try:
-            res = subprocess.run(
-                ["git", "ls-files"],
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            tracked_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-            local_path_regex = re.compile(
-                r"(?:[CDcd]:[/\\]+(?:AI|AI_video_generation|Users)[/\\])",
-                re.IGNORECASE,
-            )
-
-            for rel_path in tracked_files:
-                if rel_path.replace("\\", "/").endswith("test_security.py"):
-                    continue
-                full_path = REPO_ROOT / rel_path
-                if full_path.suffix in [".png", ".jpg", ".jfif", ".wav", ".mp4", ".db"]:
-                    continue
-
-                try:
-                    content = full_path.read_text(encoding="utf-8", errors="ignore")
-                    matches = local_path_regex.findall(content)
-                    self.assertEqual(
-                        len(matches), 0,
-                        f"Hardcoded personal local path found in tracked file {rel_path}: {matches}"
-                    )
-                except Exception:
-                    continue
-        except Exception as exc:
-            self.skipTest(f"Git command failed: {exc}")
+    def test_tracked_production_sources_do_not_contain_personal_paths(self):
+        pattern = re.compile(r"(?:[CD]:[/\\]+(?:AI|AI_video_generation|Users)[/\\]|july_)", re.IGNORECASE)
+        matches = [
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in self.tracked_files()
+            if path.is_file()
+            and path != Path(__file__).resolve()
+            and b"\0" not in path.read_bytes()
+            and pattern.search(path.read_text(encoding="utf-8", errors="replace"))
+        ]
+        self.assertFalse(matches, f"Personal path matched in tracked file(s): {', '.join(matches)}")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,9 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 try:
+    # pyrefly: ignore[missing-import]
     import uvicorn
+    # pyrefly: ignore[missing-import]
     import fastapi
 except ImportError:
     print(
@@ -32,7 +34,7 @@ except ImportError:
         file=sys.stderr,
     )
     sys.exit(1)
-
+# pyrefly: ignore[missing-import]
 from webui.settings import (
     WEBUI_HOST,
     WEBUI_PORT,
@@ -78,15 +80,14 @@ def main():
         print(f"Opening browser at {url}...")
         _open_browser_when_ready(url)
 
-    from webui.server import create_app
-    app = create_app()
-
     uvicorn.run(
-        app,
+        "webui.server:create_app",
+        factory=True,
         host=args.host,
         port=args.port,
         log_level="info",
         reload=args.reload,
+        timeout_graceful_shutdown=5,
     )
 
 

@@ -12,9 +12,10 @@ import {
   ChevronUp,
   Sparkles,
   Info,
+  Image as ImageIcon,
 } from 'lucide-react'
 import type { SheetsSyncStatus, SheetsSyncRecord } from '../types'
-import { fetchSheetsSyncStatus, startSheetsSync, resetSheetsSyncStatus } from '../api'
+import { fetchSheetsSyncStatus, startSheetsSync, startThumbnailTitlesSync, resetSheetsSyncStatus } from '../api'
 
 interface GoogleSheetsSyncViewProps {
   onSelectScript: (scriptId: string) => void
@@ -70,6 +71,18 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
     }
   }
 
+  const handleStartThumbnailTitlesSync = async (applyChanges: boolean) => {
+    setErrorMsg(null)
+    setIsStarting(true)
+    try {
+      await startThumbnailTitlesSync({ apply_changes: applyChanges })
+      await loadStatus()
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err))
+      setIsStarting(false)
+    }
+  }
+
   const handleReset = async () => {
     try {
       await resetSheetsSyncStatus()
@@ -89,26 +102,26 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
   const result = syncStatus?.result
 
   return (
-    <div className="sheets-sync-container">
+    <section className="sheets-sync-container" aria-label="Google Sheets synchronization">
       {/* View Header */}
       <div className="sheets-sync-header">
         <div className="sheets-title-group">
           <div className="sheets-icon-wrap">
-            <FileSpreadsheet size={28} className="text-emerald-400" />
+            <FileSpreadsheet size={28} className="icon-success" />
           </div>
           <div>
-            <h1 className="sheets-title">Handle Googlesheets changes</h1>
+            <h1 className="sheets-title">Google Sheets synchronization</h1>
             <p className="sheets-subtitle">
-              Fetch script modifications from Google Sheets (Column D: SCRIPT_CHANGED), purge cached CSVs, and update
-              local State JSON files with automatic downstream reset.
+              Fetch script modifications (Column D: SCRIPT_CHANGED) and thumbnail titles (Column J: short_title /
+              THUMBNAIL_TITLE) from Google Sheets, and update local JSON state files cleanly.
             </p>
           </div>
         </div>
 
         {isCompleted && (
-          <button className="btn btn-secondary btn-sm" onClick={handleReset}>
+          <button className="btn btn-outline btn-sm" onClick={handleReset}>
             <RefreshCw size={14} />
-            <span>Reset Status</span>
+            <span>reset status</span>
           </button>
         )}
       </div>
@@ -123,14 +136,14 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
       {isFailed && (
         <div className="sheets-alert error">
           <AlertTriangle size={18} />
-          <span>Synchronization failed: {syncStatus?.error || 'Unknown error occurred during sync.'}</span>
+          <span>synchronization failed: {syncStatus?.error || 'unknown error occurred during sync.'}</span>
         </div>
       )}
 
       {/* Control Panel Card */}
       <div className="sheets-control-card">
         <div className="control-options">
-          <label className="checkbox-label" title="Deletes all CSVs in input/csv/script_to_change/ before fetching">
+          <label className="checkbox-label" title="deletes all CSVs in input/csv/script_to_change/ before fetching">
             <input
               type="checkbox"
               checked={cleanCache}
@@ -138,9 +151,9 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
               disabled={isRunning}
             />
             <span className="checkbox-text">
-              <strong>Purge cached CSVs in <code>script_to_change/</code> before fetch</strong>
+              <strong>purge cached CSVs in <code>script_to_change/</code> before fetch</strong>
               <span className="checkbox-hint">
-                (Recommended: deletes stale CSV files so Google Sheets changes are cleanly refreshed at every run)
+                (recommended: deletes stale CSV files so Google Sheets changes are cleanly refreshed at every run)
               </span>
             </span>
           </label>
@@ -153,17 +166,17 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
             onClick={() => handleStartSync(true)}
           >
             <RefreshCw size={18} className={isRunning ? 'spin' : ''} />
-            <span>{isRunning ? 'Synchronizing with Sheets...' : 'Fetch & Update All JSON States'}</span>
+            <span>{isRunning ? 'synchronizing with Google Sheets...' : 'fetch & update all JSON states'}</span>
           </button>
 
           <button
-            className="btn btn-secondary"
+            className="btn btn-outline"
             disabled={isRunning}
             onClick={() => handleStartSync(false)}
-            title="Fetches and checks differences without modifying local State JSONs"
+            title="fetches and checks differences without modifying local JSON states"
           >
             <Info size={16} />
-            <span>Audit / Preview Only</span>
+            <span>audit / preview only</span>
           </button>
         </div>
 
@@ -187,22 +200,60 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
         )}
       </div>
 
+      {/* Thumbnail Titles Sync Card (Column J) */}
+      <div className="sheets-control-card">
+        <div className="control-options">
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <ImageIcon size={20} className="icon-accent" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div>
+              <strong>Thumbnail titles sync (Column J)</strong>
+              <p className="checkbox-hint" style={{ margin: '4px 0 0 0', display: 'block' }}>
+                Fetches custom thumbnail titles from Column J across all 16 Google Sheets and updates{' '}
+                <code>content_metadata.thumbnail_title</code> in your local JSON states. Only resets{' '}
+                <code>thumbnail_generation</code> to <em>pending</em> (never touches voice, scene images, or video assembly).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="control-actions">
+          <button
+            className="btn btn-primary"
+            disabled={isRunning}
+            onClick={() => handleStartThumbnailTitlesSync(true)}
+          >
+            <Sparkles size={16} className={isRunning ? 'spin' : ''} />
+            <span>{isRunning ? 'synchronizing...' : 'fetch & update thumbnail titles (col J)'}</span>
+          </button>
+
+          <button
+            className="btn btn-outline"
+            disabled={isRunning}
+            onClick={() => handleStartThumbnailTitlesSync(false)}
+            title="fetches Column J and previews thumbnail title differences without modifying local JSON states"
+          >
+            <Info size={16} />
+            <span>preview thumbnail titles only</span>
+          </button>
+        </div>
+      </div>
+
       {/* Summary Stat Cards */}
       {result && (
         <div className="sheets-stats-grid">
           <div className="stat-card">
             <div className="stat-label">
-              <Trash2 size={16} className="text-amber-400" />
-              <span>Purged CSVs</span>
+              <Trash2 size={16} className="icon-warning" />
+              <span>purged CSVs</span>
             </div>
             <div className="stat-val">{result.purged_csvs?.length || 0}</div>
-            <div className="stat-sub">Stale files cleaned</div>
+            <div className="stat-sub">stale files cleaned</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-label">
-              <FileSpreadsheet size={16} className="text-blue-400" />
-              <span>Sheets Fetched</span>
+              <FileSpreadsheet size={16} className="icon-accent" />
+              <span>sheets fetched</span>
             </div>
             <div className="stat-val">{result.fetched_files?.length || 0}</div>
             <div className="stat-sub">{result.total_fetched || 0} scripts with corrections</div>
@@ -210,29 +261,29 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
 
           <div className="stat-card">
             <div className="stat-label">
-              <Sparkles size={16} className="text-purple-400" />
-              <span>Changes Detected</span>
+              <Sparkles size={16} className="icon-sand" />
+              <span>changes detected</span>
             </div>
             <div className="stat-val">{result.changed_count || 0}</div>
-            <div className="stat-sub">Differs from local state</div>
+            <div className="stat-sub">differs from local state</div>
           </div>
 
           <div className="stat-card highlight">
             <div className="stat-label">
-              <CheckCircle2 size={16} className="text-emerald-400" />
-              <span>States Updated</span>
+              <CheckCircle2 size={16} className="icon-success" />
+              <span>states updated</span>
             </div>
-            <div className="stat-val text-emerald-400">{result.updated_count || 0}</div>
-            <div className="stat-sub">Downstream stages reset</div>
+            <div className="stat-val icon-success">{result.updated_count || 0}</div>
+            <div className="stat-sub">downstream stages reset</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-label">
-              <CheckCircle2 size={16} className="text-slate-400" />
-              <span>Already In Sync</span>
+              <CheckCircle2 size={16} className="icon-muted" />
+              <span>already in sync</span>
             </div>
             <div className="stat-val">{result.identical_count || 0}</div>
-            <div className="stat-sub">No modifications needed</div>
+            <div className="stat-sub">no modifications needed</div>
           </div>
         </div>
       )}
@@ -241,9 +292,9 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
       {result && result.updated_records && result.updated_records.length > 0 && (
         <div className="sheets-section">
           <div className="section-header">
-            <h2>Detected & Updated Scripts ({result.updated_records.length})</h2>
+            <h2>detected & updated scripts ({result.updated_records.length})</h2>
             <span className="section-badge">
-              {result.updated_count > 0 ? `${result.updated_count} States Overwritten` : 'Audit Mode'}
+              {result.updated_count > 0 ? `${result.updated_count} states overwritten` : 'audit mode'}
             </span>
           </div>
 
@@ -266,17 +317,29 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
                     </div>
 
                     <div className="script-meta-right">
-                      <span className="word-delta-tag" title="Word count comparison">
-                        {rec.words_current}w &rarr; {rec.words_new}w
-                        <strong className="delta-pill">{rec.delta_words}</strong>
-                      </span>
+                      {result.sync_mode === 'thumbnails' && rec.new_title ? (
+                        <span className="word-delta-tag" title="New thumbnail title from Column J">
+                          &ldquo;{rec.new_title}&rdquo;
+                        </span>
+                      ) : (
+                        <span className="word-delta-tag" title="Word count comparison">
+                          {rec.words_current}w &rarr; {rec.words_new}w
+                          <strong className="delta-pill">{rec.delta_words}</strong>
+                        </span>
+                      )}
 
                       <span className={`status-pill ${rec.status}`}>
-                        {rec.status === 'updated' ? 'Updated & Reset' : rec.status === 'failed' ? 'Failed' : 'Pending'}
+                        {rec.status === 'updated'
+                          ? result.sync_mode === 'thumbnails'
+                            ? 'Title updated'
+                            : 'Updated & reset'
+                          : rec.status === 'failed'
+                            ? 'Failed'
+                            : 'Pending'}
                       </span>
 
                       <button
-                        className="btn btn-icon btn-sm"
+                        className="btn btn-outline btn-sm"
                         onClick={() => toggleDiff(rec.id)}
                         title={isExpanded ? 'Hide diff preview' : 'View diff preview'}
                       >
@@ -290,7 +353,7 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
                     <div className="diff-preview-container">
                       <div className="diff-header">
                         <FileText size={14} />
-                        <span>Changes Preview (diff)</span>
+                        <span>changes preview (diff)</span>
                       </div>
                       <pre className="diff-code">{rec.diff_preview}</pre>
                     </div>
@@ -305,10 +368,10 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
       {/* All In Sync Notice */}
       {result && result.changed_count === 0 && (
         <div className="sheets-alert success">
-          <CheckCircle2 size={20} className="text-emerald-400" />
+          <CheckCircle2 size={20} className="icon-success" />
           <div>
-            <strong>100% Synchronized!</strong>
-            <p>All scripts in your local State JSONs are already completely in sync with Google Sheets.</p>
+            <strong>100% synchronized</strong>
+            <p>all scripts in your local JSON states are already completely in sync with Google Sheets.</p>
           </div>
         </div>
       )}
@@ -318,8 +381,8 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
         <div className="terminal-header">
           <div className="terminal-title">
             <Terminal size={16} />
-            <span>Execution Console</span>
-            {isRunning && <span className="running-tag">RUNNING</span>}
+            <span>execution console</span>
+            {isRunning && <span className="running-tag">running</span>}
           </div>
           <div className="terminal-actions">
             <label className="autoscroll-toggle">
@@ -328,7 +391,7 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
                 checked={autoScrollLogs}
                 onChange={(e) => setAutoScrollLogs(e.target.checked)}
               />
-              <span>Auto-scroll</span>
+              <span>auto-scroll</span>
             </label>
           </div>
         </div>
@@ -342,11 +405,11 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
             ))
           ) : (
             <div className="terminal-placeholder">
-              Ready to sync. Click "Fetch & Update All JSON States" above to run the pipeline.
+              Ready to sync. Click "Fetch & update all JSON states" above to run the pipeline.
             </div>
           )}
         </div>
       </div>
-    </div>
+    </section>
   )
 }

@@ -39,16 +39,19 @@ state/
 └── script_state.sample.json    # Canonical reference schema for state files
 ```
 
-Individual script state files (`script_<ID>.json`) and `pipeline_status.csv` are generated dynamically by pipeline runs and are ignored by git to keep commits clean.
+Individual script state files (`script_<ID>.json`, currently `1,224` across `main/state/`) and `pipeline_status.csv` are generated dynamically by pipeline runs and are ignored by git to keep commits clean.
 
 ---
 
 ## State Schema & GAME Format Architecture
 
 Every state file contains:
-- `script_id`: Canonical identifier (e.g. `EG03`, `EE01`, `FR12`).
-- `status`: Lifecycle dictionary mapping each stage (`script_generation`, `voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `"pending"` or `"done"`.
+- `id`: Canonical identifier (e.g. `EG03`, `EE01`, `FR12`).
+- `status`: Lifecycle dictionary mapping each stage (`script_generation`, `voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`, `drive_upload`) to `"pending"` or `"done"`.
 - `content_metadata.script`: Canonical section breakdown dictionary.
+- `content_metadata.thumbnail_title` *(optional)*: Explicit thumbnail title (synced from Google Sheets Column J or edited in Script Detail modal), rendered verbatim by Stage F.
+- `content_metadata.speakers_voice` & `content_metadata.speakers_elevenlabs_voice`: Local Qwen3-TTS voice mapping and ElevenLabs voice ID mapping (`voice_profile_meta` tracks `engine`, `provider`, `elevenlabs_model`, `credits_used`).
+- `assets`: Paths (`audio_path`, `images`, `thumbnail_path`, `thumbnail_variants` for Spanish `latam`/`spain`, `final_video`, `drive_folder_id`, `drive_video_id`, `drive_thumbnail_id` / `drive_thumbnails`).
 
 ### Canonical GAME Format Rules
 For all GAME video scripts (e.g. `EG*`, `FG*`, `SG*`, `IG*`), the state structure enforces strict consistency:
@@ -77,6 +80,7 @@ For all GAME video scripts (e.g. `EG*`, `FG*`, `SG*`, `IG*`), the state structur
 ## State Invalidation Rules
 
 To guarantee end-to-end asset coherence:
-- Updating a script (via `script_modifier.py`, WebUI, or `check_script_changes.py`) automatically resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `"pending"`.
+- Updating a script (via `script_modifier.py`, WebUI, or Google Sheets Column D `POST /api/sheets/sync`) automatically resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `"pending"`.
+- Updating thumbnail titles via Google Sheets Column J (`POST /api/sheets/sync-thumbnails`) updates `content_metadata.thumbnail_title` and resets **only** `thumbnail_generation` to `"pending"`.
 - Regenerating a voiceover automatically resets `video_assembly` to `"pending"`.
 - Completed expressions with `STATUS = DONE` in `database/expressions.db` are strictly frozen from automated pipeline overwrites.

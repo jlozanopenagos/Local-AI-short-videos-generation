@@ -161,6 +161,7 @@ def parse_content_dialogue(content_text: str) -> List[Dict[str, str]]:
                 segments.append({
                     "speaker": spk,
                     "text": cleaned_text,
+                    "raw_text": text_str,
                     "emotion": inline_emotions or current_emotion or "neutral"
                 })
             pending_text = []
@@ -251,7 +252,10 @@ def extract_language_from_label(label: str) -> str:
         return "italian"
     return "english"  # default
 
-def get_script_segments(script_id: str, script_text: str, label: str) -> List[Dict[str, str]]:
+def get_script_segments(
+    script_id: str, script_text: str, label: str, *,
+    narrator_only: bool = False, merge_narration_paragraphs: bool = False,
+) -> List[Dict[str, str]]:
     """Splits a full script into a chronological sequence of segments to be voiced."""
     language = extract_language_from_label(label)
     sections = parse_sections(script_text)
@@ -266,15 +270,22 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
         "discovery", "example", "reveal", "answer", "surprise", "explanation",
         "payoff", "cta"
     ]
+    # Metadata and structural keys that must never be vocalized by TTS
+    ignored_keys = {
+        "title", "título", "titre", "titolo",
+        "game_archetype", "archetype", "difficulty", "cultural_locale",
+        "subject", "target_focus", "learning_objective", "lexical_field",
+        "language", "video_type", "version", "id", "notes", "chalkboard"
+    }
     existing_keys = list(sections.keys())
     
     if any(k in known_order for k in existing_keys):
         section_order = [k for k in known_order if k in existing_keys]
         for k in existing_keys:
-            if k not in known_order and k != "title":
+            if k not in known_order and k not in ignored_keys:
                 section_order.append(k)
     else:
-        section_order = [k for k in existing_keys if k != "title"]
+        section_order = [k for k in existing_keys if k not in ignored_keys]
     
     segment_idx = 1
     for sec in section_order:
@@ -282,7 +293,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
         if not sec_text:
             continue
             
-        if sec == "content" or "dialogue" in sec:
+        if not narrator_only and (sec == "content" or "dialogue" in sec):
             # CONTENT/DIALOGUE has dialogue segments
             dialogue_turns = parse_content_dialogue(sec_text)
             for turn in dialogue_turns:
@@ -292,6 +303,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
                     "section": sec,
                     "speaker": turn["speaker"],
                     "text": turn["text"],
+                    "raw_text": turn.get("raw_text", turn["text"]),
                     "emotion": turn["emotion"],
                     "language": language,
                     "is_dialogue": True
@@ -300,7 +312,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
         else:
             # Other sections are spoken by Narrator
             # Split into paragraphs to maintain pacing
-            paragraphs = [p.strip() for p in sec_text.split("\n\n") if p.strip()]
+            paragraphs = [sec_text] if merge_narration_paragraphs else [p.strip() for p in sec_text.split("\n\n") if p.strip()]
             for p in paragraphs:
                 cleaned_p, p_emotion = clean_text_and_extract_emotions(p)
                 if cleaned_p:
@@ -310,6 +322,7 @@ def get_script_segments(script_id: str, script_text: str, label: str) -> List[Di
                         "section": sec,
                         "speaker": "Narrator",
                         "text": cleaned_p,
+                        "raw_text": p,
                         "emotion": p_emotion or "neutral",
                         "language": language,
                         "is_dialogue": False

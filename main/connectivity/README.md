@@ -1,6 +1,6 @@
-# Google Sheets Connectivity Suite
+# Google Sheets & Google Drive Connectivity Suite
 
-Modular integration layer connecting Google Sheets to the `shorts_automation` pipeline using Google Apps Script Web App endpoints.
+Modular integration layer connecting Google Sheets (via Google Apps Script Web App endpoints) and Google Drive (via Drive API v3) to the `shorts_automation` pipeline.
 
 ---
 
@@ -15,6 +15,7 @@ main/connectivity/
 ├── reconcile_scripts.py                 # Principal Runner 3: Audits & reorganizes local scripts against Sheets
 ├── post_scripts.py                      # Principal Runner 4: Posts scripts to Google Sheets (Cols A-C or A:D)
 ├── scan_ready_scripts.py                # Principal Runner 5: Scans ready scripts and exports by date
+├── sync_drive.py                        # Principal Runner 6: Google Drive bundle replacement
 ├── core/                                # Shared infrastructure & HTTP client
 │   ├── endpoints.py                     # All 16 endpoints, Option A master router & spreadsheet ID extractor
 │   ├── client.py                        # Resilient HTTP GET & POST client (302 redirects, auto-retries, error parsing)
@@ -23,6 +24,10 @@ main/connectivity/
 │   ├── google_apps_script.js            # Active Web App implementation (doGet & doPost) [gitignored]
 │   ├── google_apps_script.sample.js     # Canonical template sample for Code.gs deployment
 │   └── README.md                        # Step-by-step Apps Script Web App deployment guide
+├── drive_sync/                          # Feature 6 Implementation: Google Drive Export & Replacement Sync
+│   ├── drive_client.py                  # GoogleDriveClient (OAuth2/Service Account, Shared Drives, Trash fallback)
+│   ├── sync_service.py                  # Folder mapping, local asset check, clean deletion & resumable upload
+│   └── __init__.py                      # Package exports
 ├── sheet_sync/                          # Feature 1 Implementation: Sheet to CSV Sync
 │   ├── sync_service.py                  # Fetches records into <OUTPUT_DIR>/connectivity\synced_sheets\_3_columns or _4_columns
 │   └── __init__.py                      # Package exports
@@ -68,9 +73,9 @@ main/connectivity/
   ```
 
 ### 2. Fetch Corrected Scripts (`fetch_corrected_scripts.py`)
-- **Action**: Extracts Column D (`SCRIPT_CHANGED`) and exports rows that have corrections.
+- **Action**: Extracts Column D (`SCRIPT_CHANGED` or `SCRIPT_CHANGE` alias) and Column B (`EXPRESSION`) across all 16 sheets (including `FUN_FACTS`) and exports rows with corrections.
 - **Destination**:
-  `main/input/csv/script_to_change/<language>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT`.
+  `main/input/csv/script_to_change/<language>_<type>_script_to_change.csv` with schema `ID, NEW_SCRIPT, EXPRESSION` (also compatible with legacy `ID, NEW_SCRIPT`).
 - **Interactive Options**:
   - `[1] Single Sheet`: pick language & video type, then filter by:
     - `[1] All Entries`
@@ -85,13 +90,13 @@ main/connectivity/
 
 
 ### 2b. Audit & Synchronize Script Changes (`main/tools/check_script_changes.py`)
-- **Action**: Bridges the gap between fetched Column D corrections in `main/input/csv/script_to_change/` and local State JSON files (`main/state/`).
+- **Action**: Bridges the gap between fetched Column D corrections (+ Column B `EXPRESSION` updates) in `main/input/csv/script_to_change/` and local State JSON files (`main/state/`).
 - **Functionality**:
-  - Compares every row in every CSV in `script_to_change/` against its local State JSON.
-  - Normalizes speaker prefixes (`Narrator:`), quotation marks, and line structures to eliminate false-positive diff reports.
-  - **GAME Format Awareness**: Automatically parses GAME challenges into neutral spoken words (no uppercase stress giveaways), strict option tags (`A: `, `B: `), zero connectors (`or`, `and`, etc.), parts-of-speech context (`a record.` / `to record.`), period endings, and synchronizes `chalkboard_exercise` with `challenge`.
+  - Compares every row in every CSV in `script_to_change/` against its local State JSON across all 4 formats (`EXPRESSION`, `GAME`, `ROLEPLAY`, `FUN_FACTS`).
+  - Normalizes speaker prefixes (`Narrator:`), quotation marks, and line structures to eliminate false-positive diff reports, and uses **`collections.Counter` multiset diffing** for `GAME` scripts (with legacy duplicate `pressure == challenge` deduplication) so swapped/replaced words that appear elsewhere in the script are never missed.
+  - **GAME & FUN_FACTS Format Awareness**: Merges blank-line-separated `GAME` options (`A:`/`B:`/`C:`/`D:`) into `challenge`, detects 5-paragraph no-pressure reveals via expanded `answer_patterns` (`script_modifier.py`), strips stress giveaways and connectors, synchronizes `chalkboard_exercise` with `challenge`, and parses 5-section `FUN_FACTS` (`hook`, `setup`, `discovery`, `explanation`, `payoff`).
   - Displays word count diffs and snippet previews.
-  - Applying updates (`--apply`) cleanly saves modified scripts with zero section duplication and resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'`.
+  - Applying updates (`--apply`) saves modified scripts with zero section duplication, propagates Column B `EXPRESSION` topic updates (invalidating stale titles and visual anchors so downstream stages regenerate cleanly), and resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'`.
 - **Usage**:
   ```powershell
   # Check for differences without modifying state JSONs:
@@ -147,8 +152,8 @@ main/connectivity/
   - `[0] Exit`
 - **Shortcuts**: Supports compound inputs directly on the menu prompt (e.g., `1.1` for operation 1 with 3 columns, `1.2` or `4.2` for 4 columns).
 ### 5. Scan Ready Scripts by Date (`scan_ready_scripts.py`)
-- **Action**: Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked.
-- **Exclusion Rule**: If `video_ready` is checked (`TRUE`), the ID is strictly **SKIPPED** (video is already done).
+- **Action**: Scans Google Sheets for approved scripts that still need production.
+- **Exclusion Rule**: An undated `video_ready` row preserves the legacy completion rule. If the row has a release date (Column H), the scanner checks the local assembly status before excluding it.
 - **Date Grouping**: Groups matching `ID` and `expression` records by `script_date` (Column F, normalized to canonical `YYYY-MM-DD`). Supports both 4-digit (`2026-09-23`) and 2-digit (`23/09/26`) year notations across `/`, `-`, and `.` separators.
 - **Primary Export**:
   `<OUTPUT_DIR>/connectivity\ready_scripts\<YYYY-MM-DD>_ready_scripts.csv` (Schema: `ID,expression`).
@@ -158,12 +163,7 @@ main/connectivity/
   - **Error Handling (`error_report.csv`)**: If any script is marked `script_ready` but has an empty `SCRIPT_CHANGE` cell, it is logged to `<OUTPUT_DIR>/connectivity\ready_scripts\error_report.csv` with schema `ID,problem`. Valid scripts continue to be exported normally.
   - **Auto-Pruning Errors**: When the user subsequently fixes `SCRIPT_CHANGE` in Google Sheets and re-scans, resolved IDs are automatically removed from `error_report.csv` (and the file is deleted once all errors are cleared).
 - **Missing Date Fallback & Auto-Pruning**: If `script_ready` is checked but `script_date` is blank, records are saved to `undated_ready_scripts.csv` (and `undated_ready_scripts_to_work_with.csv` if requested). When dates are subsequently filled in on Google Sheets, the scanner automatically prunes resolved items from the undated files.
-- **Pipeline Integration**:
-  The generated `<YYYY-MM-DD>_ready_scripts.csv` files are automatically discovered and ingested across downstream pipeline stages:
-  - `_B_voice_generation/main.py --from-ready-scripts` (or Option `[6]`)
-  - `_C_image_generation/main.py --from-ready-scripts` (or Option `[6]`)
-  - `_F_thumbnail_image_generation/main.py --from-ready-scripts` (or Option `[5]`)
-  - `_G_video_assembly/main.py --from-ready-scripts` (or Option `[5]`)
+- **Pipeline Integration**: Apply Sheets revisions in **Sheets Sync**, then select the corresponding IDs in **Mass Creation**. You can upload a scanner export as the ID CSV and queue each required production stage in the studio.
 - **Interactive Options**:
   - `[1] Scan ALL 16 Google Sheets and export by date (Default)`
   - `[2] Scan a specific sheet`
@@ -181,18 +181,48 @@ main/connectivity/
   py main/connectivity/scan_ready_scripts.py -l french -t expression
   ```
 
+### 6. Google Drive Scoped Replacement Sync (`sync_drive.py`)
+- **Action**: Uploads completed `<script_id>.mp4` and/or `<script_id>_thumbnail.png` (for Spanish: both `<script_id>_thumbnail_latam.png` and `<script_id>_thumbnail_spain.png`) to Google Drive and retires old versions of the replaced assets.
+- **Credential Resolution & Auto-Reauth**: Resolves credentials in strict priority order: explicit `--credentials` flag -> `GOOGLE_APPLICATION_CREDENTIALS` env var -> `main/credentials/` (`token.json` -> `service_account.json` -> `client_secret.json`). When an OAuth `token.json` is expired or revoked, `GoogleDriveClient` automatically falls back to `client_secret.json` for interactive browser re-authentication and refreshes `token.json`. See [`../credentials/README.md`](../credentials/README.md) for OAuth 2.0 Desktop App and Service Account setup instructions.
+- **Drive Folder Hierarchy (`GOOGLE_DRIVE_ROOT_FOLDER_ID`)**:
+  ```text
+  <root_folder_id> / <language> (english|french|italian|spanish)
+                     / <video_type> (expressions|fun_facts|game|role_play)
+                       / <script_id> (e.g. EE01, FR21, IG09)
+                         ├── <script_id>.mp4
+                         └── <script_id>_thumbnail.png  (or _thumbnail_latam.png & _thumbnail_spain.png for ES)
+  ```
+- **Scoped Bundle Replacement (`drive_scope` = `all` | `video` | `thumbnail`)**:
+  - **Local Validation**: Checks only the asset(s) required for the active `drive_scope` before calling Drive.
+  - **Replacement Order**: Captures existing matching target IDs, uploads replacements, and saves links before retiring prior files for those target asset types.
+  - **Permission-Safe Deletion (`delete_file`)**: Attempts permanent `files().delete()`, falls back automatically to `trashed: True` on HTTP 400/403, safely ignores HTTP 404, and evicts `_folder_cache` entries on deletion.
+  - **Rollback Safety**: If a paired upload fails partway through (`all` scope), sync attempts to clean up the partial replacement and preserve the previous Drive files.
+- **Usage**:
+  ```powershell
+  # Upload a single script bundle
+  py main/connectivity/sync_drive.py --script-id EE01
+
+  # Upload all completed scripts for a language and format
+  py main/connectivity/sync_drive.py --all --language spanish --video-type game
+
+  # Upload all completed scripts across all languages with custom credentials or root folder
+  py main/connectivity/sync_drive.py --all
+  py main/connectivity/sync_drive.py --script-id IG09 --credentials main/credentials/service_account.json --root-folder-id <FOLDER_ID>
+  ```
+
 ---
 
 ## WebUI Google Sheets Sync Studio
 
 In addition to CLI runners, the complete Google Sheets connectivity workflow is natively integrated into the modern browser WebUI (`py main/tools/webui.py` -> **Google Sheets Sync** tab):
 
-- **Interactive 4-Step Pipeline**:
-  1. **Fetch External Revisions**: Pulls Column D (`SCRIPT_CHANGED`) across sheets into local CSVs.
-  2. **Check & Audit Differences**: Displays side-by-side diff previews, word count metrics, and speaker normalization directly in the browser.
-  3. **Apply Detected Changes**: Applies script updates with zero section duplication and resets downstream stages to pending.
-  4. **Scan Ready Scripts**: Filters Columns E-H and exports dated CSV queues for batch generation.
-- **REST Endpoints**: Powered by `main/webui/routers/sheets.py` with full error logging and task execution.
+- **Script Revisions Sync (`POST /api/sheets/sync`)**:
+  1. **Fetch External Revisions**: Pulls Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`) across all 16 sheets (including `FUN_FACTS`) into local CSVs.
+  2. **Check & Audit Differences**: Runs `Counter`-based diffing across all 4 formats (deduplicating legacy `pressure == challenge` copies) and renders side-by-side diff previews and word count deltas.
+  3. **Apply Detected Changes**: Applies script and Column B `EXPRESSION` updates cleanly (merging blank-line `GAME` `A:`/`B:`/`C:`/`D:` options into `challenge`), invalidates stale titles/anchors on topic change, and resets downstream stages to pending.
+- **Thumbnail Titles Sync (`POST /api/sheets/sync-thumbnails`)**:
+  - Fetches **Column J (`THUMBNAIL_TITLE`)** across all 16 sheets (`normalize_sheet_rows()` supports named headers or positional Column J fallback), updates `content_metadata.thumbnail_title`, and marks **only `thumbnail_generation` = `pending`** (leaving voice, scene images, and video assembly untouched).
+- **REST Endpoints**: Powered by `main/webui/routers/sheets.py` (`/api/sheets/status`, `/api/sheets/sync`, `/api/sheets/sync-thumbnails`, `/api/sheets/reset`).
 
 ---
 
@@ -239,5 +269,11 @@ post_all_sheets()
 from connectivity import scan_sheet_ready_scripts, scan_all_sheets_ready_scripts, save_ready_scripts_by_date
 summary = scan_all_sheets_ready_scripts()
 save_ready_scripts_by_date(summary["date_groups"])  # saves to <OUTPUT_DIR>/connectivity\ready_scripts
+
+# 6. Upload video + thumbnail bundles to Google Drive (bundle replacement)
+from connectivity.drive_sync import GoogleDriveClient, upload_script_to_drive, upload_completed_scripts_to_drive
+client = GoogleDriveClient()
+client.authenticate()
+result = upload_script_to_drive(script_id="EE01", client=client)
 ```
 

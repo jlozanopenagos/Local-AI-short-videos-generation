@@ -99,6 +99,11 @@ IMAGE_STALL_TIMEOUT = int(os.getenv("IMAGE_STALL_TIMEOUT", "600"))
 IMAGE_WORKFLOW_PATH = WORKFLOWS_DIR / "AcademiaSD_Z-Image_v05.json"
 
 # Voice config
+VOICE_PROVIDER = os.getenv("VOICE_PROVIDER", "auto").strip().lower()
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "").strip()
+ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_v3").strip()
+ELEVENLABS_HYBRID_TYPES = ("roleplay", "expression", "fun_facts")
+
 OPEN_SWARA_DIR = _resolve_local_path(os.getenv("OPEN_SWARA_DIR"), BASE_DIR) or (COMFY_DIR / "open-swara" / "voices")
 VOICE_WORKFLOW_PATH = WORKFLOWS_DIR / "Qwen3-TTS Voice.json"
 
@@ -158,6 +163,11 @@ NARRATOR_VOICES = {
 QWEN3_USE_ICL = os.getenv("QWEN3_USE_ICL", "true").strip().lower() in ("1", "true", "yes")
 QWEN3_LOCALIZE_INSTRUCT = os.getenv("QWEN3_LOCALIZE_INSTRUCT", "true").strip().lower() in ("1", "true", "yes")
 REF_TRANSCRIPTS_PATH = OUTPUT_DIR / "voice_quality" / "audit" / "ref_transcripts.json"
+VOICE_ENGINE = os.getenv("VOICE_ENGINE", "typed")
+VOICE_DESIGN_WORKFLOW_PATH = WORKFLOWS_DIR / "Qwen3-TTS VoiceDesign.json"
+VOICE_BANK_DIR = _resolve_local_path(os.getenv("VOICE_BANK_DIR"), BASE_DIR) or (OPEN_SWARA_DIR / "voice_design_bank")
+VOICE_BANK_MANIFEST_PATH = VOICE_BANK_DIR / "voice_bank_manifest.json"
+VOICE_CASTING_HISTORY_PATH = OUTPUT_DIR / "voice_quality" / "casting_history.json"
 
 DEFAULT_PAUSES = {
     "section_gap": 0.35,           # Natural transition between major sections (Hook -> Dialogue, Dialogue -> Payoff)
@@ -394,6 +404,52 @@ def resolve_opening_closure_paths(
         opening_path, closure_path = _resolve_for_category("normal_videos")
 
     return opening_path, closure_path
+
+def resolve_static_scene_path(
+    section_name: str,
+    script_data: dict = None,
+    language: str = None,
+    video_type: str = None,
+    base_dir: Path = None,
+) -> Optional[Path]:
+    """
+    Dynamically resolves a static/shared image path (e.g. GAME 'pressure' Tito waiting card)
+    without copying or duplicating files into individual script directories.
+    Uses centralized configuration paths (GAME_IMAGES_DIR, OPENING_CLOSURE_DIR).
+    """
+    if not section_name:
+        return None
+    sec_lower = str(section_name).strip().lower()
+
+    # Resolve video type
+    vtype = str(video_type).lower().strip() if video_type else (resolve_script_video_type(script_data) if script_data else "expression")
+
+    # Resolve language key
+    lang_key = "english"
+    if language:
+        clean_lang = str(language).split("|")[0].strip().lower()
+        if "french" in clean_lang or "français" in clean_lang:
+            lang_key = "french"
+        elif "spanish" in clean_lang or "español" in clean_lang:
+            lang_key = "spanish"
+        elif "italian" in clean_lang or "italiano" in clean_lang:
+            lang_key = "italian"
+        else:
+            lang_key = "english"
+    elif script_data:
+        lang_key = resolve_script_language(script_data)
+
+    game_dir = (base_dir / "input" / "images" / "game_images") if base_dir else GAME_IMAGES_DIR
+
+    # GAME: PRESSURE -> Tito waiting image
+    if vtype == "game" and sec_lower == "pressure":
+        candidate = game_dir / lang_key / f"{lang_key}_waiting.png"
+        if not candidate.exists():
+            candidate = game_dir / "english" / "english_waiting.png"
+        if candidate.exists():
+            return candidate
+
+    return None
 
 def get_script_output_dir(script_id: str, language: str = None, base_dir: Path = None, video_type: str = None) -> Path:
     """

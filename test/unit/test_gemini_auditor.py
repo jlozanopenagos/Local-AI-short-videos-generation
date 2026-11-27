@@ -1,5 +1,5 @@
 """
-test/unit/test_gemini_auditor.py — Unit tests for Gemini prompt auditor.
+test/unit/test_gemini_auditor.py — Unit tests for Gemini prompt auditor with Result Checker.
 """
 
 import sys
@@ -12,7 +12,18 @@ if str(MAIN_DIR) not in sys.path:
     sys.path.insert(0, str(MAIN_DIR))
 
 # pyrefly: ignore[missing-import]
-from core.gemini_auditor import audit_general_prompt, _clean_gemini_output
+from core.gemini_auditor import (
+    audit_general_prompt,
+    _clean_gemini_output,
+    _clean_gemini_output_with_anchors,
+    _strip_redundant_tails,
+    validate_gemini_core_prompt,
+    detect_script_domain,
+    get_video_type_directive,
+    extract_character_anchors_from_output,
+    POSITIVE_STYLE_PILLAR,
+    NEGATIVE_PROMPT_SHIELD,
+)
 
 
 class TestGeminiAuditor(unittest.TestCase):
@@ -30,6 +41,48 @@ class TestGeminiAuditor(unittest.TestCase):
         raw_quoted = '"A bustling night market with lanterns and two students"'
         self.assertEqual(_clean_gemini_output(raw_quoted), "A bustling night market with lanterns and two students")
 
+    def test_strip_redundant_tails(self):
+        """Verify duplicate style tags or negative shields are cleanly stripped."""
+        text = "Medium wide eye-level shot. Inside a workshop. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style (thematic setting visible, NO 3D)"
+        stripped = _strip_redundant_tails(text)
+        self.assertEqual(stripped, "Medium wide eye-level shot. Inside a workshop")
+
+    def test_validate_gemini_core_prompt(self):
+        """Verify the Result Checker catches truncation, short responses, and missing pillars."""
+        # 1. Truncation flag
+        ok, reason = validate_gemini_core_prompt("Some text...", finish_reason="MAX_TOKENS")
+        self.assertFalse(ok)
+        self.assertIn("truncated", reason)
+
+        # 2. Too short
+        ok, reason = validate_gemini_core_prompt("Medium wide shot. Two students talk.")
+        self.assertFalse(ok)
+        self.assertIn("too short", reason)
+
+        # 3. Cut off mid-sentence
+        incomplete_text = (
+            "Medium wide eye-level shot. Inside a chic retro Italian designer sneaker boutique and luxury leather footwear workshop, "
+            "a 15-year-old female high-school student narrator with a sleek vibrant turquoise bob haircut stands on the left in a tailored "
+            "mustard-yellow tweed waistcoat over an ivory collared silk blouse, high-waisted navy pleated trousers, and polished dark brown leather penny loafers. "
+            "On the right her peer stands by the counter while golden afternoon sunbeams stream across the polished floor casting"
+        )
+        ok, reason = validate_gemini_core_prompt(incomplete_text)
+        self.assertFalse(ok)
+        self.assertIn("mid-sentence", reason)
+
+        # 4. Valid rich core prompt
+        valid_core = (
+            "Medium wide eye-level shot. Inside a chic retro Italian designer sneaker boutique and luxury leather footwear workshop, "
+            "a 15-year-old female high-school student narrator with a sleek vibrant turquoise bob haircut stands on the left in a tailored "
+            "mustard-yellow tweed waistcoat over an ivory collared silk blouse, high-waisted navy pleated trousers, and polished dark brown leather penny loafers. "
+            "On the right, her 15-year-old male friend with messy copper curls stands at the sleek glass counter dressed in an olive-green knit cardigan over an off-white henley shirt. "
+            "Between them, the counter displays three towering designer shoe boxes and a vintage brass lever cash register. "
+            "In the background, illuminated warm-wood shelving shows sneakers under amber afternoon sunlight, casting rich slate-blue directional cast shadows across the herringbone floor."
+        )
+        ok, reason = validate_gemini_core_prompt(valid_core)
+        self.assertTrue(ok)
+        self.assertEqual(reason, "Valid")
+
     def test_audit_general_prompt_requires_api_key(self):
         """Verify ValueError is raised if GEMINI_API_KEY is not configured."""
         script_data = {"id": "SR01", "script_text": "Hello"}
@@ -40,17 +93,26 @@ class TestGeminiAuditor(unittest.TestCase):
                 self.assertIn("GEMINI_API_KEY is not configured", str(ctx.exception))
 
     @patch("core.gemini_auditor.requests.post")
-    def test_audit_general_prompt_successful_generation(self, mock_post):
-        """Verify successful Gemini prompt generation and payload construction."""
+    def test_audit_general_prompt_successful_generation_and_stitching(self, mock_post):
+        """Verify successful Gemini prompt generation, 800 token budget, and seamless 9-part stitching."""
+        valid_core = (
+            "Medium wide eye-level shot. Inside a sunny vintage city park skate plaza by a concrete bowl, "
+            "a 16-year-old high-school student boy in a forest-green corduroy jacket laughs with expressive cartoon eyes. "
+            "On the right, his 15-year-old female peer in a coral-pink pinafore vest smiles while holding a skateboard. "
+            "Between them, a vintage bicycle leans against a lamppost free of floating icons. "
+            "In the background, pastel facades glow under warm amber sunlight casting teal directional cast shadows."
+        )
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "candidates": [
                 {
+                    "finishReason": "STOP",
                     "content": {
                         "parts": [
                             {
-                                "text": "```\nMedium wide shot. Inside a sunny vintage city park skate plaza by a concrete bowl, two students laugh... (thematic setting visible, NO 3D)\n```"
+                                "text": f"```\n{valid_core}\n```"
                             }
                         ]
                     }
@@ -76,14 +138,250 @@ class TestGeminiAuditor(unittest.TestCase):
         call_kwargs = mock_post.call_args[1]
         self.assertEqual(call_kwargs["params"], {"key": "TEST_FAKE_KEY"})
         payload = call_kwargs["json"]
-        self.assertEqual(payload["generationConfig"]["maxOutputTokens"], 350)
+
+        # Token budget is 800
+        self.assertEqual(payload["generationConfig"]["maxOutputTokens"], 800)
         self.assertIn("Tomar el pelo", payload["contents"][0]["parts"][0]["text"])
 
-        # Check cleaned result
-        self.assertTrue(result.startswith("Medium wide shot. Inside a sunny vintage city park"))
+        # Check result has core + Part 8 + Part 9
+        self.assertTrue(result.startswith("Medium wide eye-level shot. Inside a sunny vintage city park"))
+        self.assertIn(POSITIVE_STYLE_PILLAR, result)
+        self.assertIn(NEGATIVE_PROMPT_SHIELD, result)
         self.assertFalse(result.startswith("```"))
+
+    def test_detect_script_domain_and_guidance(self):
+        """Verify semantic domain is detected from topic/script keywords."""
+        # 1. Family / Holiday dinner
+        doc_family = {
+            "content_metadata": {"language": "italian", "topic": "parenti vs genitori"},
+            "script_text": "A Natale ci riuniamo a cena con i parenti a casa mia."
+        }
+        domain, guidance = detect_script_domain(doc_family)
+        self.assertEqual(domain, "Family, Home & Holiday Gatherings")
+        self.assertIn("dining room", guidance)
+
+        # 2. Food / Dining
+        doc_food = {
+            "content_metadata": {"language": "spanish", "topic": "Pedir la cuenta"},
+            "script_text": "En el restaurante comemos pasta y pizza deliciosa."
+        }
+        domain, guidance = detect_script_domain(doc_food)
+        self.assertEqual(domain, "Food, Culinary & Dining")
+        self.assertIn("culinary", guidance)
+
+        # 3. Travel / Transit
+        doc_travel = {
+            "content_metadata": {"language": "french", "topic": "Prendre le train"},
+            "script_text": "A la gare de Lyon, nous prenons le train avec nos valises."
+        }
+        domain, guidance = detect_script_domain(doc_travel)
+        self.assertEqual(domain, "Travel, Transit & Commute")
+        self.assertIn("transit", guidance)
+
+    def test_get_video_type_directive(self):
+        """Verify distinct video type directives for Expression vs Game vs Roleplay."""
+        dir_game = get_video_type_directive("GAME")
+        self.assertIn("Interactive Challenge Arena", dir_game)
+        self.assertIn("timer", dir_game.lower())
+
+        dir_roleplay = get_video_type_directive("ROLEPLAY")
+        self.assertIn("Character Drama", dir_roleplay)
+        self.assertIn("interpersonal", dir_roleplay.lower())
+
+        dir_expr = get_video_type_directive("EXPRESSION")
+        self.assertIn("Everyday Cultural Observation", dir_expr)
+        self.assertIn("relatable", dir_expr.lower())
+
+    def test_extract_character_anchors_from_output(self):
+        """Verify [CHARACTER_ANCHORS] block is cleanly extracted into structured dictionary."""
+        sample = (
+            "[CHARACTER_ANCHORS]\n"
+            "CHAR_1: 15-16yo high-school student boy | hair: messy dark-brown curls | attire: burgundy wool cardigan over jersey | shoes: leather work boots\n"
+            "CHAR_2: 15-16yo high-school student girl | hair: copper-tinted bob | attire: indigo denim chore jacket | shoes: canvas sneakers\n"
+            "[/CHARACTER_ANCHORS]\n\n"
+            "Medium wide eye-level shot. Inside a dining room..."
+        )
+        cleaned, anchors = extract_character_anchors_from_output(sample)
+        self.assertEqual(cleaned, "Medium wide eye-level shot. Inside a dining room...")
+        self.assertEqual(anchors["char1_hair"], "messy dark-brown curls")
+        self.assertEqual(anchors["char1_attire"], "burgundy wool cardigan over jersey")
+        self.assertEqual(anchors["char1_shoes"], "leather work boots")
+        self.assertEqual(anchors["char2_hair"], "copper-tinted bob")
+        self.assertIn("Character appearance continuity", anchors["continuity_summary"])
+
+    def test_clean_gemini_output_replaces_raw_char_tokens(self):
+        """Verify _clean_gemini_output_with_anchors substitutes raw CHAR_1/CHAR_2 tokens."""
+        sample = (
+            "[CHARACTER_ANCHORS]\n"
+            "CHAR_1: 15-16yo high-school student boy | hair: raven waves | attire: navy blazer | shoes: oxfords\n"
+            "CHAR_2: 15-16yo high-school student girl | hair: auburn braid | attire: emerald knit vest | shoes: loafers\n"
+            "[/CHARACTER_ANCHORS]\n\n"
+            "Medium-wide establishing shot. Inside an atelier, CHAR_1 works at the drafting desk while CHAR_2 checks blueprints."
+        )
+        cleaned, anchors = _clean_gemini_output_with_anchors(sample)
+        self.assertNotIn("CHAR_1", cleaned)
+        self.assertNotIn("CHAR_2", cleaned)
+        self.assertIn("15-16yo high-school student boy with raven waves wearing navy blazer and oxfords", cleaned)
+        self.assertIn("15-16yo high-school student girl with auburn braid wearing emerald knit vest and loafers", cleaned)
+
+    @patch("core.gemini_auditor.requests.post")
+    def test_audit_general_prompt_game_format_is_solo(self, mock_post):
+        """Verify Game/Quiz prompt payload does not mandate a secondary companion (CHAR_2)."""
+        valid_core = (
+            "Medium-wide establishing eye-level shot. Inside an interactive puzzle laboratory, "
+            "a 16-year-old high-school student boy in a brass-buckled workshop apron works at a mahogany puzzle desk. "
+            "On the workbench, an antique hourglass timer and forged brass gears represent the challenge. "
+            "In the background, tall arched oak bookshelves and warm amber sconces cast deep navy directional cast shadows across the parquet floor."
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": valid_core}]},
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        script_data = {
+            "id": "IG09",
+            "content_metadata": {
+                "language": "Italian",
+                "video_type": "GAME",
+                "topic": "parenti vs genitori",
+                "speakers_gender": {"NARRATOR": "male"},
+            },
+            "script_text": "A Natale ci riuniamo a cena soltanto con i miei parenti a casa mia. Qual è l'errore?",
+        }
+        res = audit_general_prompt(script_data, api_key="FAKE_KEY")
+        self.assertTrue(mock_post.called)
+        payload_text = mock_post.call_args[1]["json"]["contents"][0]["parts"][0]["text"]
+        self.assertIn("CHAR_1", payload_text)
+        self.assertNotIn("CHAR_2", payload_text)
+        self.assertIn("PROTAGONIST: Full inline prose description of the solo 19-year-old young", payload_text)
+        self.assertIn("Medium-wide establishing eye-level shot", res)
+        self.assertNotIn("explicit footwear", NEGATIVE_PROMPT_SHIELD.lower())
+
+    @patch("core.gemini_auditor.requests.post")
+    def test_audit_general_prompt_sanitizes_output_and_persists_full_character_cast(self, mock_post):
+        """Verify Gemini output runs through Stage C sanitizer and persists complete CharacterCast anchors."""
+        raw_gemini = (
+            "[CHARACTER_ANCHORS]\n"
+            "CHAR_1: 15-16yo high-school student girl | hair: soft shoulder-length bob | attire: tailored cream blazer and trousers | shoes: leather loafers\n"
+            "CHAR_2: 15-16yo high-school student boy | hair: short chestnut hair with neat side-part | attire: navy varsity jacket and chinos | shoes: suede sneakers\n"
+            "[/CHARACTER_ANCHORS]\n\n"
+            "Medium-wide 35mm two-character shot with a subtle diagonal angle. "
+            "Inside an opulent haute-couture boutique with polished marble flooring, "
+            "On the LEFT, a 15-year-old high-school student girl with a soft shoulder-length bob wears a tailored cream blazer, trousers, and leather loafers. "
+            "On the RIGHT, a 15-year-old high-school student boy with short chestnut hair and neat side-part wears a navy varsity jacket, chinos, and suede sneakers. "
+            "Between them on the counter rests an ornate, ribbon-wrapped gift box alongside oversized, stylized word-cards and phonetic symbols. "
+            "In the background, velvet curtains and warm amber chandeliers cast slate-blue directional cast shadows across the floor."
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": raw_gemini}]},
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        script_data = {
+            "id": "SR01",
+            "prompt_params": {
+                "EXPRESSION": "Costar un ojo de la cara",
+                "VIDEO_TYPE": "ROLEPLAY",
+                "TARGET_LANGUAGE": "Spanish",
+            },
+            "content_metadata": {
+                "language": "Spanish",
+                "video_type": "ROLEPLAY",
+                "speakers_gender": {"PERSON_ONE": "female", "PERSON_TWO": "male"},
+            },
+            "script_text": "PERSON_ONE: ¡Qué caro!\nPERSON_TWO: Cuesta un ojo de la cara.",
+        }
+        res = audit_general_prompt(script_data, api_key="FAKE_KEY")
+        # Gift box and floating word-cards/phonetic symbols must be scrubbed by Stage C sanitizer
+        self.assertNotIn("gift box", res.lower())
+        self.assertNotIn("word-cards", res.lower())
+        self.assertNotIn("phonetic symbols", res.lower())
+        self.assertIn("1:7.5", res)
+        self.assertIn("19-year-old", res)
+        for leaked in ("not a child", "no young children", "no elementary kids", "no bulging eyes"):
+            self.assertNotIn(leaked, res.lower())
+
+        # Complete CharacterCast + structured anchor fields must be persisted in state
+        anchors = script_data["assets"]["character_anchors"]
+        self.assertTrue(anchors["has_two_characters"])
+        self.assertTrue(anchors["p1_is_female"])
+        self.assertFalse(anchors["p2_is_female"])
+        self.assertEqual(anchors["gender_word1"], "girl")
+        self.assertEqual(anchors["gender_word2"], "boy")
+        self.assertEqual(anchors["char1_hair"], "soft shoulder-length bob")
+        self.assertEqual(anchors["char2_hair"], "short chestnut hair with neat side-part")
+
+    @patch("core.gemini_auditor.requests.post")
+    def test_audit_general_prompt_rerolls_into_fresh_cultural_world_on_repeat_calls(self, mock_post):
+        """Verify repeated Gemini Audit calls inject a fresh CulturalWorld excluding previous drafts."""
+        valid_core = (
+            "Medium wide diagonal two-shot across a shop threshold. Inside a colorful French corner venue, "
+            "a 15-year-old high-school student girl with fair peach skin and dark ponytail wears a striped linen blazer and loafers. "
+            "On the right, a 15-year-old high-school student boy with warm olive skin and short textured brown hair wears a burgundy wool cardigan and chinos. "
+            "Between them rest vintage striped baskets and ceramics under warm golden sunlight casting soft blue shadows."
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": valid_core}]},
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        script_data = {
+            "id": "FR77",
+            "prompt_params": {
+                "EXPRESSION": "C'est du gâteau",
+                "VIDEO_TYPE": "ROLEPLAY",
+                "TARGET_LANGUAGE": "French",
+                "LEXICAL_FIELD": "Communication générale",
+            },
+            "content_metadata": {
+                "language": "French",
+                "video_type": "ROLEPLAY",
+                "speakers_gender": {"PERSON_ONE": "female", "PERSON_TWO": "male"},
+            },
+            "script_text": '{"hook": "Pas de souci!", "dialogue_part_1": "Tu peux m\'aider ?"}',
+            "assets": {},
+        }
+
+        res1 = audit_general_prompt(script_data, api_key="FAKE_KEY")
+        world_id_1 = script_data["assets"]["anchor_world_id"]
+        payload_1 = mock_post.call_args_list[0][1]["json"]["contents"][0]["parts"][0]["text"]
+        self.assertTrue(world_id_1.startswith("fr_"))
+        self.assertIn("ASSIGNED CULTURAL WORLD", payload_1)
+        self.assertIn(script_data["assets"]["anchor_world_title"], payload_1)
+
+        # Second click passes the previous prompt (res1) -> MUST pick a different CulturalWorld
+        res2 = audit_general_prompt(script_data, current_prompt=res1, api_key="FAKE_KEY")
+        world_id_2 = script_data["assets"]["anchor_world_id"]
+        payload_2 = mock_post.call_args_list[1][1]["json"]["contents"][0]["parts"][0]["text"]
+        self.assertTrue(world_id_2.startswith("fr_"))
+        self.assertNotEqual(world_id_1, world_id_2)
+        self.assertIn(script_data["assets"]["anchor_world_title"], payload_2)
+        self.assertIn("1:7.5", res2)
+        self.assertIn("19-year-old", res2)
+        for leaked in ("not a child", "no young children", "no bulging eyes"):
+            self.assertNotIn(leaked, res2.lower())
 
 
 if __name__ == "__main__":
     unittest.main()
-

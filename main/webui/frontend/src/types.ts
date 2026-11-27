@@ -27,6 +27,8 @@ export interface SystemStatus {
   }
 }
 
+export type ActiveTab = 'home' | 'dashboard' | 'bingo' | 'jobs' | 'sheets' | 'mass-creation'
+
 export type StageState = 'done' | 'pending' | 'missing'
 
 export interface ScriptStages {
@@ -35,14 +37,20 @@ export interface ScriptStages {
   images: StageState
   thumbnails: StageState
   assembly: StageState
+  drive?: StageState
 }
 
 export interface ScriptAssets {
   audio: string | null
   images: string[]
   thumbnail: string | null
+  thumbnail_variants?: Record<string, string>
   video: string | null
   poster?: string | null
+  drive_folder_url?: string
+  drive_video_url?: string
+  drive_thumbnail_url?: string
+  drive_thumbnails?: Record<string, { id?: string; name?: string; url?: string }>
 }
 
 export interface ScriptSummary {
@@ -65,6 +73,8 @@ export interface ScriptSummary {
   has_images: boolean
   has_video: boolean
   has_thumbnail: boolean
+  has_drive?: boolean
+  drive_folder_url?: string
   is_ready_for_assembly: boolean
 }
 
@@ -101,6 +111,8 @@ export interface SceneDetail {
   voice_line: string
   image_file: string | null
   prompt?: string
+  is_static?: boolean
+  is_virtual_cut?: boolean
 }
 
 export interface YouTubeMetadata {
@@ -118,15 +130,27 @@ export interface ScriptDetail extends ScriptSummary {
   base_setting?: string
   lexical_field?: string
   general_prompt?: string
+  character_anchors?: Record<string, any>
+  game_archetype?: string
   learning_objective?: string
   speakers_voice?: Record<string, string>
+  speakers_elevenlabs_voice?: Record<string, string>
   speakers_gender?: Record<string, string>
+  voice_profile_meta?: {
+    engine?: string
+    provider?: string
+    elevenlabs_model?: string
+    dialect?: string
+    video_type?: string
+    credits_used?: number
+  }
   scenes?: SceneDetail[]
   youtube_metadata?: YouTubeMetadata
   script_text?: string
   script_dict?: Record<string, any>
   chalkboard_exercise?: string
   chalkboard_title?: string
+  thumbnail_title?: string
   target_expression?: string
 }
 
@@ -135,12 +159,15 @@ export interface ScriptUpdatePayload {
   script_dict?: Record<string, any>
   chalkboard_exercise?: string
   chalkboard_title?: string
+  thumbnail_title?: string
   target_expression?: string
   general_prompt?: string
+  character_anchors?: Record<string, any>
   image_prompts?: Record<string, string>
+  game_archetype?: string
 }
 
-export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly'
+export type JobStage = 'scripts' | 'voice' | 'images' | 'music' | 'thumbnails' | 'assembly' | 'chalkboard' | 'drive_upload'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface JobProgress {
@@ -155,6 +182,7 @@ export interface Job {
   stage: JobStage
   status: JobStatus
   script_ids: string[]
+  options?: Record<string, any>
   progress: JobProgress
   logs: string[]
   error?: string | null
@@ -171,9 +199,12 @@ export interface SheetsSyncRecord {
   delta_words: string
   diff_preview: string
   status: 'updated' | 'failed' | 'pending'
+  old_title?: string
+  new_title?: string
 }
 
 export interface SheetsSyncResult {
+  sync_mode?: 'scripts' | 'thumbnails'
   purged_csvs: string[]
   fetched_files: { filename: string; count: number }[]
   total_fetched: number
@@ -205,11 +236,60 @@ export interface ValidatedScriptId {
   language?: string | null
   type?: string | null
   stages?: {
+    scripts?: string
     voice?: string
     images?: string
     thumbnails?: string
     assembly?: string
+    drive?: string
   }
+  has_video?: boolean
+  has_thumbnail?: boolean
+  can_upload_drive?: boolean
+  drive_uploaded?: boolean
+}
+
+export type VoiceProvider = 'auto' | 'elevenlabs' | 'local'
+export type ElevenLabsModelId = 'eleven_v3' | 'eleven_multilingual_v2' | 'eleven_flash_v2_5'
+
+export interface ElevenLabsModelInfo {
+  id: ElevenLabsModelId
+  label: string
+  credits_per_char: number
+  supports_audio_tags: boolean
+}
+
+export interface ElevenLabsSubscriptionInfo {
+  tier: string
+  status: string
+  character_count: number
+  character_limit: number
+  remaining_credits: number
+  next_reset_unix?: number | null
+}
+
+export interface ElevenLabsStatus {
+  configured: boolean
+  default_provider: VoiceProvider
+  default_model: ElevenLabsModelId
+  hybrid_types: string[]
+  models: ElevenLabsModelInfo[]
+  subscription?: ElevenLabsSubscriptionInfo | null
+  subscription_error?: string | null
+}
+
+export interface VoiceCreditEstimateResponse {
+  model_id: ElevenLabsModelId
+  voice_provider: VoiceProvider
+  total_estimated_credits: number
+  elevenlabs_count: number
+  local_count: number
+  items: {
+    id: string
+    video_type: string
+    provider: 'elevenlabs' | 'local'
+    estimated_credits: number
+  }[]
 }
 
 export interface ValidateIdsResponse {

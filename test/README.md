@@ -1,71 +1,48 @@
-# Test Layer: Senior QA Testing Suite
+# Shorts Studio tests
 
-An isolated, enterprise-grade automated testing layer for the `shorts_automation` pipeline.
+Run the suite from the repository root (`shorts_automation/`). Install FFmpeg and FFprobe on `PATH`, or use the bundled Windows binaries in `main/video_creation/_G_video_assembly/`. The required media workflow fails if either executable is unavailable.
 
----
+```powershell
+py -m pip install -r main/requirements.txt -r test/requirements-test.txt
+npm --prefix main/webui/frontend ci
+npm --prefix main/webui/frontend run build
+py -m playwright install chromium
 
-## Directory Architecture
-
-```
-test/
-├── README.md               # Test documentation & execution manual
-├── run_tests.py            # Standalone test runner (zero external dependencies needed)
-├── pytest.ini              # Pytest configuration & markers (contained inside test directory)
-├── requirements-test.txt   # Optional test tooling (pytest, pytest-mock)
-├── conftest.py             # Shared fixtures and mock helpers
-│
-├── unit/                   # Layer 1: Fast deterministic unit tests (0 network/GPU calls)
-│                           # Audio processor, chalkboard, CLI prompts, ComfyUI supervisor & pool,
-│                           # LlamaManager VRAM lifecycle, visual prompt builder, metadata & JSON parser,
-│                           # music jam matcher, prompt rules, roleplay lens, state manager & ID generator,
-│                           # stress enhancer, acoustic evaluator, subtitles, thumbnail builder,
-│                           # voice manager & modifier, WebUI ID validator, Sheets router, and watchdog recovery
-│
-├── integration/            # Layer 2: Component interaction, schemas & security tests
-│                           # Database gates, health checks, pipeline status tracker,
-│                           # verbatim ingestion & check_script_changes, CSV/JSON/system prompt
-│                           # schema contracts, privacy & secret leak prevention
-│
-└── connectivity/           # Layer 3: Google Sheets integration & data contract tests
-                            # Sheets fetcher, corrections extractor, reconciliation, poster, ready scripts scanner
+# Offline pytest automatically isolates VOICE_PROVIDER="local" & ELEVENLABS_API_KEY=""
+# via test/conftest.py (unless SHORTS_LIVE_ELEVENLABS=1 is set).
+py -m pytest test -m "not live" --basetemp="$env:TEMP\shorts_pytest_tmp" -o cache_dir="$env:TEMP\shorts_pytest_cache"
 ```
 
----
+Set `STUDIO_TEST_CHROMIUM` to an installed Chromium executable to use it instead of the Playwright-managed browser. On Windows, `--basetemp` and `-o cache_dir` avoid `test\.pytest_cache` / `%TEMP%` permission collisions.
 
-## Quick Start & Execution
+## Test layout (`63` Python files)
 
-### 1. Run All Tests (Native Python Runner - Recommended)
-Executes all **287+ automated tests** across 25 curated test files in 3 QA layers (`unit/`, `integration/`, `connectivity/`) with zero external dependencies:
-```bash
-py test/run_tests.py
-```
-Or using ComfyUI's embedded Python runtime:
-```bash
-& ../ComfyUI_windows_portable/python_embeded/python.exe test/run_tests.py
-```
+| Path / Check | What runs | What it proves |
+|---|---|---|
+| `test/unit/` (`35` test files) | Core script engines, ElevenLabs catalog/LRU, local VoiceDesign bank/casting, Stage C visual prompts & Gemini auditor, chalkboard/thumbnail renderers, subtitles (non-overlap, collapse recovery), FFmpeg assembly, Drive scoped sync, and Sheets router (incl. Column J sync) | Unit invariants across Stages A–G and WebUI/connectivity services (strictly offline via `conftest.py` isolation). |
+| `test/connectivity/` (`5` files) | Sheets fetcher, corrected-scripts CSV sync, reconciler, poster, ready-scripts scanner | Sheets HTTP client & CSV pipeline contracts. |
+| `test/integration/` (`6` files) | SQLite Expression DB, service health checks, sample CSV/JSON schemas, gitignore/privacy security checks, status tracker, verbatim ingestion | Data contracts, security exclusions, and `check_script_changes.py`. |
+| `test/webui/test_workspace_workflow.py` | Real Sheets import logic, API, job manager, stage adapters, state, chalkboard and thumbnail renderers, subtitle builder, and FFmpeg | An approved Game revision becomes a decodable short and thumbnail. The media API serves the MP4 with byte ranges. A failed forced render preserves the previous MP4 and a retry completes. |
+| `test/browser/test_studio.py` | Built React app, Chromium, FastAPI, and the real thumbnail adapter | A user can select a script, queue a thumbnail, see a real failure, retry, and load the result in the media panel. |
+| `py -m pytest test -m "not browser and not live"` | Deterministic backend suite (`unit`, `connectivity`, `integration`, `webui`) | Target language and format rules, service contracts, cancellation, state compatibility, and delivery safety. |
 
-### 2. Run Specific Test Layers
-```bash
-# Unit tests only
-py test/run_tests.py --unit
+The workflow uses checked-in lesson data (`test/fixtures/image_prompts/states/`) and temporary state and output directories. It supplies Sheets rows, prompt responses, TTS clips, image HTTP responses, and transcription timestamps through test doubles.
 
-# Integration, schema & security tests only
-py test/run_tests.py --integration
+## Live workstation check
 
-# Google Sheets connectivity tests only
-py test/run_tests.py --connectivity
-```
+Use a dedicated or idle ComfyUI instance with the production workflows, local models, and voice references already configured. The smoke check (`test/live/test_comfy_workstation.py`) writes generated project assets to a temporary workspace and submits real work to your configured GPU. Google writes are outside this smoke check.
 
-### 3. Run via Standard Python Unittest
-```bash
-py -m unittest discover -s test -p "test_*.py"
+```powershell
+$env:SHORTS_LIVE_COMFY = "1"
+py -m pytest test/live
+Remove-Item Env:SHORTS_LIVE_COMFY
 ```
 
----
+The GitHub workflow runs the frontend build, deterministic backend suite, required FFmpeg workflow, and browser test on Windows. Live GPU verification runs separately when explicitly enabled.
 
-## QA Engineering Principles
+## Voice quality comparison tools (`test/tools/`)
 
-1. **Deterministic & Isolated**: Tests run in-memory or inside temporary isolated folders (`tempfile`). No real LLM credits, ComfyUI server connections, or GPU VRAM are consumed.
-2. **Zero Main Project Pollution**: All testing tools, runners, and configs live strictly inside `test/`. Root project files (`main.py`, `requirements.txt`, etc.) remain clean.
-3. **100% Quiet Output**: Standard test runner stdout is completely clean of unmocked prompt banners or console noise.
-4. **Comprehensive Coverage**: Covers data transformation, LLM response resilience, audio token math, typography parsing, master database gates, schema validation, music bank resolution, thumbnail prompt generation, and git privacy.
+- `test/tools/render_voice_preview.py`: Renders isolated ComfyUI voice previews (`baseline`, `continuity`, `direction`, `reference`, `roleplay`) from a baseline directory containing frozen script JSONs.
+- `test/tools/compare_voice_preview.py`: Exports loudness-matched A/B clips and an answer key (`--pyin`, optional `--ecapa-model`).
+- `test/tools/freeze_image_fixtures.py`: Snapshots/updates frozen Stage C golden image prompt contracts in `test/fixtures/image_prompts/`.
+- `test/image_prompt_harness.py`: Offline harness for comparing Stage C visual prompt drafts and snapshots.

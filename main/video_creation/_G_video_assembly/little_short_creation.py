@@ -382,7 +382,7 @@ def interactive_loop(base_dir: Path = BASE_DIR) -> None:
                     break
                 if assemble_choice in ("", "y", "yes"):
                     try:
-                        from _G_video_assembly.main import process_script
+                        from _G_video_assembly.service import process_script
                     except (ImportError, ModuleNotFoundError):
                         # pyrefly: ignore [missing-import]
                         from main import process_script

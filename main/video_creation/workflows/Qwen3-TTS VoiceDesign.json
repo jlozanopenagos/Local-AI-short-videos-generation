@@ -1,0 +1,53 @@
+{
+  "8": {
+    "inputs": {
+      "filename_prefix": "audio/voice_bank",
+      "audio": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "SaveAudio"
+    }
+  },
+  "33": {
+    "inputs": {
+      "model_repo": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+      "download_source": "ModelScope",
+      "precision": "fp16",
+      "attn_mode": "sdpa",
+      "auto_download": true
+    },
+    "class_type": "Qwen3TTSLoader",
+    "_meta": {
+      "title": "Qwen3-TTS VoiceDesign Loader"
+    }
+  },
+  "36": {
+    "inputs": {
+      "text": "Wait, really?! Did you just hear how native speakers say that every single day!",
+      "voice_instruction": "Charismatic, expressive storyteller in his twenties with clear articulate diction, lively pitch movement, and natural warm enthusiasm.",
+      "language": "English",
+      "output_mode": "Concatenate (Merge)",
+      "seed": 42,
+      "max_new_tokens": 1024,
+      "temperature": 0.85,
+      "top_p": 0.92,
+      "top_k": 50,
+      "repetition_penalty": 1.03,
+      "subtalker_temperature": 0.88,
+      "subtalker_top_p": 0.92,
+      "subtalker_top_k": 50,
+      "model_obj": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "Qwen3TTSVoiceDesign",
+    "_meta": {
+      "title": "Qwen3-TTS Voice Design"
+    }
+  }
+}

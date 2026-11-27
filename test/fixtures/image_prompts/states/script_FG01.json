@@ -1,0 +1,108 @@
+{
+  "assets": {
+    "character_anchors": {
+      "char1_age": "16-year-old high-school teenage girl (tall slender teenage proportions, mature teenage features, NOT a child)",
+      "char1_attire": "tailored deep indigo linen vest over a cream turtleneck with dark wash denim trousers and leather loafers",
+      "char1_gender": "female",
+      "char1_hair": "short textured dark hair with clean tapered sides and a neat side-part",
+      "continuity_summary": "Character appearance continuity: The protagonist is a 16-year-old high-school teenage girl with short textured dark hair with clean tapered sides and a neat side-part wearing a tailored deep indigo linen vest over a cream turtleneck with dark wash denim trousers and leather loafers.",
+      "has_two_characters": "False"
+    },
+    "general_prompt": "A vibrant, modern creative studio and lounge space. The setting features polished concrete floors, exposed brick walls, and large floor-to-ceiling windows that flood the area with warm, cinematic sunlight, creating soft cast shadows. In the foreground, a sleek, minimalist wooden demonstration bench sits next to a glass display case filled with stylized, colorful props. The atmosphere is energetic and youthful. The primary character, a tall, slender high-school boy (approx. 15-16 years old) with short textured dark hair featuring clean tapered sides and a neat side-part, stands on the left. He wears a tailored, deep indigo linen vest over a cream turtleneck with dark wash denim trousers and leather loafers. To his right stands his companion, a female peer with bright red, shoulder-length wavy hair, dressed in a flowing, emerald green silk dress with subtle gold embroidery. Visual metaphors are present: A large, ornate vintage rotary phone is placed near a small coffee table, and a stylized, empty chair sits prominently on the bench, visually representing the posé (sitting down/skipping). The lighting is rich and high-contrast, emphasizing bold outlines and the clean, stylized 2D cartoon aesthetic. The entire scene is meticulously composed, ready for action. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "A vibrant, modern creative studio and lounge space. The setting features polished concrete floors, exposed brick walls, and large floor-to-ceiling windows that flood the area with warm, cinematic sunlight, creating soft cast shadows. In the foreground, a sleek, minimalist wooden demonstration bench sits next to a glass display case filled with stylized, colorful props. The atmosphere is energetic and youthful. The primary character, a tall, slender high-school boy (approx. 15-16 years old) with short textured dark hair featuring clean tapered sides and a neat side-part, stands on the left. He wears a tailored, deep indigo linen vest over a cream turtleneck with dark wash denim trousers and leather loafers. To his right stands his companion, a female peer with bright red, shoulder-length wavy hair, dressed in a flowing, emerald green silk dress with subtle gold embroidery. Visual metaphors are present: A large, ornate vintage rotary phone is placed near a small coffee table, and a stylized, empty chair sits prominently on the bench, visually representing the posé (sitting down/skipping). The lighting is rich and high-contrast, emphasizing bold outlines and the clean, stylized 2D cartoon aesthetic. The entire scene is meticulously composed, ready for action. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Expressions idiomatiques",
+    "chalkboard_exercise": "Quelle expression utilise un natif quand quelqu'un ne vient jamais à un rendez-vous ?\nA: Piser un lapin.\nB: Poser un lapin.\nC: Donner une fleur.",
+    "character_anchors": {
+      "char1_age": "16-year-old high-school teenage girl (tall slender teenage proportions, mature teenage features, NOT a child)",
+      "char1_attire": "tailored deep indigo linen vest over a cream turtleneck with dark wash denim trousers and leather loafers",
+      "char1_gender": "female",
+      "char1_hair": "short textured dark hair with clean tapered sides and a neat side-part",
+      "continuity_summary": "Character appearance continuity: The protagonist is a 16-year-old high-school teenage girl with short textured dark hair with clean tapered sides and a neat side-part wearing a tailored deep indigo linen vest over a cream turtleneck with dark wash denim trousers and leather loafers.",
+      "has_two_characters": "False"
+    },
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "game_archetype": "SPOT_THE_MISTAKE",
+    "language": "French",
+    "learning_objective": "Apprendre et maîtriser l'expression idiomatique 'poser un lapin' pour décrire le fait qu'une personne ne se présente pas à un rendez-vous.",
+    "related_content": [
+      "Expressions idiomatiques françaises",
+      "Français familier",
+      "Apprendre le français"
+    ],
+    "script": {
+      "answer": "Victoire éclatante pour l'option B: Poser un lapin !",
+      "challenge": "Quelle expression utilise un natif quand quelqu'un ne vient jamais à un rendez-vous ? A: Piser un lapin.  B: Poser un lapin.  C: Donner une fleur.",
+      "explanation": "Cette image amusante date du dix-neuvième siècle pour décrire l'action de faire faux bond sans prévenir. Votre ami vous abandonne au café ? On vous a posé un lapin !\n\nAvez-vous trouvé la réponse sans tricher ? Écrivez-le en commentaire !",
+      "hook": "Alerte quiz ! Quel est votre vrai niveau de français familier ?",
+      "pressure": "Le compte à rebours commence ! Trois, deux, un, freeze !",
+      "title": "Poser un Lapin Défi de Français"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "french_female_kokoro_golden_mezzo.wav"
+    },
+    "subcategory": "Rendez-vous et relations",
+    "target_expression": "Poser un lapin",
+    "topic": "Poser un lapin",
+    "video_type": "GAME"
+  },
+  "id": "FG01",
+  "metadata": {
+    "DESCRIPTION": "Testez votre français familial ! Quel mot utiliser quand quelqu'un ne vient pas à votre rendez-vous ? Découvrez l'expression parfaite pour dire Poser un lapin. Est-ce que vous avez trouvé la réponse ? Commentez ci-dessous ! #LearnFrench #FrenchIdioms #SpeakBetter",
+    "FILENAME": "french_expressions_poser-un-lapin-rendez-vous.mp4",
+    "HASHTAGS": "#LearnFrench #FrenchIdioms #SpeakBetter #FrenchVocabulary",
+    "LABEL": "French | Expressions idiomatiques | Rendez-vous | Vocabulary",
+    "SHORT_DESCRIPTION": "Quiz sur Poser un lapin. Trouvez la bonne expression pour parler de quelqu'un qui ne se présente pas. #FrenchLearning #Expressions",
+    "TAGS": "french, poser un lapin, expressions idiomatiques, apprendre le français, vocabulaire français, rendez-vous, parler français, langue française, idiomes français, quiz français",
+    "TITLE": "Poser un Lapin Défi de Français"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "Ne pas venir à un rendez-vous convenu sans prévenir",
+    "EMOTIONAL_TRIGGER": "Curiosity & Surprise",
+    "EXPRESSION": "Poser un lapin",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "SPOT_THE_MISTAKE",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "french",
+    "LEXICAL_FIELD": "Rendez-vous et relations",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "FG01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Expressions idiomatiques françaises",
+    "TARGET_EXPRESSION": "Poser un lapin",
+    "TOPIC": "Poser un lapin",
+    "TYPE": "game",
+    "angle": "",
+    "context": "Ne pas venir à un rendez-vous convenu sans prévenir",
+    "emotional_trigger": "Curiosity & Surprise",
+    "expression": "Poser un lapin",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "SPOT_THE_MISTAKE",
+    "hook_angle": "",
+    "language": "french",
+    "lexical_field": "Rendez-vous et relations",
+    "pillar": "",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "FG01",
+    "special_treatment": "",
+    "subject": "Expressions idiomatiques françaises",
+    "target_expression": "Poser un lapin",
+    "topic": "Poser un lapin",
+    "type": "game"
+  },
+  "script_text": "{\n  \"title\": \"Poser un Lapin Défi de Français\",\n  \"hook\": \"Alerte quiz ! Quel est votre vrai niveau de français familier ?\",\n  \"challenge\": \"Quelle expression utilise un natif quand quelqu'un ne vient jamais à un rendez-vous ? A: Piser un lapin.  B: Poser un lapin.  C: Donner une fleur.\",\n  \"pressure\": \"Le compte à rebours commence ! Trois, deux, un, freeze !\",\n  \"answer\": \"Victoire éclatante pour l'option B: Poser un lapin !\",\n  \"explanation\": \"Cette image amusante date du dix-neuvième siècle pour décrire l'action de faire faux bond sans prévenir. Votre ami vous abandonne au café ? On vous a posé un lapin !\\n\\nAvez-vous trouvé la réponse sans tricher ? Écrivez-le en commentaire !\"\n}"
+}

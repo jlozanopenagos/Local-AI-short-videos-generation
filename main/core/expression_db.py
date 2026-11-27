@@ -13,8 +13,9 @@ import os
 import re
 import csv
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple, Any, Iterator
 
 from config import (
     BASE_DIR,
@@ -49,10 +50,14 @@ class ExpressionDB:
         """Returns the CSV path for a specific language (e.g. database/english_expressions.csv)."""
         return self.database_dir / f"{language.lower()}_expressions.csv"
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(str(self.db_path), timeout=10.0)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def _init_db(self) -> None:
         """Creates tables and indexes if they do not exist."""
@@ -281,6 +286,13 @@ class ExpressionDB:
 
         return False
 
+    def get_done_ids_set(self) -> Set[str]:
+        """Returns a set of all uppercase script IDs marked DONE in a single batch query."""
+        self.sync()
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT id FROM expressions WHERE UPPER(status) = 'DONE'").fetchall()
+            return {str(r["id"]).strip().upper() for r in rows if r["id"]}
+
     def get_status(self, script_id: str) -> Optional[str]:
         """Returns current status of an expression ('DONE', 'PENDING') or None."""
         self.sync()
@@ -387,3 +399,8 @@ def get_expression_db() -> ExpressionDB:
 def is_expression_done(script_id: str) -> bool:
     """Convenience helper: checks if an expression is marked DONE."""
     return get_expression_db().is_done(script_id)
+
+
+def get_all_done_expression_ids() -> Set[str]:
+    """Convenience helper: returns all DONE expression IDs in a single query."""
+    return get_expression_db().get_done_ids_set()

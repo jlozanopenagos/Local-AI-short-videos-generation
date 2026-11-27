@@ -67,6 +67,20 @@ BANNED_SUFFIX_PATTERNS = [
     re.compile(r"\s*[:：\-–—]\s*game\s+changer\b.*$", re.IGNORECASE),
 ]
 
+CATEGORY_PREFIX_PATTERN = re.compile(
+    r"^(?:[\[\(]\s*)?"
+    r"(?:"
+    r"quiz|game|juego|jeu|gioco|trivia|"
+    r"expression|expresi[óo]n|espressione|idiom|modismo|"
+    r"fun\s*facts?|dato\s*curioso|datos\s*curiosos|curiosidad|curiosit[éeàa]|"
+    r"role[\s-]*play|dialogue|di[áa]logo|dialogo|"
+    r"in\s+action|en\s+acci[óo]n|en\s+action|in\s+azione|"
+    r"origin|origen|origine"
+    r")"
+    r"(?:\s*[\]\)]\s*[:：\|\-–—]?\s*|\s*(?:[:：\|]|\s[-–—]\s)\s*)",
+    re.IGNORECASE,
+)
+
 
 def strip_emojis(text: str) -> str:
     """Removes all emojis and pictographs from text."""
@@ -76,13 +90,29 @@ def strip_emojis(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def strip_category_prefix(title: str) -> str:
+    """Removes leading video-type/category prefixes (e.g. 'Quiz:', 'In Action:', 'Fun Fact:')
+    repeatedly while guarding against producing an empty title.
+    """
+    if not title:
+        return ""
+    current = str(title).strip()
+    while current:
+        stripped = CATEGORY_PREFIX_PATTERN.sub("", current, count=1).strip()
+        if not stripped or stripped == current:
+            break
+        current = stripped
+    return current
+
+
 def sanitize_title(title: str) -> str:
-    """Strips emojis, quotes, and formulaic clichés from titles."""
+    """Strips emojis, quotes, category prefixes, and formulaic clichés from titles."""
     if not title:
         return ""
     cleaned = strip_emojis(title).strip().strip('"').strip("'")
     for pattern in BANNED_SUFFIX_PATTERNS:
         cleaned = pattern.sub("", cleaned).strip()
+    cleaned = strip_category_prefix(cleaned)
     return cleaned
 
 

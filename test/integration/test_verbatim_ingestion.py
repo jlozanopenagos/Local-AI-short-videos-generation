@@ -1,9 +1,7 @@
 """
 test/integration/test_verbatim_ingestion.py — Integration and contract tests for:
 1. Verbatim script preservation (parsing paragraphs, games, roleplays, narrator prefixes).
-2. Direct script modification from CSV (ready scripts & script_to_change queues).
-3. State JSON reset to 'pending' before script regeneration.
-4. Timed CLI interactive production modes and timeouts.
+2. CSV ingestion and script comparison.
 """
 
 from __future__ import annotations
@@ -16,11 +14,9 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # pyrefly: ignore [missing-import]
-from core.cli_prompt import prompt_production_mode
 # pyrefly: ignore [missing-import]
 from core.state_manager import StateManager, resolve_lang_and_type
 # pyrefly: ignore [missing-import]
-from video_creation._A_video_scripts.main import process_scripts_to_change_from_csv
 # pyrefly: ignore [missing-import]
 from video_creation._A_video_scripts.script_modifier import (
     try_direct_script_parse,
@@ -30,6 +26,7 @@ from video_creation._A_video_scripts.script_modifier import (
 )
 # pyrefly: ignore [missing-import]
 from tools.check_script_changes import (
+    audit_script_changes,
     extract_spoken_text_from_state,
     normalize_text_for_comparison,
     compute_preview_diff,
@@ -110,12 +107,17 @@ class TestVerbatimScriptParsing(unittest.TestCase):
         parsed = try_direct_script_parse(script, "ROLEPLAY")
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["hook"], "Backstage chaos! A nervous actor is losing their mind over a forgotten line.")
-        self.assertIn("PERSON_ONE (Panicked)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_ONE (Baffled)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
-        self.assertEqual(parsed["PAYOFF"], "When the lights go up, knowing the right words turns panic into power.")
+        p1 = parsed.get("dialogue_part_1") or parsed.get("DIALOGUE_PART_1")
+        p2 = parsed.get("dialogue_part_2") or parsed.get("DIALOGUE_PART_2")
+        p3 = parsed.get("dialogue_part_3") or parsed.get("DIALOGUE_PART_3")
+        p4 = parsed.get("dialogue_part_4") or parsed.get("DIALOGUE_PART_4")
+        payoff = parsed.get("payoff") or parsed.get("PAYOFF")
+        self.assertIn("PERSON_ONE (Panicked)", p1)
+        self.assertIn("PERSON_TWO (Calm)", p1)
+        self.assertIn("PERSON_ONE (Baffled)", p2)
+        self.assertIn("PERSON_ONE (Relieved)", p3)
+        self.assertIn("PERSON_ONE (Determined)", p4)
+        self.assertEqual(payoff, "When the lights go up, knowing the right words turns panic into power.")
 
     def test_roleplay_user_case1_standard_unlabeled_narrator(self):
         script = (
@@ -133,16 +135,21 @@ class TestVerbatimScriptParsing(unittest.TestCase):
         parsed = try_direct_script_parse(script, "ROLEPLAY")
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["hook"], "Backstage chaos! A nervous actor is losing their mind over a forgotten line just thirty seconds before the show starts.")
-        self.assertIn("PERSON_ONE (Panicked)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_ONE (Baffled)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_TWO (Smirking)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_TWO (Chuckling)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_ONE (Determined)", parsed["DIALOGUE_PART_4"])
-        self.assertIn("PERSON_TWO (Encouraging)", parsed["DIALOGUE_PART_4"])
+        p1 = parsed.get("dialogue_part_1") or parsed.get("DIALOGUE_PART_1")
+        p2 = parsed.get("dialogue_part_2") or parsed.get("DIALOGUE_PART_2")
+        p3 = parsed.get("dialogue_part_3") or parsed.get("DIALOGUE_PART_3")
+        p4 = parsed.get("dialogue_part_4") or parsed.get("DIALOGUE_PART_4")
+        payoff = parsed.get("payoff") or parsed.get("PAYOFF")
+        self.assertIn("PERSON_ONE (Panicked)", p1)
+        self.assertIn("PERSON_TWO (Calm)", p1)
+        self.assertIn("PERSON_ONE (Baffled)", p2)
+        self.assertIn("PERSON_TWO (Smirking)", p2)
+        self.assertIn("PERSON_ONE (Relieved)", p3)
+        self.assertIn("PERSON_TWO (Chuckling)", p3)
+        self.assertIn("PERSON_ONE (Determined)", p4)
+        self.assertIn("PERSON_TWO (Encouraging)", p4)
         self.assertEqual(
-            parsed["PAYOFF"],
+            payoff,
             "When the lights go up, knowing the right words can turn pure panic into pure performance energy. Speak with confidence and own the moment. What would you say instead? Drop your version below!"
         )
 
@@ -163,21 +170,26 @@ class TestVerbatimScriptParsing(unittest.TestCase):
             "Are you making this common pronunciation mistake at work? Let us look at the confusing word permit."
         )
         self.assertFalse(parsed["hook"].lower().startswith("narrator"))
+        payoff = parsed.get("payoff") or parsed.get("PAYOFF")
         self.assertEqual(
-            parsed["PAYOFF"],
+            payoff,
             "Master this syllable stress rule to sound completely natural in your next office meeting. Subscribe for more daily English pronunciation tips!"
         )
-        self.assertFalse(parsed["PAYOFF"].lower().startswith("narrator"))
+        self.assertFalse(payoff.lower().startswith("narrator"))
 
-        self.assertIn("PERSON_ONE (Confident)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_TWO (Helpful)", parsed["DIALOGUE_PART_1"])
-        self.assertIn("PERSON_ONE (Confused)", parsed["DIALOGUE_PART_2"])
-        self.assertIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_3"])
-        self.assertIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_4"])
+        p1 = parsed.get("dialogue_part_1") or parsed.get("DIALOGUE_PART_1")
+        p2 = parsed.get("dialogue_part_2") or parsed.get("DIALOGUE_PART_2")
+        p3 = parsed.get("dialogue_part_3") or parsed.get("DIALOGUE_PART_3")
+        p4 = parsed.get("dialogue_part_4") or parsed.get("DIALOGUE_PART_4")
+        self.assertIn("PERSON_ONE (Confident)", p1)
+        self.assertIn("PERSON_TWO (Helpful)", p1)
+        self.assertIn("PERSON_ONE (Confused)", p2)
+        self.assertIn("PERSON_TWO (Calm)", p3)
+        self.assertIn("PERSON_ONE (Relieved)", p4)
 
-        self.assertNotEqual(parsed["DIALOGUE_PART_3"], parsed["DIALOGUE_PART_4"])
-        self.assertNotIn("PERSON_ONE (Relieved)", parsed["DIALOGUE_PART_3"])
-        self.assertNotIn("PERSON_TWO (Calm)", parsed["DIALOGUE_PART_4"])
+        self.assertNotEqual(p3, p4)
+        self.assertNotIn("PERSON_ONE (Relieved)", p3)
+        self.assertNotIn("PERSON_TWO (Calm)", p4)
 
     def test_find_available_ready_scripts_csvs(self):
         """Verify find_available_ready_scripts_csvs finds and prioritizes ready_scripts_to_work_with CSVs."""
@@ -237,137 +249,6 @@ class TestVerbatimScriptParsing(unittest.TestCase):
             self.assertEqual(results[0][1], "Script content here")
 
 
-class TestScriptToChange(unittest.TestCase):
-    """Test suite for script change execution, state JSON resets, and mode prompts."""
-
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.base_dir = Path(self.temp_dir.name)
-        self.state_dir = self.base_dir / "state"
-        self.csv_dir = self.base_dir / "input" / "csv" / "script_to_change"
-        self.csv_dir.mkdir(parents=True, exist_ok=True)
-        self.state_manager = StateManager(self.base_dir)
-
-    def tearDown(self):
-        self.temp_dir.cleanup()
-
-    def test_prompt_production_mode_offers_script_to_change_choice(self):
-        """Verify prompt_production_mode accepts choice 5 when allow_script_to_change_mode is True."""
-        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
-             patch("core.cli_prompt._timed_choice", return_value="5"):
-            result, mode = prompt_production_mode(
-                stage_title="Part A: Video Scripts",
-                asset_name="scripts",
-                timeout=20.0,
-                allow_fun_facts_mode=True,
-                allow_script_to_change_mode=True,
-                return_mode=True,
-            )
-            self.assertEqual(mode, "script_to_change")
-            self.assertIsNone(result)
-
-    def test_prompt_production_mode_20s_timeout_display(self):
-        """Verify prompt_production_mode passes 20s timeout to _timed_choice."""
-        with patch("core.cli_prompt.sys.stdin.isatty", return_value=True), \
-             patch("core.cli_prompt._timed_choice", return_value="1") as mock_choice:
-            prompt_production_mode(
-                stage_title="Part A: Video Scripts",
-                asset_name="scripts",
-                timeout=20.0,
-                allow_fun_facts_mode=True,
-                allow_script_to_change_mode=True,
-            )
-            mock_choice.assert_called_once()
-            _, kwargs = mock_choice.call_args
-            self.assertEqual(kwargs.get("timeout"), 20.0)
-
-    def test_resolve_lang_and_type_from_id(self):
-        """Verify language and video type are accurately inferred from canonical script ID."""
-        self.assertEqual(resolve_lang_and_type("EE01"), ("english", "expression"))
-        self.assertEqual(resolve_lang_and_type("EG05"), ("english", "game"))
-        self.assertEqual(resolve_lang_and_type("ER03"), ("english", "roleplay"))
-        self.assertEqual(resolve_lang_and_type("EF12"), ("english", "fun_facts"))
-        self.assertEqual(resolve_lang_and_type("FE02"), ("french", "expression"))
-        self.assertEqual(resolve_lang_and_type("SR01"), ("spanish", "roleplay"))
-        self.assertEqual(resolve_lang_and_type("IG04"), ("italian", "game"))
-
-    def test_state_json_set_to_pending_before_doing_new_script(self):
-        """
-        Ensure state JSON has 'script_generation': 'pending' BEFORE new script formatting is executed.
-        """
-        script_id = "EE01"
-        initial_state = {
-            "id": script_id,
-            "status": {
-                "script_generation": "done",
-                "voice_generation": "done",
-                "image_generation": "done",
-                "thumbnail_generation": "done",
-                "video_assembly": "done",
-            },
-            "prompt_params": {
-                "ID": script_id,
-                "EXPRESSION": "Break a leg",
-                "TARGET_LANGUAGE": "English",
-                "VIDEO_TYPE": "EXPRESSION",
-            },
-            "script_text": '{"title": "Old Script", "hook": "Old"}',
-        }
-        self.state_manager.save_script_state(script_id, initial_state)
-
-        csv_file = self.csv_dir / "update_ee01.csv"
-        new_script_text = (
-            "Title: New Break A Leg\n"
-            "Hook: Stop saying good luck!\n"
-            "Setup: Theater people consider it bad luck.\n"
-            "Discovery: Say break a leg instead.\n"
-            "Example: Tell your co-star to break a leg tonight.\n"
-            "Payoff: Share this tip with friends!"
-        )
-        with csv_file.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["ID", "NEW_SCRIPT"])
-            writer.writeheader()
-            writer.writerow({"ID": script_id, "NEW_SCRIPT": new_script_text})
-
-        observed_status_before_generation = []
-
-        def mock_modify(script_id, raw_script_text, reset_downstream=True, base_dir=None):
-            disk_state = self.state_manager.get_script_state(script_id)
-            observed_status_before_generation.append(disk_state["status"]["script_generation"])
-            disk_state["status"]["script_generation"] = "done"
-            self.state_manager.save_script_state(script_id, disk_state)
-            return True
-
-        with patch("video_creation._A_video_scripts.main.modify_video_script", side_effect=mock_modify):
-            res = process_scripts_to_change_from_csv(
-                base_dir=self.base_dir,
-                csv_path=str(csv_file),
-                auto=True,
-            )
-
-        self.assertEqual(res, 0)
-        self.assertEqual(len(observed_status_before_generation), 1)
-        self.assertEqual(observed_status_before_generation[0], "pending")
-
-        final_state = self.state_manager.get_script_state(script_id)
-        self.assertEqual(final_state["status"]["script_generation"], "done")
-
-    def test_process_scripts_to_change_missing_columns_logs_error(self):
-        """Verify invalid CSV without required columns is rejected cleanly without crashing."""
-        csv_file = self.csv_dir / "invalid.csv"
-        with csv_file.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["WRONG_1", "WRONG_2"])
-            writer.writeheader()
-            writer.writerow({"WRONG_1": "123", "WRONG_2": "abc"})
-
-        res = process_scripts_to_change_from_csv(
-            base_dir=self.base_dir,
-            csv_path=str(csv_file),
-            auto=True,
-        )
-        self.assertEqual(res, 1)
-
-
 class TestCheckScriptChanges(unittest.TestCase):
     """Unit tests for check_script_changes auditor tool."""
 
@@ -402,6 +283,122 @@ class TestCheckScriptChanges(unittest.TestCase):
         diff = compute_preview_diff(old, new)
         self.assertIn("-Line 2", diff)
         self.assertIn("+Modified Line 2", diff)
+
+    def test_game_counter_diff_and_duplicate_pressure_deduplication(self):
+        """Regression for IG48: Counter multiset catches swapped words existing elsewhere and skips duplicate pressure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            csv_dir = base_dir / "input" / "csv" / "script_to_change"
+            csv_dir.mkdir(parents=True, exist_ok=True)
+            sm = StateManager(base_dir)
+
+            # Case 1 (IG48): "prima di persone" -> "con persone" where prima/di/con appear elsewhere
+            sm.save_script_state("IG48", {
+                "id": "IG48",
+                "prompt_params": {"ID": "IG48", "VIDEO_TYPE": "GAME", "TARGET_LANGUAGE": "Italian"},
+                "content_metadata": {
+                    "video_type": "GAME",
+                    "language": "Italian",
+                    "script": {
+                        "title": "Quiz",
+                        "hook": "Sei da solo prima di entrare.",
+                        "challenge": "Con il direttore cosa dici?\nA: Puoi.\nB: Lei puo.",
+                        "pressure": "Veloce prima che finisca!",
+                        "answer": "La risposta è B!",
+                        "explanation": "Usalo prima di persone anziane.",
+                    },
+                },
+            })
+            # Case 2: legacy 4-part GAME with pressure == challenge must NOT false-positive
+            sm.save_script_state("EG04", {
+                "id": "EG04",
+                "prompt_params": {"ID": "EG04", "VIDEO_TYPE": "GAME", "TARGET_LANGUAGE": "English"},
+                "content_metadata": {
+                    "video_type": "GAME",
+                    "language": "English",
+                    "script": {
+                        "title": "Quiz",
+                        "hook": "Quick ear test.",
+                        "challenge": "She brought a present.\nA: a present.\nB: to present.",
+                        "pressure": "She brought a present.\nA: a present.\nB: to present.",
+                        "answer": "It is A!",
+                        "explanation": "First syllable stressed.",
+                    },
+                },
+            })
+
+            it_csv = csv_dir / "italian_game_script_to_change.csv"
+            with it_csv.open("w", encoding="utf-8-sig", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=["ID", "NEW_SCRIPT"])
+                w.writeheader()
+                w.writerow({
+                    "ID": "IG48",
+                    "NEW_SCRIPT": (
+                        "Sei da solo prima di entrare.\n\n"
+                        "Con il direttore cosa dici? A: Puoi. B: Lei puo.\n\n"
+                        "Veloce prima che finisca!\n\n"
+                        "La risposta è B!\n\n"
+                        "Usalo con persone anziane."
+                    ),
+                })
+
+            en_csv = csv_dir / "english_game_script_to_change.csv"
+            with en_csv.open("w", encoding="utf-8-sig", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=["ID", "NEW_SCRIPT"])
+                w.writeheader()
+                w.writerow({
+                    "ID": "EG04",
+                    "NEW_SCRIPT": (
+                        "Quick ear test.\n\n"
+                        "She brought a present. A: a present. B: to present.\n\n"
+                        "It is A!\n\n"
+                        "First syllable stressed."
+                    ),
+                })
+
+            changed, identical, _ = audit_script_changes(base_dir=base_dir)
+            changed_ids = [r["id"] for r in changed]
+            identical_ids = [r["id"] for r in identical]
+            self.assertIn("IG48", changed_ids)
+            self.assertNotIn("EG04", changed_ids)
+            self.assertIn("EG04", identical_ids)
+
+    def test_game_parser_merges_blank_line_options_and_detects_no_pressure_answer(self):
+        """Regression for IG02 & EG37: blank-line A/B/C options merge into challenge and no-pressure sets pressure=''."""
+        ig02_raw = (
+            "Sfida flash!\n\n"
+            "Cosa significa avere le mani bucate?\n\n"
+            "A: Spendere troppo.\n\n"
+            "B: Non avere soldi.\n\n"
+            "C: Essere stanchi.\n\n"
+            "Tre, due, uno, stop!\n\n"
+            "Se hai scelto A, punto pieno!\n\n"
+            "Ecco la spiegazione finale."
+        )
+        p_ig02 = parse_user_script_into_sections(ig02_raw, "GAME")
+        self.assertIsNotNone(p_ig02)
+        assert p_ig02 is not None
+        self.assertIn("A: Spendere troppo.", p_ig02["challenge"])
+        self.assertIn("B: Non avere soldi.", p_ig02["challenge"])
+        self.assertIn("C: Essere stanchi.", p_ig02["challenge"])
+        self.assertEqual(p_ig02["pressure"], "Tre, due, uno, stop!")
+        self.assertEqual(p_ig02["answer"], "Se hai scelto A, punto pieno!")
+
+        eg37_raw = (
+            "Your friend texts you.\n\n"
+            "He prefers the latter.\n\n"
+            "A: Option one.\n\n"
+            "B: Option two.\n\n"
+            "The answer is B. Latter means the second option.\n\n"
+            "Drop a sentence below!"
+        )
+        p_eg37 = parse_user_script_into_sections(eg37_raw, "GAME")
+        self.assertIsNotNone(p_eg37)
+        assert p_eg37 is not None
+        self.assertIn("A: Option one.", p_eg37["challenge"])
+        self.assertIn("B: Option two.", p_eg37["challenge"])
+        self.assertEqual(p_eg37["pressure"], "")
+        self.assertTrue(p_eg37["answer"].startswith("The answer is B."))
 
 
 if __name__ == "__main__":

@@ -28,16 +28,6 @@ from .expression_db import (
     is_expression_done,
 )
 
-from .cli_prompt import (
-    prompt_production_mode,
-    prompt_group_range,
-    prompt_fun_facts_mode,
-    prompt_csv_list_mode,
-    prompt_ready_scripts_mode,
-    prompt_mass_ready_scripts_mode,
-    find_ready_scripts_csvs,
-)
-
 # Ensure core directory is also in sys.path for direct module discovery
 _CORE_DIR = str(Path(__file__).parent.resolve())
 if _CORE_DIR not in sys.path:
@@ -60,12 +50,5 @@ __all__ = [
     "ExpressionDB",
     "get_expression_db",
     "is_expression_done",
-    "prompt_production_mode",
-    "prompt_group_range",
-    "prompt_fun_facts_mode",
-    "prompt_csv_list_mode",
-    "prompt_ready_scripts_mode",
-    "prompt_mass_ready_scripts_mode",
-    "find_ready_scripts_csvs",
 ]
 

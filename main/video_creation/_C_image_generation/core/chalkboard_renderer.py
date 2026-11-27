@@ -132,18 +132,10 @@ def parse_quiz_exercise(text: str) -> Tuple[str, List[Tuple[str, str]]]:
             if opt_text:
                 options.append((letter, opt_text))
             
-    # Fallback if no structured options were detected
-    if not options:
-        options = [
-            ("A", "Option A"),
-            ("B", "Option B"),
-            ("C", "Option C"),
-            ("D", "Option D")
-        ]
+    # Automatically mask revealed answer if this is a listening/identification game with options
+    if options:
+        question = mask_revealed_answer_in_question(question, options)
 
-    # Automatically mask revealed answer if this is a listening/identification game
-    question = mask_revealed_answer_in_question(question, options)
-        
     return question, options
 
 
@@ -305,6 +297,68 @@ def render_chalkboard_image(
     windir = Path(os.environ.get("WINDIR", "C:/Windows"))
     preferred_font = windir / "Fonts" / "segoeprb.ttf"
     font_file = preferred_font if preferred_font.exists() else None
+
+    # Dedicated open-ended challenge / error-detection layout (NO dummy option boxes)
+    if not options:
+        m_q = re.search(r"^(.*?)\s*([¿]?[A-ZÀ-ÿ][^\.!\n]*\?)\s*$", question, flags=re.DOTALL)
+        if m_q and m_q.group(1).strip():
+            main_part = m_q.group(1).strip()
+            q_part = m_q.group(2).strip()
+        else:
+            main_part = question.strip()
+            q_part = ""
+
+        total_chars = len(question)
+        if total_chars < 100:
+            base_size, q_size = 52, 56
+        elif total_chars < 180:
+            base_size, q_size = 46, 50
+        else:
+            base_size, q_size = 38, 44
+
+        font_main = _get_font(font_file, base_size)
+        line_h_main = int(base_size * 1.45)
+        main_lines, _ = wrap_words_to_width(main_part, font_main, 750, draw)
+
+        if q_part:
+            font_q = _get_font(font_file, q_size)
+            line_h_q = int(q_size * 1.45)
+            q_lines, _ = wrap_words_to_width(q_part, font_q, 750, draw)
+        else:
+            font_q = font_main
+            line_h_q = line_h_main
+            q_lines = []
+
+        divider_space = 46 if q_part else 0
+        total_content_h = (len(main_lines) * line_h_main) + divider_space + (len(q_lines) * line_h_q)
+        start_y = max(180, (h - total_content_h) // 2 - 30)
+
+        chalk_yellow = (255, 238, 140, 255)
+        chalk_white = (250, 250, 245, 255)
+
+        curr_y = start_y
+        for line in main_lines:
+            bbox = draw.textbbox((0, 0), line, font=font_main)
+            lw = bbox[2] - bbox[0]
+            draw.text(((w - lw) // 2, curr_y), line, font=font_main, fill=chalk_white if q_part else chalk_yellow)
+            curr_y += line_h_main
+
+        if q_part:
+            curr_y += 14
+            div_w = min(540, max(280, int(w * 0.45)))
+            draw.line([((w - div_w) // 2, curr_y), ((w + div_w) // 2, curr_y)], fill=(255, 255, 255, 140), width=3)
+            curr_y += divider_space - 14
+
+            for line in q_lines:
+                bbox = draw.textbbox((0, 0), line, font=font_q)
+                lw = bbox[2] - bbox[0]
+                draw.text(((w - lw) // 2, curr_y), line, font=font_q, fill=chalk_yellow)
+                curr_y += line_h_q
+
+        final_img = base.resize(target_size, Image.Resampling.LANCZOS)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        final_img.save(str(dest_path))
+        return dest_path
 
     # Line wrap question preserving manual linebreaks and using dynamic sizing for long questions
     wrap_width = 24 if len(question) < 75 else 28

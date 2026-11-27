@@ -1,0 +1,679 @@
+{
+  "version": "1.0",
+  "description": "Curated multi-language, multi-persona catalog for 1.7B-VoiceDesign reference voice bank construction (neutral Spanish accents only: es_latam_neutral & es_spain_castilian).",
+  "energy_variant_prompts": {
+    "english": {
+      "high_energy": "Wait a second, really?! No way, that actually sounds amazing! Tell me everything right now!",
+      "surprised_urgent": "Hold on... what did you just say?! Are you seriously telling me we missed the train?!"
+    },
+    "french": {
+      "high_energy": "Attends une seconde, vraiment ?! C'est complètement dingue ! Raconte-moi ça tout de suite !",
+      "surprised_urgent": "Mais attends... qu'est-ce que tu viens de dire ?! Ne me dis pas qu'on a raté le train ?!"
+    },
+    "spanish": {
+      "high_energy": "¡Espera un segundo, ¿de verdad?! ¡No puede ser, suena increíble! ¡Cuéntame todo ahora mismo!",
+      "surprised_urgent": "Oye, espera... ¿qué acabas de decir?! ¡¿Me estás diciendo en serio que perdimos el tren?!"
+    },
+    "italian": {
+      "high_energy": "Aspetta un attimo, ma davvero?! È incredibile, suona benissimo! Dai, raccontami tutto subito!",
+      "surprised_urgent": "Ma aspetta... che cosa hai appena detto?! Non dirmi sul serio che abbiamo perso il treno?!"
+    }
+  },
+  "personas": [
+    {
+      "speaker_id": "es_m_latam_host_01",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 1101,
+      "voice_instruction": "Presentador masculino joven de unos 26 años con acento español latinoamericano neutro estándar, voz brillante, cálida, llena de energía y entusiasmo natural, dicción impecable, ritmo ágil y entonación muy expresiva.",
+      "ref_text": "¿De verdad creías que esa palabra significaba eso? ¡Pues prepárate, porque hoy vas a descubrir el truco que usan todos los nativos!"
+    },
+    {
+      "speaker_id": "es_m_latam_narrator_02",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 1102,
+      "voice_instruction": "Narrador masculino carismático de 30 años, acento español latinoamericano neutro estándar, timbre barítono cálido y cercano, cadencia envolvente y natural, gran expresividad en preguntas y exclamaciones.",
+      "ref_text": "Escucha con atención esta historia... ¿Alguna vez te preguntaste por qué decimos esta frase? ¡La respuesta te va a sorprender!"
+    },
+    {
+      "speaker_id": "es_m_latam_actor_03",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "archetypes": ["roleplay_actor", "energetic_host"],
+      "seed": 1103,
+      "voice_instruction": "Actor masculino dinámico de 24 años, acento latinoamericano neutro estándar, tono fresco, juvenil, expresivo y espontáneo ideal para diálogos cotidianos vivos.",
+      "ref_text": "¡No te preocupes por eso ahora! ¿En serio pensaste que era tan difícil? ¡Vas a ver que con esta expresión suena súper natural!"
+    },
+    {
+      "speaker_id": "es_m_spain_narrator_04",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_spain_castilian",
+      "archetypes": ["warm_narrator", "energetic_host", "roleplay_actor"],
+      "seed": 1104,
+      "voice_instruction": "Narrador masculino de unos 29 años con acento español castellano estándar neutro de España, pronunciación nítida y natural, voz clara, entusiasta, dinámica y cercana.",
+      "ref_text": "¿Sabes cómo suena esto en una charla real? ¡Te lo prometo, en cuanto aprendas este giro nadie notará que estás practicando!"
+    },
+    {
+      "speaker_id": "es_f_latam_host_01",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 2701,
+      "voice_instruction": "A confident 33-year-old adult woman with a clear, warm alto-mezzo female voice and grounded mid-low pitch. She speaks with crisp broadcast microphone clarity, upbeat game-show host momentum, and articulate rhythmic pacing in a neutral Latin American Spanish accent.",
+      "ref_text": "Escucha bien esta pregunta. ¿Te atreves a adivinar qué significa esta expresión antes de que termine el reloj? Presta atención a estas tres pistas."
+    },
+    {
+      "speaker_id": "es_f_latam_narrator_02",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 2702,
+      "voice_instruction": "A warm, articulate 30-year-old adult woman with a clear, natural feminine mid-range female voice. She speaks like a friendly documentary narrator and language educator in a clean neutral Latin American Spanish accent, with crisp dry broadcast studio clarity, engaging storytelling warmth, and lively natural inflection.",
+      "ref_text": "Parece un detalle pequeño, ¿verdad? ¡Pero cambia por completo el sentido de toda la frase! Quédate y descubre por qué ocurre."
+    },
+    {
+      "speaker_id": "es_f_latam_actor_03",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "archetypes": ["roleplay_actor", "energetic_host"],
+      "seed": 1203,
+      "voice_instruction": "Actriz femenina joven de 23 años con acento latinoamericano neutro estándar, voz espontánea, brillante, muy reactiva y expresiva en conversaciones rápidas.",
+      "ref_text": "¡Qué locura! ¿Cómo que nunca habías oído esa expresión? ¡Mira, úsala así hoy mismo y todos se quedarán impresionados!"
+    },
+    {
+      "speaker_id": "es_f_spain_narrator_04",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_spain_castilian",
+      "archetypes": ["warm_narrator", "energetic_host", "roleplay_actor"],
+      "seed": 1204,
+      "voice_instruction": "Narradora femenina de 27 años con acento castellano estándar neutro de España, voz clara, brillante, cercana y muy expresiva, ritmo vivo sin modismos exagerados.",
+      "ref_text": "¿Lo ves? ¡Es muchísimo más sencillo de lo que parece! Escucha este ejemplo cotidiano y compruébalo tú mismo ahora mismo."
+    },
+
+    {
+      "speaker_id": "it_m_host_01",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 2101,
+      "voice_instruction": "Conduttore italiano maschile di 26 anni, accento italiano standard neutro brillante e solare, voce piena di energia, entusiasmo contagioso, ritmo incalzante e picchi melodici molto espressivi.",
+      "ref_text": "Ma davvero pensavi che significasse questo?! Preparati, perché oggi scopri il trucco segreto che tutti gli italiani usano ogni giorno!"
+    },
+    {
+      "speaker_id": "it_m_narrator_02",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 2102,
+      "voice_instruction": "Narratore italiano carismatico di 31 anni, accento italiano standard caldo e coinvolgente, timbro baritonale limpido, grande espressività teatrale e doppie consonanti nitide.",
+      "ref_text": "Ascolta bene questa curiosità... Ti sei mai chiesto da dove arrivi davvero questa parola?! La risposta ti lascerà a bocca aperta!"
+    },
+    {
+      "speaker_id": "it_m_actor_03",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": ["roleplay_actor", "energetic_host"],
+      "seed": 2103,
+      "voice_instruction": "Attore italiano giovane di 24 anni, voce fresca, vivace, molto espressiva e spontanea, accento italiano standard naturale perfetto per dialoghi brillanti.",
+      "ref_text": "Dai, non ci credo! Ma stai scherzando o dici sul serio?! Guarda che se la dici così suoni subito come un vero madrelingua!"
+    },
+    {
+      "speaker_id": "it_m_narrator_04",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 3604,
+      "voice_instruction": "A mature 42-year-old adult Italian man with a deep, heavy, resonant bass-baritone male chest voice and low masculine pitch. He speaks with calm, confident documentary authority, warm Italian cadence, and crisp double consonants in a Standard Italian accent.",
+      "ref_text": "Ascolta bene questo dettaglio. Sai perché quasi tutti sbagliano questa parola in italiano? Oggi lo scoprirai in trenta secondi!"
+    },
+    {
+      "speaker_id": "it_f_host_01",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 3701,
+      "voice_instruction": "A confident 34-year-old adult Italian woman with a clear, warm alto-mezzo female voice and steady mid-low pitch. She speaks with upbeat Italian television host clarity, crisp double consonants, and lively melodic phrasing in a Standard Italian accent.",
+      "ref_text": "Ciao a tutti! Riesci a indovinare cosa vuol dire questo modo di dire prima che scada il tempo?! Occhio alle tre opzioni!"
+    },
+    {
+      "speaker_id": "it_f_narrator_02",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 2202,
+      "voice_instruction": "Narratrice italiana di 29 anni, voce espressiva, calda, brillante e avvolgente, accento italiano standard impeccabile con intonazione viva e coinvolgente.",
+      "ref_text": "Sembra una piccola parola innocua, vero? E invece cambia tutto il senso della frase! Ascolta questo esempio e vedrai subito la magia."
+    },
+    {
+      "speaker_id": "it_f_actor_03",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": ["roleplay_actor", "energetic_host"],
+      "seed": 3703,
+      "voice_instruction": "A warm 32-year-old adult Italian woman with a rich, grounded alto female chest voice and natural mid-low pitch. She speaks with spirited conversational timing, expressive Italian theater warmth, and clear Standard Italian diction for engaging dialogues.",
+      "ref_text": "Ma dai, davvero non l'avevi mai sentita?! Provala subito oggi con i tuoi amici e guarda come cambiano faccia!"
+    },
+    {
+      "speaker_id": "it_f_narrator_04",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 2204,
+      "voice_instruction": "Storyteller italiana solare di 27 anni, timbro chiaro ed energico, cadenza vivace, musicale e mai monotona, dizione pulitissima.",
+      "ref_text": "Fermati un secondo! Sai qual è l'errore più comune che fanno tutti qui?! Scopriamolo insieme in trenta secondi!"
+    },
+
+    {
+      "speaker_id": "fr_m_host_01",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 3601,
+      "voice_instruction": "A charismatic 30-year-old adult French man with a warm, resonant baritone-tenor male voice. He speaks with authentic native Metropolitan Parisian French pronunciation from Paris, lively playful Parisian charm, expressive musical French phrasing, crisp French uvular R, and upbeat host energy. Strictly masculine adult male voice with zero foreign accent.",
+      "ref_text": "Ah bon, tu croyais vraiment que cette expression voulait dire ça ? Allez, viens voir, aujourd'hui je te dévoile le vrai secret des Français !"
+    },
+    {
+      "speaker_id": "fr_m_narrator_02",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 3102,
+      "voice_instruction": "Conteur français chaleureux de 30 ans, accent parisien standard élégant, musicalité legato authentique, liaisons naturelles et intonation curieuse et captivante.",
+      "ref_text": "Écoute bien cette histoire... Savais-tu d'où vient vraiment ce mot étrange ? La vérité va te surprendre dès la première seconde !"
+    },
+    {
+      "speaker_id": "fr_m_actor_03",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "archetypes": ["roleplay_actor", "energetic_host"],
+      "seed": 3103,
+      "voice_instruction": "Jeune comédien français de 24 ans, accent métropolitain standard spontané et expressif, timbre léger, réactif et naturel pour des dialogues vivants.",
+      "ref_text": "Mais attends, tu plaisantes ou quoi ?! Ne me dis pas que tu n'as jamais entendu ça dans une vraie conversation !"
+    },
+    {
+      "speaker_id": "fr_f_host_01",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 3201,
+      "voice_instruction": "Présentatrice française pétillante de 25 ans, accent parisien standard lumineux, voix musicale, vivante, entraînante et articulée avec élégance.",
+      "ref_text": "Salut à tous ! Sauras-tu trouver la bonne réponse avant la fin du chrono ? Ouvre grand les oreilles, c'est parti !"
+    },
+    {
+      "speaker_id": "fr_f_narrator_02",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "archetypes": ["warm_narrator", "roleplay_actor"],
+      "seed": 3202,
+      "voice_instruction": "Narratrice française expressive de 28 ans, accent parisien standard doux et mélodique, phrasé legato fluide, curiosité communicative et belle présence vocale.",
+      "ref_text": "C'est fou comme un petit détail change toute la phrase, non ? Regarde cet exemple du quotidien et tu vas comprendre tout de suite !"
+    },
+    {
+      "speaker_id": "fr_f_actor_03",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "archetypes": ["roleplay_actor", "energetic_host"],
+      "seed": 6703,
+      "voice_instruction": "A poised, articulate 36-year-old mature adult French woman born in Paris with a smooth, warm alto female voice and steady conversational pitch. She speaks with authentic Metropolitan Parisian French pronunciation, soft natural French vowels, crisp uvular R, and engaging friendly warmth.",
+      "ref_text": "Écoute bien cette petite expression parisienne. Si tu l'utilises aujourd'hui en conversation, tout le monde te prendra pour un vrai natif !"
+    },
+
+    {
+      "speaker_id": "en_m_us_host_01",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 4101,
+      "voice_instruction": "Charismatic General American male YouTube Shorts creator in his mid-twenties, bright punchy vocal presence, crisp articulation, energetic dynamic range.",
+      "ref_text": "Wait, did you really think that phrase meant what you read in textbooks?! Hang tight, because natives actually say something completely different!"
+    },
+    {
+      "speaker_id": "en_m_us_actor_02",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "archetypes": ["roleplay_actor", "warm_narrator"],
+      "seed": 4102,
+      "voice_instruction": "Expressive General American male voice actor around 28, warm relatable baritone, nimble conversational timing, great comedic contrast.",
+      "ref_text": "Wait a minute, did you really think that phrase meant the exact same thing? Let me show you how native speakers actually use it every single day!"
+    },
+    {
+      "speaker_id": "en_m_uk_narrator_03",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "archetypes": ["warm_narrator", "energetic_host", "roleplay_actor"],
+      "seed": 4103,
+      "voice_instruction": "Witty, articulate Modern British RP male storyteller around 29, warm baritone clarity, sharp inquisitive pitch lifts, vibrant documentary energy.",
+      "ref_text": "Strange as it sounds, that silent letter wasn't always silent! Curious why we still spell it that way? Here is the wild linguistic twist!"
+    },
+    {
+      "speaker_id": "en_f_us_host_01",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "archetypes": ["energetic_host", "warm_narrator"],
+      "seed": 4201,
+      "voice_instruction": "Vibrant General American female trivia host and educator in her mid-twenties, bright crystal-clear voice, fast engaging Shorts momentum and contagious enthusiasm.",
+      "ref_text": "Can you spot the right native idiom before the timer hits zero?! Listen closely to these three clues and lock in your answer!"
+    },
+    {
+      "speaker_id": "en_f_us_actor_02",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "archetypes": ["roleplay_actor", "warm_narrator"],
+      "seed": 4202,
+      "voice_instruction": "Relatable General American female voice actress around 25, expressive warm mezzo, natural conversational chemistry, crisp dynamics.",
+      "ref_text": "No way, you actually said that out loud?! Next time just drop this effortless phrase instead and everyone will get what you mean!"
+    },
+    {
+      "speaker_id": "en_f_uk_narrator_03",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "archetypes": ["warm_narrator", "energetic_host", "roleplay_actor"],
+      "seed": 4203,
+      "voice_instruction": "Charismatic Modern British RP female storyteller around 27, poised yet lively cadence, bright clear diction, engaging curiosity and warm authority.",
+      "ref_text": "Have you ever wondered why British speakers say it this way?! Listen closely for the subtle rhythm shift, because it changes everything!"
+    },
+    {
+      "speaker_id": "fr_f_roleplay_grounded_05",
+      "audition": true,
+      "language": "french",
+      "acting_variant_prompts": {
+        "reassuring": "Respire un instant. Je suis là, et on va trouver une solution ensemble.",
+        "frustrated": "Je t’ai demandé de garder les billets. Maintenant, il faut retourner au comptoir.",
+        "embarrassed": "Ah, pardon. Je viens de les retrouver dans ma poche. J’étais sûr de les avoir perdus."
+      },
+      "gender": "female",
+      "accent": "fr_standard",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5101,
+      "lower_register": true,
+      "voice_instruction": "Adult French woman from metropolitan France with a grounded low-mid register, rounded resonance and conversational rhythm, clear vowels and understated warmth.",
+      "ref_text": "J’ai gardé les billets dans mon sac. Attends, je vais regarder dans la petite poche."
+    },
+    {
+      "speaker_id": "fr_m_roleplay_dry_06",
+      "audition": true,
+      "language": "french",
+      "acting_variant_prompts": {
+        "reassuring": "Respire un instant. Je suis là, et on va trouver une solution ensemble.",
+        "frustrated": "Je t’ai demandé de garder les billets. Maintenant, il faut retourner au comptoir.",
+        "embarrassed": "Ah, pardon. Je viens de les retrouver dans ma poche. J’étais sûr de les avoir perdus."
+      },
+      "gender": "male",
+      "accent": "fr_standard",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5102,
+      "voice_instruction": "Adult French man from metropolitan France with a clear mid-low register, dry warmth and precise consonants, measured phrasing and subtle emphasis.",
+      "ref_text": "Le comptoir est encore ouvert. On peut leur demander si quelqu’un a retrouvé les billets."
+    },
+    {
+      "speaker_id": "it_f_roleplay_grounded_05",
+      "audition": true,
+      "language": "italian",
+      "acting_variant_prompts": {
+        "reassuring": "Fai un bel respiro. Sono qui con te e troveremo una soluzione insieme.",
+        "frustrated": "Ti avevo chiesto di tenere i biglietti. Adesso dobbiamo tornare al banco.",
+        "embarrassed": "Ah, scusa. Li ho appena trovati in tasca. Ero convinto di averli persi."
+      },
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5103,
+      "lower_register": true,
+      "voice_instruction": "Adult Italian woman with a grounded low-mid register, rounded resonance, clear standard Italian vowels and a warm conversational rhythm.",
+      "ref_text": "Ho messo i biglietti nella borsa. Aspetta, controllo nella tasca più piccola."
+    },
+    {
+      "speaker_id": "it_m_roleplay_dry_06",
+      "audition": true,
+      "language": "italian",
+      "acting_variant_prompts": {
+        "reassuring": "Fai un bel respiro. Sono qui con te e troveremo una soluzione insieme.",
+        "frustrated": "Ti avevo chiesto di tenere i biglietti. Adesso dobbiamo tornare al banco.",
+        "embarrassed": "Ah, scusa. Li ho appena trovati in tasca. Ero convinto di averli persi."
+      },
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5104,
+      "voice_instruction": "Adult Italian man with a clear mid-low register, dry conversational warmth, precise standard Italian diction and measured phrasing.",
+      "ref_text": "Il banco è ancora aperto. Possiamo chiedere se qualcuno ha trovato i biglietti."
+    },
+    {
+      "speaker_id": "en_f_narrator_low_07",
+      "audition": true,
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5200,
+      "voice_instruction": "Adult female speaker with a General American accent, grounded lower register, rounded resonance, warm clear diction and relaxed but engaging phrasing.",
+      "ref_text": "Here is the detail most people miss. When you hear this phrase in a real conversation, listen to what comes right after it.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "en_m_narrator_conversational_08",
+      "audition": true,
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5201,
+      "voice_instruction": "Adult male speaker with a General American accent, light mid register, dry warmth and crisp diction, an agile conversational rhythm and a little curiosity.",
+      "ref_text": "Picture a friend sending you a message before a big presentation. That one small phrase changes how the whole message lands."
+    },
+    {
+      "speaker_id": "en_f_roleplay_quick_05",
+      "audition": true,
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5202,
+      "voice_instruction": "Adult female speaker with a General American accent, grounded low-mid register, quick conversational reactions, focused midrange resonance and precise consonants.",
+      "ref_text": "Wait, I thought we had another hour. Give me a second to check the message.",
+      "lower_register": true,
+      "acting_variant_prompts": {
+        "reassuring": "Take a breath. I’m here with you, and we still have time to figure this out.",
+        "frustrated": "I asked you to check the time. Now we have to go all the way back to the station.",
+        "embarrassed": "Oh, sorry. I was looking at yesterday’s message. That explains everything."
+      }
+    },
+    {
+      "speaker_id": "en_m_roleplay_warm_06",
+      "audition": true,
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5203,
+      "voice_instruction": "Adult male speaker with a General American accent, rounded mid-low resonance, measured reactions, soft consonant attacks and dry humor.",
+      "ref_text": "We still have time. Grab your bag and I’ll meet you by the door.",
+      "acting_variant_prompts": {
+        "reassuring": "Take a breath. I’m here with you, and we still have time to figure this out.",
+        "frustrated": "I asked you to check the time. Now we have to go all the way back to the station.",
+        "embarrassed": "Oh, sorry. I was looking at yesterday’s message. That explains everything."
+      }
+    },
+    {
+      "speaker_id": "fr_f_narrator_low_07",
+      "audition": true,
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5210,
+      "voice_instruction": "Adult female speaker with a metropolitan French accent, grounded lower register, rounded resonance, warm clear diction and relaxed but engaging phrasing.",
+      "ref_text": "Écoutez bien ce détail. Dans une vraie conversation, le mot qui suit cette expression suffit souvent à en changer le sens.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "fr_m_narrator_conversational_08",
+      "audition": true,
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5211,
+      "voice_instruction": "Adult male speaker with a metropolitan French accent, light mid register, dry warmth and crisp diction, an agile conversational rhythm and a little curiosity.",
+      "ref_text": "Imaginez qu’un ami vous écrive juste avant un entretien. Cette petite phrase change le ton de son message."
+    },
+    {
+      "speaker_id": "it_f_narrator_low_07",
+      "audition": true,
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5220,
+      "voice_instruction": "Adult female speaker with a standard Italian accent, grounded lower register, rounded resonance, warm clear diction and relaxed but engaging phrasing.",
+      "ref_text": "Ascolta bene questo dettaglio. In una conversazione, la parola che segue questa espressione può cambiare il senso della frase.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "it_m_narrator_conversational_08",
+      "audition": true,
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5221,
+      "voice_instruction": "Adult male speaker with a standard Italian accent, light mid register, dry warmth and crisp diction, an agile conversational rhythm and a little curiosity.",
+      "ref_text": "Immagina un messaggio da un amico prima di un colloquio. Una frase così breve può cambiare il tono di tutto il messaggio."
+    },
+    {
+      "speaker_id": "es_f_narrator_low_07",
+      "audition": true,
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5530,
+      "voice_instruction": "Adult Colombian woman from Bogotá speaking the Spanish she uses with close friends. She has a grounded lower-middle register and a warm, easy resonance. She shares this detail like something she has just noticed, with a slight smile on the opening, flexible conversational timing, and a gentle emphasis on what changes the meaning. Her words flow together in natural Bogotá speech.",
+      "ref_text": "Fíjate en este detalle. En una conversación, la palabra que viene después de esta expresión puede cambiar el sentido de la frase.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "es_m_narrator_conversational_08",
+      "audition": true,
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "archetypes": [
+        "warm_narrator",
+        "energetic_host"
+      ],
+      "seed": 5231,
+      "voice_instruction": "Adult male speaker with a neutral Latin American Spanish accent, light mid register, dry warmth and crisp diction, an agile conversational rhythm and a little curiosity.",
+      "ref_text": "Imagina que un amigo te escribe antes de una entrevista. Una frase tan corta puede cambiar el tono de todo el mensaje."
+    },
+    {
+      "speaker_id": "es_f_roleplay_quick_05",
+      "audition": true,
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5232,
+      "voice_instruction": "Adult female speaker with a neutral Latin American Spanish accent, grounded low-mid register, quick conversational reactions, focused midrange resonance and precise consonants.",
+      "ref_text": "Espera, pensé que quedaba una hora. Dame un segundo para revisar el mensaje.",
+      "lower_register": true,
+      "acting_variant_prompts": {
+        "reassuring": "Respira un momento. Estoy contigo y todavía tenemos tiempo para resolverlo.",
+        "frustrated": "Te pedí que comprobaras la hora. Ahora tenemos que volver hasta la estación.",
+        "embarrassed": "Ay, perdón. Estaba mirando el mensaje de ayer. Con razón no entendía nada."
+      }
+    },
+    {
+      "speaker_id": "es_m_roleplay_warm_06",
+      "audition": true,
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "archetypes": [
+        "roleplay_actor"
+      ],
+      "seed": 5233,
+      "voice_instruction": "Adult male speaker with a neutral Latin American Spanish accent, rounded mid-low resonance, measured reactions, soft consonant attacks and dry humor.",
+      "ref_text": "Todavía tenemos tiempo. Recoge tu bolso y nos vemos junto a la puerta.",
+      "acting_variant_prompts": {
+        "reassuring": "Respira un momento. Estoy contigo y todavía tenemos tiempo para resolverlo.",
+        "frustrated": "Te pedí que comprobaras la hora. Ahora tenemos que volver hasta la estación.",
+        "embarrassed": "Ay, perdón. Estaba mirando el mensaje de ayer. Con razón no entendía nada."
+      }
+    },
+    {
+      "speaker_id": "en_m_intimate_storyteller_09",
+      "audition": true,
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "archetypes": [
+        "warm_narrator"
+      ],
+      "seed": 5600,
+      "voice_instruction": "Adult man speaking British English as spoken by a native of southern England. Speak to one friend with attentive curiosity and quietly amused warmth. Use a grounded lower-middle register, a close conversational sound, and a brief reflective beat. Bring the discovery out with soft, clear emphasis and a relaxed finish.",
+      "ref_text": "Can you spot the clue? Listen to the little word that comes next. That’s the one that changes the meaning."
+    },
+    {
+      "speaker_id": "en_f_playful_quiz_host_09",
+      "audition": true,
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "archetypes": [
+        "energetic_host"
+      ],
+      "seed": 5601,
+      "voice_instruction": "Adult woman speaking British English as spoken by a native of southern England. Host a friendly quiz with quick reactions, dry playful timing, and a hint of a grin. Keep a grounded middle register and precise diction. Set up the question lightly, then give the reveal a clear, satisfying lift through emphasis and timing.",
+      "ref_text": "Can you spot the clue? Listen to the little word that comes next. That’s the one that changes the meaning.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "fr_f_intimate_storyteller_09",
+      "audition": true,
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "archetypes": [
+        "warm_narrator"
+      ],
+      "seed": 5610,
+      "voice_instruction": "Adult woman speaking native metropolitan French from France. Speak to one friend with attentive curiosity and quietly amused warmth. Use a grounded lower-middle register, a close conversational sound, and a brief reflective beat. Bring the discovery out with soft, clear emphasis and a relaxed finish.",
+      "ref_text": "Tu as repéré l’indice ? Écoute le petit mot qui vient juste après. C’est lui qui change le sens de la phrase.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "fr_m_playful_quiz_host_09",
+      "audition": true,
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "archetypes": [
+        "energetic_host"
+      ],
+      "seed": 5611,
+      "voice_instruction": "Adult man speaking native metropolitan French from France. Host a friendly quiz with quick reactions, dry playful timing, and a hint of a grin. Keep a grounded middle register and precise diction. Set up the question lightly, then give the reveal a clear, satisfying lift through emphasis and timing.",
+      "ref_text": "Tu as repéré l’indice ? Écoute le petit mot qui vient juste après. C’est lui qui change le sens de la phrase."
+    },
+    {
+      "speaker_id": "it_m_intimate_storyteller_09",
+      "audition": true,
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "archetypes": [
+        "warm_narrator"
+      ],
+      "seed": 5620,
+      "voice_instruction": "Adult man speaking native standard Italian. Speak to one friend with attentive curiosity and quietly amused warmth. Use a grounded lower-middle register, a close conversational sound, and a brief reflective beat. Bring the discovery out with soft, clear emphasis and a relaxed finish.",
+      "ref_text": "Hai colto l’indizio? Ascolta la parolina che viene subito dopo. È proprio quella che cambia il senso della frase."
+    },
+    {
+      "speaker_id": "it_f_playful_quiz_host_09",
+      "audition": true,
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "archetypes": [
+        "energetic_host"
+      ],
+      "seed": 5621,
+      "voice_instruction": "Adult woman speaking native standard Italian. Host a friendly quiz with quick reactions, dry playful timing, and a hint of a grin. Keep a grounded middle register and precise diction. Set up the question lightly, then give the reveal a clear, satisfying lift through emphasis and timing.",
+      "ref_text": "Hai colto l’indizio? Ascolta la parolina che viene subito dopo. È proprio quella che cambia il senso della frase.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "es_f_intimate_storyteller_09",
+      "audition": true,
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "archetypes": [
+        "warm_narrator"
+      ],
+      "seed": 5730,
+      "voice_instruction": "Adult woman from Bogotá speaking her native Colombian Spanish. She sounds like a friendly colleague explaining a language detail across a desk. Use a clear, fully voiced conversational tone, firm vowel onsets, ordinary speaking volume, and steady timing. Give the first question genuine curiosity, then explain the answer with direct, matter-of-fact warmth in a natural middle register.",
+      "ref_text": "¿Encontraste la pista? Escucha la palabra que viene justo después. Esa es la que cambia el sentido de la frase.",
+      "lower_register": true
+    },
+    {
+      "speaker_id": "es_m_playful_quiz_host_09",
+      "audition": true,
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "archetypes": [
+        "energetic_host"
+      ],
+      "seed": 5631,
+      "voice_instruction": "Adult man speaking native Colombian Spanish from Bogotá. Host a friendly quiz with quick reactions, dry playful timing, and a hint of a grin. Keep a grounded middle register and precise diction. Set up the question lightly, then give the reveal a clear, satisfying lift through emphasis and timing.",
+      "ref_text": "¿Encontraste la pista? Escucha la palabra que viene justo después. Esa es la que cambia el sentido de la frase."
+    }
+  ]
+}

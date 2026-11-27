@@ -1,0 +1,93 @@
+{
+  "assets": {
+    "general_prompt": "Vibrant cinematic 2D cartoon narrative illustration style, bold outlines, rich interior depth. The macro-setting is a sunlit terrace adjoining a modern creative studio lounge, featuring a sleek demonstration bench, industrial shelving, and large floor-to-ceiling windows showing a blurred Parisian cityscape. The lighting is rich and warm, casting soft cast shadows across the polished concrete floor. On the left side of the frame stands a tall, slender 15-year-old high-school student boy with short textured dark hair featuring clean tapered sides and a neat side-part. He is dressed in a stylish, oversized charcoal graphic hoodie and dark denim trousers. On the right side of the frame stands a tall, slender 15-year-old high-school student girl with textured caramel-brown hair styled in soft shoulder-length waves. She wears a trendy, bright turquoise cropped knit top and high-waisted light-wash jeans. Scattered around them are creative props: a minimalist laptop on a desk nearby, a stack of colorful sketchbooks, and a small, ornate metallic sign subtly referencing rendez-vous. The atmosphere is energetic and relatable, capturing the dynamic of two friends in a contemporary urban environment. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Vibrant cinematic 2D cartoon narrative illustration style, bold outlines, rich interior depth. The macro-setting is a sunlit terrace adjoining a modern creative studio lounge, featuring a sleek demonstration bench, industrial shelving, and large floor-to-ceiling windows showing a blurred Parisian cityscape. The lighting is rich and warm, casting soft cast shadows across the polished concrete floor. On the left side of the frame stands a tall, slender 15-year-old high-school student boy with short textured dark hair featuring clean tapered sides and a neat side-part. He is dressed in a stylish, oversized charcoal graphic hoodie and dark denim trousers. On the right side of the frame stands a tall, slender 15-year-old high-school student girl with textured caramel-brown hair styled in soft shoulder-length waves. She wears a trendy, bright turquoise cropped knit top and high-waisted light-wash jeans. Scattered around them are creative props: a minimalist laptop on a desk nearby, a stack of colorful sketchbooks, and a small, ornate metallic sign subtly referencing rendez-vous. The atmosphere is energetic and relatable, capturing the dynamic of two friends in a contemporary urban environment. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention.",
+      "PERSON_ONE": "Expressive, animated, relatable conversational partner experiencing the scenario.",
+      "PERSON_TWO": "Knowledgeable, natural native speaker offering authentic cultural guidance."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "French",
+    "learning_objective": "Apprendre et utiliser l'expression française 'poser un lapin' dans un contexte social.",
+    "related_content": [],
+    "script": {
+      "dialogue_part_1": "PERSON_ONE (Frustré): Ça fait une heure que j'attends Thomas. Il ne répond même pas à mes messages.\nPERSON_TWO (Calme): Respire un bon coup. Tu crois vraiment qu'il va te poser un lapin aujourd'hui ?",
+      "dialogue_part_2": "PERSON_ONE (Surpris): Me poser un lapin ? Qu'est-ce que tu racontes ? Je ne connais pas cette expression.",
+      "dialogue_part_3": "PERSON_TWO (Souriant): Poser un lapin veut dire ne pas venir à un rendez-vous fixé, sans prévenir l'autre personne.",
+      "dialogue_part_4": "PERSON_ONE (Rassuré): Ah, d'accord ! Je préfère penser qu'il a simplement oublié l'horaire, pas qu'il va me poser un lapin.",
+      "hook": "Tu attends ton ami depuis une heure et il n'arrive pas. Regarde comment bien réagir en français.",
+      "payoff": "Poser un lapin signifie manquer un rendez-vous sans prévenir. As-tu déjà vécu cette situation ? Raconte ton histoire en commentaire !",
+      "title": "Le Lapin et la Brasserie Parisienne"
+    },
+    "speakers_gender": {
+      "Narrator": "male",
+      "PERSON_ONE": "female",
+      "PERSON_TWO": "male"
+    },
+    "speakers_voice": {
+      "Narrator": "french_male_kokoro_golden_baritone.wav",
+      "PERSON_ONE": "french_female_kokoro_golden_char1.wav",
+      "PERSON_TWO": "french_male_kokoro_golden_char2.wav"
+    },
+    "subcategory": "Idioms & Socializing",
+    "target_expression": "Poser un lapin",
+    "topic": "Poser un lapin",
+    "video_type": "ROLEPLAY"
+  },
+  "id": "FR01",
+  "metadata": {
+    "DESCRIPTION": "Découvrez comment maîtriser l'expression 'poser un lapin' pour parler des rendez-vous en français. On vous explique clairement ce que cela signifie et comment réagir dans une situation de frustration. Apprenez à utiliser ce vocabulaire courant pour ne plus être perdu. Partagez votre expérience de rendez-vous manqués en commentaire ! #FrenchExpressions #ApprendreLeFrançais #PoserUnLapin",
+    "FILENAME": "french-expressions-poser-un-lapin-terrasse.mp4",
+    "HASHTAGS": "#FrenchLearning #PoserUnLapin #ApprendreLeFrançais #FrenchIdioms #WorkEnglish #SpeakBetter",
+    "LABEL": "French | Expressions Idiomatiques | Relations | Pragmatics",
+    "SHORT_DESCRIPTION": "Apprenez l'expression 'poser un lapin' et son contexte. Une leçon rapide sur les rendez-vous en français. #FrenchLearning #Idioms",
+    "TAGS": "français, poser un lapin, expression française, apprendre le français, vocabulaire français, rendez-vous, idiome français, apprendre la langue, conversation française, poser un lapin explication",
+    "TITLE": "Le Lapin et la Brasserie Parisienne"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Surprise & Humour",
+    "EXPRESSION": "Poser un lapin",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "french",
+    "LEXICAL_FIELD": "Rendez-vous et relations",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "Devant une terrasse de brasserie sous une petite pluie parisienne : un jeune homme regarde sa montre pour la cinquième fois avec deux chocolats chauds qui refroidissent. Sa pote arrive, le voit seul et ricane : 'Alors, elle t'a encore posé un lapin ou elle cherche le métro ?'",
+    "SCENARIO": "Devant une terrasse de brasserie sous une petite pluie parisienne : un jeune homme regarde sa montre pour la cinquième fois avec deux chocolats chauds qui refroidissent. Sa pote arrive, le voit seul et ricane : 'Alors, elle t'a encore posé un lapin ou elle cherche le métro ?'",
+    "SCRIPT_ID": "FR01",
+    "SPECIAL_TREATMENT": "idiomatic",
+    "SUBJECT": "Expressions idiomatiques françaises",
+    "TARGET_EXPRESSION": "Poser un lapin",
+    "TOPIC": "Poser un lapin",
+    "TYPE": "roleplay",
+    "angle": "",
+    "context": "",
+    "emotional_trigger": "Surprise & Humour",
+    "expression": "Poser un lapin",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "",
+    "language": "french",
+    "lexical_field": "Rendez-vous et relations",
+    "pillar": "",
+    "roleplay_scenario": "Devant une terrasse de brasserie sous une petite pluie parisienne : un jeune homme regarde sa montre pour la cinquième fois avec deux chocolats chauds qui refroidissent. Sa pote arrive, le voit seul et ricane : 'Alors, elle t'a encore posé un lapin ou elle cherche le métro ?'",
+    "scenario": "Devant une terrasse de brasserie sous une petite pluie parisienne : un jeune homme regarde sa montre pour la cinquième fois avec deux chocolats chauds qui refroidissent. Sa pote arrive, le voit seul et ricane : 'Alors, elle t'a encore posé un lapin ou elle cherche le métro ?'",
+    "script_id": "FR01",
+    "special_treatment": "idiomatic",
+    "subject": "Expressions idiomatiques françaises",
+    "target_expression": "Poser un lapin",
+    "topic": "Poser un lapin",
+    "type": "roleplay"
+  },
+  "script_text": "{\n  \"title\": \"Le Lapin et la Brasserie Parisienne\",\n  \"hook\": \"Tu attends ton ami depuis une heure et il n'arrive pas. Regarde comment bien réagir en français.\",\n  \"dialogue_part_1\": \"PERSON_ONE (Frustré): Ça fait une heure que j'attends Thomas. Il ne répond même pas à mes messages.\\nPERSON_TWO (Calme): Respire un bon coup. Tu crois vraiment qu'il va te poser un lapin aujourd'hui ?\",\n  \"dialogue_part_2\": \"PERSON_ONE (Surpris): Me poser un lapin ? Qu'est-ce que tu racontes ? Je ne connais pas cette expression.\",\n  \"dialogue_part_3\": \"PERSON_TWO (Souriant): Poser un lapin veut dire ne pas venir à un rendez-vous fixé, sans prévenir l'autre personne.\",\n  \"dialogue_part_4\": \"PERSON_ONE (Rassuré): Ah, d'accord ! Je préfère penser qu'il a simplement oublié l'horaire, pas qu'il va me poser un lapin.\",\n  \"payoff\": \"Poser un lapin signifie manquer un rendez-vous sans prévenir. As-tu déjà vécu cette situation ? Raconte ton histoire en commentaire !\"\n}"
+}

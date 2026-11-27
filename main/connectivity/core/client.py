@@ -115,8 +115,26 @@ def normalize_sheet_rows(raw_rows: List[Dict[str, Any]]) -> List[Dict[str, str]]
     - 'expression'
     - 'script'
     - 'SCRIPT_CHANGED'
+    - 'THUMBNAIL_TITLE' (Column J)
     """
     normalized_records: List[Dict[str, str]] = []
+
+    _THUMBNAIL_TITLE_HEADERS = {
+        "THUMBNAIL_TITLE",
+        "THUMBNAIL TITLE",
+        "THUMB_TITLE",
+        "SHORT_TITLE",
+        "SHORT TITLE",
+        "THUMBNAIL",
+        "THUMBNAILS",
+        "THUMBNAIL_TEXT",
+        "THUMBNAIL TEXT",
+        "TITULO_MINIATURA",
+        "TITRE_MINIATURE",
+        "TITOLO_MINIATURA",
+        "COL_J",
+        "J",
+    }
 
     for row in raw_rows:
         if not isinstance(row, dict):
@@ -127,8 +145,10 @@ def normalize_sheet_rows(raw_rows: List[Dict[str, Any]]) -> List[Dict[str, str]]
             "expression": "",
             "script": "",
             "SCRIPT_CHANGED": "",
+            "THUMBNAIL_TITLE": "",
         }
 
+        matched_thumb_header = False
         for k, v in row.items():
             k_upper = str(k).strip().upper()
             val = str(v).strip() if v is not None else ""
@@ -139,8 +159,16 @@ def normalize_sheet_rows(raw_rows: List[Dict[str, Any]]) -> List[Dict[str, str]]
                 record["expression"] = val
             elif k_upper in ("SCRIPT", "ORIGINAL_SCRIPT"):
                 record["script"] = val
-            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT_CHNAGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
+            elif k_upper in ("SCRIPT_CHANGED", "SCRIPT_CHANGE", "SCRIPT_CHNAGED", "SCRIPT CHANGED", "NEW_SCRIPT", "CORRECTED_SCRIPT"):
                 record["SCRIPT_CHANGED"] = val
+            elif k_upper in _THUMBNAIL_TITLE_HEADERS:
+                record["THUMBNAIL_TITLE"] = val
+                matched_thumb_header = True
+
+        # Positional fallback for Column J (0-based index 9) when header name is non-standard
+        if not matched_thumb_header and len(row) >= 10:
+            col_j_val = list(row.values())[9]
+            record["THUMBNAIL_TITLE"] = str(col_j_val).strip() if col_j_val is not None else ""
 
         # Fallback script to SCRIPT_CHANGED if original script is empty
         if not record["script"] and record["SCRIPT_CHANGED"]:

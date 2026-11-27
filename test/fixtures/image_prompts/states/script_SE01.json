@@ -1,0 +1,90 @@
+{
+  "assets": {
+    "general_prompt": "Vibrant, rich cinematic lighting in a sunlit, modern apartment living room seamlessly blending a creative study area. The macro-setting features a sleek wooden focus desk cluttered with artistic tools, towering bookshelves filled with colorful volumes, and lush indoor botanical plants adding deep green texture. The atmosphere is warm and inviting with soft cast shadows emphasizing the interior depth. On the left stands the primary character: an expressive 15-year-old boy with short textured dark hair featuring clean tapered sides and a neat side-part. He wears a stylish, dark navy minimalist polo shirt and slim-fit charcoal trousers. On the right stands his companion: a female peer with long, wavy auburn hair, dressed in a bright emerald green, oversized knit sweater and high-waisted denim jeans. They are positioned near a low, minimalist conversation lounge. A prominent graphic prop on the desk is an ornate, oversized gold-wrapped gift box, symbolizing an excessively expensive item. The entire scene utilizes a clean modern 2D cartoon narrative illustration art style, featuring bold outlines, vibrant flat colors, expressive facial design, and large cartoon eyes with visible sclera and specular highlights. The characters are standing ready, posed on their respective sides, embodying a relaxed yet focused study environment. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Vibrant, rich cinematic lighting in a sunlit, modern apartment living room seamlessly blending a creative study area. The macro-setting features a sleek wooden focus desk cluttered with artistic tools, towering bookshelves filled with colorful volumes, and lush indoor botanical plants adding deep green texture. The atmosphere is warm and inviting with soft cast shadows emphasizing the interior depth. On the left stands the primary character: an expressive 15-year-old boy with short textured dark hair featuring clean tapered sides and a neat side-part. He wears a stylish, dark navy minimalist polo shirt and slim-fit charcoal trousers. On the right stands his companion: a female peer with long, wavy auburn hair, dressed in a bright emerald green, oversized knit sweater and high-waisted denim jeans. They are positioned near a low, minimalist conversation lounge. A prominent graphic prop on the desk is an ornate, oversized gold-wrapped gift box, symbolizing an excessively expensive item. The entire scene utilizes a clean modern 2D cartoon narrative illustration art style, featuring bold outlines, vibrant flat colors, expressive facial design, and large cartoon eyes with visible sclera and specular highlights. The characters are standing ready, posed on their respective sides, embodying a relaxed yet focused study environment. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature adult wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Idioms",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "Spanish",
+    "learning_objective": "To understand and use the Spanish idiom 'costar un ojo de la cara' in daily conversation to describe something extremely expensive.",
+    "related_content": [
+      "Spanish slang expressions",
+      "How to sound more native",
+      "Spanish vocabulary for money"
+    ],
+    "script": {
+      "discovery": "Literalmente, nadie te pide entregar una parte de tu cuerpo en la caja. Pero en la vida diaria, costar un ojo de la cara describe cualquier cosa exageradamente cara o que exige un sacrificio económico desmedido.",
+      "example": "Imagina que tu amigo quiere comprarse el último modelo de teléfono. Puedes advertirle al instante: ¡piénsalo bien, ese aparato cuesta un ojo de la cara!",
+      "hook": "¿Ves el precio de algo en una tienda y te parece un auténtico robo?",
+      "payoff": "No vuelvas a sonar aburrido ante precios absurdos.",
+      "setup": "En español los nativos dicen costar un ojo de la cara.",
+      "title": "El Precio Que Te Sorprenderá"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "spanish_female_kokoro_golden_alto.wav"
+    },
+    "subcategory": "Slang",
+    "target_expression": "Costar un ojo de la cara",
+    "topic": "Costar un ojo de la cara",
+    "video_type": "EXPRESSION"
+  },
+  "id": "SE01",
+  "metadata": {
+    "DESCRIPTION": "Descubre el modismo español que usan los nativos para describir algo extremadamente caro: 'costar un ojo de la cara'. Aprende a usar esta frase en tus conversaciones diarias con confianza. Es la forma perfecta de expresar que algo tiene un precio desmedido y te ayuda a sonar más natural. Practica esta expresión hoy mismo. ¡Sígueme para más frases! #Español #Idiomas",
+    "FILENAME": "spanish-modismos-costar-un-ojo-de-la-cara-context.mp4",
+    "HASHTAGS": "#AprenderEspañol #ModismosEspañol #CostarUnOjoDeLaCara #EspañolParaNativos #FrasesEnEspañol",
+    "LABEL": "Spanish | Language Expressions | Shopping | Vocabulary",
+    "SHORT_DESCRIPTION": "El secreto para sonar como un nativo: 'Costar un ojo de la cara'. Úsalo para hablar de precios exagerados. #AprenderEspañol #Modismos",
+    "TAGS": "costar un ojo de la cara, modismos en español, frases en español, aprender español, expresiones idiomáticas, vocabulario español, cómo hablar español, dinero en español, frases para viajar, español avanzado",
+    "TITLE": "El Precio Que Te Sorprenderá"
+  },
+  "prompt_params": {
+    "ANGLE": "Por qué pagar con un ojo se convirtió en símbolo de algo carísimo",
+    "CONTEXT": "Describir algo que tiene un precio excesivamente alto",
+    "EMOTIONAL_TRIGGER": "Sorpresa & Curiosidad",
+    "EXPRESSION": "Costar un ojo de la cara",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "Por qué pagar con un ojo se convirtió en símbolo de algo carísimo",
+    "LANGUAGE": "spanish",
+    "LEXICAL_FIELD": "Compras y dinero",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "SE01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Modismos populares en español",
+    "TARGET_EXPRESSION": "Costar un ojo de la cara",
+    "TOPIC": "Costar un ojo de la cara",
+    "TYPE": "expression",
+    "angle": "Por qué pagar con un ojo se convirtió en símbolo de algo carísimo",
+    "context": "Describir algo que tiene un precio excesivamente alto",
+    "emotional_trigger": "Sorpresa & Curiosidad",
+    "expression": "Costar un ojo de la cara",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "Por qué pagar con un ojo se convirtió en símbolo de algo carísimo",
+    "language": "spanish",
+    "lexical_field": "Compras y dinero",
+    "pillar": "",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "SE01",
+    "special_treatment": "",
+    "subject": "Modismos populares en español",
+    "target_expression": "Costar un ojo de la cara",
+    "topic": "Costar un ojo de la cara",
+    "type": "expression"
+  },
+  "script_text": "{\n  \"title\": \"El Precio Que Te Sorprenderá\",\n  \"hook\": \"¿Ves el precio de algo en una tienda y te parece un auténtico robo?\",\n  \"setup\": \"En español los nativos dicen costar un ojo de la cara.\",\n  \"discovery\": \"Literalmente, nadie te pide entregar una parte de tu cuerpo en la caja. Pero en la vida diaria, costar un ojo de la cara describe cualquier cosa exageradamente cara o que exige un sacrificio económico desmedido.\",\n  \"example\": \"Imagina que tu amigo quiere comprarse el último modelo de teléfono. Puedes advertirle al instante: ¡piénsalo bien, ese aparato cuesta un ojo de la cara!\",\n  \"payoff\": \"No vuelvas a sonar aburrido ante precios absurdos.\"\n}"
+}

@@ -1,0 +1,93 @@
+{
+  "assets": {
+    "general_prompt": "Medium shot, waist-up framing. Inside a chaotic community theatre backstage dressing room, an expressive fifteen-year-old teen girl with dark wavy hair in a high ponytail wears an ornate Shakespearean Elizabethan theatrical gown with a stiff embroidered gold-brocade corset bodice, slashed sapphire silk sleeves, and an open lace ruff collar, her hands gesturing dramatically in nervous anticipation. Beside her, an expressive fifteen-year-old teen boy with short textured chestnut-brown hair wears an authentic period costume of a deep charcoal velvet doublet with brass buttons, puffed shoulders, and a pleated linen neck frill, holding a rolled theatrical parchment script. Dark ornate wood paneling, heavy deep crimson velvet stage curtains, an antique vanity mirror glowing with warm tungsten bulbs, costume racks draped with velvet cloaks, prop trunks, and classic theatrical drama masks create rich interior depth under warm cinematic spotlighting and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside a chaotic community theatre backstage dressing room, an expressive fifteen-year-old teen girl with dark wavy hair in a high ponytail wears an ornate Shakespearean Elizabethan theatrical gown with a stiff embroidered gold-brocade corset bodice, slashed sapphire silk sleeves, and an open lace ruff collar, her hands gesturing dramatically in nervous anticipation. Beside her, an expressive fifteen-year-old teen boy with short textured chestnut-brown hair wears an authentic period costume of a deep charcoal velvet doublet with brass buttons, puffed shoulders, and a pleated linen neck frill, holding a rolled theatrical parchment script. Dark ornate wood paneling, heavy deep crimson velvet stage curtains, an antique vanity mirror glowing with warm tungsten bulbs, costume racks draped with velvet cloaks, prop trunks, and classic theatrical drama masks create rich interior depth under warm cinematic spotlighting and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention.",
+      "PERSON_ONE": "Expressive, animated, relatable conversational partner experiencing the scenario.",
+      "PERSON_TWO": "Knowledgeable, natural native speaker offering authentic cultural guidance."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "English",
+    "learning_objective": "Learn the authentic usage of Backstage at a chaotic local community theatre 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",
+    "related_content": [],
+    "script": {
+      "dialogue_part_1": "PERSON_ONE (Panicked): I totally forgot my line! I'm going to freeze right here and ruin everything!\nPERSON_TWO (Calm): Relax. Just remember what I told you: Break a leg!",
+      "dialogue_part_2": "PERSON_ONE (Baffled): Break a leg? What is that supposed to mean? Are you telling me I should physically hurt myself?\nPERSON_TWO (Smirking): Nah, it's theater slang. It's the ultimate way to wish someone massive luck.",
+      "dialogue_part_3": "PERSON_ONE (Relieved): So it's a superstition? It means good luck, right? I feel a little better now.\nPERSON_TWO (Chuckling): Exactly. You just need to own the stage and give it everything you've got.",
+      "dialogue_part_4": "PERSON_ONE (Determined): Okay, okay. I'm going out there. I won't mess up this final scene.\nPERSON_TWO (Encouraging): Go crush it! Now get out there and show them how it's done.",
+      "hook": "Backstage chaos! A nervous actor is losing their mind over a forgotten line just thirty seconds before the show starts.",
+      "payoff": "When the lights go up, knowing the right words can turn pure panic into pure performance energy. Speak with confidence and own the moment. What would you say instead? Drop your version below!",
+      "title": "Backstage Theater Good Luck"
+    },
+    "speakers_gender": {
+      "Narrator": "male",
+      "PERSON_ONE": "female",
+      "PERSON_TWO": "male"
+    },
+    "speakers_voice": {
+      "Narrator": "english_male_kokoro_golden_narrator.wav",
+      "PERSON_ONE": "english_female_open_swara_118.wav",
+      "PERSON_TWO": "english_male_open_swara_153.wav"
+    },
+    "subcategory": "Idioms & Slang",
+    "target_expression": "Break a leg",
+    "topic": "Break a leg",
+    "video_type": "ROLEPLAY"
+  },
+  "id": "ER01",
+  "metadata": {
+    "DESCRIPTION": "Backstage chaos! Learn the SECRET theater slang \"Break a leg\" and how to use it to wish someone massive luck. This common idiom is essential for any performer. Comment what you would say instead! #EnglishIdioms #TheaterSlang",
+    "FILENAME": "english-performance-break-a-leg-backstage.mp4",
+    "HASHTAGS": "#EnglishIdioms #LearnEnglish #TheaterSlang #SpeakBetter #EnglishVocabulary",
+    "LABEL": "English | Performance | Backstage | Idioms",
+    "SHORT_DESCRIPTION": "Confused by \"Break a leg\"? Discover the meaning of this classic theater idiom and boost your performance confidence instantly. #EnglishIdioms #LearnEnglish #Theater",
+    "TAGS": "English idioms, break a leg, theater slang, public speaking tips, performance vocabulary, learn english, common idioms, english expressions, speaking confidence, theater vocabulary",
+    "TITLE": "Backstage Theater Good Luck"
+  },
+  "prompt_params": {
+    "ANGLE": "",
+    "CONTEXT": "",
+    "EMOTIONAL_TRIGGER": "Anxiety to Relief",
+    "EXPRESSION": "Break a leg",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "",
+    "LANGUAGE": "english",
+    "LEXICAL_FIELD": "Theatre & Acting",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "Backstage at a community theater 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",
+    "SCENARIO": "Backstage at a community theater 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",
+    "SCRIPT_ID": "ER01",
+    "SPECIAL_TREATMENT": "idiomatic",
+    "SUBJECT": "Theater Superstition",
+    "TARGET_EXPRESSION": "Break a leg",
+    "TOPIC": "Break a leg",
+    "TYPE": "roleplay",
+    "angle": "",
+    "context": "",
+    "emotional_trigger": "Anxiety to Relief",
+    "expression": "Break a leg",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "",
+    "language": "english",
+    "lexical_field": "Theatre & Acting",
+    "pillar": "",
+    "roleplay_scenario": "Backstage at a community theater 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",
+    "scenario": "Backstage at a community theater 30 seconds before curtain call: a nervous lead actor is hyperventilating over a forgotten line, and their stage manager buddy shoves them toward the lights saying 'Break a leg!'",
+    "script_id": "ER01",
+    "special_treatment": "idiomatic",
+    "subject": "Theater Superstition",
+    "target_expression": "Break a leg",
+    "topic": "Break a leg",
+    "type": "roleplay"
+  },
+  "script_text": "{\n  \"title\": \"Backstage Theater Good Luck\",\n  \"hook\": \"Backstage chaos! A nervous actor is losing their mind over a forgotten line just thirty seconds before the show starts.\",\n  \"dialogue_part_1\": \"PERSON_ONE (Panicked): I totally forgot my line! I'm going to freeze right here and ruin everything!\\nPERSON_TWO (Calm): Relax. Just remember what I told you: Break a leg!\",\n  \"dialogue_part_2\": \"PERSON_ONE (Baffled): Break a leg? What is that supposed to mean? Are you telling me I should physically hurt myself?\\nPERSON_TWO (Smirking): Nah, it's theater slang. It's the ultimate way to wish someone massive luck.\",\n  \"dialogue_part_3\": \"PERSON_ONE (Relieved): So it's a superstition? It means good luck, right? I feel a little better now.\\nPERSON_TWO (Chuckling): Exactly. You just need to own the stage and give it everything you've got.\",\n  \"dialogue_part_4\": \"PERSON_ONE (Determined): Okay, okay. I'm going out there. I won't mess up this final scene.\\nPERSON_TWO (Encouraging): Go crush it! Now get out there and show them how it's done.\",\n  \"payoff\": \"When the lights go up, knowing the right words can turn pure panic into pure performance energy. Speak with confidence and own the moment. What would you say instead? Drop your version below!\"\n}"
+}

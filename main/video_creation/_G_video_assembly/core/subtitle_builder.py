@@ -4,6 +4,15 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+try:
+    from ..assembly.common.subtitles import format_ass_dialogue_line, render_ass_header
+    from ..assembly.languages import get_assembly_language_profile
+    from ..assembly.types import get_assembly_profile
+except (ImportError, ValueError):
+    from assembly.common.subtitles import format_ass_dialogue_line, render_ass_header  # type: ignore[no-redef]
+    from assembly.languages import get_assembly_language_profile  # type: ignore[no-redef]
+    from assembly.types import get_assembly_profile  # type: ignore[no-redef]
+
 KNOWN_HETERONYMS = {
     "record", "present", "project", "permit", "object",
     "contract", "conduct", "desert", "increase", "decrease",
@@ -75,17 +84,16 @@ def premerge_whisper_words(whisper_words: List[Dict]) -> List[Dict]:
         if w_text in {".", ",", "!", "?", ";", ":", "...", "…", "-", "–", "—", "--"}:
             continue
 
-        # Case 1: Previous token was a contraction prefix
+        # Case 1: Previous token ended with an apostrophe (e.g. "l'", "d'", "un'", "dell'")
+        # OR current token starts with an apostrophe suffix/elision (e.g. "'est", "'amico", "'t", "'s").
+        # NEVER merge ordinary 1-2 letter words (le, la, un, de, on, in, of, to) with the next alphabetic word!
         if merged and (
-            merged[-1]["word"].lower() in contraction_prefixes
-            or (len(merged[-1]["word"]) <= 2 and merged[-1]["word"].isalpha() and (w_text.startswith("'") or w_text.isalpha()))
+            merged[-1]["word"].endswith("'")
+            or (w_text.startswith("'") and not (w_text.endswith("'") and len(w_text) > 1))
         ):
             prev = merged[-1]["word"]
-            if not prev.endswith("'") and (w_text.startswith("'") or len(prev) <= 2):
-                if not w_text.startswith("'"):
-                    prev += "'"
             clean_curr = w_text.lstrip("'")
-            merged[-1]["word"] = prev + clean_curr
+            merged[-1]["word"] = (prev if prev.endswith("'") else prev + "'") + clean_curr
             merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
 
         # Case 2: Current word starts with hyphen (e.g. '-vous')
@@ -98,22 +106,131 @@ def premerge_whisper_words(whisper_words: List[Dict]) -> List[Dict]:
             merged[-1]["word"] += w_text
             merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
 
-        # Case 4: Current word starts with apostrophe suffix (e.g. "'t", "'s", "'ve", "'ll", "'re", "'d")
-        elif w_text.startswith("'") and merged and not (w_text.endswith("'") and len(w_text) > 1):
-            merged[-1]["word"] += w_text
-            merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
-
         else:
             merged.append(dict(w))
 
     return merged
 
 
+_IPA_WORD_REPLACEMENTS: List[Tuple[str, str]] = [
+    (r"/[^/\s]*rek[^/\s]*/", "record"),
+    (r"/[^/\s]*k[ɔoƆ]ː?[^/\s]*/", "record"),
+    (r"/[^/\s]*pr[ɛe]z[^/\s]*/", "present"),
+    (r"/[^/\s]*dʒ[ɛe]kt[^/\s]*/", "project"),
+    (r"/[^/\s]*m[ɪiꞮ]t[^/\s]*/", "permit"),
+    (r"/[^/\s]*tr[æa]kt[^/\s]*/", "contract"),
+    (r"/[^/\s]*kriːs[^/\s]*/", "increase"),
+]
+
+_PHONETIC_RESPELLING_MAP: Dict[str, str] = {
+    "rek-erd": "record",
+    "ri-kord": "record",
+    "ri-cord": "record",
+    "re-cord": "record",
+    "prez-ent": "present",
+    "pri-zent": "present",
+    "pre-sent": "present",
+    "prah-jekt": "project",
+    "pruh-jekt": "project",
+    "pro-ject": "project",
+    "pur-mit": "permit",
+    "per-mit": "permit",
+    "ahb-jekt": "object",
+    "ub-jekt": "object",
+    "ob-ject": "object",
+    "kahn-trakt": "contract",
+    "kuhn-trakt": "contract",
+    "con-tract": "contract",
+    "kahn-test": "contest",
+    "kuhn-test": "contest",
+    "con-test": "contest",
+    "kahn-dukt": "conduct",
+    "kuhn-dukt": "conduct",
+    "con-duct": "conduct",
+    "kahn-flikt": "conflict",
+    "kuhn-flikt": "conflict",
+    "con-flict": "conflict",
+    "dez-ert": "desert",
+    "di-zert": "desert",
+    "de-sert": "desert",
+    "des-sert": "dessert",
+    "reb-el": "rebel",
+    "ri-bel": "rebel",
+    "re-bel": "rebel",
+    "suhs-pekt": "suspect",
+    "suh-spekt": "suspect",
+    "sus-pect": "suspect",
+    "in-krees": "increase",
+    "in-crease": "increase",
+    "dee-krees": "decrease",
+    "di-krees": "decrease",
+    "de-crease": "decrease",
+    "im-port": "import",
+    "ex-port": "export",
+    "pro-test": "protest",
+    "ac-cept": "accept",
+    "ex-cept": "except",
+    "uh-fect": "affect",
+    "af-fect": "affect",
+    "ef-fect": "effect",
+    "lay-ter": "later",
+    "lat-ter": "latter",
+    "prin-ci-pul": "principal",
+    "prin-ci-pal": "principal",
+    "com-pluh-ment": "compliment",
+    "weh-ther": "weather",
+    "ad-vice": "advice",
+    "ad-vise": "advise",
+    "a-nnée": "année",
+    "an-née": "année",
+}
+
+_PHONETIC_RESPELLING_RE = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in sorted(_PHONETIC_RESPELLING_MAP, key=len, reverse=True)) + r")\b",
+    flags=re.IGNORECASE,
+)
+
+
+def normalize_pronunciation_for_subtitles(text: str) -> str:
+    """
+    Replaces raw IPA transcriptions (e.g. /ˈrek.ɚd/, /rɪˈkɔːrd/), phonetic respellings
+    (e.g. uh-FECT, COM-pluh-ment, WEH-ther, LAY-ter), and syllable-hyphenated stress words
+    (e.g. PRO-ject, DE-crease, des-SERT) with clean standard dictionary spelling for subtitles.
+    """
+    if not text:
+        return text
+
+    for pattern, replacement in _IPA_WORD_REPLACEMENTS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+    # Strip any remaining raw IPA slash notation
+    text = re.sub(r"/[ˈˌɚɪɔːɛæʊəθðʃʒŋꞮƆa-zA-Z.'-]{2,}/", "", text)
+
+    # Replace explicit phonetic respellings and syllable-hyphenated stress words
+    text = _PHONETIC_RESPELLING_RE.sub(
+        lambda m: _PHONETIC_RESPELLING_MAP[m.group(0).lower()],
+        text,
+    )
+
+    # Collapse any hyphenated stress-capitalized heteronym (e.g. RE-cord -> record)
+    def _dehyphenate_stress_word(m: re.Match) -> str:
+        word = m.group(0)
+        collapsed = word.replace("-", "")
+        if collapsed.lower() in KNOWN_HETERONYMS:
+            return collapsed.lower()
+        return word
+
+    text = re.sub(r"\b[A-Za-z]+-[A-Za-z]+\b", _dehyphenate_stress_word, text)
+    return text
+
+
 def clean_spoken_text(text: str) -> str:
     """
     Strips parentheticals, explicit speaker labels (PERSON_ONE, Narrator, etc.), formatting asterisks,
-    while carefully preserving spoken conversational cues that contain colons (e.g. 'Dis juste :', 'Por ejemplo :').
+    and normalizes IPA / phonetic respellings into clean standard words while carefully preserving
+    spoken conversational cues that contain colons (e.g. 'Dis juste :', 'Por ejemplo :').
     """
+    text = normalize_pronunciation_for_subtitles(text)
     # Strip parentheticals like (smiling), (Panicked), or (Agent)
     text = re.sub(r"\([^)]+\)", "", text)
     # Strip bold speaker tags (e.g. **PERSON_ONE:** or **Narrator:**)
@@ -170,18 +287,134 @@ def tokenize_script_text(text: str) -> List[str]:
     return [t for t in tokens if re.search(r"[\w]", t)]
 
 
+_SPEAKER_MARKER_RE = re.compile(
+    r"(?:"
+    r"(?:\*\*\s*)?\b(PERSON_ONE|PERSON_1|PERSON_TWO|PERSON_2|Narrator|Host|Speaker)\b(?:\s*\([^)]*\))?\s*(?:\*\*\s*)?:"
+    r"|\[\s*(PERSON_ONE|PERSON_1|PERSON_TWO|PERSON_2|Narrator)\s*\](?:\s*\([^)]*\))?\s*:?"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+
+def _canonical_speaker_name(raw_tag: str) -> str:
+    low = (raw_tag or "").strip().lower()
+    if low in ("person_one", "person_1"):
+        return "PERSON_ONE"
+    if low in ("person_two", "person_2"):
+        return "PERSON_TWO"
+    return "NARRATOR"
+
+
+def tokenize_script_with_speakers(
+    text: str,
+    default_speaker: str = "NARRATOR",
+) -> List[Tuple[str, str]]:
+    """
+    Splits spoken script text into `(token, canonical_speaker)` pairs so multi-speaker
+    ROLEPLAY dialogue beats retain per-word speaker attribution (`PERSON_ONE`, `PERSON_TWO`, `NARRATOR`).
+    """
+    if not text:
+        return []
+
+    matches = list(_SPEAKER_MARKER_RE.finditer(text))
+    if not matches:
+        return [(tok, default_speaker) for tok in tokenize_script_text(text)]
+
+    result: List[Tuple[str, str]] = []
+    current_speaker = default_speaker
+    cursor = 0
+    for m in matches:
+        segment = text[cursor:m.start()]
+        if segment.strip():
+            for tok in tokenize_script_text(segment):
+                result.append((tok, current_speaker))
+        raw_tag = m.group(1) or m.group(2) or ""
+        current_speaker = _canonical_speaker_name(raw_tag)
+        cursor = m.end()
+
+    tail = text[cursor:]
+    if tail.strip():
+        for tok in tokenize_script_text(tail):
+            result.append((tok, current_speaker))
+
+    return result
+
+
+def _distribute_weighted_span(tokens: List[str], t_start: float, t_end: float) -> List[Tuple[float, float]]:
+    """Distributes `[t_start, t_end]` across `tokens` weighted by character length + punctuation pause."""
+    if not tokens:
+        return []
+    span = max(0.08 * len(tokens), float(t_end) - float(t_start))
+    weights = []
+    for tok in tokens:
+        base = max(2.0, float(len(clean_token(tok))))
+        if tok.endswith((".", "!", "?")):
+            base += 2.5
+        elif tok.endswith((",", ";", ":")):
+            base += 1.2
+        weights.append(base)
+    total_w = sum(weights) or float(len(tokens))
+    out: List[Tuple[float, float]] = []
+    cursor = float(t_start)
+    for w in weights:
+        dur = span * (w / total_w)
+        out.append((round(cursor, 2), round(cursor + dur, 2)))
+        cursor += dur
+    if out:
+        out[-1] = (out[-1][0], round(float(t_start) + span, 2))
+    return out
+
+
+def _has_collapsed_alignment(aligned: List[Dict], section_span: float) -> bool:
+    """Detects Whisper alignment collapse (frozen single word > 1.8s, dead gap > 2.2s, or burst of >= 4 words <= 0.14s)."""
+    if len(aligned) < 4 or section_span <= 0.5:
+        return False
+    # 1. Check frozen single word (> 1.8s) or severe dead internal gap (> 2.2s)
+    fast_run = 0
+    for i, entry in enumerate(aligned):
+        dur = float(entry["end"]) - float(entry["start"])
+        if dur > 1.8:
+            return True
+        if dur <= 0.14:
+            fast_run += 1
+            if fast_run >= 4:
+                return True
+        else:
+            fast_run = 0
+        if i > 0:
+            gap = float(entry["start"]) - float(aligned[i - 1]["end"])
+            if gap > 2.2:
+                return True
+    return False
+
+
 def align_tokens_to_whisper(
     script_tokens: List[str],
     whisper_words: List[Dict],
     default_start: float = 0.0,
     default_end: float = 30.0,
+    token_speakers: Optional[List[str]] = None,
+    section_name: str = "",
+    token_sections: Optional[List[str]] = None,
 ) -> List[Dict]:
     """
     Aligns ground-truth script tokens against Whisper detected word timestamps using SequenceMatcher.
-    Guarantees script spelling and homophone fidelity while preserving Whisper's acoustic timestamps.
+    Guarantees script spelling and homophone fidelity while preserving Whisper's acoustic timestamps,
+    and attaches optional speaker/section metadata for typed ASS styling.
     """
     if not script_tokens:
         return []
+
+    def _make_entry(s_idx: int, word: str, start: float, end: float) -> Dict:
+        entry: Dict = {"word": word, "start": start, "end": end}
+        if token_speakers and 0 <= s_idx < len(token_speakers):
+            entry["speaker"] = token_speakers[s_idx]
+        if token_sections and 0 <= s_idx < len(token_sections):
+            if token_sections[s_idx]:
+                entry["section"] = token_sections[s_idx]
+        elif section_name:
+            entry["section"] = section_name
+        return entry
 
     # Pre-merge Whisper contractions, elisions, and hyphens for robust 1:1 token correspondence
     whisper_words = premerge_whisper_words(whisper_words)
@@ -189,26 +422,34 @@ def align_tokens_to_whisper(
     if not whisper_words:
         duration = max(1.0, default_end - default_start)
         step = duration / max(1, len(script_tokens))
-        return [{
-            "word": tok,
-            "start": round(default_start + i * step, 2),
-            "end": round(default_start + (i + 1) * step, 2)
-        } for i, tok in enumerate(script_tokens)]
+        return [
+            _make_entry(
+                i,
+                tok,
+                round(default_start + i * step, 2),
+                round(default_start + (i + 1) * step, 2),
+            )
+            for i, tok in enumerate(script_tokens)
+        ]
 
     s_keys = [clean_token(tok) for tok in script_tokens]
     w_keys = [clean_token(w.get("word", "")) for w in whisper_words]
 
     matcher = SequenceMatcher(None, s_keys, w_keys)
+    opcodes = matcher.get_opcodes()
     aligned = []
 
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+    for op_idx, (tag, i1, i2, j1, j2) in enumerate(opcodes):
         if tag == "equal":
             for s_idx, w_idx in zip(range(i1, i2), range(j1, j2)):
-                aligned.append({
-                    "word": script_tokens[s_idx],
-                    "start": whisper_words[w_idx]["start"],
-                    "end": whisper_words[w_idx]["end"]
-                })
+                aligned.append(
+                    _make_entry(
+                        s_idx,
+                        script_tokens[s_idx],
+                        whisper_words[w_idx]["start"],
+                        whisper_words[w_idx]["end"],
+                    )
+                )
         elif tag == "replace":
             s_slice = script_tokens[i1:i2]
             w_slice = whisper_words[j1:j2]
@@ -216,38 +457,60 @@ def align_tokens_to_whisper(
                 continue
             t_start = w_slice[0]["start"]
             t_end = w_slice[-1]["end"]
-            duration = max(0.08 * len(s_slice), t_end - t_start)
-            step = duration / max(1, len(s_slice))
-            for idx, sw in enumerate(s_slice):
-                w_s = t_start + idx * step
-                w_e = t_start + (idx + 1) * step
-                aligned.append({
-                    "word": sw,
-                    "start": round(w_s, 2),
-                    "end": round(w_e, 2)
-                })
+            spans = _distribute_weighted_span(s_slice, t_start, t_end)
+            for idx, (sw, (w_s, w_e)) in enumerate(zip(s_slice, spans)):
+                aligned.append(_make_entry(i1 + idx, sw, w_s, w_e))
         elif tag == "delete":
-            prev_end = aligned[-1]["end"] if aligned else (whisper_words[0]["start"] if whisper_words else default_start)
+            prev_end = aligned[-1]["end"] if aligned else default_start
             remaining_tokens = script_tokens[i1:i2]
-            available_time = max(0.1, default_end - prev_end) if default_end > prev_end else 0.25 * len(remaining_tokens)
-            step = min(0.25, available_time / max(1, len(remaining_tokens)))
-            for idx, sw in enumerate(remaining_tokens):
-                aligned.append({
-                    "word": sw,
-                    "start": round(prev_end, 2),
-                    "end": round(prev_end + step, 2)
-                })
-                prev_end += step
+            # Look ahead to the next matched Whisper word so deleted tokens fill the real gap cleanly
+            next_anchor = None
+            for nxt_tag, _, _, nxt_j1, nxt_j2 in opcodes[op_idx + 1 :]:
+                if nxt_tag in ("equal", "replace") and nxt_j1 < nxt_j2:
+                    next_anchor = whisper_words[nxt_j1]["start"]
+                    break
+            if next_anchor is not None and next_anchor > prev_end + 0.05:
+                t_end = next_anchor
+            elif default_end > prev_end + 0.05:
+                t_end = default_end
+            else:
+                t_end = prev_end + 0.25 * len(remaining_tokens)
+            spans = _distribute_weighted_span(remaining_tokens, prev_end, t_end)
+            for idx, (sw, (w_s, w_e)) in enumerate(zip(remaining_tokens, spans)):
+                aligned.append(_make_entry(i1 + idx, sw, w_s, w_e))
         elif tag == "insert":
             # Extra hallucinations in Whisper are skipped
             pass
 
-    # Ensure strictly monotonic timestamps
+    # Ensure strictly monotonic, 100% non-overlapping timestamps
     for i in range(1, len(aligned)):
-        if aligned[i]["start"] < aligned[i - 1]["start"]:
-            aligned[i]["start"] = aligned[i - 1]["end"]
-        if aligned[i]["end"] <= aligned[i]["start"]:
-            aligned[i]["end"] = round(aligned[i]["start"] + 0.15, 2)
+        prev_s = float(aligned[i - 1]["start"])
+        prev_e = float(aligned[i - 1]["end"])
+        cur_s = float(aligned[i]["start"])
+        cur_e = float(aligned[i]["end"])
+        if cur_s < prev_e:
+            if cur_s > prev_s + 0.04:
+                # Trim previous word's end cleanly to preserve the next word's exact acoustic start
+                aligned[i - 1]["end"] = round(cur_s, 2)
+            else:
+                # Same-start collision (e.g. deleted token + next matched token at identical start):
+                # split the shared window cleanly so neither word overlaps on screen
+                shared_end = max(prev_e, cur_e, prev_s + 0.16)
+                mid = round(prev_s + (shared_end - prev_s) * 0.45, 2)
+                aligned[i - 1]["end"] = mid
+                aligned[i]["start"] = mid
+                if cur_e <= mid:
+                    aligned[i]["end"] = round(mid + 0.12, 2)
+        if float(aligned[i]["end"]) <= float(aligned[i]["start"]):
+            aligned[i]["end"] = round(float(aligned[i]["start"]) + 0.12, 2)
+
+    # Collapse-recovery guard: if Whisper dropped a section or collapsed words into an unreadable burst
+    # / frozen word, redistribute cleanly across the section's known audio window [default_start, default_end].
+    if default_end > default_start + 0.3 and aligned and _has_collapsed_alignment(aligned, default_end - default_start):
+        spans = _distribute_weighted_span([a["word"] for a in aligned], default_start, default_end)
+        for entry, (w_s, w_e) in zip(aligned, spans):
+            entry["start"] = w_s
+            entry["end"] = w_e
 
     # Prevent section subtitle spillover into adjacent sections
     if default_end > default_start and aligned:
@@ -277,7 +540,8 @@ def align_script_data_to_whisper(
 ) -> List[Dict]:
     """
     Extracts ground-truth text from script_data and aligns it to Whisper word timestamps.
-    Leverages section-level boundaries from timings_data when available.
+    Leverages section-level boundaries from timings_data when available, while preserving
+    per-token speaker and section attribution.
     """
     if not script_data:
         return whisper_words
@@ -293,8 +557,10 @@ def align_script_data_to_whisper(
                 except Exception:
                     script_dict = None
             if not script_dict:
-                tokens = tokenize_script_text(raw_s)
-                return align_tokens_to_whisper(tokens, whisper_words)
+                pairs = tokenize_script_with_speakers(raw_s)
+                tokens = [t for t, _ in pairs]
+                speakers = [s for _, s in pairs]
+                return align_tokens_to_whisper(tokens, whisper_words, token_speakers=speakers)
 
     if not isinstance(script_dict, dict) or not script_dict:
         return whisper_words
@@ -306,7 +572,9 @@ def align_script_data_to_whisper(
     if timings_data and any(k in timings_data for k in script_sections):
         all_aligned = []
         for sec_name, sec_text in script_sections.items():
-            sec_tokens = tokenize_script_text(sec_text)
+            pairs = tokenize_script_with_speakers(sec_text)
+            sec_tokens = [t for t, _ in pairs]
+            sec_speakers = [s for _, s in pairs]
             if not sec_tokens:
                 continue
 
@@ -326,14 +594,76 @@ def align_script_data_to_whisper(
                 sec_tokens,
                 sec_w_words,
                 default_start=t_start,
-                default_end=t_end if t_end > t_start else t_start + len(sec_tokens) * 0.3
+                default_end=t_end if t_end > t_start else t_start + len(sec_tokens) * 0.3,
+                token_speakers=sec_speakers,
+                section_name=sec_name,
             )
             all_aligned.extend(aligned_sec)
         return all_aligned
     else:
-        full_text = " ".join(script_sections.values())
-        tokens = tokenize_script_text(full_text)
-        return align_tokens_to_whisper(tokens, whisper_words)
+        tokens: List[str] = []
+        speakers: List[str] = []
+        sections: List[str] = []
+        for sec_name, sec_text in script_sections.items():
+            for tok, spk in tokenize_script_with_speakers(sec_text):
+                tokens.append(tok)
+                speakers.append(spk)
+                sections.append(sec_name)
+        return align_tokens_to_whisper(
+            tokens,
+            whisper_words,
+            token_speakers=speakers,
+            token_sections=sections,
+        )
+
+
+def _infer_video_type(script_data: Optional[Dict], explicit: str = "") -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    if isinstance(script_data, dict):
+        cm = script_data.get("content_metadata") or {}
+        pp = script_data.get("prompt_params") or {}
+        md = script_data.get("metadata") or {}
+        for cand in (
+            cm.get("video_type"),
+            pp.get("VIDEO_TYPE"),
+            pp.get("type"),
+            md.get("VIDEO_TYPE"),
+        ):
+            if cand and str(cand).strip():
+                return str(cand).strip()
+        sid = str(script_data.get("id") or "").strip().upper()
+        if re.match(r"^[EFSI]_?[EGRF]\d{2,}$", sid):
+            return sid
+        script_obj = cm.get("script")
+        if isinstance(script_obj, dict):
+            keys = {str(k).strip().lower() for k in script_obj}
+            if any(k.startswith("dialogue_part") for k in keys):
+                return "roleplay"
+            if "challenge" in keys or "pressure" in keys:
+                return "game"
+            if "explanation" in keys and "example" not in keys:
+                return "fun_facts"
+    return "expression"
+
+
+def _infer_language(script_data: Optional[Dict], explicit: str = "") -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    if isinstance(script_data, dict):
+        cm = script_data.get("content_metadata") or {}
+        pp = script_data.get("prompt_params") or {}
+        md = script_data.get("metadata") or {}
+        for cand in (
+            cm.get("language"),
+            pp.get("TARGET_LANGUAGE"),
+            pp.get("language"),
+            md.get("LABEL"),
+            script_data.get("id"),
+        ):
+            if cand and str(cand).strip():
+                return str(cand).strip()
+    return "english"
 
 
 class SubtitleBuilder:
@@ -346,11 +676,27 @@ class SubtitleBuilder:
         suppress_windows: Optional[List[Tuple[float, float]]] = None,
         script_data: Optional[Dict] = None,
         timings_data: Optional[Dict] = None,
+        video_type: str = "",
+        language: str = "",
     ) -> Path:
-        # Generate ASS with dynamic word-by-word style
-        # Hormozi style: One/two words on screen at a time, large font, center screen.
+        """Builds an ASS animated word-by-word subtitle file driven by the active `AssemblyProfile`."""
+        resolved_vtype = _infer_video_type(script_data, video_type)
+        resolved_lang = _infer_language(script_data, language)
+        profile = get_assembly_profile(resolved_vtype)
+        lang_profile = get_assembly_language_profile(resolved_lang)
 
-        ass_header = f"""[Script Info]
+        if profile is not None:
+            style_spec = profile.get_subtitle_style()
+            ass_header = render_ass_header(
+                style_spec,
+                video_width=video_width,
+                video_height=video_height,
+                margin_v_offset=lang_profile.margin_v_offset,
+                font_override=lang_profile.font_override,
+            )
+        else:
+            style_spec = None
+            ass_header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {video_width}
 PlayResY: {video_height}
@@ -404,6 +750,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             else:
                 merged_words.append(dict(w))
 
+        # Final global non-overlap guard (across all sections and merged tokens):
+        # guarantees two Dialogue lines NEVER render on top of each other at the same timestamp.
+        for i in range(1, len(merged_words)):
+            prev_s = float(merged_words[i - 1]["start"])
+            prev_e = float(merged_words[i - 1]["end"])
+            cur_s = float(merged_words[i]["start"])
+            cur_e = float(merged_words[i]["end"])
+            if cur_s < prev_e:
+                if cur_s > prev_s + 0.04:
+                    merged_words[i - 1]["end"] = round(cur_s, 2)
+                else:
+                    shared_end = max(prev_e, cur_e, prev_s + 0.16)
+                    mid = round(prev_s + (shared_end - prev_s) * 0.45, 2)
+                    merged_words[i - 1]["end"] = mid
+                    merged_words[i]["start"] = mid
+                    if cur_e <= mid:
+                        merged_words[i]["end"] = round(mid + 0.12, 2)
+            if float(merged_words[i]["end"]) <= float(merged_words[i]["start"]):
+                merged_words[i]["end"] = round(float(merged_words[i]["start"]) + 0.12, 2)
+
         for w in merged_words:
             # If word start falls into any suppressed window (e.g. GAME challenge scene), omit it
             if suppress_windows:
@@ -413,17 +779,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             start_str = format_time(w["start"])
             end_str = format_time(w["end"])
 
-            raw_word = w.get("word", "")
-            clean_hw = re.sub(r"[^\w-]", "", raw_word)
+            raw_word = normalize_pronunciation_for_subtitles(w.get("word", "")).strip()
+            if not raw_word:
+                continue
 
-            # Preserve educational syllable stress casing if matched; otherwise Hormozi all-caps
-            if clean_hw and is_stress_heteronym_word(clean_hw):
-                text = clean_hw
+            # Always render clean, uniform all-caps dictionary words (never IPA symbols, phonetic respellings, or mixed-case stress caps)
+            text = raw_word.upper()
+
+            if profile is not None and style_spec is not None:
+                style_name = profile.select_subtitle_style_name(
+                    text,
+                    section=w.get("section", ""),
+                    speaker=w.get("speaker", ""),
+                )
+                line = format_ass_dialogue_line(start_str, end_str, text, style_name, style_spec)
             else:
-                text = raw_word.upper()
-
-            # 5 is center-center alignment
-            line = f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{text}\n"
+                line = f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{text}\n"
             lines.append(line)
 
         with output_path.open("w", encoding="utf-8") as f:

@@ -5,13 +5,13 @@ import unittest
 
 import tempfile
 from pathlib import Path
+# pyrefly: ignore[missing-import]
 from PIL import Image, ImageDraw
 
 # pyrefly: ignore [missing-import]
 from video_creation._C_image_generation.core.chalkboard_renderer import (
     parse_quiz_exercise, fit_option_text, render_chalkboard_image, _get_font
 )
-from config import GAME_IMAGES_DIR
 
 
 class TestChalkboardRenderer(unittest.TestCase):
@@ -41,13 +41,24 @@ B) conTRACT"""
         self.assertEqual(options[1], ("B", "Second Option"))
         self.assertEqual(options[2], ("C", "Third Option"))
 
-    def test_parse_quiz_fallback_when_no_options(self):
+    def test_parse_quiz_no_options_returns_empty_list(self):
         text = "Just a question without any structured options here."
         question, options = parse_quiz_exercise(text)
         self.assertEqual(question, text)
-        self.assertEqual(len(options), 4)
-        self.assertEqual(options[0][0], "A")
-        self.assertEqual(options[1][0], "B")
+        self.assertEqual(len(options), 0)
+        self.assertEqual(options, [])
+
+    def test_render_chalkboard_image_open_question_creates_image(self):
+        """Verifies render_chalkboard_image runs end-to-end on an open question without options."""
+        exercise_text = "A Natale ci riuniamo a cena soltanto con i miei parenti a casa mia. Qual è l'errore?"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            empty_cb = Path(tmp_dir) / "empty_chalkboard.png"
+            Image.new("RGB", (576, 1024), "#254a40").save(empty_cb)
+            dest = Path(tmp_dir) / "test_ig09_output.png"
+            out = render_chalkboard_image(empty_cb, exercise_text, dest)
+            self.assertTrue(out.exists())
+            with Image.open(out) as im:
+                self.assertEqual(im.size, (576, 1024))
 
     def test_fit_option_text_short_option(self):
         """Standard short option fits on a single line with maximum font size."""
@@ -73,13 +84,29 @@ B) conTRACT"""
 
     def test_render_chalkboard_image_fg19_creates_image(self):
         """Verifies render_chalkboard_image runs end-to-end on FG19 and produces target 576x1024 image."""
-        empty_cb = GAME_IMAGES_DIR / "empty_chalkboard.png"
-        if not empty_cb.exists():
-            self.skipTest("empty_chalkboard.png not found")
         exercise_text = """Il faut choisir vite ! Il dit:
 A: Napoléon était un un grand homme respecté dans toute l'Europe. B: Napoléon était un un homme grand respecté dans toute l'Europe."""
         with tempfile.TemporaryDirectory() as tmp_dir:
+            empty_cb = Path(tmp_dir) / "empty_chalkboard.png"
+            Image.new("RGB", (576, 1024), "#254a40").save(empty_cb)
             dest = Path(tmp_dir) / "test_fg19_output.png"
+            out = render_chalkboard_image(empty_cb, exercise_text, dest)
+            self.assertTrue(out.exists())
+            with Image.open(out) as im:
+                self.assertEqual(im.size, (576, 1024))
+
+    def test_render_chalkboard_image_four_options_creates_image(self):
+        """Verifies render_chalkboard_image runs end-to-end with 4 options and produces valid image."""
+        exercise_text = """Where is the mistake?
+"It depends ___ your decision."
+A) depend on
+B) depend of
+C) depend from
+D) depend about"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            empty_cb = Path(tmp_dir) / "empty_chalkboard.png"
+            Image.new("RGB", (576, 1024), "#254a40").save(empty_cb)
+            dest = Path(tmp_dir) / "test_four_opts_output.png"
             out = render_chalkboard_image(empty_cb, exercise_text, dest)
             self.assertTrue(out.exists())
             with Image.open(out) as im:

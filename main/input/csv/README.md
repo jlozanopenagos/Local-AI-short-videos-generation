@@ -36,34 +36,22 @@ input/csv/
 ## Schema Reference
 
 ### 0. SCRIPT TO CHANGE (`script_to_change/*.csv`)
-- **Columns**: `ID,NEW_SCRIPT`
+- **Columns**: `ID,NEW_SCRIPT,EXPRESSION` (also backward-compatible with `ID,NEW_SCRIPT`)
 - **Purpose**: Modifies existing scripts using human-crafted or externally edited text. Canonical `ID` determines target language and video format.
-- **Automated Ingestion via Connectivity**: Can be populated directly from Google Sheets Column D (`SCRIPT_CHANGED`) via `main/connectivity/fetch_corrected_scripts.py`.
+- **Automated Ingestion via Connectivity**: Populated directly from Google Sheets Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`) via `POST /api/sheets/sync` or `main/connectivity/fetch_corrected_scripts.py`.
 - **Targeted ID Filtering Templates**:
   - `script_to_change/model_ids_to_fetch.csv`: Reference template schema (`ID`).
   - `script_to_change/ids_to_fetch.csv`: Active list of IDs to fetch from Google Sheets when running Option 4 (CSV ID list).
-- **Verbatim Ingestion Guarantee**: Paragraphs are parsed directly into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff` for Expression; `hook`, `challenge`, `pressure`, `answer`, `explanation` for Game; `hook`, `DIALOGUE_PART_1`..`4`, `PAYOFF` for Roleplay; `hook`, `setup`, `discovery`, `payoff` for Fun Facts). Spoken text is injected **100% verbatim** into `content_metadata.script` with zero LLM paraphrasing or summarization.
-- **State Rule**: Automatically updates the state JSON property from `"script_generation": "done"` to `"pending"` BEFORE generating new metadata, and invalidates downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`).
-- **Automated Verification & Sync Tool (`check_script_changes.py`)**: Creators can run `py main/tools/check_script_changes.py --check-only` at any time to compare all CSVs in `script_to_change/` against local state JSONs, previewing diffs and word counts. Running with `--apply` performs a batch sync with zero section duplication.
+- **Verbatim Ingestion Guarantee**: Paragraphs are parsed directly into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff` for Expression; `hook`, `challenge`, `pressure`, `answer`, `explanation` for Game with blank-line `A:`/`B:`/`C:`/`D:` option merging; `hook`, `DIALOGUE_PART_1`..`4`, `PAYOFF` for Roleplay; `hook`, `setup`, `discovery`, `explanation`, `payoff` for Fun Facts). Spoken text is injected **100% verbatim** into `content_metadata.script` with zero LLM paraphrasing or summarization.
+- **State Rule**: After applying a revised script, the studio marks script generation done and resets voice, images, thumbnails, assembly, and Drive delivery to pending.
+- **Automated Verification & Sync Tool (`check_script_changes.py`)**: Creators can run `py main/tools/check_script_changes.py --check-only` at any time to compare all CSVs in `script_to_change/` against local state JSONs, using `Counter`-based GAME diffing to catch swapped/replaced words cleanly. Running with `--apply` performs a batch sync with zero section duplication.
 - **Robust CSV Parsing**: Sanitizes multiline quoted text and spaces after commas before quotes (`skipinitialspace=True`) to prevent truncation or malformed rows.
 
-### 0b. VOICE TO CHANGE (`voice_to_change/*.csv`)
-- **Columns**: `ID` (e.g. `ID` or `script_id`)
-- **Purpose**: Target specific scripts for voiceover synthesis (`_B_voice_generation/main.py`) using a dedicated CSV batch file or CLI option `--from-csv`.
-- **Isolation Guarantee**: Kept separate from script changes and image queues so creators can selectively regenerate audio without altering visual or text queues.
-- **State Validation**: Pipeline automatically verifies that `state/<lang>/<type>/script_<ID>.json` exists before queuing.
+### 0b. Studio batch selection
 
-### 0c. IMAGE TO CHANGE (`image_to_change/*.csv`)
-- **Columns**: `ID` (e.g. `ID` or `script_id`)
-- **Purpose**: Target specific scripts for image generation (`_C_image_generation/main.py`) using a dedicated CSV batch file or CLI option `--from-csv`.
-- **Isolation Guarantee**: Kept separate from script changes and voice queues so visual assets can be regenerated independently.
-- **State Validation**: Pipeline automatically verifies that `state/<lang>/<type>/script_<ID>.json` exists before queuing.
+In **Mass Creation**, pick the target stage and paste IDs, upload an ID CSV, or select scripts from the catalog. Use an `ID` or `script_id` column for voice or image redo lists. The studio validates each ID against local state before queuing it.
 
-### 0d. READY SCRIPTS BATCH WORKFLOW (`<OUTPUT_DIR>/connectivity/ready_scripts/<date>_ready_scripts.csv`)
-- **Columns**: `ID,expression`
-- **Purpose**: Powers batch execution across downstream generation stages (`_B_voice_generation`, `_C_image_generation`, `_F_thumbnail_image_generation`, and `_G_video_assembly`).
-- **Discovery**: Scanned directly from `<OUTPUT_DIR>/connectivity/ready_scripts` via `core/cli_prompt.py` or passed via CLI `--from-ready-scripts`.
-- **Thumbnail & Video Stages**: Stages `_F` and `_G` directly consume Ready Scripts CSVs via Option `[5]`, cleanly bypassing unnecessary modifier directories.
+The ready-script scanner writes `ID,expression` exports under `<OUTPUT_DIR>/connectivity/ready_scripts/`. Use an export as the ID CSV for voice, images, thumbnails, or assembly. Apply reviewed script revisions through **Sheets Sync** before rendering.
 
 ### 1. EXPRESSION
 - **Filename**: `<LANG>_READY_PROMPTS_EXPRESSION.csv`

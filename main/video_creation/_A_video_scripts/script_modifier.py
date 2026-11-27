@@ -63,10 +63,10 @@ except (ImportError, ModuleNotFoundError):
     )
 
 try:
-    from core.state_manager import StateManager, resolve_lang_and_type
+    from core.state_manager import DOWNSTREAM_STAGES, StateManager, resolve_lang_and_type
 except (ImportError, ModuleNotFoundError):
     # pyrefly: ignore [missing-import]
-    from state_manager import StateManager, resolve_lang_and_type
+    from state_manager import DOWNSTREAM_STAGES, StateManager, resolve_lang_and_type
 
 try:
     from connectivity.ready_scripts.scanner import (
@@ -213,11 +213,11 @@ def try_direct_script_parse(raw_text: str, video_type: str) -> Optional[Dict[str
         "discovery": re.compile(r"^(?:discovery|découverte|descubrimiento|scoperta)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "example": re.compile(r"^(?:example|exemple|ejemplo|esempio)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "payoff": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion|cta|call[_\s]to[_\s]action)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_1": re.compile(r"^(?:dialogue[_\s]part[_\s]1|dialogue[_\s]1|part[_\s]1)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_2": re.compile(r"^(?:dialogue[_\s]part[_\s]2|dialogue[_\s]2|part[_\s]2)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_3": re.compile(r"^(?:dialogue[_\s]part[_\s]3|dialogue[_\s]3|part[_\s]3)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "DIALOGUE_PART_4": re.compile(r"^(?:dialogue[_\s]part[_\s]4|dialogue[_\s]4|part[_\s]4)\s*[:：]\s*(.*)$", re.IGNORECASE),
-        "PAYOFF": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_1": re.compile(r"^(?:dialogue[_\s]part[_\s]1|dialogue[_\s]1|part[_\s]1)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_2": re.compile(r"^(?:dialogue[_\s]part[_\s]2|dialogue[_\s]2|part[_\s]2)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_3": re.compile(r"^(?:dialogue[_\s]part[_\s]3|dialogue[_\s]3|part[_\s]3)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "dialogue_part_4": re.compile(r"^(?:dialogue[_\s]part[_\s]4|dialogue[_\s]4|part[_\s]4)\s*[:：]\s*(.*)$", re.IGNORECASE),
+        "payoff": re.compile(r"^(?:payoff|pay[_\s]off|chute|conclusion|cta|call[_\s]to[_\s]action)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "challenge": re.compile(r"^(?:challenge|défi|desafío|sfida|question)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "pressure": re.compile(r"^(?:pressure|pression|presión|pressione|countdown)\s*[:：]\s*(.*)$", re.IGNORECASE),
         "answer": re.compile(r"^(?:answer|réponse|respuesta|risposta)\s*[:：]\s*(.*)$", re.IGNORECASE),
@@ -399,7 +399,7 @@ def clean_game_challenge(chal: str, sid: str = "") -> str:
         w = m.group(0)
         if w in ("A", "B", "C", "D", "PM", "AM", "OK", "TV", "USA", "DNA", "VIP"):
             return w
-        return w.replace("-", "").lower()
+        return w.lower()
 
     for match in opt_regex.finditer(rest):
         letter = match.group(1).upper()
@@ -412,17 +412,11 @@ def clean_game_challenge(chal: str, sid: str = "") -> str:
         content = re.sub(r"\b[a-zA-Z]*[A-Z]{2,}[a-zA-Z-]*\b", _lower_stress, content)
 
         w_lower = content.lower().strip()
-        if w_lower in GAME_STRESS_WORDS_MAP:
+        if len(content.split()) == 1 and w_lower in GAME_STRESS_WORDS_MAP and w_lower not in ("desert", "dessert"):
             if letter == "A":
                 content = GAME_STRESS_WORDS_MAP[w_lower][0]
             elif letter == "B":
                 content = GAME_STRESS_WORDS_MAP[w_lower][1]
-
-        if sid and sid.upper() == "EG30":
-            if letter == "A":
-                content = "fill"
-            elif letter == "B":
-                content = "feel"
 
         if not content.endswith("."):
             content = content + "."
@@ -499,29 +493,36 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
             return None
 
     elif vtype == "GAME":
-        if len(lines) == 5:
-            parsed = {
-                "hook": lines[0],
-                "challenge": clean_game_challenge(lines[1]),
-                "pressure": lines[2],
-                "answer": lines[3],
-                "explanation": lines[4],
-            }
-        elif len(lines) == 4:
-            parsed = {
-                "hook": lines[0],
-                "challenge": clean_game_challenge(lines[1]),
-                "pressure": lines[1],
-                "answer": lines[2],
-                "explanation": lines[3],
-            }
-        elif len(lines) > 5:
+        # Merge standalone multiple-choice option paragraphs (A:, B:, C:, D: / A), B), ...)
+        # directly into the preceding challenge paragraph so Mass Sheets Sync NEVER shifts
+        # Option A into `pressure`, Option B into `answer`, and Option C into `explanation`!
+        _opt_line_re = re.compile(r"^\s*(?:(?:opci[oó]n|option|opzione)\s+)?[A-D]\s*[:\)\.\-]\s*", re.IGNORECASE)
+        merged_game_lines: List[str] = []
+        for idx_l, ln in enumerate(lines):
+            if idx_l >= 2 and merged_game_lines and _opt_line_re.match(ln):
+                # Only attach to the challenge block (index 1), never to answer/explanation
+                if len(merged_game_lines) == 2:
+                    merged_game_lines[-1] = merged_game_lines[-1] + "\n" + ln
+                    continue
+            merged_game_lines.append(ln)
+        lines = merged_game_lines
+
+        if len(lines) >= 5:
             hook = lines[0]
-            # Try to identify answer line via keywords across languages
+            # Identify the actual answer section via strict answer phrase patterns
+            answer_patterns = [
+                re.compile(r"\b(?:the\s+)?(?:correct\s+)?answer\s+(?:is|wins|était|c'est)\b", re.I),
+                re.compile(r"\boption\s+[a-d]\s+(?:is|wins|est|è|es)\b", re.I),
+                re.compile(r"\b(?:it\s+is|it's|c'est|è|es)\s+[a-d]\b", re.I),
+                re.compile(r"\b(?:the\s+)?winner\s+is\b", re.I),
+                re.compile(r"\b(?:la\s+)?(?:réponse|risposta|respuesta)\s+(?:est|è|es|correcta|giusta|esatta)\b", re.I),
+                re.compile(r"\b(?:se\s+hai\s+scelto|si\s+has\s+elegido|si\s+tu\s+as\s+choisi|if\s+you\s+(?:chose|picked))\b", re.I),
+                re.compile(r"\b(?:punto\s+pieno|punto\s+asegurado|gagnant|ganador)\b", re.I),
+                re.compile(r"^(?:answer|réponse|risposta|respuesta)\s*[:：]", re.I),
+            ]
             ans_idx = -1
             for i in range(2, len(lines)):
-                l_lower = lines[i].lower()
-                if any(w in l_lower for w in ("winner", "answer", "correct", "is a", "is b", "it's a", "it's b", "c'est", "gagnant", "ganador", "risposta", "réponse", "opción", "option", "la a", "la b")):
+                if any(p.search(lines[i]) for p in answer_patterns):
                     ans_idx = i
                     break
 
@@ -532,7 +533,7 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 explanation = "\n\n".join(lines[ans_idx+1:]) if ans_idx+1 < len(lines) else lines[ans_idx]
             elif ans_idx != -1 and ans_idx == 2:
                 challenge = lines[1]
-                pressure = lines[1]
+                pressure = ""
                 answer = lines[2]
                 explanation = "\n\n".join(lines[3:])
             else:
@@ -548,6 +549,14 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 "pressure": pressure,
                 "answer": answer,
                 "explanation": explanation,
+            }
+        elif len(lines) == 4:
+            parsed = {
+                "hook": lines[0],
+                "challenge": clean_game_challenge(lines[1]),
+                "pressure": "",
+                "answer": lines[2],
+                "explanation": lines[3],
             }
         else:
             return None
@@ -584,31 +593,39 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
             parts = partition_turns_into_four_parts(turns)
             parsed = {
                 "hook": hook or (lines[0] if lines else ""),
-                "DIALOGUE_PART_1": parts[0],
-                "DIALOGUE_PART_2": parts[1],
-                "DIALOGUE_PART_3": parts[2],
-                "DIALOGUE_PART_4": parts[3],
-                "PAYOFF": payoff or (lines[-1] if len(lines) > 1 else hook),
+                "dialogue_part_1": parts[0],
+                "dialogue_part_2": parts[1],
+                "dialogue_part_3": parts[2],
+                "dialogue_part_4": parts[3],
+                "payoff": payoff or (lines[-1] if len(lines) > 1 else hook),
             }
         else:
             hook = clean_narrator_prefix(lines[0])
             last_line = clean_narrator_prefix(lines[-1])
             parsed = {
                 "hook": hook,
-                "DIALOGUE_PART_1": "\n".join(lines[1:-1]) if len(lines) > 2 else (lines[1] if len(lines) > 1 else ""),
-                "DIALOGUE_PART_2": "",
-                "DIALOGUE_PART_3": "",
-                "DIALOGUE_PART_4": "",
-                "PAYOFF": last_line if len(lines) > 1 else hook,
+                "dialogue_part_1": "\n".join(lines[1:-1]) if len(lines) > 2 else (lines[1] if len(lines) > 1 else ""),
+                "dialogue_part_2": "",
+                "dialogue_part_3": "",
+                "dialogue_part_4": "",
+                "payoff": last_line if len(lines) > 1 else hook,
             }
 
     elif vtype in ("FUN_FACTS", "FUNFACTS"):
-        if len(lines) >= 4:
+        if len(lines) >= 5:
             parsed = {
                 "hook": lines[0],
                 "setup": lines[1],
-                "discovery": "\n".join(lines[2:-2]) if len(lines) > 4 else lines[2],
-                "payoff": "\n".join(lines[-2:]) if len(lines) > 4 else lines[-1],
+                "discovery": "\n".join(lines[2:-2]),
+                "explanation": lines[-2],
+                "payoff": lines[-1],
+            }
+        elif len(lines) == 4:
+            parsed = {
+                "hook": lines[0],
+                "setup": lines[1],
+                "discovery": lines[2],
+                "payoff": lines[3],
             }
         elif len(lines) >= 2:
             parsed = {
@@ -641,17 +658,17 @@ Required "script" object structure for ROLEPLAY:
 {
     "title": "Short Catchy YouTube Title",
     "hook": "Narrator opening hook setting up the scene...",
-    "DIALOGUE_PART_1": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "DIALOGUE_PART_2": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "DIALOGUE_PART_3": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "DIALOGUE_PART_4": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
-    "PAYOFF": "Narrator closing explanation and memorable takeaway..."
+    "dialogue_part_1": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "dialogue_part_2": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "dialogue_part_3": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "dialogue_part_4": "PERSON_ONE (Emotion): line...\\nPERSON_TWO (Emotion): line...",
+    "payoff": "Narrator closing explanation and memorable takeaway..."
 }
 Note on Character Dialogue & Narration:
-- In "hook" and "PAYOFF", do NOT include the prefix "Narrator:" or "Voiceover:" because the TTS narrator voice speaks these sections automatically.
+- In "hook" and "payoff", do NOT include the prefix "Narrator:" or "Voiceover:" because the TTS narrator voice speaks these sections automatically.
 - Must have character dialogue lines prefixed with PERSON_ONE (Acting Tone): and PERSON_TWO (Acting Tone):
-- Do NOT insert the Narrator into DIALOGUE_PART_1, 2, 3, or 4.
-- Distribute character dialogue turns across DIALOGUE_PART_1 through DIALOGUE_PART_4 without duplicating any lines. If there are 5 turns, put the first 2 in DIALOGUE_PART_1 and 1 in each remaining part.
+- Do NOT insert the Narrator into dialogue_part_1, 2, 3, or 4.
+- Distribute character dialogue turns across dialogue_part_1 through dialogue_part_4 without duplicating any lines. If there are 5 turns, put the first 2 in dialogue_part_1 and 1 in each remaining part.
 - In "character_personalities", infer distinct personalities for PERSON_ONE and PERSON_TWO based on their dialogue.
 """
     elif vtype == "GAME":
@@ -676,9 +693,10 @@ Required "script" object structure for FUN_FACTS:
     "hook": "Direct curiosity hook addressing the viewer...",
     "setup": "Context or setup of the curiosity...",
     "discovery": "The surprising revelation or core facts...",
+    "explanation": "Why this anomaly happens or how it works in practice...",
     "payoff": "Memorable takeaway and closing reaction..."
 }
-(If the script is a 3-facts format, use "fact_1", "fact_2", "fact_3" instead of setup/discovery.)
+(If the script is a 3-facts format, use "fact_1", "fact_2", "fact_3" instead of setup/discovery/explanation.)
 """
     else:  # EXPRESSION
         format_spec = """
@@ -762,8 +780,8 @@ Format:
 CANONICAL_SCRIPT_KEYS_BY_TYPE: Dict[str, list[str]] = {
     "EXPRESSION": ["title", "hook", "setup", "discovery", "example", "payoff"],
     "GAME": ["title", "hook", "challenge", "pressure", "answer", "explanation"],
-    "ROLEPLAY": ["title", "hook", "DIALOGUE_PART_1", "DIALOGUE_PART_2", "DIALOGUE_PART_3", "DIALOGUE_PART_4", "PAYOFF"],
-    "FUN_FACTS": ["title", "hook", "setup", "discovery", "payoff"],
+    "ROLEPLAY": ["title", "hook", "dialogue_part_1", "dialogue_part_2", "dialogue_part_3", "dialogue_part_4", "payoff"],
+    "FUN_FACTS": ["title", "hook", "setup", "discovery", "explanation", "payoff"],
 }
 
 
@@ -856,45 +874,41 @@ def format_script_with_llm(
         for k, v in direct_parsed.items():
             script_field[k] = v
 
-    # Resolve and clean up a format-differentiated, emoji-free title
-    tlang_lower = (target_language or "").lower()
-    vtype_upper = (video_type or "EXPRESSION").upper()
-
+    # Resolve and clean up an emoji-free, category-prefix-free title
     clean_expr_base = re.sub(
-        r"^(?:quiz|in action|en acci[óo]n|en action|in azione|origin|origen|origine)\s*[:：]\s*",
+        r"^(?:[\[\(]\s*)?"
+        r"(?:"
+        r"quiz|game|juego|jeu|gioco|trivia|"
+        r"expression|expresi[óo]n|espressione|idiom|modismo|"
+        r"fun\s*facts?|dato\s*curioso|datos\s*curiosos|curiosidad|curiosit[éeàa]|"
+        r"role[\s-]*play|dialogue|di[áa]logo|dialogo|"
+        r"in\s+action|en\s+acci[óo]n|en\s+action|in\s+azione|"
+        r"origin|origen|origine"
+        r")"
+        r"(?:\s*[\]\)]\s*[:：\|\-–—]?\s*|\s*(?:[:：\|]|\s[-–—]\s)\s*)",
         "",
         str(expression_or_topic),
         flags=re.IGNORECASE,
-    ).strip()
+    ).strip() or str(expression_or_topic).strip()
 
-    if vtype_upper == "GAME":
-        default_native_title = f"Quiz : {clean_expr_base}" if tlang_lower == "french" else f"Quiz: {clean_expr_base}"
-    elif vtype_upper == "ROLEPLAY":
-        if tlang_lower == "spanish":
-            default_native_title = f"En Acción: {clean_expr_base}"
-        elif tlang_lower == "french":
-            default_native_title = f"En Action : {clean_expr_base}"
-        elif tlang_lower == "italian":
-            default_native_title = f"In Azione: {clean_expr_base}"
-        else:
-            default_native_title = f"In Action: {clean_expr_base}"
-    elif vtype_upper == "FUN_FACTS":
-        if tlang_lower == "spanish":
-            default_native_title = f"Origen: {clean_expr_base}"
-        elif tlang_lower == "french":
-            default_native_title = f"Origine : {clean_expr_base}"
-        elif tlang_lower == "italian":
-            default_native_title = f"Origine: {clean_expr_base}"
-        else:
-            default_native_title = f"Origin: {clean_expr_base}"
-    else:
-        default_native_title = clean_expr_base
+    default_native_title = clean_expr_base
+
+    prev_topic_norm = str(
+        existing_content_metadata.get("topic")
+        or existing_content_metadata.get("target_expression")
+        or ""
+    ).strip().lower()
+    topic_changed = bool(
+        prev_topic_norm
+        and expression_or_topic
+        and expression_or_topic.strip().lower() != prev_topic_norm
+    )
 
     raw_title = (
         script_field.get("title")
         or parsed_json.get("title")
-        or existing_content_metadata.get("script", {}).get("title")
-        or existing_content_metadata.get("title")
+        or (None if topic_changed else existing_content_metadata.get("script", {}).get("title"))
+        or (None if topic_changed else existing_content_metadata.get("title"))
         or default_native_title
     )
     if isinstance(raw_title, str):
@@ -940,7 +954,20 @@ def format_script_with_llm(
         if matched_k and matched_k in script_field:
             ordered_script[c_key] = script_field[matched_k]
 
+    NON_SPOKEN_METADATA_KEYS = {
+        "game_archetype", "difficulty", "learning_objective", "category",
+        "subcategory", "video_type", "language", "tags", "hashtags",
+        "target_expression", "topic", "related_content", "character_personalities",
+        "chalkboard_exercise", "anchor_environment", "character_anchors", "speakers_voice",
+        "speakers_gender", "cast_meta", "prompt_params"
+    }
+
     for sk, sv in script_field.items():
+        if sk.lower() in NON_SPOKEN_METADATA_KEYS:
+            # Preserve in parsed_json root if not present, but NEVER put in spoken script
+            if sk not in parsed_json:
+                parsed_json[sk] = sv
+            continue
         if sk.lower() != "title" and not any(ck.lower() == sk.lower() for ck in canonical_keys):
             ordered_script[sk] = sv
 
@@ -956,7 +983,9 @@ def format_script_with_llm(
         if "challenge" in script_field and isinstance(script_field["challenge"], str):
             script_field["challenge"] = clean_game_challenge(script_field["challenge"], sid=script_id)
         challenge_text = script_field.get("challenge", "")
-        parsed_json["chalkboard_exercise"] = challenge_text
+        # Format options with newlines for clean chalkboard layout
+        chalkboard_clean = re.sub(r"\s+([A-D]\s*[:\)\.\-])", r"\n\1", challenge_text).strip()
+        parsed_json["chalkboard_exercise"] = chalkboard_clean
         if "content_metadata" in parsed_json and isinstance(parsed_json["content_metadata"], dict):
             del parsed_json["content_metadata"]
 
@@ -972,6 +1001,24 @@ def format_script_with_llm(
         if "PERSON_TWO" not in parsed_json["character_personalities"]:
             parsed_json["character_personalities"]["PERSON_TWO"] = "Knowledgeable, natural native speaker offering authentic cultural guidance."
 
+    # Preserve existing continuity, voice assignments, and technical metadata
+    preserve_keys = [
+        "character_anchors",
+        "cast_meta",
+        "anchor_environment",
+        "speakers_gender",
+        "speakers_voice",
+        "game_type",
+        "game_archetype",
+        "roleplay_scenario",
+        "cultural_locale",
+        "lexical_field",
+        "emotional_trigger",
+    ]
+    for pk in preserve_keys:
+        if pk in existing_content_metadata and pk not in parsed_json:
+            parsed_json[pk] = existing_content_metadata[pk]
+
     parsed_json["script"] = script_field
     parsed_json["video_type"] = video_type.upper()
     parsed_json["language"] = target_language
@@ -986,6 +1033,7 @@ def modify_video_script(
     reset_downstream: Optional[bool] = None,
     base_dir: Optional[Path] = None,
     auto_update_csv: bool = True,
+    new_expression: Optional[str] = None,
 ) -> bool:
     """
     Core function to modify an existing script state with plain text input.
@@ -1015,7 +1063,7 @@ def modify_video_script(
         or "EXPRESSION"
     ).upper()
 
-    topic = (
+    old_topic = (
         prompt_params.get("EXPRESSION")
         or prompt_params.get("ROLEPLAY_SCENARIO")
         or prompt_params.get("TOPIC")
@@ -1023,6 +1071,22 @@ def modify_video_script(
         or content_meta.get("target_expression")
         or script_id
     )
+    clean_new_expr = (new_expression or "").strip()
+    topic_changed = bool(clean_new_expr and clean_new_expr.lower() != str(old_topic).strip().lower())
+    topic = clean_new_expr if clean_new_expr else old_topic
+
+    if topic_changed:
+        for k in ("EXPRESSION", "TARGET_EXPRESSION", "TOPIC"):
+            if k in prompt_params or k == "TOPIC":
+                prompt_params[k] = topic
+        for k in ("expression", "target_expression", "topic"):
+            if k in prompt_params:
+                prompt_params[k] = topic
+        # Clear stale angle/fact details inherited from the previous topic
+        for stale_k in ("ANGLE", "angle", "HOOK_ANGLE", "hook_angle", "FACT_DETAILS", "fact_details"):
+            if stale_k in prompt_params:
+                prompt_params[stale_k] = ""
+        state["prompt_params"] = prompt_params
 
     print("\n" + "=" * 68)
     print(f"🔄 MODIFYING SCRIPT: {script_id}")
@@ -1074,7 +1138,7 @@ def modify_video_script(
     state["script_text"] = new_script_text
     state["content_metadata"] = new_content_meta
     state["metadata"] = new_metadata
-    state["status"]["script_generation"] = "done"
+    state.setdefault("status", {})["script_generation"] = "done"
 
     # Handle downstream statuses
     if reset_downstream is None:
@@ -1090,14 +1154,25 @@ def modify_video_script(
 
     if reset_downstream:
         print("🔄 Resetting downstream stages to 'pending' for fresh rendering...")
-        downstream_stages = [
-            "voice_generation",
-            "image_generation",
-            "thumbnail_generation",
-            "video_assembly",
-        ]
-        for stage in downstream_stages:
-            state["status"][stage] = "pending"
+        state["status"].update(dict.fromkeys(DOWNSTREAM_STAGES, "pending"))
+
+        # Invalidate stale downstream assets so new prompts & media match the updated script
+        if "assets" in state and isinstance(state["assets"], dict):
+            # Preserve character anchors for multi-scene visual continuity
+            saved_anchors = state["assets"].get("character_anchors")
+            state["assets"]["image_prompts"] = {}
+            state["assets"]["images"] = {}
+            state["assets"]["audio_path"] = None
+            state["assets"]["final_video"] = None
+            state["assets"]["thumbnail_path"] = None
+            if topic_changed:
+                state["assets"].pop("general_prompt", None)
+                state["assets"].pop("anchor_world_id", None)
+                state["assets"].pop("anchor_world_title", None)
+                if isinstance(state.get("content_metadata"), dict):
+                    state["content_metadata"].pop("anchor_environment", None)
+            if saved_anchors:
+                state["assets"]["character_anchors"] = saved_anchors
 
     # Save updated state
     state_manager.save_script_state(script_id, state)

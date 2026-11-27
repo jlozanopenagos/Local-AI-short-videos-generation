@@ -1,0 +1,90 @@
+{
+  "assets": {
+    "general_prompt": "Medium shot, waist-up framing. Inside a historic theater dressing room, a tall teen boy with short textured dark hair, dressed in an Elizabethan deep emerald-green velvet doublet with a pleated white ruff collar, gestures expressively before an ornate vanity mirror. Beside him near a rehearsal stage, a teen girl with long wavy auburn hair wears an authentic sapphire-blue Tudor gown with gold brocade trimming and slashed silk sleeves, holding a rolled theatrical script in delighted anticipation. Deep crimson velvet curtains, polished dark wood paneling, an antique costume rack, and warm bulb mirrors create dramatic environmental depth under rich cinematic spotlighting and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark)."
+  },
+  "content_metadata": {
+    "anchor_environment": "Medium shot, waist-up framing. Inside a historic theater dressing room, a tall teen boy with short textured dark hair, dressed in an Elizabethan deep emerald-green velvet doublet with a pleated white ruff collar, gestures expressively before an ornate vanity mirror. Beside him near a rehearsal stage, a teen girl with long wavy auburn hair wears an authentic sapphire-blue Tudor gown with gold brocade trimming and slashed silk sleeves, holding a rolled theatrical script in delighted anticipation. Deep crimson velvet curtains, polished dark wood paneling, an antique costume rack, and warm bulb mirrors create dramatic environmental depth under rich cinematic spotlighting and soft cast shadows. Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, vibrant flat colors, bold outlines, expressive high-school student character design (approx. 15-16 years old, tall slender proportions), large clear cartoon eyes with visible white sclera and specular pupil highlights, thematically authentic scene-specific wardrobe matching the environment (NO generic modern street clothes, NO plain t-shirts/hoodies), rich detailed environmental interior background with depth and warm atmospheric lighting. (high-school student protagonist, thematic costume, NO mature high-school students wrinkles, NO elderly, NO generic casual t-shirts, NO plain hoodies, NO dot eyes, NO minimalist faces, NO blank backgrounds, NO 3D render, NO photorealism, NO photograph, NO text, NO watermark).",
+    "category": "Language Learning",
+    "character_personalities": {
+      "Narrator": "Charismatic, witty, and high-energy YouTube Shorts storyteller and viral language mentor. Speaks with a magnetic hook, vibrant dynamic intonation, warm humor, and fast compelling cadence that instantly grabs attention."
+    },
+    "difficulty": "Intermediate",
+    "emotion": "Curiosity & Surprise",
+    "language": "English",
+    "learning_objective": "To learn the correct, professional, and native way to wish someone success in the theater using the expression 'break a leg' instead of 'good luck'.",
+    "related_content": [
+      "Theater Vocabulary",
+      "English Idioms for Success",
+      "Native Speaker Slang"
+    ],
+    "script": {
+      "discovery": "The real expression is 'break a leg.' It's how professionals wish each other success backstage. It's the vibe you need.",
+      "example": "Before a job interview, tell your friend, 'Break a leg, you'll crush it.' It sounds way more natural.",
+      "hook": "Stop wishing someone 'good luck'! That phrase is actually bad luck.",
+      "payoff": "So next time you wish good to someone, don't ruin it with a simple 'Good luck.' Say it with absolute confidence: 'Break a leg.'",
+      "setup": "Most people think wishing someone luck is positive. But in theater, it's considered a total curse. It's an old insider secret.",
+      "title": "Theatre Idioms You Must Know"
+    },
+    "speakers_gender": {
+      "Narrator": "female"
+    },
+    "speakers_voice": {
+      "Narrator": "english_female_kokoro_golden_narrator.wav"
+    },
+    "subcategory": "Idioms",
+    "target_expression": "Break a leg",
+    "topic": "Break a leg",
+    "video_type": "EXPRESSION"
+  },
+  "id": "EE01",
+  "metadata": {
+    "DESCRIPTION": "Stop wishing someone 'good luck'! Learn the insider secret for performance. Discover why 'good luck' is considered bad luck and how to use the natural expression 'break a leg' instead. Master this idiom for your next audition or show. Try it now! #idioms #englishlearning #breakaleg",
+    "FILENAME": "english_idioms_break-a-leg-theater.mp4",
+    "HASHTAGS": "#englishidioms #learnenglish #breakaleg #englishvocabulary #englishforperformance #naturalenglish",
+    "LABEL": "English | Popular English Idioms | Wishing someone good luck | Pragmatics",
+    "SHORT_DESCRIPTION": "Stop saying 'good luck'! Learn the professional expression 'break a leg' instead. Master this insider idiom for English fluency. #englishidioms #learnenglish #breakaleg",
+    "TAGS": "English idioms, break a leg, good luck vs break a leg, theater idioms, english expressions, learning english, common english mistakes, natural english, english slang, english for performance, english vocabulary",
+    "TITLE": "Theatre Idioms You Must Know"
+  },
+  "prompt_params": {
+    "ANGLE": "Why good luck is bad luck",
+    "CONTEXT": "Wishing someone good luck before a theater show",
+    "EMOTIONAL_TRIGGER": "Surprise & Curiosity",
+    "EXPRESSION": "Break a leg",
+    "FACT_DETAILS": "",
+    "FORMAT": "",
+    "GAME_ARCHETYPE": "",
+    "HOOK_ANGLE": "Why good luck is bad luck",
+    "LANGUAGE": "english",
+    "LEXICAL_FIELD": "Performance & Theatre",
+    "PILLAR": "",
+    "ROLEPLAY_SCENARIO": "",
+    "SCENARIO": "",
+    "SCRIPT_ID": "EE01",
+    "SPECIAL_TREATMENT": "",
+    "SUBJECT": "Popular English Idioms",
+    "TARGET_EXPRESSION": "Break a leg",
+    "TOPIC": "Break a leg",
+    "TYPE": "expression",
+    "angle": "Why good luck is bad luck",
+    "context": "Wishing someone good luck before a theater show",
+    "emotional_trigger": "Surprise & Curiosity",
+    "expression": "Break a leg",
+    "fact_details": "",
+    "format": "",
+    "game_archetype": "",
+    "hook_angle": "Why good luck is bad luck",
+    "language": "english",
+    "lexical_field": "Performance & Theatre",
+    "pillar": "",
+    "roleplay_scenario": "",
+    "scenario": "",
+    "script_id": "EE01",
+    "special_treatment": "",
+    "subject": "Popular English Idioms",
+    "target_expression": "Break a leg",
+    "topic": "Break a leg",
+    "type": "expression"
+  },
+  "script_text": "{\n  \"title\": \"Theatre Idioms You Must Know\",\n  \"hook\": \"Stop wishing someone 'good luck'! That phrase is actually bad luck.\",\n  \"setup\": \"Most people think wishing someone luck is positive. But in theater, it's considered a total curse. It's an old insider secret.\",\n  \"discovery\": \"The real expression is 'break a leg.' It's how professionals wish each other success backstage. It's the vibe you need.\",\n  \"example\": \"Before a job interview, tell your friend, 'Break a leg, you'll crush it.' It sounds way more natural.\",\n  \"payoff\": \"So next time you wish good to someone, don't ruin it with a simple 'Good luck.' Say it with absolute confidence: 'Break a leg.'\"\n}"
+}

@@ -62,7 +62,7 @@ except (ImportError, ModuleNotFoundError):
 class TestSheetsFetcher(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.test_output_dir = Path(self.temp_dir.name)
+        self.test_output_dir = Path(self.temp_dir.name).resolve()
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -269,7 +269,9 @@ class TestSheetsFetcher(unittest.TestCase):
         mock_response.read.return_value = json.dumps(mock_payload).encode("utf-8")
         mock_response.__enter__.return_value = mock_response
 
-        with patch("urllib.request.urlopen", return_value=mock_response), patch("builtins.print"):
+        with patch(f"{sync_sheet.__module__}.get_endpoint", return_value=("english", "expression", "https://script.google.com/macros/s/MOCK_ENDPOINT/exec")), \
+             patch("urllib.request.urlopen", return_value=mock_response), \
+             patch("builtins.print"):
             result = sync_sheet(
                 language="english",
                 video_type="expression",

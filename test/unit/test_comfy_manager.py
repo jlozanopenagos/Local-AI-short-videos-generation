@@ -61,8 +61,9 @@ class TestComfyManager(unittest.TestCase):
         mock_get.side_effect = Exception("Connection refused")
         self.assertFalse(self.mgr.is_reachable())
 
+    @patch.object(ComfyManager, "is_running", return_value=(True, 4321))
     @patch.object(ComfyManager, "is_reachable", return_value=True)
-    def test_start_already_running(self, mock_reach):
+    def test_start_already_running(self, mock_reach, mock_is_running):
         """Verify start() does not spawn a new process if ComfyUI is already active."""
         with patch("core.comfy_manager.subprocess.Popen") as mock_popen:
             ok = self.mgr.start(timeout=5, wait=False)

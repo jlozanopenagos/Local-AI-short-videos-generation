@@ -1,4 +1,6 @@
-import type { SystemStatus, ScriptSummary, ScriptDetail, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse } from './types'
+import type { SystemStatus, ScriptSummary, ScriptDetail, ScriptUpdatePayload, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse, ElevenLabsStatus, VoiceCreditEstimateResponse, VoiceProvider, ElevenLabsModelId } from './types'
+
+export type { ScriptUpdatePayload }
 
 export async function fetchSystemStatus(): Promise<SystemStatus> {
   const res = await fetch('/api/system/status')
@@ -68,16 +70,6 @@ export async function fetchScriptDetail(scriptId: string): Promise<ScriptDetail>
   return res.json()
 }
 
-export interface ScriptUpdatePayload {
-  script_text?: string
-  script_dict?: Record<string, any>
-  chalkboard_exercise?: string
-  chalkboard_title?: string
-  target_expression?: string
-  general_prompt?: string
-  image_prompts?: Record<string, string>
-}
-
 export async function updateScript(scriptId: string, payload: ScriptUpdatePayload): Promise<ScriptDetail> {
   const res = await fetch(`/api/scripts/${scriptId}`, {
     method: 'PUT',
@@ -95,7 +87,7 @@ export async function geminiAuditPrompt(
   scriptId: string,
   currentPrompt?: string,
   apiKey?: string
-): Promise<ScriptDetail> {
+): Promise<{ status: string; audited_prompt: string; character_anchors?: Record<string, any>; script_id: string }> {
   const res = await fetch(`/api/scripts/${scriptId}/gemini-audit-prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -107,6 +99,65 @@ export async function geminiAuditPrompt(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || `Gemini audit failed for script ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function generateScript(
+  scriptId: string,
+  options: { force?: boolean } = { force: true }
+): Promise<{ status: string; job_id: string; script_id: string }> {
+  const res = await fetch(`/api/scripts/${scriptId}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force: options.force ?? true }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to trigger script generation for ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function renderChalkboard(
+  scriptId: string,
+  chalkboardExercise?: string
+): Promise<{ status: string; message: string; image_file: string; script: ScriptDetail }> {
+  const res = await fetch(`/api/scripts/${scriptId}/render-chalkboard`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chalkboard_exercise: chalkboardExercise,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to render chalkboard for script ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function renderThumbnail(
+  scriptId: string,
+  thumbnailTitle?: string
+): Promise<{
+  status: string
+  message: string
+  thumbnail_title: string
+  thumbnail_path?: string | null
+  thumbnail_variants?: Record<string, string>
+  script: ScriptDetail
+}> {
+  const res = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}/render-thumbnail`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      thumbnail_title: thumbnailTitle,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to render thumbnail for script ${scriptId}`)
   }
   return res.json()
 }
@@ -178,6 +229,46 @@ export async function saveGeminiKey(apiKey: string): Promise<{ status: string; m
   return res.json()
 }
 
+export async function fetchElevenLabsStatus(includeSubscription = true): Promise<ElevenLabsStatus> {
+  const res = await fetch(`/api/system/elevenlabs-status?include_subscription=${includeSubscription ? 'true' : 'false'}`)
+  if (!res.ok) throw new Error(`ElevenLabs status HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function saveElevenLabsKey(apiKey: string): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/system/elevenlabs-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to save ElevenLabs API key')
+  }
+  return res.json()
+}
+
+export async function estimateVoiceCredits(
+  scriptIds: string[],
+  voiceProvider: VoiceProvider = 'auto',
+  elevenlabsModel: ElevenLabsModelId = 'eleven_v3'
+): Promise<VoiceCreditEstimateResponse> {
+  const res = await fetch('/api/scripts/estimate-voice-credits', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      script_ids: scriptIds,
+      voice_provider: voiceProvider,
+      elevenlabs_model: elevenlabsModel,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to estimate voice credits')
+  }
+  return res.json()
+}
+
 export function getMediaUrl(pathOrFilename?: string | null): string {
   if (!pathOrFilename) return ''
   if (pathOrFilename.startsWith('http://') || pathOrFilename.startsWith('https://')) {
@@ -208,6 +299,21 @@ export async function startSheetsSync(options: { clean_cache?: boolean; apply_ch
   return res.json()
 }
 
+export async function startThumbnailTitlesSync(options: { apply_changes?: boolean } = {}): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/sheets/sync-thumbnails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      apply_changes: options.apply_changes ?? true,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to start thumbnail titles sync')
+  }
+  return res.json()
+}
+
 export async function resetSheetsSyncStatus(): Promise<{ status: string; message: string }> {
   const res = await fetch('/api/sheets/reset', { method: 'POST' })
   if (!res.ok) {
@@ -226,6 +332,71 @@ export async function validateScriptIds(scriptIds: string[]): Promise<ValidateId
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || 'Failed to validate script IDs')
+  }
+  return res.json()
+}
+
+export async function redoSceneImage(
+  scriptId: string,
+  sceneType: string,
+  options: { prompt?: string; seed?: number } = {}
+): Promise<{ status: string; message: string; image_file: string; job_id?: string; script: ScriptDetail }> {
+  const res = await fetch(`/api/scripts/${scriptId}/scenes/${encodeURIComponent(sceneType)}/redo-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to redo image for scene '${sceneType}' in script ${scriptId}`)
+  }
+  return res.json()
+}
+
+export async function redoAllScriptImages(
+  scriptId: string,
+  options: { general_prompt?: string; seed?: number } = {}
+): Promise<{ status: string; script_id: string; job_id: string; message: string; general_prompt: string }> {
+  const res = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}/redo-all-images`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to queue redo all images for script ${scriptId}`)
+  }
+  return res.json()
+}
+
+export type DriveUploadScope = 'all' | 'video' | 'thumbnail'
+
+export async function uploadScriptToDrive(
+  scriptId: string,
+  scope: DriveUploadScope = 'all'
+): Promise<{ success: boolean; message: string; data: any }> {
+  const res = await fetch(`/api/drive/scripts/${encodeURIComponent(scriptId)}/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to upload script ${scriptId} to Google Drive`)
+  }
+  return res.json()
+}
+
+export async function getDriveStatus(): Promise<{
+  configured: boolean
+  credentials_found: boolean
+  credentials_file?: string
+  root_folder_id: string
+  root_folder_url: string
+}> {
+  const res = await fetch('/api/drive/status')
+  if (!res.ok) {
+    throw new Error('Failed to fetch Google Drive status')
   }
   return res.json()
 }
