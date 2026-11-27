@@ -80,7 +80,7 @@ def resolve_thumbnail_templates(
         return [(None, legacy_en)]
 
     raise FileNotFoundError(
-        f"No thumbnail template found for language='{lang}', category='{cat_candidates[0]}' under {models_dir}"
+        f"Thumbnail model image not found for language='{lang}', category='{cat_candidates[0]}' under {models_dir}"
     )
 
 

@@ -57,6 +57,39 @@ def _normalize_video_stream(stream: Any, fps: int = 25) -> Any:
     )
 
 
+def _build_section_image_inputs(consolidated_sections: List[Dict[str, Any]]) -> List[Any]:
+    """Build per-section FFmpeg video inputs without invalid PNG input options.
+
+    Uses ``ffmpeg.input(path)`` once per unique image path and fans out any
+    reused companion images (e.g. roleplay punch-in cuts) with ``split`` so
+    FFmpeg-Python keeps distinct DAG nodes without ``-thread_queue_size``.
+    """
+    resolved_paths = [sec["path"].resolve().as_posix() for sec in consolidated_sections]
+    counts: Dict[str, int] = {}
+    for p in resolved_paths:
+        counts[p] = counts.get(p, 0) + 1
+
+    split_streams: Dict[str, Any] = {}
+    next_index: Dict[str, int] = {}
+    for p, count in counts.items():
+        base_input = ffmpeg.input(p)
+        if count > 1:
+            split_streams[p] = ffmpeg.filter_multi_output(base_input, "split", count)
+            next_index[p] = 0
+        else:
+            split_streams[p] = base_input
+
+    inputs: List[Any] = []
+    for p in resolved_paths:
+        if counts[p] > 1:
+            idx = next_index[p]
+            next_index[p] = idx + 1
+            inputs.append(split_streams[p].stream(idx))
+        else:
+            inputs.append(split_streams[p])
+    return inputs
+
+
 def _probe_audio_duration(audio_path: Path) -> float:
     try:
         local_ffprobe = (Path(__file__).parent.parent / "ffprobe.exe").resolve()
@@ -273,6 +306,7 @@ class VideoAssembler:
 
         print("Building FFMPEG filter graph for Ken Burns effect...")
         video_streams = []
+        section_inputs = _build_section_image_inputs(consolidated_sections)
 
         if profile is not None:
             scene_durations = compute_equalized_visual_durations(
@@ -313,7 +347,7 @@ class VideoAssembler:
                 zw, zh = _resolve_zoompan_canvas()
 
                 stream = (
-                    ffmpeg.input(current["path"].resolve().as_posix(), thread_queue_size=16 + i)
+                    section_inputs[i]
                     .filter("scale", f"{zw}x{zh}", force_original_aspect_ratio="increase")
                     .filter("crop", zw, zh)
                     .filter("zoompan", z=z_expr, d=frames, x=x_expr, y=y_expr, s="576x1024", fps=fps)
@@ -349,7 +383,7 @@ class VideoAssembler:
                     y_expr = "max(0,ih/2-(ih/zoom/2)-(ih*0.04))"
 
                 stream = (
-                    ffmpeg.input(current["path"].resolve().as_posix(), thread_queue_size=16 + i)
+                    section_inputs[i]
                     .filter("scale", f"{zw}x{zh}", force_original_aspect_ratio="increase")
                     .filter("crop", zw, zh)
                     .filter("zoompan", z=z_expr, d=frames, x="iw/2-(iw/zoom/2)", y=y_expr, s="576x1024")

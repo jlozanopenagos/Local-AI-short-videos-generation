@@ -278,6 +278,62 @@ class TestRealFfmpegTypedAssemblySmoke(unittest.TestCase):
                     actual_dur = float(probe["format"]["duration"])
                     self.assertAlmostEqual(actual_dur, expected_dur, delta=0.35)
 
+    def test_reused_companion_image_uses_split_without_thread_queue_size(self):
+        if not (FFMPEG_AVAILABLE and FFPROBE_AVAILABLE):
+            self.fail("Install FFmpeg and FFprobe to run production assembly tests.")
+
+        # pyrefly: ignore [missing-import]
+        import video_creation._G_video_assembly.core.video_assembler as va_mod
+
+        assembler = VideoAssembler()
+        compiled_cmds = []
+        orig_output = va_mod.ffmpeg.output
+
+        def _spy_output(*args, **kwargs):
+            node = orig_output(*args, **kwargs)
+            compiled_cmds.append(va_mod.ffmpeg.compile(node))
+            return node
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sdir = Path(tmp) / "FR98"
+            img_dir = sdir / "images"
+            img_dir.mkdir(parents=True, exist_ok=True)
+            _write_solid_png(img_dir / "script_FR98_hook.png", (40, 120, 180))
+            _write_solid_png(img_dir / "script_FR98_payoff.png", (180, 90, 60))
+            # dialogue_part_1 intentionally omitted so companion fallback reuses hook with punch-in
+            timings = {
+                "hook": {"start": 0.0, "end": 1.2},
+                "dialogue_part_1": {"start": 1.2, "end": 2.4},
+                "payoff": {"start": 2.4, "end": 3.6},
+            }
+            timings_path = sdir / "timings.json"
+            timings_path.write_text(json.dumps(timings), encoding="utf-8")
+            audio_path = sdir / "script_FR98_master.wav"
+            _write_silent_wav(audio_path, duration_sec=3.6)
+            ass_path = sdir / "script_FR98_subtitles.ass"
+            ass_path.write_text("[Script Info]\nScriptType: v4.00+\n[Events]\n", encoding="utf-8")
+            out_mp4 = sdir / "script_FR98_final.mp4"
+
+            with mock.patch.object(va_mod.ffmpeg, "output", side_effect=_spy_output):
+                ok = assembler.assemble(
+                    script_id="FR98",
+                    timings_path=timings_path,
+                    image_dir=img_dir,
+                    audio_path=audio_path,
+                    ass_path=ass_path,
+                    output_path=out_mp4,
+                    video_type="roleplay",
+                    language="french",
+                )
+
+            self.assertTrue(ok, "FFmpeg assembly failed when reusing companion image via split")
+            self.assertTrue(out_mp4.exists())
+            self.assertGreater(out_mp4.stat().st_size, 5000)
+            self.assertTrue(compiled_cmds)
+            for cmd in compiled_cmds:
+                self.assertNotIn("-thread_queue_size", cmd)
+            self.assertTrue(any("split=2" in arg for arg in compiled_cmds[0]))
+
 
 class TestAssemblyReplacement(unittest.TestCase):
     def test_replacement_publishes_only_after_successful_render(self):

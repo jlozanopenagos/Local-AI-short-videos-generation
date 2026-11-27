@@ -65,7 +65,7 @@ except (ImportError, ModuleNotFoundError):
 class TestReadyScriptsScanner(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.output_dir = Path(self.temp_dir.name)
+        self.output_dir = Path(self.temp_dir.name).resolve()
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -354,7 +354,8 @@ class TestReadyScriptsScanner(unittest.TestCase):
         mock_response.read.return_value = json.dumps(mock_payload).encode("utf-8")
         mock_response.__enter__.return_value = mock_response
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch(f"{scan_sheet_ready_scripts.__module__}.get_endpoint", return_value=("french", "expression", "https://script.google.com/macros/s/MOCK_ENDPOINT/exec")), \
+             patch("urllib.request.urlopen", return_value=mock_response):
             res = scan_sheet_ready_scripts("french", "expression")
 
         self.assertEqual(res["status"], "success")
