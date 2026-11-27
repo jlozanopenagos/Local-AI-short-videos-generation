@@ -4,13 +4,13 @@ from ..common.models import AcousticGateEnvelope, LanguageVoiceProfile, Sampling
 SPANISH_VOICE_PROFILE = LanguageVoiceProfile(
     language="spanish",
     display_name="Spanish",
-    # User-approved mix: neutral accents only (75% Neutral LatAm, 25% Standard Castilian Spain)
-    default_accent_weights={"es_latam_neutral": 0.75, "es_spain_castilian": 0.25},
+    # User-approved mix: neutral accents only (60% Neutral LatAm, 40% Standard Castilian Spain — matches ElevenLabs)
+    default_accent_weights={"es_latam_neutral": 0.60, "es_spain_castilian": 0.40},
     narrator_sampling=SamplingProfile(
-        temperature=0.85,
+        temperature=0.79,
         top_p=0.92,
         top_k=50,
-        subtalker_temperature=0.82,
+        subtalker_temperature=0.76,
         repetition_penalty=1.03,
     ),
     dialogue_sampling=SamplingProfile(

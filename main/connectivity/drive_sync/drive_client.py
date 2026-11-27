@@ -16,12 +16,20 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+try:
+    from dotenv import load_dotenv
+    _main_env = Path(__file__).resolve().parents[2] / ".env"
+    if _main_env.exists():
+        load_dotenv(_main_env)
+except Exception:
+    pass
+
 logger = logging.getLogger(__name__)
 
 # Scopes required for full read/write management in shared folders
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-DEFAULT_ROOT_FOLDER_ID = "15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z"
+DEFAULT_ROOT_FOLDER_ID = os.getenv("GOOGLE_DRIVE_ROOT_FOLDER_ID", "").strip()
 
 
 class GoogleDriveClient:
@@ -30,9 +38,13 @@ class GoogleDriveClient:
     def __init__(
         self,
         credentials_path: Optional[str | Path] = None,
-        root_folder_id: str = DEFAULT_ROOT_FOLDER_ID,
+        root_folder_id: Optional[str] = None,
     ) -> None:
-        self.root_folder_id = root_folder_id
+        self.root_folder_id = (
+            root_folder_id
+            if root_folder_id is not None
+            else (os.getenv("GOOGLE_DRIVE_ROOT_FOLDER_ID", "").strip() or DEFAULT_ROOT_FOLDER_ID)
+        )
         self._folder_cache: Dict[Tuple[str, str], str] = {}
         self._service = None
         self.credentials_path = self._resolve_credentials_path(credentials_path)
@@ -138,8 +150,28 @@ class GoogleDriveClient:
                         token_file.write(creds.to_json())
                 logger.info("Authenticated with Google Drive via user token (%s)", cred_path.name)
             except Exception as exc:
-                logger.error("Failed to authenticate with token at %s: %s", cred_path, exc)
-                raise RuntimeError(f"Google Drive token authentication failed: {exc}") from exc
+                client_secret_fallback = base_cred_dir / "client_secret.json"
+                if client_secret_fallback.exists():
+                    logger.warning(
+                        "Token %s expired or revoked (%s). Re-authenticating via %s...",
+                        cred_path.name,
+                        exc,
+                        client_secret_fallback.name,
+                    )
+                    try:
+                        # pyrefly: ignore[missing-import]
+                        from google_auth_oauthlib.flow import InstalledAppFlow
+                        flow = InstalledAppFlow.from_client_secrets_file(str(client_secret_fallback), SCOPES)
+                        creds = flow.run_local_server(port=0)
+                        with open(token_path, "w", encoding="utf-8") as token_file:
+                            token_file.write(creds.to_json())
+                        logger.info("Successfully re-authenticated OAuth token; saved to %s", token_path)
+                    except Exception as reauth_exc:
+                        logger.error("Failed OAuth re-authentication with %s: %s", client_secret_fallback, reauth_exc)
+                        raise RuntimeError(f"Google Drive token expired and re-authentication failed: {reauth_exc}") from reauth_exc
+                else:
+                    logger.error("Failed to authenticate with token at %s: %s", cred_path, exc)
+                    raise RuntimeError(f"Google Drive token authentication failed: {exc}") from exc
 
         # Case 3: OAuth 2.0 Client Secret (Desktop App)
         elif "installed" in data or "web" in data:

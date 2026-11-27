@@ -6,10 +6,10 @@ ENGLISH_VOICE_PROFILE = LanguageVoiceProfile(
     display_name="English",
     default_accent_weights={"en_us_neutral": 0.70, "en_uk_neutral": 0.30},
     narrator_sampling=SamplingProfile(
-        temperature=0.84,
+        temperature=0.79,
         top_p=0.92,
         top_k=50,
-        subtalker_temperature=0.81,
+        subtalker_temperature=0.76,
         repetition_penalty=1.03,
     ),
     dialogue_sampling=SamplingProfile(

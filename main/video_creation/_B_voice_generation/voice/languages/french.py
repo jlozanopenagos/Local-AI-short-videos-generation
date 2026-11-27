@@ -6,10 +6,10 @@ FRENCH_VOICE_PROFILE = LanguageVoiceProfile(
     display_name="French",
     default_accent_weights={"fr_standard": 1.0},
     narrator_sampling=SamplingProfile(
-        temperature=0.85,
+        temperature=0.79,
         top_p=0.91,
         top_k=50,
-        subtalker_temperature=0.81,
+        subtalker_temperature=0.76,
         repetition_penalty=1.04,
     ),
     dialogue_sampling=SamplingProfile(

@@ -52,8 +52,8 @@ class TestSanitizerSnapshots(unittest.TestCase):
         )
         for age in ("16-year-old", "17-year-old", "18-year-old"):
             out = sanitize_and_style_prompt(f"A {age} high-school student boy in a bakery.")
-            self.assertIn(age, out)
-            self.assertIn("1:7", out)
+            self.assertIn("19-year-old young man", out)
+            self.assertIn("1:7.5", out)
             self.assertNotIn("NOT a teenager", out)
             out_lower = out.lower()
             for leaked in forbidden_negative_leaks:
@@ -62,8 +62,8 @@ class TestSanitizerSnapshots(unittest.TestCase):
         for young_age in ("10-year-old kid", "14-year-old", "15-year-old", "14-16-year-old", "fourteen-year-old", "14-16yo"):
             young_out = sanitize_and_style_prompt(f"A {young_age} at a bookshop counter.")
             self.assertNotIn(young_age, young_out)
-            self.assertIn("17-year-old", young_out)
-            self.assertIn("1:7", young_out)
+            self.assertIn("19-year-old", young_out)
+            self.assertIn("1:7.5", young_out)
 
     def test_sanitizer_upgrades_legacy_negative_tails_idempotently(self):
         # pyrefly: ignore[missing-import]
@@ -80,8 +80,8 @@ class TestSanitizerSnapshots(unittest.TestCase):
         once = sanitize_and_style_prompt(legacy_prompt)
         twice = sanitize_and_style_prompt(once)
         self.assertEqual(once, twice)
-        self.assertIn("1:7", once)
-        self.assertIn("17-year-old", once)
+        self.assertIn("1:7.5", once)
+        self.assertIn("19-year-old young woman", once)
         self.assertIn("pure text-free visual illustration", once)
         once_lower = once.lower()
         for leaked in ("not a child", "no young children", "no elementary kids", "no bulging eyes", "no deadpan"):
@@ -105,8 +105,8 @@ class TestSanitizerSnapshots(unittest.TestCase):
             once = sanitize_and_style_prompt(sample)
             twice = sanitize_and_style_prompt(once)
             self.assertEqual(once, twice)
-            self.assertIn("1:7", once)
-            self.assertIn("17-year-old", once)
+            self.assertIn("1:7.5", once)
+            self.assertIn("19-year-old", once)
             self.assertEqual(once.lower().count("pure text-free visual illustration"), 1)
 
     def test_sanitizer_preserves_reading_lamp_and_alcove(self):
@@ -183,13 +183,24 @@ class TestSanitizerSnapshots(unittest.TestCase):
         self.assertNotIn("giant k and n", floating_out.lower())
         self.assertNotIn("individual letters", floating_out.lower())
 
-        # 4. Scrubs colored eyes (blue, emerald green, hazel, brown) into simple black cartoon eyes
+        # 4. Scrubs colored eyes AND dot-eye triggers into expressive 2D animated eyes with white sclera & dark pupils
         eyes_out = sanitize_and_style_prompt(
             "A 15-year-old girl with warm tan skin and bright emerald green cartoon eyes talks to a 15-year-old boy with fair peach skin and clear blue cartoon eyes."
         )
         self.assertNotIn("emerald green", eyes_out.lower())
         self.assertNotIn("clear blue cartoon eyes", eyes_out.lower())
-        self.assertIn("simple black cartoon eyes", eyes_out.lower())
+        self.assertNotIn("simple black cartoon eyes", eyes_out.lower())
+        self.assertIn("clean white sclera, dark pupils", eyes_out.lower())
+        self.assertIn("19-year-old young woman", eyes_out.lower())
+        self.assertIn("19-year-old young man", eyes_out.lower())
+
+        dot_eye_out = sanitize_and_style_prompt(
+            "A teenage boy with lively natural-sized simple black cartoon eyes and dot eyes stands in a cafe."
+        )
+        self.assertNotIn("simple black cartoon eyes", dot_eye_out.lower())
+        self.assertNotIn("dot eyes", dot_eye_out.lower())
+        self.assertIn("clean white sclera, dark pupils", dot_eye_out.lower())
+        self.assertIn("19-year-old young man", dot_eye_out.lower())
 
 
 class TestEnvironmentSnapshots(unittest.TestCase):
@@ -313,8 +324,8 @@ class TestVisualProfileRegistry(unittest.TestCase):
             for blob in blobs:
                 low = blob.lower()
                 self.assertTrue("waist-up" in low or "mid-thigh" in low, f"{vtype} hook missing cropped framing")
-                self.assertIn("17-year-old", low)
-                self.assertIn("1:7", low)
+                self.assertIn("19-year-old", low)
+                self.assertIn("1:7.5", low)
                 for bad in forbidden:
                     self.assertNotIn(bad, low, f"{vtype} still contains '{bad}'")
 

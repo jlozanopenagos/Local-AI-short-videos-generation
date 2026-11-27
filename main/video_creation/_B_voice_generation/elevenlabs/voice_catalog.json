@@ -1,0 +1,3470 @@
+{
+  "voices": [
+    {
+      "voice_id": "kzu3kyvzVxdPA7NdrgD7",
+      "name": "Ella -Friendly, warm British female",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "3bMMFnv44fDwVPsFtKwZ",
+      "name": "Elowen - Elf",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "bGnz83yTAb7caZSC7BBz",
+      "name": "Georgia K - Warm Engaging Customer Care",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "8z5UhJ1uv7X8TN5yg8oI",
+      "name": "Lynd - Informative, Engaging and Steady",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "y1LQSw6x4O5I1qZEI77j",
+      "name": "Sarah - Professional British Woman",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "YWmufCrZ2agGoSoVL8je",
+      "name": "Valory B - Natural Human Customer Care Agent",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "oQV06a7Gn8pbCJh5DXcO",
+      "name": "Archer - Clean, Balanced and Engaging",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "wyWA56cQNU2KqUW4eCsI",
+      "name": "Clyde - Full, Diplomatic and Inviting",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "bDTlr4ICxntY9qVWyL0o",
+      "name": "Edmund – British Podcast Host",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "goT3UYdM9bhm0n2lmKQx",
+      "name": "Edward - British, Dark, Seductive, Low",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "79JSNR5fYD2bAlNKim6P",
+      "name": "Hayes M – Warm British Non-Fiction Audiobook",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "AeRdCCKzvd23BpJoofzx",
+      "name": "Nathaniel - Engaging, British and Calm",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "l9yjqAhh8GXv7ZJxsLZO",
+      "name": "Nigel - Classic, Polished and Smooth",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "giAoKpl5weRTCJK7uB9b",
+      "name": "Owen - Engaging and Clear Storyteller",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_uk_neutral",
+      "raw_accent": "british",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ecp3DWciuUyW7BYM7II1",
+      "name": "Anika - Sweet and Lively",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "indian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Z3R5wn05IrDiVCyEkUrK",
+      "name": "Arabella - Mysterious and Emotive",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "bxiObU1YDrf7lrFAyV99",
+      "name": "Ashley",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Qm3vYqvY6yNUsbo2dIyn",
+      "name": "Ava - Clear, Warm Educator",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "FLj50PrMa40MhGHappOt",
+      "name": "Beth - Commercial, Upbeat, Engaging",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "3io0Zxlhm30puFW858RF",
+      "name": "Blair",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "5u41aNhyCU6hXOcjPPv0",
+      "name": "Carol - Relatable, Real, Likeable Grandma",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "54Cze5LrTSyLgbO6Fhlc",
+      "name": "Caty - Droll, Wry and Dry",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "fLQhkOW7F9KVKAjYCbhr",
+      "name": "CiCi - Sweet, Loving and Accepting",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "EST9Ui6982FZPSi7gCHi",
+      "name": "Elise - Warm, Natural and Engaging",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "BZgkqPqms7Kj9ulSkVzn",
+      "name": "Eve - Authentic, Energetic and Happy",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Zf3eYnA1HBAoX9FO09bK",
+      "name": "Isla - Professional AI Agent",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "australian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "lxYfHSkYm1EzQzGhdbfc",
+      "name": "Jessica Anne Bogart - A VO Professional; now cloned!",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "Iz2kaKkJmFf0yaZAMDTV",
+      "name": "Juliet - Expressive and Energetic",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "GkP5h0UAcZQ2i4aDPipF",
+      "name": "Karen - Dynamic, Smooth and Clear",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "IJxm2BPzAbIAYPy6kY6Q",
+      "name": "Katie - Expressive, Audiobook, Storyteller",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "WqfqZq3UXPCD87IXHLnm",
+      "name": "Lauren B -  Confident Outbound Sales SDR",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "CICpbs1ZGqlhQNbQmCUP",
+      "name": "Lauren B – US Banking Care Voice Bot",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "oT3gWOb7OWvnTuvXL9wH",
+      "name": "Maisie: Youthful and Sweet",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "gYGXjks6FzTWwNQ6X7hC",
+      "name": "Monique - Empathetic, Calm & Nurturing",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "K7W7zLWeGoxU9YqWoB7A",
+      "name": "Rachel - Social Media Narrator",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "EQajdcMa8fccc3KCqwGO",
+      "name": "Vanishree - Best Casual Indian English",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "indian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "jqcCZkN6Knx8BJ5TBdYR",
+      "name": "Zara - The Warm, Real-World Conversationalist",
+      "language": "english",
+      "gender": "female",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "yl2ZDV1MzN4HbQJbMihG",
+      "name": "Alex - Upbeat, Energetic and Clear",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "dloMvYEKtYloiwx06kR4",
+      "name": "Bhavesh - Indian English & Hindi",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "indian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "jHprmvvyQreWpRuutdmV",
+      "name": "Blain - Conversational Ad Voice",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "eVbXsk380msCd98VvvmQ",
+      "name": "Brady J - Engaging E-Learning Tutor",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "fvVBPXuE7f1iX3dZLKFy",
+      "name": "Dan - Warm, Conversational and Polite",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "qAZH0aMXY8tw1QufPN0D",
+      "name": "Flint - Deep, Raspy, and Warm",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "x8xv0H8Ako6Iw3cKXLoC",
+      "name": "Haven Sands",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "15CVCzDByBinCIoCblXo",
+      "name": "Lucan Rook  - Energetic Male",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "rTOopItG6FIkKMIVxsl5",
+      "name": "Markmont - Deep, Youthful and Positive",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Q1QcmfZPmFDVUWmzASdy",
+      "name": "Matt - Dramatic Radio Podcast Host",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "cBTYF7NiJbR8Bvmdeuse",
+      "name": "Mike - Animation, Explainers & Gaming",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "x0zyVzEOyBsW5ZIYSbLe",
+      "name": "Nixon",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "2rRUaEOGIGalXrcuLN55",
+      "name": "Odom - Deep, Confident, Polished",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "9Ft9sm9dzvprPILZmLJl",
+      "name": "Patrick International",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "australian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "WLKp2jV6nrS8aMkPPDRO",
+      "name": "Paul - Australian Professional Presenter",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "australian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "EitqXD7jgIy0K5Z1zGGp",
+      "name": "Rudra - Deep and Trustworthy",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "indian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "rU18Fk3uSDhmg5Xh41o4",
+      "name": "Ryan Kurk - Pleasant and Smooth",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "hIreuBly94QFepU63yel",
+      "name": "Scotty - the friendly Australian male conversational narrator",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "australian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "ddNwxTGW1Qc7ZuSevaHF",
+      "name": "Sekou - Friendly and Confident",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "south african",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ujcXHLWtGPYXnqBoMBgg",
+      "name": "Sheldon - Quirky, Clever, Enthusiastic",
+      "language": "english",
+      "gender": "male",
+      "accent": "en_us_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "FvmvwvObRqIHojkEGh5N",
+      "name": "Adina - Young, Welcoming and Joyful",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "5OnMHwgTFgvPVwE8jP6B",
+      "name": "Anaïs - Instructor",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "vq479zipNPD44hpCdbIh",
+      "name": "Atma - Warm, Expressive & Versatile",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "McVZB9hVxVSk3Equu8EH",
+      "name": "Audrey - Energetic Commercial",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "kwhMCf63M8O3rCfnQ3oQ",
+      "name": "Caroline - Warm, Sweet and Soft",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "lK6PpegaM7aOOTuvRyqU",
+      "name": "Chloé - Calm & Natural",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Hy28BjVfgieDVMiyQpQe",
+      "name": "Chloé - Warm, Friendly & UGC Ready",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "LFo5X4P9PhYaOLBA9Hyh",
+      "name": "Clémence - Advertising",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "rPVufKNutioPFV4by3r0",
+      "name": "Elisa - Dynamic French Commercial",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "d3AXX0BlgJHYFCuH9X88",
+      "name": "Emilie - Podcast Host",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "i5Fydub7F0HPXhynAgDo",
+      "name": "Emma - Casual, Calm, Pleasant",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "NpMqpbmlioUVh6og0U5p",
+      "name": "Helene - Dynamic, Warm",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "mNu8EQcIlFZdOJs7yfhe",
+      "name": "Julia - Warm French Narrator",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "rbFGGoDXFHtVghjHuS3E",
+      "name": "Koraly – Promo Video",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "gidGFDFyCSnGFnZ9hK7l",
+      "name": "Koraly – Virtual Assistant",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "B7fiLqn1fkwb8VKxZsLm",
+      "name": "Liloule - Soft, Neutral and Gentle",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "1T2MOlQA0Xp3hNv1dBxp",
+      "name": "Loulou - Social Media Narrator",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "LFtQZWdaqmvamcTNGpwl",
+      "name": "Lucie - Narration",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "YxrwjAKoUKULGd0g8K9Y",
+      "name": "Lucie - Support Agent",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "tMyQcCxfGDdIt7wJ2RQw",
+      "name": "Marie Alice - Soft, Calm and Captivating",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "GoEy5CmodqJy0T9AxjLk",
+      "name": "Mélanie - Storyteller",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "y2FQJ8BW8vDxCuLkIFp1",
+      "name": "Poppy France",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "5Q0FrInkyFrvgLdTJVIQ",
+      "name": "Rania - Coach personnel",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "QMNPncWXVcTVhJ9rDEQO",
+      "name": "Stephyra - Premium Documentary & Narration",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "jVX5RZMRPwoS6ZQp9BOi",
+      "name": "Stéphanie - Breathy and Warm",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "uOw88F5bjqRiVuZLhXEA",
+      "name": "Victoria",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "O31r762Gb3WFygrEOGh0",
+      "name": "Victoria - Content Creator",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "WeAAwKYcS06VmXw086yZ",
+      "name": "Victoria - Warm and calm",
+      "language": "french",
+      "gender": "female",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "F9KUTOne5xOKqAbIU7yg",
+      "name": "Benjamin - Clear and Engaging",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "UrmXiS7SMCsG30833AQb",
+      "name": "Benoit – Swiss Finance",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "swiss",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "sCHnH1GukQg1oFEgRwoV",
+      "name": "Christian Page - Storyteller",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "HbDa7eEZNGkUODgNzru6",
+      "name": "Esaïe Koua - Warm Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "african",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "UBXZKOKbt62aLQHhc1Jm",
+      "name": "François Louis - Deep, Warm and Poised",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "rpw80tAFDqIOQ0Ve2QVJ",
+      "name": "Fred - Travel Host",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "ctilxqiD5xHFsAqEwjvS",
+      "name": "Grégory - Dynamic",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Qrl71rx6Yg8RvyPYRGCQ",
+      "name": "Guillaume - Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "tVu7uvtKsrCoOPPIUVR7",
+      "name": "Guillaume - Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "j1qkMM79X5JLC4ZM86vA",
+      "name": "Hugo - News Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "R89ZQJowZAEgiPNyC3dQ",
+      "name": "Jeunot - Professional, Clear and Positve",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "8qnuneLiGjGrT4A62CCe",
+      "name": "Jules - conversational",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "IRU6KGLRERRDMA2e269I",
+      "name": "Julien - Professional & Energetic",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "xclXfpLYbMIBNgiHTm8S",
+      "name": "Kenzy - Premium French Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "jGpnMdbhtKgQbVrYezOx",
+      "name": "Kev - Young, Dynamic and Bright",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "SFB33nwu9KAKT7Dy3QNg",
+      "name": "Lucien - Direct, Dry & Understated",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "2dxaXwaYxEEIDjoHj0V4",
+      "name": "Léo - Gentle and Enthusiastic",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "quebec",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "kENkNtk0xyzG09WW40xE",
+      "name": "Marcel - Warm and Conversational",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "Xy5q4w05TJGcKXPWeWoz",
+      "name": "Max - Charismatic & Friendly",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "necQJzI1X0vLpdnJteap",
+      "name": "Mr. Laurent - Warm, friendly & reassuring",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "XfZrgNZ4gYaZ7nOrzWtG",
+      "name": "Muhammed - Warm French Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "Ayvd8fDj52DfUWXZeAFe",
+      "name": "Nathan Doré - Chill & Casual",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "MAZdzkb78f8SA7DNBT41",
+      "name": "Nico - French Ads",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "iCKVfVbyCo5AAswzTkkX",
+      "name": "Nicolas - Informative Presenter",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "GFj5Qf6cNQ3Lgp8VKBwc",
+      "name": "Olivier - Eccentric and Aged",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "BilXxxvRLrA8YTteM2sl",
+      "name": "Oris - conversational",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "cTNP6ZM2mLTKj2BFhxEh",
+      "name": "Paul French - Podcaster",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "5l4ttmr4SKNgi0HnOelT",
+      "name": "Paul K — Deep French Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "JdwJ7jL68CWmQZuo7KgG",
+      "name": "Peter - Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "dXj4ztbSR2G266sTA47N",
+      "name": "Robinson - Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "18NUO6C3U1qa5bYQCTq3",
+      "name": "Romain - E-learning & Documentary",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "mvhJVdVoTWVUtL4keT7W",
+      "name": "Simon - Cheerful, Energetic and Rapid",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "GqnG3CCijgI7I0iHyEWk",
+      "name": "Sylvain - A french warm & natural tone",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "BUJMBsQ3Oq4cEeWSb48y",
+      "name": "Sébastien - French Male",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "0bKGtCCpdKSI5NjGhU3z",
+      "name": "Tenko - Young and Storyteller",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "parisian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "NBjtCdChq5Ph56VnCM8Z",
+      "name": "Théo - UGC Creator & Advertising",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "vqvgjNDXBhRGzlLsbOq5",
+      "name": "Timothée - Calm Young Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "M4ZqLOXSFqxSkn9RDxFO",
+      "name": "Tony - Warm, Dynamic Podcast Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "african",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "hv6gVog5LgtIUX88Nmq8",
+      "name": "Tristan Grech - Storyteller",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "4TfTGcPwoefWe878B0rm",
+      "name": "Troy - Cartoon Hero",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "nr2EGJNe96rzn9FRlTId",
+      "name": "Yann - Narrator",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "Ht4OibD14Nq9LzMUT7HK",
+      "name": "Yariq - Expressive and Energetic",
+      "language": "french",
+      "gender": "male",
+      "accent": "fr_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "QttbagfgqUCm9K0VgUyT",
+      "name": "Aida - Engaging, Convincing and Smiley",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "wOXFTxgu7FQDBb1dsL7I",
+      "name": "Alina - Friendly Italian",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "aXHehUlg30OAHs2yeSFp",
+      "name": "Ambra - Premium Video Narrator",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "UnOINkXZ3yK4vVg3Iayj",
+      "name": "Beatrice - AI Agent",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "mT0eqrjKfAPl6gQBlfBa",
+      "name": "Chiara - Professional and Versatile",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "SCxqy2fez0noVtp3USgs",
+      "name": "Cinzia",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "5HXcxRzFtleufHXVGG6h",
+      "name": "Cristina - Gentle storyteller",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "G0q9AYE8QsarSbMtaIEu",
+      "name": "Elettra - Mature actress",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "HLbf5OcXzzI5RP4O3I3d",
+      "name": "Francesca Bellucci",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "uC9VI5XrTxXRNlCzGSKR",
+      "name": "Giulia - Animated and Passionate",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "CnVVMwhKmKZ6hKBAkL6Y",
+      "name": "Giulia - Sweet, Soothing and Gentle",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "3DPhHWXDY263XJ1d2EPN",
+      "name": "Linda Fiore - Prickly, Cheerful and Full",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "oVJbgLwL0s5pk9e2U6QH",
+      "name": "Manuela - Warm, Energetic and Swift",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ZX5x7KzQ9elPznG4bv3T",
+      "name": "Marta",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "tuscan",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "MuTiG4dbrEGYEy3XP4iP",
+      "name": "Rossana - Warm Italian Conversational",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "2bMAiYn9nNnA5AepoHYR",
+      "name": "Sabrina - Authentic Roman Accent",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "romanesco",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "kAzI34nYjizE0zON6rXv",
+      "name": "Sami - Energetic, Expressive and Smiley",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "uV2Bhcm1HwmAqPqkbjfl",
+      "name": "Sara - Clear, Credible and Confident",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "EyZNkSmPM5cM5CqmDKWg",
+      "name": "Sara S - Bright, Vivid",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "0agAAs6kdPUv4MFeK9wx",
+      "name": "Tatiana - Warm",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "neapolitan",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "RXoaSpLaWTEckJgPUBG3",
+      "name": "Tiziana - Smart, Balanced and Credible",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ZPImQHFNyEPRDeECS4MX",
+      "name": "Vale- Italiana, calm & friendly",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "YQ36DZjvxVXPUHeSwvFK",
+      "name": "Valentina - Diplomatic, Full and Warm",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "lFHyHlRLX5EFGKJ9tJ2M",
+      "name": "Valeria",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "LgUbwisMonprbdDRIOUm",
+      "name": "Victoria - Elegant & Dark Aristocrat",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "gfKKsLN1k0oYYN9n2dXX",
+      "name": "Violetta - Ringing, Bright and Joyful",
+      "language": "italian",
+      "gender": "female",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "GXzylzeKEOD0MXHodIiM",
+      "name": "Alex - Clear, Friendly",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "lnAjdaCaPjsPk6y5w9EV",
+      "name": "Ambrogio - Conversational Milan",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "milanese",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "uScy1bXtKz8vPzfdFsFw",
+      "name": "Antonio Farina - Expressive and Warm",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ZqzABHxB2wSRrgl5cAi6",
+      "name": "Brando Vox - Dramatic Narrator",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "t3hJ92dgZhDVtsff084B",
+      "name": "Chris Basetta - Smiley and Engaging",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "aQ9s2C5T9TIPvAFtHWuA",
+      "name": "Enea - Warm & Smooth Italian Narrator",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "YWXroL1TL4NDznxN5Cy4",
+      "name": "Felice - Positive, Expressive and Clear",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "HSXNPv07Wim3qXgNgTVD",
+      "name": "Filippo - Ads",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "yDOeU0zaoLSK6sD7aroY",
+      "name": "Francesco - Passionate Storyteller",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "sicilian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "ct77mfOQ3LaEnW2uIMWA",
+      "name": "Gastone - AI Assistant",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "x9T6GylhWkKi47Y0fIAX",
+      "name": "Gianluca",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "romanesco",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "YzFu9me95E270szwLWj9",
+      "name": "Landi Vera",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "milanese",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "uA5aGNikV4gcPbh3C2IT",
+      "name": "Lodovico - Young Italian",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "sicilian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "DTGwzA4YLrWB1FAT6Uas",
+      "name": "Lorenzo - Youthful, Expressive & Inspiring",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "xrqAbJlgfsi3myjA4Xxo",
+      "name": "Luca",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "tuscan",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "13Cuh3NuYvWOVQtLbRN8",
+      "name": "Marco - Deep, Rich and Reflective",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "W71zT1VwIFFx3mMGH2uZ",
+      "name": "MarcoTrox - Warm, Balanced and Polished",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "MTgv1KRJpUnc34UMGTHK",
+      "name": "Matteo - Warm, Smooth and Authentic",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "venetian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "GRjgv3Z8Gg3RY82Qo6FW",
+      "name": "Mike - Warm, Engaging and Optimistic",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "sKbNSlHXq99bttvf8rRF",
+      "name": "Nicola Lorusso - Balanced and Mature",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "c6cUlh8iJa74kYbBwDaZ",
+      "name": "Oceano - Calm, Light and Soft",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "mcMi8FJDhg35bMpWHv2R",
+      "name": "Paolo - Dynamic Italian Radio Voice",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "QNOc7tJnuv44WNiU8qEx",
+      "name": "Roberto - Natural Italian Narrator",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "calabrese",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "CITWdMEsnRduEUkNWXQv",
+      "name": "Thomas - Energetic, Upbeat and Firm",
+      "language": "italian",
+      "gender": "male",
+      "accent": "it_standard",
+      "raw_accent": "standard",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "SoYqJrjl3v3GqV6xTSeS",
+      "name": "Alina - Natural & Friendly Spanish",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "m7yTemJqdIqrcNleANfX",
+      "name": "Ana María - Calm, Natural and Clear",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "6IZ0Ae2RE8wd443OMsV2",
+      "name": "Argentine Navy - Warm & Professional",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "argentine",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "nTkjq09AuYgsNR8E4sDe",
+      "name": "Cristina Campos - Natural Conversations",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "85v3c2lsEmlYKzWwwgeU",
+      "name": "Damarte - Narration",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "2aDqA8lxxUgkAZpuP7vg",
+      "name": "Daniela - Warm, Emotional & Dynamic",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "TjzGVFe6ML7YmlZPwRGG",
+      "name": "Dany",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "DY9A332o69lIyb5Cox4v",
+      "name": "Diana - Customer Service",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "jTXAEv4RIGK9R4kfx1by",
+      "name": "Fernanda - Conversational",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "x5O3bgPT2grYhry6qmWR",
+      "name": "Jess - Mexican Spanish Female",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "rydssQ600JSAmdsCmuQu",
+      "name": "Katty - Warm, Natural",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "chilean",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "ByzPpv6d6pT90CCpgb7k",
+      "name": "Luisa - Smooth, Friendly and Engaging",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "vTh15aXpXCElYDOJnJK0",
+      "name": "Renata - Dynamic & Professional",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "rEVYTKPqwSMhytFPayIb",
+      "name": "Sandra - Dynamic, Engaging and Energetic",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "kd5kUGaa17tlaf9G7ZXj",
+      "name": "Valentina - Friendly Woman",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "sDh3eviBhiuHKi0MjTNq",
+      "name": "Alejandro - Corporate and Elegant",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "lJtjZw9ZjSbD9Zs9bOWq",
+      "name": "Asgard",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "jBlmi27XRORxjPquUeCh",
+      "name": "Brian - Warm, Smooth, Confident",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "uCQe5kObQIjtylU0HL3m",
+      "name": "Brian C. - Professional Latin Narrator",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "35JqiQmWmu3et0NGVNUW",
+      "name": "Charlie - Professional & Pleasant",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "o2vbTbO3g4GrKUg7rehy",
+      "name": "Cristian Sanchez - Lively and Deep",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "9F4C8ztpNUmXkdDDbz3J",
+      "name": "Dan - Upbeat, Dynamic and Friendly",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "T7BErSAR6r6NDaGdTLKB",
+      "name": "Daniel - Warm, Natural and Genuine",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "PYVTo00Q8WsiZWb97ZHV",
+      "name": "Diego - Deep Narrative",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "chilean",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "YqZLNYWZm98oKaaLZkUA",
+      "name": "Edoardo - Dark, Measured, Natural",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "mfeDHx0s0qg3oU90BXRF",
+      "name": "Ignacio - Warm, Versatile",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "chilean",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "6Jq3XJ9putvRGLuqYYRX",
+      "name": "Jagay - Deep, Warm Rioplatense Narrator",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "argentine",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "4XUsiqPDK4UACIM2BILe",
+      "name": "JC - Energetic News Broadcaster",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "69MPtsbmUppiEyKo3zhT",
+      "name": "Joan - Deep Mystery & Warm",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "nYm4p0R8BhHFRBH8wGHm",
+      "name": "Jose Manuel - Warm, Natural Narrator",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "venezuelan",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "FA1FBP9TKxnBiw45fHmS",
+      "name": "Juan - Clear & Expressive",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "MjtZn5tagxL1RO6w9ER5",
+      "name": "Lionel - Natural and Versatile Narrator",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "argentine",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "FQiZo87pk9uHkLy6Mfiq",
+      "name": "Luis Miguel -  Deep Latin",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "latin american",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ojGau167OE7nUATM1xDa",
+      "name": "Marto - Español & Conversational",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "vPrtQbTwtAoP87VnQmID",
+      "name": "Mateo Aragon - Warm, Clear and Polished",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "jU52n2bq8LoPvq1kal2C",
+      "name": "Matius - Young Narrator",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "yfzNQS2e99Cx6312hlQF",
+      "name": "Nacho - Engaging",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "mexican",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "5v6YSGBv8Rbr7ufiFR1t",
+      "name": "Nicolás - Calm & Natural",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "argentine",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "MFczlrjgpEos5t8Rwlto",
+      "name": "Orozco - Young Narrator for Social Media",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Ne5lkCOR0C6ZYz9ulbrG",
+      "name": "Rafael - Natural",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "argentine",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "gpNJzVUAYfxYn4LZQs0k",
+      "name": "Tomás - Friendly, High pitched Argentine",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "argentine",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "VVBVYefvg7r5n2yHrobQ",
+      "name": "Yorman Zapata - Podcast, Ads",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_latam_neutral",
+      "raw_accent": "colombian",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "AxFLn9byyiDbMn5fmyqu",
+      "name": "Aitana - Warm, Friendly and Expressive",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    },
+    {
+      "voice_id": "ERYLdjEaddaiN9sDjaMX",
+      "name": "Gabriela Sainz - Bright and Professional",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "uQw4jpKzMLrZuo0RLPS9",
+      "name": "Laura  - Customer service",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "1eHrpOW5l98cxiSRjbzJ",
+      "name": "Raquel - Young, Bright and Cheerful",
+      "language": "spanish",
+      "gender": "female",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "j41pQugxGaKleSQLIyG2",
+      "name": "Marciano Rajoy - Realistic and Commercial",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "n0HY3FKr8gC1FTk18Wvm",
+      "name": "Nerón - Deep, Powerful & Evocative",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "energetic_host",
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.4
+    },
+    {
+      "voice_id": "Zb72NBThGN2Rv3y1RSTT",
+      "name": "Rafa N - Confident Sales Agent",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "roleplay_actor",
+        "warm_narrator"
+      ],
+      "stability": 0.46,
+      "similarity_boost": 0.78,
+      "style": 0.38
+    },
+    {
+      "voice_id": "hyKxCTlAqtnW188CgltM",
+      "name": "Salva - The Spanish Narrator",
+      "language": "spanish",
+      "gender": "male",
+      "accent": "es_spain_castilian",
+      "raw_accent": "peninsular",
+      "archetypes": [
+        "warm_narrator",
+        "roleplay_actor"
+      ],
+      "stability": 0.5,
+      "similarity_boost": 0.78,
+      "style": 0.34
+    }
+  ]
+}

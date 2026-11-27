@@ -4,28 +4,28 @@ import re
 
 NARRATOR = {
     "english": (
-        "Open with immediate curiosity. Stress the unexpected word early, then carry the question forward in one thought.",
+        "Open with natural curiosity and relaxed conversational flow. Stress the unexpected detail early, and let long questions breathe naturally before a light lift at the very end.",
         "Build anticipation with timing and a steady conversational register.",
         "Give the reveal a brief beat. Slow slightly on the detail that resolves the question, then return to a conversational rhythm.",
         "Speak warmly as in everyday conversation, with a settled ending.",
         "Keep your usual speaking register and conversational volume, including in quotes. Create contrast through timing and word stress.",
     ),
     "french": (
-        "Accrochez l’auditeur dès les premiers mots. Appuyez tôt le détail inattendu, puis menez la question d’un seul élan.",
+        "Accrochez l’auditeur avec une curiosité naturelle. Appuyez tôt le détail inattendu et laissez les questions longues respirer naturellement avant une légère montée finale.",
         "Créez l'attente par le rythme, dans un registre de conversation stable.",
         "Laissez un bref temps avant la révélation. Ralentissez sur le détail qui répond à la question, puis reprenez un rythme naturel.",
         "Parlez chaleureusement, comme dans une conversation, avec une fin posée.",
         "Gardez votre registre et votre volume de conversation, citations comprises. Créez le contraste par le rythme et l’accentuation.",
     ),
     "italian": (
-        "Apri con curiosità immediata. Dai subito risalto alla parola inattesa e porta avanti la domanda in un solo slancio.",
+        "Apri con curiosità naturale. Dai risalto al dettaglio inatteso e lascia respirare le domande lunghe con naturalezza, salendo leggermente solo sulla chiusura.",
         "Crea attesa con il ritmo e mantieni un registro colloquiale stabile.",
         "Prenditi un istante prima della rivelazione. Rallenta sul dettaglio che risponde alla domanda, poi torna al ritmo della conversazione.",
         "Parla con calore, come in una conversazione, e chiudi con calma.",
         "Mantieni il registro e il volume della conversazione anche nelle citazioni. Crea contrasto con il ritmo e gli accenti.",
     ),
     "spanish": (
-        "Abre con curiosidad desde las primeras palabras. Destaca pronto el detalle inesperado y lleva la pregunta de un solo impulso.",
+        "Abre con curiosidad natural y ritmo relajado. Destaca pronto el detalle inesperado y deja que las preguntas largas respiren con naturalidad, subiendo suavemente solo en las últimas palabras.",
         "Crea expectativa con el ritmo y mantén un registro conversacional estable.",
         "Deja un breve momento antes de revelar la respuesta. Baja un poco el ritmo en el detalle decisivo y vuelve al ritmo de conversación.",
         "Habla con calidez, como en una conversación, y termina con calma.",
@@ -35,56 +35,80 @@ NARRATOR = {
 
 ACTING = {
     "english": (
-        "Start quickly, hesitate before the key phrase, then recover.",
-        "Answer warmly and let the end of the thought settle.",
-        "Let a slight smile interrupt the rhythm before the punch line.",
-        "Lean into the question, with a brief hesitation before the surprising word.",
-        "Start with a soft release, then let the ending brighten.",
-        "Give the first words a clipped edge, then stress the point of frustration in your speaking register.",
-        "Start with a firm onset and carry the thought steadily into a decisive ending.",
-        "Hesitate briefly as if caught off guard, then finish quietly and matter-of-factly.",
-        "Speak with the upbeat confidence that this can work. Give the good possibility a lift.",
-        "Give the other person a gentle push forward. Land firmly on what they can do next.",
-        "Explain as if answering a genuine question. Stress the idea that clears up the misunderstanding.",
+        "Speak with urgent nervous energy: start quickly, hesitate tensely before the key phrase, then push through breathlessly.",
+        "Answer with genuine warmth and calm reassurance, letting the end of the thought settle smoothly.",
+        "Speak with playful amusement and a clear grin in your voice, letting a lighthearted chuckle lift the punch line.",
+        "Speak with sharp, incredulous disbelief: lean strongly into the question with a startled beat before the surprising word.",
+        "Begin with a palpable, audible sigh of relief, then let your voice brighten happily toward the end.",
+        "Speak with sharp frustration and exasperation: hit the first words with a clipped, irritated edge and punch the source of annoyance.",
+        "Speak with bold, resolute determination: crisp firm onset, steady vocal conviction, and a decisive landing.",
+        "Sound genuinely flustered and embarrassed: hesitate awkwardly as if caught red-handed, then drop slightly into sheepish admission.",
+        "Speak with upbeat, bright optimism and lift the hopeful possibility with lively energy.",
+        "Speak with warm, spirited encouragement, giving the other person an energetic push forward on what to do next.",
+        "Explain clearly and earnestly as if clearing up a real misunderstanding, stressing the key insight.",
+        "Speak with genuine anger and heated indignation: sharp, forceful attack, tight vocal intensity, and emphatic stress on the accusation.",
+        "Speak with real fear and startled alarm: tight, breathless voice, quickened pace, and trembling urgency on the threat.",
+        "Speak with unmistakable shock and stunned disbelief: sudden startled lift on the opening words, wide-eyed breathless reaction.",
+        "Speak with bright, joyful excitement: lively upbeat momentum, smiling resonance, and an energetic lift on the climax.",
+        "Speak with dry, deadpan seriousness and understated comedic timing, holding a steady, unbothered tone.",
+        "Speak with proud, triumphant confidence: chest-forward resonance, smug upward lift, and bold emphasis.",
     ),
     "french": (
-        "Partez vite, hésitez avant le mot clé, puis reprenez.",
-        "Répondez avec chaleur et posez la fin de la phrase.",
-        "Laissez entendre un léger sourire avant la chute.",
-        "Appuyez la question et hésitez brièvement avant le mot surprenant.",
-        "Relâchez le début avec douceur, puis éclaircissez la fin.",
-        "Attaquez brièvement les premiers mots, puis appuyez la source de la frustration dans votre registre habituel.",
-        "Commencez avec fermeté et menez la phrase jusqu’à une fin décidée.",
-        "Hésitez brièvement, comme pris au dépourvu, puis terminez plus doucement.",
-        "Parlez avec la confiance joyeuse que la situation va s’arranger. Donnez de l’élan à cette possibilité.",
-        "Donnez à l’autre un élan chaleureux. Appuyez fermement ce qu’il peut faire ensuite.",
-        "Expliquez comme en réponse à une vraie question. Appuyez l’idée qui dissipe le malentendu.",
+        "Parlez avec une urgence nerveuse : partez vite, hésitez avec tension avant le mot clé, puis reprenez d'un souffle rapide.",
+        "Répondez avec chaleur et calme rassurant, en posant doucement la fin de la phrase.",
+        "Parlez avec un amusement malicieux et un vrai sourire dans la voix, avec une touche rieuse avant la chute.",
+        "Parlez avec une incrédulité vive et franche : appuyez fortement la question avec un bref arrêt stupéfait avant le mot surprenant.",
+        "Commencez par un vrai relâchement soulagé, puis éclairez joyeusement la fin de la phrase.",
+        "Parlez avec une frustration franche et agacée : attaquez sèchement les premiers mots et appuyez fortement la cause de l'agacement.",
+        "Parlez avec une détermination ferme et assurée : attaque nette, conviction stable et chute décidée.",
+        "Paraissez vraiment gêné et pris de court : hésitez maladroitement, puis terminez d'un ton plus bas et confus.",
+        "Parlez avec une confiance joyeuse et lumineuse : donnez de l'élan enthousiaste à cette belle possibilité.",
+        "Encouragez l'autre avec un élan chaleureux et dynamique, en appuyant fermement ce qu'il peut faire ensuite.",
+        "Expliquez avec clarté et sincérité comme pour dissiper un vrai malentendu, en marquant l'idée clé.",
+        "Parlez avec une vraie colère indignée : attaque sèche et tendue, intensité vocale marquée et accent ferme sur le reproche.",
+        "Parlez avec une peur réelle et de l'alarme : voix serrée et essoufflée, débit pressé et tremblement inquiet.",
+        "Parlez avec un choc net et une stupéfaction sincère : sursaut vocal dès les premiers mots et réaction vive coupée de souffle.",
+        "Parlez avec une joie vive et un enthousiasme débordant : rythme dynamique, voix souriante et élan brillant sur la chute.",
+        "Parlez d'un ton pince-sans-rire, sec et sérieux, avec un calme imperturbable au service de l'humour.",
+        "Parlez avec une fierté assurée et triomphante : voix pleine, sourire confiant et accent appuyé sur la réussite.",
     ),
     "italian": (
-        "Inizia in fretta, esita prima della parola chiave e poi riprendi.",
-        "Rispondi con calore e lascia che il finale si posi.",
-        "Lascia sentire un leggero sorriso prima della battuta.",
-        "Dai rilievo alla domanda ed esita prima della parola sorprendente.",
-        "Inizia con un leggero sospiro di sollievo, poi illumina il finale.",
-        "Dai un attacco secco alle prime parole, poi sottolinea la causa della frustrazione nel tuo registro abituale.",
-        "Inizia con fermezza e porta la frase verso un finale deciso.",
-        "Esita un istante per l’imbarazzo, poi chiudi con un tono più sommesso.",
-        "Parla con la fiducia di chi vede una possibilità concreta. Dai slancio alle parole che aprono quella possibilità.",
-        "Dai all’altra persona una spinta affettuosa. Sottolinea con decisione cosa può fare adesso.",
-        "Spiega come se rispondessi a una domanda sincera. Dai rilievo all’idea che chiarisce il malinteso.",
+        "Parla con urgenza nervosa: inizia in fretta, esita con tensione prima della parola chiave e poi riprendi col fiato corto.",
+        "Rispondi con calore autentico e calma rassicurante, lasciando che il finale si posi dolcemente.",
+        "Parla con divertimento giocoso e un chiaro sorriso nella voce, lasciando brillare la battuta finale.",
+        "Parla con incredulità viva e sorpresa: spingi forte sulla domanda con una breve esitazione stupita prima della parola sorprendente.",
+        "Inizia con un chiaro sospiro di sollievo, poi illumina il finale con energia allegra.",
+        "Parla con frustrazione decisa e impaziente: dai un attacco secco alle prime parole e calca con fastidio sulla causa.",
+        "Parla con fermezza e decisione: attacco sicuro, voce piena di convinzione e chiusura netta.",
+        "Mostra vero imbarazzo come colto in flagrante: esita un istante impacciato, poi chiudi con tono più sommesso.",
+        "Parla con ottimismo brillante e vitale, dando slancio entusiasta alle parole che aprono una soluzione.",
+        "Dai all'altra persona una spinta affettuosa ed energica, sottolineando con forza cosa può fare subito.",
+        "Spiega con chiarezza e sincerità come per chiarire un vero equivoco, dando forte rilievo all'idea chiave.",
+        "Parla con vera rabbia e indignazione accesa: attacco duro e teso, grande intensità emotiva e accento deciso sull'accusa.",
+        "Parla con paura autentica e allarme: voce tesa e affannata, ritmo incalzante e urgenza tremante.",
+        "Parla con shock improvviso e stupore sincero: scatto vocale sulle prime parole e reazione intensa senza fiato.",
+        "Parla con gioia esplosiva ed entusiasmo contagioso: ritmo vivace, voce sorridente e slancio brillante sul finale.",
+        "Parla con tono serio, asciutto e impassibile, mantenendo una calma ironica e tagliente.",
+        "Parla con orgoglio fiero e sicuro: voce piena, tono trionfante e accento marcato sul risultato.",
     ),
     "spanish": (
-        "Empieza rápido, vacila antes de la palabra clave y retoma el ritmo.",
-        "Responde con calidez y deja que el final se asiente.",
-        "Deja oír una ligera sonrisa antes del remate.",
-        "Destaca la pregunta y titubea antes de la palabra sorprendente.",
-        "Suelta el aire suavemente al inicio y aligera el final.",
-        "Marca brevemente las primeras palabras y destaca la causa de la frustración en tu registro habitual.",
-        "Empieza con firmeza y mantén el ritmo hasta un final decidido.",
-        "Vacila un instante por la vergüenza y termina con un tono más bajo y natural.",
-        "Habla con la confianza de quien ve una salida. Dale impulso a las palabras que abren esa posibilidad.",
-        "Dale a la otra persona un empujón afectuoso. Destaca con firmeza lo que puede hacer ahora.",
-        "Explica como si respondieras a una pregunta sincera. Destaca la idea que aclara el malentendido.",
+        "Habla con urgencia nerviosa: empieza rápido, vacila con tensión antes de la palabra clave y sigue con aliento agitado.",
+        "Responde con calidez genuina y calma tranquilizadora, dejando que el final se asiente con suavidad.",
+        "Habla con diversión juguetona y una sonrisa clara en la voz, dejando que un toque risueño levante el remate.",
+        "Habla con incredulidad viva y asombro: carga con fuerza la pregunta y titubea sorprendido antes de la palabra clave.",
+        "Empieza soltando un claro suspiro de alivio y ilumina el final con alegría genuina.",
+        "Habla con frustración real y fastidio: marca secamente las primeras palabras y golpea con enfado la causa del problema.",
+        "Habla con determinación firme y segura: entrada decidida, convicción plena y cierre contundente.",
+        "Suena sinceramente avergonzado y apurado: vacila un instante incómodo y cierra con un tono más bajo y apenado.",
+        "Habla con optimismo brillante y energía positiva, impulsando con entusiasmo la buena posibilidad.",
+        "Dale a la otra persona un empujón afectuoso y lleno de ánimo, destacando con firmeza su siguiente paso.",
+        "Explica con claridad y cercanía como aclarando un malentendido real, marcando la idea decisiva.",
+        "Habla con enojo auténtico e indignación encendida: ataque seco y firme, tensión vocal clara y énfasis fuerte en el reclamo.",
+        "Habla con miedo real y alarma: voz tensa y entrecortada, ritmo acelerado y urgencia temblorosa.",
+        "Habla con shock repentino y asombro total: arranque sobresaltado, reacción intensa y tono atónito.",
+        "Habla con alegría vibrante y entusiasmo genuino: ritmo vivo, voz sonriente y empuje energético en el remate.",
+        "Habla con seriedad seca e inexpresiva, manteniendo un tono firme e imperturbable de humor seco.",
+        "Habla con orgullo seguro y triunfante: voz plena, sonrisa confiada y énfasis claro en el logro.",
     ),
 }
 
@@ -95,20 +119,31 @@ GAME_CHALLENGE = {
     "spanish": "Hazle la pregunta a una persona. Da el mismo énfasis y un ritmo claro a cada opción.",
 }
 
-INTENT_NAMES = ("urgency", "reassurance", "amusement", "disbelief", "relief", "frustration", "determination", "embarrassment", "optimism", "encouragement", "explanation")
+INTENT_NAMES = (
+    "urgency", "reassurance", "amusement", "disbelief", "relief",
+    "frustration", "determination", "embarrassment", "optimism",
+    "encouragement", "explanation", "anger", "fear", "shock",
+    "excitement", "deadpan", "pride",
+)
 
 TURN_CUES = (
-    ("anxi", "ansia", "ansios", "panic", "nerv", "angoiss", "worri"),
-    ("calm", "tranquil", "rassur", "reassur", "rilassat", "relax"),
-    ("smirk", "chuckl", "souri", "scherz", "brom", "teas", "amused", "sarcas", "divertid"),
-    ("surpris", "baffl", "confus", "skept", "stupit", "sorpren", "incredul", "asombr", "confund"),
-    ("reliev", "soulag", "sollev", "alivi", "soddisfatt"),
-    ("frustr", "exasp", "agacé", "molest", "infastid"),
-    ("determin", "détermin", "resuelt", "risolut"),
-    ("embarrass", "fluster", "gêné", "avergonz", "imbarazz"),
+    ("anxi", "ansia", "ansios", "panic", "nerv", "angoiss", "worri", "preocup", "agobiad", "épuis", "epuis", "urgent"),
+    ("calm", "tranquil", "rassur", "reassur", "rilassat", "relax", "pazient", "bienveill", "rassicurat"),
+    ("smirk", "chuckl", "souri", "scherz", "brom", "teas", "amused", "sarcas", "divertid", "grin", "laugh", "riend", "ridend", "moqu", "sonrien", "smil", "hilarious", "playful", "ironi", "burl"),
+    ("surpris", "baffl", "confus", "skept", "stupit", "sorpren", "incredul", "asombr", "confund", "perplex", "desconcert", "scepti", "escéptic", "esceptic", "scettic"),
+    ("reliev", "soulag", "sollev", "alivi", "soddisfatt", "éclair", "eclair"),
+    ("frustr", "exasp", "agacé", "agace", "molest", "infastid", "annoy", "impatien", "énerv", "enerv"),
+    ("determin", "détermin", "resuelt", "risolut", "confident", "segur"),
+    ("embarrass", "fluster", "gêné", "gene", "avergonz", "imbarazz"),
     ("optim", "ottimist", "hopeful", "speranz"),
     ("encourag", "alent", "animand", "incoragg"),
-    ("explicat", "explanat", "esplicativ", "spiegand"),
+    ("explicat", "explanat", "esplicativ", "spiegand", "chiaro", "aclar"),
+    ("angry", "furious", "mad", "heated", "enoj", "enfad", "arrabbi", "colère", "colere", "confrontativ", "furios", "indign"),
+    ("scared", "terrif", "afraid", "fear", "peur", "miedo", "paura", "spavent", "fright", "trembl", "asustad"),
+    ("shock", "choqu", "scioccat", "stunn", "atónit", "atonit"),
+    ("excit", "happy", "joy", "enthousias", "entusias", "feliz", "alegr", "emozion", "emocion", "hyped", "celebrat", "delight", "euphor"),
+    ("deadpan", "serio", "serious", "dry", "sec", "impassib", "conspirat"),
+    ("proud", "fier", "fiero", "orgull", "triumph", "boast"),
 )
 
 
@@ -239,13 +274,30 @@ _ROLEPLAY_REACTION = {
 }
 
 
-def roleplay_turn_direction(language: str, intent: int | None, previous_line: str = "") -> str:
-    """Give the actor a delivery cue and context without changing the spoken text."""
-    direction = delivery_direction(language, "", False, intent, video_type="roleplay")
+_FALLBACK_EMOTION_TEMPLATE = {
+    "english": "Act this line with clear, expressive {emotion} emotion and vivid conversational energy.",
+    "french": "Jouez cette réplique avec une émotion claire et expressive ({emotion}) et une énergie conversationnelle vive.",
+    "italian": "Recita questa battuta con un'emozione chiara ed espressiva ({emotion}) e vivace energia dialogica.",
+    "spanish": "Actúa esta réplica con una emoción clara y expresiva ({emotion}) y energía conversacional viva.",
+}
+
+
+def roleplay_turn_direction(
+    language: str,
+    intent: int | None,
+    previous_line: str = "",
+    fallback_emotion: str = "",
+) -> str:
+    """Give the actor a vivid delivery cue and optional brief context without changing spoken text."""
+    if intent is None and fallback_emotion and fallback_emotion.strip().lower() not in {"neutral", "none", "normal"}:
+        tpl = _FALLBACK_EMOTION_TEMPLATE.get(language, _FALLBACK_EMOTION_TEMPLATE["english"])
+        direction = tpl.format(emotion=fallback_emotion.strip())
+    else:
+        direction = delivery_direction(language, "", False, intent, video_type="roleplay")
     previous = continuous_narration(previous_line).replace("«", "").replace("»", "")
     if not previous:
         return direction
-    if len(previous) > 200:
-        _, _, previous = previous[-200:].partition(" ")
+    if len(previous) > 120:
+        _, _, previous = previous[-120:].partition(" ")
     reaction = _ROLEPLAY_REACTION.get(language, _ROLEPLAY_REACTION["english"])
     return f"{direction} {reaction.format(previous=previous)}"

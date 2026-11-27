@@ -84,18 +84,25 @@ class TestSecurityAndPrivacy(unittest.TestCase):
     def test_tracked_files_do_not_contain_hardcoded_openai_keys(self):
         self.assert_no_match_in_tracked_text(re.compile(r"sk-[A-Za-z0-9]{32,}"))
 
+    def test_tracked_files_do_not_contain_hardcoded_elevenlabs_or_gemini_keys(self):
+        self.assert_no_match_in_tracked_text(re.compile(r"\bsk_[0-9a-f]{32,}\b"))
+        self.assert_no_match_in_tracked_text(re.compile(r"\bAIza[0-9A-Za-z_-]{30,}\b"))
+        self.assert_no_match_in_tracked_text(re.compile(r"BEGIN (?:RSA )?PRIVATE KEY"))
+
     def test_tracked_files_do_not_contain_hardcoded_sheets_or_webapp_tokens(self):
         self.assert_no_match_in_tracked_text(re.compile(r"AKfycb[A-Za-z0-9_-]{20,}"))
 
     def test_tracked_production_sources_do_not_contain_personal_paths(self):
-        pattern = re.compile(r"(?:[CD]:[/\\]+(?:AI|AI_video_generation|Users)[/\\])", re.IGNORECASE)
+        pattern = re.compile(r"(?:[CD]:[/\\]+(?:AI|AI_video_generation|Users)[/\\]|july_)", re.IGNORECASE)
         matches = [
             path.relative_to(REPO_ROOT).as_posix()
-            for path in self.tracked_files("main/")
-            if path.is_file() and path.suffix == ".py"
+            for path in self.tracked_files()
+            if path.is_file()
+            and path != Path(__file__).resolve()
+            and b"\0" not in path.read_bytes()
             and pattern.search(path.read_text(encoding="utf-8", errors="replace"))
         ]
-        self.assertFalse(matches, f"Personal path matched in production source: {', '.join(matches)}")
+        self.assertFalse(matches, f"Personal path matched in tracked file(s): {', '.join(matches)}")
 
 
 if __name__ == "__main__":

@@ -252,7 +252,12 @@ def _build_script_summary(
     # Extract stages
     has_audio = bool(assets.get("audio_path") or assets.get("narration_audio"))
     has_images = bool(assets.get("image_dir"))
-    has_thumb = bool(assets.get("thumbnail_path"))
+    thumb_variants = (
+        dict(assets["thumbnail_variants"])
+        if isinstance(assets.get("thumbnail_variants"), dict)
+        else {}
+    )
+    has_thumb = bool(assets.get("thumbnail_path") or thumb_variants)
     has_video = bool(assets.get("video_path") or assets.get("final_video") or assets.get("final_video_path"))
 
     stages = {
@@ -282,8 +287,12 @@ def _build_script_summary(
         if p.exists() and p.is_dir():
             img_list = [str(f) for f in sorted(p.glob("*.png"))]
 
-    # Poster image: prefer thumbnail, fallback to first scene image
-    poster = assets.get("thumbnail_path") or (img_list[0] if img_list else None)
+    # Poster image: prefer thumbnail, fallback to variant or first scene image
+    poster = (
+        assets.get("thumbnail_path")
+        or next(iter(thumb_variants.values()), None)
+        or (img_list[0] if img_list else None)
+    )
 
     is_done_flag = (
         (str(s_id).strip().upper() in done_ids_set)
@@ -310,7 +319,8 @@ def _build_script_summary(
         "assets": {
             "audio": assets.get("audio_path") or assets.get("narration_audio"),
             "images": img_list,
-            "thumbnail": assets.get("thumbnail_path"),
+            "thumbnail": assets.get("thumbnail_path") or next(iter(thumb_variants.values()), None),
+            "thumbnail_variants": thumb_variants,
             "video": assets.get("video_path") or assets.get("final_video") or assets.get("final_video_path"),
             "poster": poster,
         },
@@ -519,6 +529,7 @@ class ScriptUpdateRequest(BaseModel):
     script_dict: Optional[Dict[str, Any]] = None
     chalkboard_exercise: Optional[str] = None
     chalkboard_title: Optional[str] = None
+    thumbnail_title: Optional[str] = None
     target_expression: Optional[str] = None
     general_prompt: Optional[str] = None
     character_anchors: Optional[Dict[str, Any]] = None
@@ -590,12 +601,16 @@ def get_script(script_id: str) -> Dict[str, Any]:
         "label": raw_meta.get("LABEL") or "",
     }
 
+    from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import extract_thumbnail_title
+    thumbnail_title = extract_thumbnail_title(state_data)
+
     return {
         **state_data,
         **summary,
         "script_dict": script_obj if isinstance(script_obj, dict) else {},
         "chalkboard_exercise": chalkboard_exercise,
         "chalkboard_title": chalkboard_title,
+        "thumbnail_title": thumbnail_title,
         "target_expression": target_expression,
         "game_archetype": game_archetype,
         "story_scenario": p_params.get("ROLEPLAY_SCENARIO") or meta.get("story_scenario") or "",
@@ -605,7 +620,9 @@ def get_script(script_id: str) -> Dict[str, Any]:
         "general_prompt": assets.get("general_prompt") or "",
         "character_anchors": assets.get("character_anchors") or {},
         "speakers_voice": meta.get("speakers_voice") or {},
+        "speakers_elevenlabs_voice": meta.get("speakers_elevenlabs_voice") or {},
         "speakers_gender": meta.get("speakers_gender") or {},
+        "voice_profile_meta": meta.get("voice_profile_meta") or {},
         "character_personalities": meta.get("character_personalities") or {},
         "scenes": scenes,
         "youtube_metadata": youtube_metadata,
@@ -664,6 +681,13 @@ def update_script(script_id: str, payload: ScriptUpdateRequest) -> Dict[str, Any
     if payload.target_expression is not None:
         state_data["content_metadata"]["target_expression"] = payload.target_expression
         state_data["prompt_params"]["EXPRESSION"] = payload.target_expression
+
+    if payload.thumbnail_title is not None:
+        cleaned_thumb_title = payload.thumbnail_title.strip()
+        if cleaned_thumb_title:
+            state_data["content_metadata"]["thumbnail_title"] = cleaned_thumb_title
+        else:
+            state_data["content_metadata"].pop("thumbnail_title", None)
 
     if payload.game_archetype is not None:
         state_data["content_metadata"]["game_archetype"] = payload.game_archetype
@@ -972,6 +996,60 @@ def render_chalkboard_endpoint(script_id: str, payload: Optional[RenderChalkboar
     }
 
 
+class RenderThumbnailRequest(BaseModel):
+    thumbnail_title: Optional[str] = None
+
+
+@router.post("/{script_id}/render-thumbnail")
+def render_thumbnail_endpoint(
+    script_id: str,
+    payload: Optional[RenderThumbnailRequest] = None,
+) -> Dict[str, Any]:
+    """Updates thumbnail text content (if provided) and immediately re-renders the thumbnail image(s)."""
+    from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import extract_thumbnail_title
+    from video_creation._F_thumbnail_image_generation.service import generate_thumbnail_for_script
+
+    sm = _get_state_manager()
+    canonical_id = script_id.strip().upper()
+    if not sm.script_exists(canonical_id):
+        raise HTTPException(status_code=404, detail=f"Script '{script_id}' not found.")
+
+    state_data = sm.get_script_state(canonical_id)
+    content_meta = state_data.setdefault("content_metadata", {})
+
+    if payload and payload.thumbnail_title is not None:
+        cleaned = payload.thumbnail_title.strip()
+        if cleaned:
+            content_meta["thumbnail_title"] = cleaned
+        else:
+            content_meta.pop("thumbnail_title", None)
+
+    try:
+        ok = generate_thumbnail_for_script(
+            state_data,
+            state_mgr=sm,
+            base_dir=_catalog.get().base_dir,
+        )
+    except FileNotFoundError as fnf:
+        raise HTTPException(status_code=400, detail=str(fnf))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to render thumbnail: {exc}")
+
+    if not ok:
+        raise HTTPException(status_code=500, detail=f"Thumbnail renderer returned false for {canonical_id}.")
+
+    _update_cached_script(canonical_id, state_data)
+    assets = state_data.get("assets") or {}
+    return {
+        "status": "success",
+        "message": f"Thumbnail rendered successfully for {canonical_id}",
+        "thumbnail_title": extract_thumbnail_title(state_data),
+        "thumbnail_path": assets.get("thumbnail_path"),
+        "thumbnail_variants": assets.get("thumbnail_variants") or {},
+        "script": get_script(canonical_id),
+    }
+
+
 class ValidateIdsRequest(BaseModel):
     script_ids: List[str]
 
@@ -1058,6 +1136,59 @@ def validate_script_ids(payload: ValidateIdsRequest) -> Dict[str, Any]:
         "valid_count": valid_count,
         "invalid_count": invalid_count,
         "total": len(results),
+    }
+
+
+class EstimateVoiceCreditsRequest(BaseModel):
+    script_ids: List[str]
+    voice_provider: str = "auto"
+    elevenlabs_model: str = "eleven_v3"
+
+
+@router.post("/estimate-voice-credits")
+def estimate_voice_credits_endpoint(payload: EstimateVoiceCreditsRequest) -> Dict[str, Any]:
+    """Estimates ElevenLabs credits and per-script provider routing before launching Stage B."""
+    from config import resolve_script_video_type
+    from video_creation._B_voice_generation.elevenlabs.tags import (
+        estimate_script_credits,
+        normalize_elevenlabs_model,
+        resolve_voice_provider,
+    )
+
+    sm = _get_state_manager()
+    model_id = normalize_elevenlabs_model(payload.elevenlabs_model)
+    items: List[Dict[str, Any]] = []
+    total_credits = 0
+    elevenlabs_count = 0
+    local_count = 0
+
+    for raw in payload.script_ids:
+        sid = raw.strip().upper().replace("SCRIPT_", "").replace(".JSON", "")
+        if not sid or not sm.script_exists(sid):
+            continue
+        state = sm.get_script_state(sid)
+        vtype = resolve_script_video_type(state)
+        provider = resolve_voice_provider(vtype, requested_provider=payload.voice_provider)
+        est = estimate_script_credits(state, model_id=model_id) if provider == "elevenlabs" else 0
+        if provider == "elevenlabs":
+            elevenlabs_count += 1
+            total_credits += est
+        else:
+            local_count += 1
+        items.append({
+            "id": sid,
+            "video_type": vtype,
+            "provider": provider,
+            "estimated_credits": est,
+        })
+
+    return {
+        "model_id": model_id,
+        "voice_provider": payload.voice_provider,
+        "total_estimated_credits": total_credits,
+        "elevenlabs_count": elevenlabs_count,
+        "local_count": local_count,
+        "items": items,
     }
 
 

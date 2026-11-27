@@ -23,7 +23,9 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 try:
+    # pyrefly: ignore[missing-import]
     import uvicorn
+    # pyrefly: ignore[missing-import]
     import fastapi
 except ImportError:
     print(
@@ -32,7 +34,7 @@ except ImportError:
         file=sys.stderr,
     )
     sys.exit(1)
-
+# pyrefly: ignore[missing-import]
 from webui.settings import (
     WEBUI_HOST,
     WEBUI_PORT,

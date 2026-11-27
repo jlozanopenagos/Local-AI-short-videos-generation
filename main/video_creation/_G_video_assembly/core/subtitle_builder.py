@@ -84,17 +84,16 @@ def premerge_whisper_words(whisper_words: List[Dict]) -> List[Dict]:
         if w_text in {".", ",", "!", "?", ";", ":", "...", "…", "-", "–", "—", "--"}:
             continue
 
-        # Case 1: Previous token was a contraction prefix
+        # Case 1: Previous token ended with an apostrophe (e.g. "l'", "d'", "un'", "dell'")
+        # OR current token starts with an apostrophe suffix/elision (e.g. "'est", "'amico", "'t", "'s").
+        # NEVER merge ordinary 1-2 letter words (le, la, un, de, on, in, of, to) with the next alphabetic word!
         if merged and (
-            merged[-1]["word"].lower() in contraction_prefixes
-            or (len(merged[-1]["word"]) <= 2 and merged[-1]["word"].isalpha() and (w_text.startswith("'") or w_text.isalpha()))
+            merged[-1]["word"].endswith("'")
+            or (w_text.startswith("'") and not (w_text.endswith("'") and len(w_text) > 1))
         ):
             prev = merged[-1]["word"]
-            if not prev.endswith("'") and (w_text.startswith("'") or len(prev) <= 2):
-                if not w_text.startswith("'"):
-                    prev += "'"
             clean_curr = w_text.lstrip("'")
-            merged[-1]["word"] = prev + clean_curr
+            merged[-1]["word"] = (prev if prev.endswith("'") else prev + "'") + clean_curr
             merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
 
         # Case 2: Current word starts with hyphen (e.g. '-vous')
@@ -104,11 +103,6 @@ def premerge_whisper_words(whisper_words: List[Dict]) -> List[Dict]:
 
         # Case 3: Previous word ended with hyphen (e.g. 'rendez-')
         elif merged and merged[-1]["word"].endswith("-"):
-            merged[-1]["word"] += w_text
-            merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
-
-        # Case 4: Current word starts with apostrophe suffix (e.g. "'t", "'s", "'ve", "'ll", "'re", "'d")
-        elif w_text.startswith("'") and merged and not (w_text.endswith("'") and len(w_text) > 1):
             merged[-1]["word"] += w_text
             merged[-1]["end"] = max(merged[-1]["end"], w.get("end", merged[-1]["end"]))
 
@@ -346,6 +340,54 @@ def tokenize_script_with_speakers(
     return result
 
 
+def _distribute_weighted_span(tokens: List[str], t_start: float, t_end: float) -> List[Tuple[float, float]]:
+    """Distributes `[t_start, t_end]` across `tokens` weighted by character length + punctuation pause."""
+    if not tokens:
+        return []
+    span = max(0.08 * len(tokens), float(t_end) - float(t_start))
+    weights = []
+    for tok in tokens:
+        base = max(2.0, float(len(clean_token(tok))))
+        if tok.endswith((".", "!", "?")):
+            base += 2.5
+        elif tok.endswith((",", ";", ":")):
+            base += 1.2
+        weights.append(base)
+    total_w = sum(weights) or float(len(tokens))
+    out: List[Tuple[float, float]] = []
+    cursor = float(t_start)
+    for w in weights:
+        dur = span * (w / total_w)
+        out.append((round(cursor, 2), round(cursor + dur, 2)))
+        cursor += dur
+    if out:
+        out[-1] = (out[-1][0], round(float(t_start) + span, 2))
+    return out
+
+
+def _has_collapsed_alignment(aligned: List[Dict], section_span: float) -> bool:
+    """Detects Whisper alignment collapse (frozen single word > 1.8s, dead gap > 2.2s, or burst of >= 4 words <= 0.14s)."""
+    if len(aligned) < 4 or section_span <= 0.5:
+        return False
+    # 1. Check frozen single word (> 1.8s) or severe dead internal gap (> 2.2s)
+    fast_run = 0
+    for i, entry in enumerate(aligned):
+        dur = float(entry["end"]) - float(entry["start"])
+        if dur > 1.8:
+            return True
+        if dur <= 0.14:
+            fast_run += 1
+            if fast_run >= 4:
+                return True
+        else:
+            fast_run = 0
+        if i > 0:
+            gap = float(entry["start"]) - float(aligned[i - 1]["end"])
+            if gap > 2.2:
+                return True
+    return False
+
+
 def align_tokens_to_whisper(
     script_tokens: List[str],
     whisper_words: List[Dict],
@@ -394,9 +436,10 @@ def align_tokens_to_whisper(
     w_keys = [clean_token(w.get("word", "")) for w in whisper_words]
 
     matcher = SequenceMatcher(None, s_keys, w_keys)
+    opcodes = matcher.get_opcodes()
     aligned = []
 
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+    for op_idx, (tag, i1, i2, j1, j2) in enumerate(opcodes):
         if tag == "equal":
             for s_idx, w_idx in zip(range(i1, i2), range(j1, j2)):
                 aligned.append(
@@ -414,39 +457,60 @@ def align_tokens_to_whisper(
                 continue
             t_start = w_slice[0]["start"]
             t_end = w_slice[-1]["end"]
-            duration = max(0.08 * len(s_slice), t_end - t_start)
-            step = duration / max(1, len(s_slice))
-            for idx, sw in enumerate(s_slice):
-                w_s = t_start + idx * step
-                w_e = t_start + (idx + 1) * step
-                aligned.append(
-                    _make_entry(i1 + idx, sw, round(w_s, 2), round(w_e, 2))
-                )
+            spans = _distribute_weighted_span(s_slice, t_start, t_end)
+            for idx, (sw, (w_s, w_e)) in enumerate(zip(s_slice, spans)):
+                aligned.append(_make_entry(i1 + idx, sw, w_s, w_e))
         elif tag == "delete":
-            prev_end = aligned[-1]["end"] if aligned else (whisper_words[0]["start"] if whisper_words else default_start)
+            prev_end = aligned[-1]["end"] if aligned else default_start
             remaining_tokens = script_tokens[i1:i2]
-            available_time = max(0.1, default_end - prev_end) if default_end > prev_end else 0.25 * len(remaining_tokens)
-            step = min(0.25, available_time / max(1, len(remaining_tokens)))
-            for idx, sw in enumerate(remaining_tokens):
-                aligned.append(
-                    _make_entry(
-                        i1 + idx,
-                        sw,
-                        round(prev_end, 2),
-                        round(prev_end + step, 2),
-                    )
-                )
-                prev_end += step
+            # Look ahead to the next matched Whisper word so deleted tokens fill the real gap cleanly
+            next_anchor = None
+            for nxt_tag, _, _, nxt_j1, nxt_j2 in opcodes[op_idx + 1 :]:
+                if nxt_tag in ("equal", "replace") and nxt_j1 < nxt_j2:
+                    next_anchor = whisper_words[nxt_j1]["start"]
+                    break
+            if next_anchor is not None and next_anchor > prev_end + 0.05:
+                t_end = next_anchor
+            elif default_end > prev_end + 0.05:
+                t_end = default_end
+            else:
+                t_end = prev_end + 0.25 * len(remaining_tokens)
+            spans = _distribute_weighted_span(remaining_tokens, prev_end, t_end)
+            for idx, (sw, (w_s, w_e)) in enumerate(zip(remaining_tokens, spans)):
+                aligned.append(_make_entry(i1 + idx, sw, w_s, w_e))
         elif tag == "insert":
             # Extra hallucinations in Whisper are skipped
             pass
 
-    # Ensure strictly monotonic timestamps
+    # Ensure strictly monotonic, 100% non-overlapping timestamps
     for i in range(1, len(aligned)):
-        if aligned[i]["start"] < aligned[i - 1]["start"]:
-            aligned[i]["start"] = aligned[i - 1]["end"]
-        if aligned[i]["end"] <= aligned[i]["start"]:
-            aligned[i]["end"] = round(aligned[i]["start"] + 0.15, 2)
+        prev_s = float(aligned[i - 1]["start"])
+        prev_e = float(aligned[i - 1]["end"])
+        cur_s = float(aligned[i]["start"])
+        cur_e = float(aligned[i]["end"])
+        if cur_s < prev_e:
+            if cur_s > prev_s + 0.04:
+                # Trim previous word's end cleanly to preserve the next word's exact acoustic start
+                aligned[i - 1]["end"] = round(cur_s, 2)
+            else:
+                # Same-start collision (e.g. deleted token + next matched token at identical start):
+                # split the shared window cleanly so neither word overlaps on screen
+                shared_end = max(prev_e, cur_e, prev_s + 0.16)
+                mid = round(prev_s + (shared_end - prev_s) * 0.45, 2)
+                aligned[i - 1]["end"] = mid
+                aligned[i]["start"] = mid
+                if cur_e <= mid:
+                    aligned[i]["end"] = round(mid + 0.12, 2)
+        if float(aligned[i]["end"]) <= float(aligned[i]["start"]):
+            aligned[i]["end"] = round(float(aligned[i]["start"]) + 0.12, 2)
+
+    # Collapse-recovery guard: if Whisper dropped a section or collapsed words into an unreadable burst
+    # / frozen word, redistribute cleanly across the section's known audio window [default_start, default_end].
+    if default_end > default_start + 0.3 and aligned and _has_collapsed_alignment(aligned, default_end - default_start):
+        spans = _distribute_weighted_span([a["word"] for a in aligned], default_start, default_end)
+        for entry, (w_s, w_e) in zip(aligned, spans):
+            entry["start"] = w_s
+            entry["end"] = w_e
 
     # Prevent section subtitle spillover into adjacent sections
     if default_end > default_start and aligned:
@@ -685,6 +749,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 merged_words[-1]["end"] = max(merged_words[-1]["end"], w.get("end", merged_words[-1]["end"]))
             else:
                 merged_words.append(dict(w))
+
+        # Final global non-overlap guard (across all sections and merged tokens):
+        # guarantees two Dialogue lines NEVER render on top of each other at the same timestamp.
+        for i in range(1, len(merged_words)):
+            prev_s = float(merged_words[i - 1]["start"])
+            prev_e = float(merged_words[i - 1]["end"])
+            cur_s = float(merged_words[i]["start"])
+            cur_e = float(merged_words[i]["end"])
+            if cur_s < prev_e:
+                if cur_s > prev_s + 0.04:
+                    merged_words[i - 1]["end"] = round(cur_s, 2)
+                else:
+                    shared_end = max(prev_e, cur_e, prev_s + 0.16)
+                    mid = round(prev_s + (shared_end - prev_s) * 0.45, 2)
+                    merged_words[i - 1]["end"] = mid
+                    merged_words[i]["start"] = mid
+                    if cur_e <= mid:
+                        merged_words[i]["end"] = round(mid + 0.12, 2)
+            if float(merged_words[i]["end"]) <= float(merged_words[i]["start"]):
+                merged_words[i]["end"] = round(float(merged_words[i]["start"]) + 0.12, 2)
 
         for w in merged_words:
             # If word start falls into any suppressed window (e.g. GAME challenge scene), omit it

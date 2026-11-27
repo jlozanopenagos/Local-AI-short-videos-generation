@@ -68,7 +68,7 @@ Any script under 95 spoken words or exceeding 135 spoken words is INVALID.
 SCRIPT STRUCTURE (MANDATORY JSON KEYS)
 -----------------------------
 Your JSON `script` object MUST contain EXACTLY these 5 spoken sections (plus title):
-- "title": Catchy, high-energy trivia challenge title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS).
+- "title": Catchy, high-energy trivia challenge title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS, NO category/format prefixes like "Quiz:", "Game:", "Expression:", "Fun Fact:", "Roleplay:", "In Action:", "Origin:").
 - "hook": Immediate, high-energy trivia challenge hook setting up the dilemma (100% in TARGET_LANGUAGE).
 - "challenge": Direct test sentence spoken naturally by the Narrator (NO "___" in spoken audio!) and explicitly voiced options ("A: [Option A].  B: [Option B].  C: [Option C].").
 - "pressure": Fast, snappy countdown line encouraging immediate response (100% in TARGET_LANGUAGE).

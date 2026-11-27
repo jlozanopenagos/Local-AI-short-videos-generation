@@ -26,6 +26,7 @@ from video_creation._A_video_scripts.script_modifier import (
 )
 # pyrefly: ignore [missing-import]
 from tools.check_script_changes import (
+    audit_script_changes,
     extract_spoken_text_from_state,
     normalize_text_for_comparison,
     compute_preview_diff,
@@ -282,6 +283,122 @@ class TestCheckScriptChanges(unittest.TestCase):
         diff = compute_preview_diff(old, new)
         self.assertIn("-Line 2", diff)
         self.assertIn("+Modified Line 2", diff)
+
+    def test_game_counter_diff_and_duplicate_pressure_deduplication(self):
+        """Regression for IG48: Counter multiset catches swapped words existing elsewhere and skips duplicate pressure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            csv_dir = base_dir / "input" / "csv" / "script_to_change"
+            csv_dir.mkdir(parents=True, exist_ok=True)
+            sm = StateManager(base_dir)
+
+            # Case 1 (IG48): "prima di persone" -> "con persone" where prima/di/con appear elsewhere
+            sm.save_script_state("IG48", {
+                "id": "IG48",
+                "prompt_params": {"ID": "IG48", "VIDEO_TYPE": "GAME", "TARGET_LANGUAGE": "Italian"},
+                "content_metadata": {
+                    "video_type": "GAME",
+                    "language": "Italian",
+                    "script": {
+                        "title": "Quiz",
+                        "hook": "Sei da solo prima di entrare.",
+                        "challenge": "Con il direttore cosa dici?\nA: Puoi.\nB: Lei puo.",
+                        "pressure": "Veloce prima che finisca!",
+                        "answer": "La risposta è B!",
+                        "explanation": "Usalo prima di persone anziane.",
+                    },
+                },
+            })
+            # Case 2: legacy 4-part GAME with pressure == challenge must NOT false-positive
+            sm.save_script_state("EG04", {
+                "id": "EG04",
+                "prompt_params": {"ID": "EG04", "VIDEO_TYPE": "GAME", "TARGET_LANGUAGE": "English"},
+                "content_metadata": {
+                    "video_type": "GAME",
+                    "language": "English",
+                    "script": {
+                        "title": "Quiz",
+                        "hook": "Quick ear test.",
+                        "challenge": "She brought a present.\nA: a present.\nB: to present.",
+                        "pressure": "She brought a present.\nA: a present.\nB: to present.",
+                        "answer": "It is A!",
+                        "explanation": "First syllable stressed.",
+                    },
+                },
+            })
+
+            it_csv = csv_dir / "italian_game_script_to_change.csv"
+            with it_csv.open("w", encoding="utf-8-sig", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=["ID", "NEW_SCRIPT"])
+                w.writeheader()
+                w.writerow({
+                    "ID": "IG48",
+                    "NEW_SCRIPT": (
+                        "Sei da solo prima di entrare.\n\n"
+                        "Con il direttore cosa dici? A: Puoi. B: Lei puo.\n\n"
+                        "Veloce prima che finisca!\n\n"
+                        "La risposta è B!\n\n"
+                        "Usalo con persone anziane."
+                    ),
+                })
+
+            en_csv = csv_dir / "english_game_script_to_change.csv"
+            with en_csv.open("w", encoding="utf-8-sig", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=["ID", "NEW_SCRIPT"])
+                w.writeheader()
+                w.writerow({
+                    "ID": "EG04",
+                    "NEW_SCRIPT": (
+                        "Quick ear test.\n\n"
+                        "She brought a present. A: a present. B: to present.\n\n"
+                        "It is A!\n\n"
+                        "First syllable stressed."
+                    ),
+                })
+
+            changed, identical, _ = audit_script_changes(base_dir=base_dir)
+            changed_ids = [r["id"] for r in changed]
+            identical_ids = [r["id"] for r in identical]
+            self.assertIn("IG48", changed_ids)
+            self.assertNotIn("EG04", changed_ids)
+            self.assertIn("EG04", identical_ids)
+
+    def test_game_parser_merges_blank_line_options_and_detects_no_pressure_answer(self):
+        """Regression for IG02 & EG37: blank-line A/B/C options merge into challenge and no-pressure sets pressure=''."""
+        ig02_raw = (
+            "Sfida flash!\n\n"
+            "Cosa significa avere le mani bucate?\n\n"
+            "A: Spendere troppo.\n\n"
+            "B: Non avere soldi.\n\n"
+            "C: Essere stanchi.\n\n"
+            "Tre, due, uno, stop!\n\n"
+            "Se hai scelto A, punto pieno!\n\n"
+            "Ecco la spiegazione finale."
+        )
+        p_ig02 = parse_user_script_into_sections(ig02_raw, "GAME")
+        self.assertIsNotNone(p_ig02)
+        assert p_ig02 is not None
+        self.assertIn("A: Spendere troppo.", p_ig02["challenge"])
+        self.assertIn("B: Non avere soldi.", p_ig02["challenge"])
+        self.assertIn("C: Essere stanchi.", p_ig02["challenge"])
+        self.assertEqual(p_ig02["pressure"], "Tre, due, uno, stop!")
+        self.assertEqual(p_ig02["answer"], "Se hai scelto A, punto pieno!")
+
+        eg37_raw = (
+            "Your friend texts you.\n\n"
+            "He prefers the latter.\n\n"
+            "A: Option one.\n\n"
+            "B: Option two.\n\n"
+            "The answer is B. Latter means the second option.\n\n"
+            "Drop a sentence below!"
+        )
+        p_eg37 = parse_user_script_into_sections(eg37_raw, "GAME")
+        self.assertIsNotNone(p_eg37)
+        assert p_eg37 is not None
+        self.assertIn("A: Option one.", p_eg37["challenge"])
+        self.assertIn("B: Option two.", p_eg37["challenge"])
+        self.assertEqual(p_eg37["pressure"], "")
+        self.assertTrue(p_eg37["answer"].startswith("The answer is B."))
 
 
 if __name__ == "__main__":

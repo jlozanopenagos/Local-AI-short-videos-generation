@@ -260,7 +260,7 @@ class TestGeminiAuditor(unittest.TestCase):
         payload_text = mock_post.call_args[1]["json"]["contents"][0]["parts"][0]["text"]
         self.assertIn("CHAR_1", payload_text)
         self.assertNotIn("CHAR_2", payload_text)
-        self.assertIn("PROTAGONIST: Full inline prose description of the solo 17-year-old high-school senior", payload_text)
+        self.assertIn("PROTAGONIST: Full inline prose description of the solo 19-year-old young", payload_text)
         self.assertIn("Medium-wide establishing eye-level shot", res)
         self.assertNotIn("explicit footwear", NEGATIVE_PROMPT_SHIELD.lower())
 
@@ -310,8 +310,8 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertNotIn("gift box", res.lower())
         self.assertNotIn("word-cards", res.lower())
         self.assertNotIn("phonetic symbols", res.lower())
-        self.assertIn("1:7", res)
-        self.assertIn("17-year-old", res)
+        self.assertIn("1:7.5", res)
+        self.assertIn("19-year-old", res)
         for leaked in ("not a child", "no young children", "no elementary kids", "no bulging eyes"):
             self.assertNotIn(leaked, res.lower())
 
@@ -377,8 +377,8 @@ class TestGeminiAuditor(unittest.TestCase):
         self.assertTrue(world_id_2.startswith("fr_"))
         self.assertNotEqual(world_id_1, world_id_2)
         self.assertIn(script_data["assets"]["anchor_world_title"], payload_2)
-        self.assertIn("1:7", res2)
-        self.assertIn("17-year-old", res2)
+        self.assertIn("1:7.5", res2)
+        self.assertIn("19-year-old", res2)
         for leaked in ("not a child", "no young children", "no bulging eyes"):
             self.assertNotIn(leaked, res2.lower())
 

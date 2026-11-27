@@ -17,11 +17,35 @@ from .bank_manifest import (
 from .models import LanguageVoiceProfile, VoiceBankEntry
 
 
-# Listening feedback from EF01. Keep these available for explicit casts and fallback.
+# Listening & acoustic-audit feedback: keep these available only for explicit casts and fallback.
 _NARRATOR_FALLBACK_SPEAKERS = frozenset({
-    "en_m_intimate_storyteller_09",  # Too understated in the short.
+    "en_m_intimate_storyteller_09",  # Too understated / low HNR on games.
     "en_m_us_host_01",              # Delivery sounded shouted.
+    "it_m_intimate_storyteller_09",  # Low HNR / raspy on games.
+    "es_f_intimate_storyteller_09",  # Too understated for high-energy narration.
+    "fr_f_intimate_storyteller_09",  # Too understated for high-energy narration.
+    "en_f_narrator_low_07",          # Flat/low-energy baseline.
+    "fr_f_narrator_low_07",          # Flat/low-energy baseline.
+    "it_f_narrator_low_07",          # Flat/low-energy baseline.
+    "es_f_narrator_low_07",          # Flat/low-energy baseline.
 })
+
+# Understated / actor-only speaker substrings never preferred as GAME quiz hosts or FUN_FACTS narrators.
+_GAME_EXCLUDED_SUBSTRINGS = (
+    "intimate_storyteller",
+    "narrator_low",
+    "roleplay_dry",
+    "roleplay_quick",
+    "roleplay_grounded",
+    "roleplay_warm",
+)
+_FUN_FACTS_EXCLUDED_SUBSTRINGS = (
+    "roleplay_dry",
+    "roleplay_quick",
+    "roleplay_grounded",
+    "roleplay_warm",
+)
+_NARRATOR_EXCLUDED_SUBSTRINGS = ("roleplay_dry",)
 
 
 def canonical_speaker_identity(path: Path, bank_entry: Optional[VoiceBankEntry] = None) -> str:
@@ -65,12 +89,14 @@ def pick_weighted_accent(
     for accent, w in sorted(weights.items(), key=lambda kv: -kv[1]):
         slots = max(1, int(round(float(w) * 20)))
         cycle.extend([accent] * slots)
-    # Interleave deterministically so minority accent appears evenly every ~4th script instead of bunched
+    # Interleave deterministically via Bresenham-style slot distribution so any 2-accent ratio
+    # (e.g. 60/40 or 75/25) is exact over each 10/20-script window without bunching.
     accents_ordered = sorted(weights.keys(), key=lambda a: -weights[a])
     if len(accents_ordered) == 2 and float(weights[accents_ordered[1]]) > 0:
-        step = max(2, int(round(1.0 / float(weights[accents_ordered[1]]))))
+        slots_total = 20
+        minority_slots = max(1, min(slots_total - 1, int(round(float(weights[accents_ordered[1]]) * slots_total))))
         idx = _script_numeric_index(script_id)
-        if script_id and (idx % step == (step - 1)):
+        if script_id and ((idx * minority_slots) % slots_total) < minority_slots:
             return accents_ordered[1]
         return accents_ordered[0]
 
@@ -235,37 +261,71 @@ class VoiceCastingEngine:
         else:
             tiered_pool = pool
 
-        # 3. Neutral accent matching when VoiceDesign bank has accent-tagged entries
+        # 3. Exclude reviewed fallback/actor-only speakers for Narrator BEFORE accent filtering
+        #    so recasting in a small-accent bucket (e.g. en_uk_neutral) never forces a blacklisted voice.
+        is_narrator = "narrator" in role.lower()
+        vtype_low = (video_type or "expression").lower()
+        if is_narrator:
+            preferred_pool = [
+                r for r in tiered_pool
+                if r[3] is None or (
+                    r[3].speaker_id not in _NARRATOR_FALLBACK_SPEAKERS
+                    and not any(sub in r[3].speaker_id for sub in _NARRATOR_EXCLUDED_SUBSTRINGS)
+                    and not (vtype_low == "game" and any(sub in r[3].speaker_id for sub in _GAME_EXCLUDED_SUBSTRINGS))
+                    and not (vtype_low == "fun_facts" and any(sub in r[3].speaker_id for sub in _FUN_FACTS_EXCLUDED_SUBSTRINGS))
+                )
+            ]
+            if preferred_pool:
+                tiered_pool = preferred_pool
+
+        # 4. Neutral accent matching when VoiceDesign bank has accent-tagged entries
         target_accent = pick_weighted_accent(lang_profile, script_id=script_id, dialect_hint=dialect_hint)
         if target_accent:
             accent_matched = [r for r in tiered_pool if r[3] is not None and r[3].accent == target_accent]
             if accent_matched:
                 tiered_pool = accent_matched
 
-        # 4. Choose the performance style before rotating among suitable voices.
-        is_narrator = "narrator" in role.lower()
-        vtype_low = (video_type or "expression").lower()
+        # 5. Choose the performance style before rotating among suitable voices.
         if is_narrator:
-            preferred_pool = [
-                r for r in tiered_pool if r[3] is None or r[3].speaker_id not in _NARRATOR_FALLBACK_SPEAKERS
-            ]
-            if preferred_pool:
-                tiered_pool = preferred_pool
-            primary, secondary = ("energetic_host", "warm_narrator") if vtype_low == "game" else (
-                "warm_narrator", "energetic_host",
-            )
-            archetype_groups = ((primary,), (primary, secondary))
+            if vtype_low == "game":
+                archetype_groups = (
+                    ("energetic_host",),
+                    ("energetic_host", "warm_narrator"),
+                )
+            elif vtype_low == "fun_facts":
+                archetype_groups = (
+                    ("warm_narrator",),
+                    ("warm_narrator", "energetic_host"),
+                )
+            else:
+                archetype_groups = (
+                    ("warm_narrator", "roleplay_actor"),
+                    ("warm_narrator", "energetic_host", "roleplay_actor"),
+                )
         else:
             archetype_groups = (("roleplay_actor", "expressive_actor"),)
 
+        min_required = 2 if is_narrator else 1
         for archetypes in archetype_groups:
             matched = [
                 r for r in tiered_pool
                 if r[3] is not None and any(a in r[3].archetypes for a in archetypes)
             ]
-            if len({r[1] for r in matched}) >= 2:
+            if len({r[1] for r in matched}) >= min_required:
                 tiered_pool = matched
                 break
+
+        if not is_narrator and vtype_low == "roleplay" and manifest is not None and hasattr(manifest, "find_speaker_energy_variant"):
+            _emo_tiers = ("surprised_urgent", "high_energy", "embarrassed", "frustrated", "reassuring")
+            with_variants = [
+                r for r in tiered_pool
+                if any(
+                    manifest.find_speaker_energy_variant(r[0].name, tier, open_swara_dir=open_swara_dir) is not None
+                    for tier in _emo_tiers
+                )
+            ]
+            if len({r[1] for r in with_variants}) >= 1:
+                tiered_pool = with_variants
 
         # 5. Deduplicate Kokoro alias twins within candidate list so weights stay fair
         deduped: List[Tuple[Path, str, int, Optional[VoiceBankEntry]]] = []

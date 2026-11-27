@@ -47,21 +47,58 @@ class VoiceAdapter(BaseStageAdapter):
         explicit_accent = options.get("accent") or None
         engine_mode = options.get("voice_engine") or None
         recast = bool(options.get("recast", False))
+        requested_provider = options.get("voice_provider") or "auto"
+        elevenlabs_model = options.get("elevenlabs_model") or None
+
+        from config import resolve_script_video_type
+        from video_creation._B_voice_generation.elevenlabs.tags import resolve_voice_provider
 
         total = len(script_ids)
         success_count = 0
         failed_ids = []
 
-        # Free VRAM before voice generation so Qwen3-TTS has maximum GPU memory
-        emit_log("Ensuring LLM server is stopped to release VRAM for audio synthesis...")
-        ensure_llama_stopped()
+        # Determine per-script provider upfront so ElevenLabs-only batches never stop Llama or require ComfyUI
+        provider_by_id: Dict[str, str] = {}
+        for sid in script_ids:
+            if sm.script_exists(sid):
+                vtype = resolve_script_video_type(sm.get_script_state(sid))
+                provider_by_id[sid] = resolve_voice_provider(vtype, requested_provider=requested_provider)
+            else:
+                provider_by_id[sid] = "local"
 
-        emit_log(f"Initializing voice clients for {total} script(s)...")
-        voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
-        comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
-        comfy_client.check_cancelled = check_cancelled
+        needs_local = any(p == "local" for p in provider_by_id.values())
+        needs_elevenlabs = any(p == "elevenlabs" for p in provider_by_id.values())
 
-        for idx, script_id in enumerate(script_ids, start=1):
+        voice_manager = None
+        comfy_client = None
+        if needs_local:
+            emit_log("Ensuring LLM server is stopped to release VRAM for local Qwen3-TTS synthesis...")
+            ensure_llama_stopped()
+            emit_log(f"Initializing local Qwen3-TTS voice clients for batch ({total} script(s))...")
+            voice_manager = VoiceManager(OPEN_SWARA_DIR, COMFY_INPUT_DIR)
+            comfy_client = ComfyClient(COMFY_API_URL, VOICE_WORKFLOW_PATH, COMFY_OUTPUT_DIR)
+            comfy_client.check_cancelled = check_cancelled
+        if needs_elevenlabs:
+            emit_log(
+                f"ElevenLabs provider active ({elevenlabs_model or 'eleven_v3'}) for "
+                f"{sum(1 for p in provider_by_id.values() if p == 'elevenlabs')}/{total} script(s) — zero GPU VRAM required."
+            )
+
+        # In mass-production queues, stably group local scripts by saved primary voice so consecutive scripts
+        # sharing a narrator reuse ComfyUI's cached LoadAudio + VoiceClonePrompt in VRAM.
+        ordered_ids = list(script_ids)
+        if len(ordered_ids) > 1 and not recast:
+            def _voice_cache_key(sid: str) -> tuple:
+                prov = provider_by_id.get(sid, "local")
+                if prov != "local" or not sm.script_exists(sid):
+                    return (0 if prov == "elevenlabs" else 1, "")
+                st = sm.get_script_state(sid) or {}
+                sv = (st.get("content_metadata") or {}).get("speakers_voice") or {}
+                return (1, str(sv.get("Narrator") or next(iter(sv.values()), "") or ""))
+
+            ordered_ids.sort(key=_voice_cache_key)
+
+        for idx, script_id in enumerate(ordered_ids, start=1):
             if check_cancelled():
                 emit_log(f"Job cancelled by user at script {script_id}.")
                 break
@@ -81,7 +118,8 @@ class VoiceAdapter(BaseStageAdapter):
                 continue
 
             script_force = force or (status.get("voice_generation") == "pending")
-            max_attempts = int(options.get("max_attempts", 3))
+            script_provider = provider_by_id.get(script_id, "local")
+            max_attempts = int(options.get("max_attempts", 2 if script_provider == "elevenlabs" else 3))
             voice_succeeded = False
             last_err = ""
 
@@ -91,7 +129,8 @@ class VoiceAdapter(BaseStageAdapter):
                     break
 
                 try:
-                    emit_log(f"[{script_id}] Synthesizing multi-character audio track (attempt {attempt}/{max_attempts})...")
+                    provider_tag = f"ElevenLabs ({elevenlabs_model or 'eleven_v3'})" if script_provider == "elevenlabs" else "Local Qwen3-TTS"
+                    emit_log(f"[{script_id}] Synthesizing audio via {provider_tag} (attempt {attempt}/{max_attempts})...")
                     t0 = time.time()
                     existing_v = script_data.get("content_metadata", {}).get("speakers_voice", {}) or {}
                     exclude_set = {str(v) for v in existing_v.values() if v} if recast else None
@@ -108,10 +147,15 @@ class VoiceAdapter(BaseStageAdapter):
                         explicit_accent=explicit_accent,
                         engine_mode=engine_mode,
                         mark_video_assembly_pending=recast,
+                        voice_provider=script_provider,
+                        elevenlabs_model=elevenlabs_model,
+                        check_cancelled=check_cancelled,
                     )
                     dur = time.time() - t0
                     if ok:
-                        emit_log(f"[{script_id}] ✓ Voice synthesis completed in {dur:.1f}s.")
+                        refreshed_meta = (script_data.get("content_metadata") or {}).get("voice_profile_meta") or {}
+                        cr_note = f" | {refreshed_meta['credits_used']} credits" if refreshed_meta.get("credits_used") else ""
+                        emit_log(f"[{script_id}] ✓ Voice synthesis ({provider_tag}) completed in {dur:.1f}s{cr_note}.")
                         success_count += 1
                         voice_succeeded = True
                         break

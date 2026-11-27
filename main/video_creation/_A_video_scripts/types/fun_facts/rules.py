@@ -25,7 +25,7 @@ A Fun Facts video can follow one of several high-retention formats:
 4. COMPARISON / SURPRISE (hook -> comparison_a -> comparison_b -> surprise -> payoff)
 
 MANDATORY SECTIONS IN EVERY FORMAT:
-- "title": Short, catchy title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS).
+- "title": Short, catchy title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS, NO category/format prefixes like "Quiz:", "Expression:", "Fun Fact:", "Roleplay:", "In Action:", "Origin:").
 - "hook": Immediate fascination hook (10-15 words) teasing the curiosity gap.
 - Body sections: Authorized sections delivering the astonishing linguistic insight.
 - "payoff": Punchy takeaway and engaging call-to-action (CTA).

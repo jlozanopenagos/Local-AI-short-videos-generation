@@ -183,9 +183,9 @@ def apply_vocal_mastering(
         gain_db = max(-24.0, min(24.0, preset.target_lufs - post_eq_lufs))
         y = y * (10.0 ** (gain_db / 20.0))
 
-    # 6. Smooth soft-clip peak limiter above 85% of ceiling so loudness isn't pulled down by 1 transient
+    # 6. Smooth soft-clip peak limiter above 92% of ceiling to avoid audible harmonic saturation
     ceiling = float(preset.peak_ceiling)
-    knee_start = ceiling * 0.85
+    knee_start = ceiling * 0.92
     abs_y = np.abs(y)
     max_peak = float(np.max(abs_y)) if len(abs_y) else 0.0
     if max_peak > knee_start:

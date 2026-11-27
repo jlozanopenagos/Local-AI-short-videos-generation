@@ -12,7 +12,7 @@ EXPRESSION_SCENES = [
         cast_in_frame="solo",
         lens_and_angle="Waist-up / mid-thigh angled 35mm foreground-and-background depth composition (Rule of Thirds, cropped cleanly at hips/mid-thigh — omit footwear); protagonist 40-45% foreground, 3/4 turn",
         gaze="fourth_wall",
-        emotion_arc="Engaging playful knowing smile, warm simple black cartoon eyes sharing an insider secret",
+        emotion_arc="Engaging playful knowing smile, expressive 2D animated eyes with clean white sclera and dark pupils sharing an insider secret",
         prop_rule="Luminous midground and background reveal the story setting and oversized thematic visual metaphor while protagonist holds or gestures toward a setting prop",
     ),
     SceneSpec(

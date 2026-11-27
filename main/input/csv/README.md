@@ -36,15 +36,15 @@ input/csv/
 ## Schema Reference
 
 ### 0. SCRIPT TO CHANGE (`script_to_change/*.csv`)
-- **Columns**: `ID,NEW_SCRIPT`
+- **Columns**: `ID,NEW_SCRIPT,EXPRESSION` (also backward-compatible with `ID,NEW_SCRIPT`)
 - **Purpose**: Modifies existing scripts using human-crafted or externally edited text. Canonical `ID` determines target language and video format.
-- **Automated Ingestion via Connectivity**: Can be populated directly from Google Sheets Column D (`SCRIPT_CHANGED`) via `main/connectivity/fetch_corrected_scripts.py`.
+- **Automated Ingestion via Connectivity**: Populated directly from Google Sheets Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`) via `POST /api/sheets/sync` or `main/connectivity/fetch_corrected_scripts.py`.
 - **Targeted ID Filtering Templates**:
   - `script_to_change/model_ids_to_fetch.csv`: Reference template schema (`ID`).
   - `script_to_change/ids_to_fetch.csv`: Active list of IDs to fetch from Google Sheets when running Option 4 (CSV ID list).
-- **Verbatim Ingestion Guarantee**: Paragraphs are parsed directly into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff` for Expression; `hook`, `challenge`, `pressure`, `answer`, `explanation` for Game; `hook`, `DIALOGUE_PART_1`..`4`, `PAYOFF` for Roleplay; `hook`, `setup`, `discovery`, `payoff` for Fun Facts). Spoken text is injected **100% verbatim** into `content_metadata.script` with zero LLM paraphrasing or summarization.
+- **Verbatim Ingestion Guarantee**: Paragraphs are parsed directly into canonical format sections (`hook`, `setup`, `discovery`, `example`, `payoff` for Expression; `hook`, `challenge`, `pressure`, `answer`, `explanation` for Game with blank-line `A:`/`B:`/`C:`/`D:` option merging; `hook`, `DIALOGUE_PART_1`..`4`, `PAYOFF` for Roleplay; `hook`, `setup`, `discovery`, `explanation`, `payoff` for Fun Facts). Spoken text is injected **100% verbatim** into `content_metadata.script` with zero LLM paraphrasing or summarization.
 - **State Rule**: After applying a revised script, the studio marks script generation done and resets voice, images, thumbnails, assembly, and Drive delivery to pending.
-- **Automated Verification & Sync Tool (`check_script_changes.py`)**: Creators can run `py main/tools/check_script_changes.py --check-only` at any time to compare all CSVs in `script_to_change/` against local state JSONs, previewing diffs and word counts. Running with `--apply` performs a batch sync with zero section duplication.
+- **Automated Verification & Sync Tool (`check_script_changes.py`)**: Creators can run `py main/tools/check_script_changes.py --check-only` at any time to compare all CSVs in `script_to_change/` against local state JSONs, using `Counter`-based GAME diffing to catch swapped/replaced words cleanly. Running with `--apply` performs a batch sync with zero section duplication.
 - **Robust CSV Parsing**: Sanitizes multiline quoted text and spaces after commas before quotes (`skipinitialspace=True`) to prevent truncation or malformed rows.
 
 ### 0b. Studio batch selection

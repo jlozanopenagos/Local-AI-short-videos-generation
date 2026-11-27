@@ -65,6 +65,10 @@ class SheetsSyncRequest(BaseModel):
     apply_changes: bool = Field(default=True, description="Automatically update local State JSONs with detected changes.")
 
 
+class ThumbnailTitlesSyncRequest(BaseModel):
+    apply_changes: bool = Field(default=True, description="Automatically update content_metadata.thumbnail_title in local State JSONs.")
+
+
 def _add_log(msg: str) -> None:
     ts = time.strftime("%H:%M:%S")
     clean = f"[{ts}] {msg}"
@@ -272,6 +276,7 @@ def _run_sheets_sync_worker(clean_cache: bool, apply_changes: bool, base_dir: Pa
 
         # Finalize success
         final_result = {
+            "sync_mode": "scripts",
             "purged_csvs": purged_csvs,
             "fetched_files": fetched_files,
             "total_fetched": total_fetched,
@@ -346,6 +351,246 @@ def start_sheets_sync(payload: SheetsSyncRequest, request: Request) -> Dict[str,
     thread.start()
 
     return {"status": "started", "message": "Google Sheets synchronization job started."}
+
+
+def _run_thumbnail_titles_sync_worker(apply_changes: bool, base_dir: Path = BASE_DIR) -> None:
+    """Fetches Column J (THUMBNAIL_TITLE) across all 16 sheets and updates content_metadata.thumbnail_title."""
+    from connectivity.core import ENDPOINT_REGISTRY, fetch_raw_sheet_rows, get_endpoint, normalize_sheet_rows
+    from core.state_manager import StateManager
+    from video_creation._F_thumbnail_image_generation.core.thumbnail_renderer import extract_thumbnail_title
+
+    state_mgr = StateManager(base_dir=base_dir)
+    fetched_files: List[Dict[str, Any]] = []
+    total_fetched = 0
+    changed_records: List[Dict[str, Any]] = []
+    identical_records: List[Dict[str, Any]] = []
+    missing_ids: List[str] = []
+    updated_records: List[Dict[str, Any]] = []
+    failed_count = 0
+
+    try:
+        with _workspace.get().lock:
+            _workspace.get().state["total_steps"] = 3
+            _workspace.get().state["step_number"] = 1
+            _workspace.get().state["progress"] = 15
+            _workspace.get().state["current_step"] = "Fetching Column J thumbnail titles from Google Sheets..."
+
+        _add_log("🖼️ Step 1/3: Fetching thumbnail titles (Column J) across all 16 Google Sheets...")
+
+        targets = sorted([(l, t) for (l, t), u in ENDPOINT_REGISTRY.items() if u])
+        all_rows_with_titles: List[Dict[str, str]] = []
+        logged_sample_headers = False
+
+        for idx, (lang, vtype) in enumerate(targets, start=1):
+            label = f"{lang}_{vtype}"
+            try:
+                _, _, endpoint_url = get_endpoint(language=lang, video_type=vtype)
+                raw_rows = fetch_raw_sheet_rows(endpoint_url, timeout=60.0)
+                if raw_rows and not logged_sample_headers:
+                    _add_log(f"   ℹ️ Detected sheet columns ({label}): {list(raw_rows[0].keys())}")
+                    logged_sample_headers = True
+
+                normalized = normalize_sheet_rows(raw_rows)
+                sheet_count = 0
+                for rec in normalized:
+                    sid = (rec.get("ID") or "").strip().upper()
+                    thumb_title = (rec.get("THUMBNAIL_TITLE") or "").strip()
+                    if sid and thumb_title:
+                        all_rows_with_titles.append({
+                            "id": sid,
+                            "file": label,
+                            "thumbnail_title": thumb_title,
+                        })
+                        sheet_count += 1
+
+                if sheet_count > 0:
+                    fetched_files.append({"filename": label, "count": sheet_count})
+                    total_fetched += sheet_count
+                    _add_log(f"   ✓ [{idx}/{len(targets)}] {label}: {sheet_count} thumbnail title(s) found.")
+                else:
+                    _add_log(f"   · [{idx}/{len(targets)}] {label}: 0 thumbnail titles in Column J.")
+            except Exception as err:
+                _add_log(f"   ⚠️ [{idx}/{len(targets)}] Failed to fetch {label}: {err}")
+
+            pct = 15 + int((idx / max(len(targets), 1)) * 45)
+            with _workspace.get().lock:
+                _workspace.get().state["progress"] = pct
+
+        if total_fetched == 0:
+            _add_log(
+                "   ⚠️ No Column J thumbnail titles were returned by the sheets. "
+                "Make sure Column J has a Row 1 header (e.g. THUMBNAIL_TITLE) and your Apps Script doGet() includes Column J."
+            )
+
+        # Step 2: Audit differences against local State JSONs
+        with _workspace.get().lock:
+            _workspace.get().state["step_number"] = 2
+            _workspace.get().state["progress"] = 70
+            _workspace.get().state["current_step"] = "Comparing Column J titles against local State JSONs..."
+
+        _add_log(f"🔍 Step 2/3: Auditing {len(all_rows_with_titles)} thumbnail title(s) against local State JSONs...")
+
+        for item in all_rows_with_titles:
+            sid = item["id"]
+            new_title = item["thumbnail_title"]
+            if not state_mgr.script_exists(sid):
+                missing_ids.append(sid)
+                continue
+
+            state = state_mgr.get_script_state(sid)
+            content_meta = state.get("content_metadata") or {}
+            curr_explicit = str(content_meta.get("thumbnail_title") or "").strip()
+            curr_effective = curr_explicit or extract_thumbnail_title(state)
+
+            if curr_explicit == new_title:
+                identical_records.append(item)
+            else:
+                changed_records.append({
+                    **item,
+                    "old_title": curr_effective,
+                    "old_explicit": curr_explicit,
+                    "diff_preview": f"- {curr_effective}\n+ {new_title}",
+                })
+
+        _add_log(
+            f"   ✓ Audit complete: {len(changed_records)} title(s) to update, "
+            f"{len(identical_records)} already in sync, {len(missing_ids)} missing state files."
+        )
+
+        # Step 3: Apply updates to content_metadata.thumbnail_title ONLY (never resets voice/images/assembly)
+        with _workspace.get().lock:
+            _workspace.get().state["step_number"] = 3
+            _workspace.get().state["progress"] = 85
+            _workspace.get().state["current_step"] = "Updating thumbnail_title in local State JSONs..."
+
+        if apply_changes and changed_records:
+            _add_log(f"🚀 Step 3/3: Updating thumbnail_title in {len(changed_records)} State JSON file(s)...")
+            for item in changed_records:
+                sid = item["id"]
+                new_title = item["thumbnail_title"]
+                old_title = item["old_title"]
+                try:
+                    state = state_mgr.get_script_state(sid)
+                    state.setdefault("content_metadata", {})["thumbnail_title"] = new_title
+                    state.setdefault("status", {})["thumbnail_generation"] = "pending"
+                    state_mgr.save_script_state(sid, state)
+
+                    updated_records.append({
+                        "id": sid,
+                        "file": item["file"],
+                        "words_current": len(old_title.split()),
+                        "words_new": len(new_title.split()),
+                        "delta_words": f"{len(new_title.split()) - len(old_title.split()):+d}w",
+                        "old_title": old_title,
+                        "new_title": new_title,
+                        "diff_preview": item["diff_preview"],
+                        "status": "updated",
+                    })
+                    _add_log(f"   ✅ {sid}: \"{old_title}\" -> \"{new_title}\" (thumbnail_generation reset to pending)")
+                except Exception as err:
+                    failed_count += 1
+                    updated_records.append({
+                        "id": sid,
+                        "file": item["file"],
+                        "words_current": 0,
+                        "words_new": 0,
+                        "delta_words": "err",
+                        "old_title": old_title,
+                        "new_title": new_title,
+                        "diff_preview": str(err),
+                        "status": "failed",
+                    })
+                    _add_log(f"   ❌ Failed to update {sid}: {err}")
+
+            try:
+                _get_indexed_scripts(force_refresh=True)
+                _add_log("   ✓ WebUI script catalog index refreshed.")
+            except Exception as e:
+                logger.warning("Could not refresh script index cache: %s", e)
+
+        elif not apply_changes and changed_records:
+            _add_log(f"ℹ️ Preview-only mode: Skipped updating {len(changed_records)} thumbnail title(s).")
+            for item in changed_records:
+                old_title = item["old_title"]
+                new_title = item["thumbnail_title"]
+                updated_records.append({
+                    "id": item["id"],
+                    "file": item["file"],
+                    "words_current": len(old_title.split()),
+                    "words_new": len(new_title.split()),
+                    "delta_words": f"{len(new_title.split()) - len(old_title.split()):+d}w",
+                    "old_title": old_title,
+                    "new_title": new_title,
+                    "diff_preview": item["diff_preview"],
+                    "status": "pending",
+                })
+        else:
+            _add_log("✨ All fetched Column J thumbnail titles are already synchronized with local State JSONs!")
+
+        final_result = {
+            "sync_mode": "thumbnails",
+            "purged_csvs": [],
+            "fetched_files": fetched_files,
+            "total_fetched": total_fetched,
+            "changed_count": len(changed_records),
+            "identical_count": len(identical_records),
+            "updated_count": len([r for r in updated_records if r["status"] == "updated"]),
+            "failed_count": failed_count,
+            "updated_records": updated_records,
+            "missing_ids": missing_ids,
+        }
+
+        with _workspace.get().lock:
+            _workspace.get().state["status"] = "completed"
+            _workspace.get().state["progress"] = 100
+            _workspace.get().state["current_step"] = "Thumbnail titles sync completed"
+            _workspace.get().state["result"] = final_result
+            _workspace.get().state["finished_at"] = time.time()
+
+        _add_log("🎉 Thumbnail titles (Column J) synchronization completed!")
+
+    except Exception as exc:
+        logger.exception("Error during thumbnail titles synchronization: %s", exc)
+        _add_log(f"💥 Fatal error during thumbnail titles sync: {exc}")
+        with _workspace.get().lock:
+            _workspace.get().state["status"] = "failed"
+            _workspace.get().state["error"] = str(exc)
+            _workspace.get().state["current_step"] = f"Error: {exc}"
+            _workspace.get().state["finished_at"] = time.time()
+
+
+@router.post("/sync-thumbnails")
+def start_thumbnail_titles_sync(payload: ThumbnailTitlesSyncRequest, request: Request) -> Dict[str, Any]:
+    """
+    Fetches thumbnail titles from Column J across all 16 Google Sheets and updates
+    content_metadata.thumbnail_title in local State JSONs (marking thumbnail_generation pending).
+    """
+    with _workspace.get().lock:
+        if _workspace.get().state["status"] == "running":
+            raise HTTPException(
+                status_code=409,
+                detail="A Google Sheets synchronization job is already running.",
+            )
+
+        _workspace.get().state["status"] = "running"
+        _workspace.get().state["progress"] = 5
+        _workspace.get().state["current_step"] = "Initializing thumbnail titles sync (Column J)..."
+        _workspace.get().state["step_number"] = 0
+        _workspace.get().state["total_steps"] = 3
+        _workspace.get().state["logs"] = []
+        _workspace.get().state["result"] = None
+        _workspace.get().state["error"] = None
+        _workspace.get().state["started_at"] = time.time()
+        _workspace.get().state["finished_at"] = None
+
+    thread = threading.Thread(
+        target=copy_context().run,
+        args=(_run_thumbnail_titles_sync_worker, payload.apply_changes, request.app.state.base_dir or BASE_DIR),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"status": "started", "message": "Thumbnail titles (Column J) synchronization started."}
 
 
 @router.post("/reset")

@@ -114,7 +114,36 @@ This document tracks the historical and current performance benchmarks of the **
 
 ---
 
-## 4. Benchmark Log Entry Template
+## 4. Benchmark Run: Stage B Voice Synthesis — Smart Queue & QA Gate Optimization
+
+* **Run Dates**: `2026-11-23` (Baseline `23:09` run) vs. `2026-11-24` (Optimized `00:17` run)
+* **Target / Scope**: Multi-character Roleplay voice synthesis (`ER01` — 10 segments EN, `SR08` — 10 segments ES; part of `ER01`, `SR08`, `SG02` WebUI batch)
+* **Optimizations Benchmarked**:
+  1. **Adaptive Take #2 (`Fast-Pass Take #1`)**: Evaluates Take #1 immediately; skips Take #2 whenever Take #1 is clean (`flags == []`) and `score >= 0.75`.
+  2. **Speaker-Grouped Synthesis**: Synthesizes segments grouped by speaker (`Narrator` → `PERSON_ONE` → `PERSON_TWO`) so ComfyUI reuses the same reference voice consecutively, then re-sorts by original segment index before final merge.
+  3. **Node 40 (`SenseVoiceASR`) Bypass**: Strips redundant ASR reference transcription from the ComfyUI workflow whenever `ref_text` is already known or `x_vector_only=True`.
+  4. **Calibrated Acoustic QA Gate & Locked ICL Identity**: Reference-F0-anchored shrillness ceiling, `1.35s` breath allowance on multi-sentence/hook/payoff/explicit-pause segments, restored `use_icl=True` on one locked `baseline.wav` per Roleplay character, and `PermissionError` (`WinError 32`) retry on ComfyUI `.flac` cleanup.
+
+### Before vs. After Comparison
+
+| Metric | `ER01` Before (`23:09`) | `ER01` After (`00:17`) | `SR08` Before (`23:23`) | `SR08` After (`00:25`, through Seg 7) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Total Script Duration** | `865.9s` (~14.4 min) | **`455.1s` (~7.6 min)** | `777.8s` (~13.0 min) | **~430–460s projected** (~7.2–7.7 min) |
+| **Net Speedup** | — | **`-410.8s` (-6.8 min / 47.4% faster)** | — | **~41% – 45% faster** |
+| **Total ComfyUI Takes** | 26 takes | **13 takes (-50%)** | 22 takes | 10 takes across first 8 segments |
+| **Fast-Passed on Take #1** | 0 / 10 (always 2 takes) | **7 / 10** (`Scores: 0.78–1.07`) | 0 / 10 (always 2 takes) | **7 / 7** on first 7 segs (`Scores: 0.80–0.99`, ~4.5 min) |
+| **Calm 3rd-Take Retries** | 5 | **0** | 2 | 1 (Seg 5 only) |
+| **`WinError 32` Cleanup Warnings** | 1 | **0** | 0 | **0** |
+
+### Key Observations & Bottlenecks
+1. **Adaptive Take #2 Cuts Render Count in Half Without Quality Loss**: On `ER01`, 7 of 10 segments passed cleanly on Take #1 and skipped Take #2 immediately. The QA gate still caught genuine defects on Take #1 (`ER01` Seg 1 erratic pitch `38.0%`, Seg 10 `+9.2 ST` register drift), and Take #2 recovered both cleanly (`0.93` and `0.90`).
+2. **Speaker Grouping & Locked Character Identity**: Grouping turns (`Narrator` → `PERSON_ONE` → `PERSON_TWO`) under `use_icl=True` with a single locked `baseline.wav` kept `PERSON_ONE` pitch variance tightly consistent (`16%–23%`, scores `0.78–0.99`) across all 4 dialogue turns on both `ER01` and `SR08`, with final merged duration `60.46s` on `ER01`.
+3. **False QA Retries Eliminated**: Zero false silence-freeze (`> 0.85s`) or shrillness triggers occurred in the optimized run.
+4. **Watch Item (`SR08` Seg 5)**: Short incredulous male questions (`"¿Embarazada tú?..."` on `es_m_narrator_conversational_08`, low baseline F0 `~115–127 Hz`) tripped `+5.4` to `+7.8 ST` register drift on all 3 takes (`+96s`). If this recurs across other shocked male questions, relaxing the Roleplay drift guard from `4.5 ST` to `5.5 ST` is a safe follow-up.
+
+---
+
+## 5. Benchmark Log Entry Template
 
 Use this format when recording future benchmarks (e.g. Stage B Voice Synthesis, Stage G Video Assembly, or future ComfyUI model optimizations):
 

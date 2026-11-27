@@ -453,15 +453,20 @@ class ComfyClient:
         if "8" in wf and "inputs" in wf["8"]:
             wf["8"]["inputs"]["filename_prefix"] = output_prefix
 
-        # 2b. Configure Qwen3TTSVoiceClonePrompt (Node 35) for ICL vs x-vector cloning
+        # 2b. Configure Qwen3TTSVoiceClonePrompt (Node 35) for ICL vs x-vector cloning.
+        # Unlink and remove Node 40 (SenseVoiceASR) whenever x_vector_only=True or ref_text is already known
+        # so ComfyUI never loads or runs SenseVoiceSmall unnecessarily.
         if "35" in wf and "inputs" in wf["35"]:
             if use_icl:
                 wf["35"]["inputs"]["x_vector_only"] = False
                 resolved_ref_text = ref_text if ref_text is not None else self._get_ref_transcript(ref_audio_name, language=lang_norm)
                 if resolved_ref_text:
                     wf["35"]["inputs"]["ref_text"] = resolved_ref_text
+                    wf.pop("40", None)
             else:
                 wf["35"]["inputs"]["x_vector_only"] = True
+                wf["35"]["inputs"]["ref_text"] = ""
+                wf.pop("40", None)
 
         # 3. Update Qwen3TTSVoiceClone (Node 39)
         if "39" in wf and "inputs" in wf["39"]:
@@ -644,11 +649,15 @@ class ComfyClient:
 
         if self.comfy_output_dir:
             source_file = self.comfy_output_dir / subfolder / filename
-            try:
-                if source_file.exists():
-                    source_file.unlink()
-            except Exception as e:
-                print(f"Warning: Could not delete original file {source_file}: {e}")
+            if source_file.exists():
+                for _attempt in range(2):
+                    try:
+                        source_file.unlink()
+                        break
+                    except PermissionError:
+                        time.sleep(0.08)
+                    except Exception:
+                        break
 
 
     def generate_voice_candidates(

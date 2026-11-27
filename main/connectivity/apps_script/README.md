@@ -4,14 +4,11 @@ This folder contains the Apps Script code required to deploy the Google Sheets W
 
 ## Files:
 - **`google_apps_script.sample.js`**: Canonical sample template tracked in git.
-- **`google_apps_script.js`**: Local deployment file with configured spreadsheet IDs (ignored in git to protect private sheet IDs).
+- **`google_apps_script.js`**: Standalone Web App deployment for `shorts_automation` (ignored in git to protect private sheet IDs). `doGet()` reads Columns A through J (`ID`, `expression`, `script`, `SCRIPT_CHANGED`, `script_ready`, `script_date`, `video_ready`, `video_date`, `short_description`, and `short_title` / `THUMBNAIL_TITLE` in Column J); `doPost()` supports `action: "update_scripts"` for Columns A:C or A:D only.
 
 ## Deployment Instructions:
-1. Open your master Google Sheet.
-2. Go to **Extensions > Apps Script**.
-3. Replace the contents of `Code.gs` with the complete code from `google_apps_script.sample.js` (or `google_apps_script.js`).
-4. Click **Save** (💾).
-5. Click **Deploy > Manage deployments**.
-6. Click the **pencil icon** (Edit) on the active deployment.
-7. Under **Version**, select **New version**.
-8. Click **Deploy**.
+1. Open [script.google.com](https://script.google.com/) (or your dedicated `shorts_automation_api` Apps Script project — keep it separate from `GoogleSheet_UI_auditor`).
+2. Open `Code.gs` and paste the complete contents of `google_apps_script.js` (or `google_apps_script.sample.js`).
+3. Click **Save** (💾).
+4. Click **Deploy > Manage deployments** -> click the **pencil icon** (Edit) on the active Web App deployment.
+5. Under **Version**, select **New version** and click **Deploy** so Column J (`short_title`) is returned by `doGet()`.

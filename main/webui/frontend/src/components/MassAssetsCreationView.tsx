@@ -17,8 +17,24 @@ import {
   Video,
   CloudUpload
 } from 'lucide-react'
-import type { JobStage, SystemStatus, ValidatedScriptId, ScriptCatalogResponse } from '../types'
-import { createJob, validateScriptIds, fetchScriptCatalog } from '../api'
+import type {
+  JobStage,
+  SystemStatus,
+  ValidatedScriptId,
+  ScriptCatalogResponse,
+  VoiceProvider,
+  ElevenLabsModelId,
+  ElevenLabsStatus,
+  VoiceCreditEstimateResponse,
+} from '../types'
+import {
+  createJob,
+  validateScriptIds,
+  fetchScriptCatalog,
+  fetchElevenLabsStatus,
+  saveElevenLabsKey,
+  estimateVoiceCredits,
+} from '../api'
 
 interface MassAssetsCreationViewProps {
   system: SystemStatus | null
@@ -51,8 +67,16 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   const [seed, setSeed] = useState('')
   const [accent, setAccent] = useState('')
   const [voiceEngine, setVoiceEngine] = useState('')
+  const [voiceProvider, setVoiceProvider] = useState<VoiceProvider>('auto')
+  const [elevenLabsModel, setElevenLabsModel] = useState<ElevenLabsModelId>('eleven_v3')
+  const [elevenLabsStatus, setElevenLabsStatus] = useState<ElevenLabsStatus | null>(null)
+  const [creditEstimate, setCreditEstimate] = useState<VoiceCreditEstimateResponse | null>(null)
+  const [showElevenLabsKeyModal, setShowElevenLabsKeyModal] = useState(false)
+  const [elevenLabsKeyInput, setElevenLabsKeyInput] = useState('')
+  const [savingElevenLabsKey, setSavingElevenLabsKey] = useState(false)
   const [recast, setRecast] = useState(false)
   const [keepSubtitles, setKeepSubtitles] = useState(false)
+  const [driveScope, setDriveScope] = useState<'all' | 'video' | 'thumbnail'>('all')
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -110,6 +134,49 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
     () => validatedItems.filter((item) => item.exists).map((item) => item.id),
     [validatedItems]
   )
+
+  // Fetch ElevenLabs status when voice stage is selected
+  useEffect(() => {
+    if (targetStage !== 'voice') return
+    fetchElevenLabsStatus(true)
+      .then((st) => setElevenLabsStatus(st))
+      .catch(() => {})
+  }, [targetStage])
+
+  // Estimate ElevenLabs credits whenever validIds / provider / model changes
+  useEffect(() => {
+    if (targetStage !== 'voice' || !validIds.length) {
+      setCreditEstimate(null)
+      return
+    }
+    let cancelled = false
+    estimateVoiceCredits(validIds, voiceProvider, elevenLabsModel)
+      .then((est) => {
+        if (!cancelled) setCreditEstimate(est)
+      })
+      .catch(() => {
+        if (!cancelled) setCreditEstimate(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [targetStage, validIds, voiceProvider, elevenLabsModel])
+
+  const handleSaveElevenLabsKey = async () => {
+    if (!elevenLabsKeyInput.trim()) return
+    setSavingElevenLabsKey(true)
+    try {
+      await saveElevenLabsKey(elevenLabsKeyInput.trim())
+      setElevenLabsKeyInput('')
+      setShowElevenLabsKeyModal(false)
+      const st = await fetchElevenLabsStatus(true)
+      setElevenLabsStatus(st)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSavingElevenLabsKey(false)
+    }
+  }
   const invalidItems = useMemo(
     () => validatedItems.filter((item) => !item.exists),
     [validatedItems]
@@ -123,14 +190,23 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   const gameIds = useMemo(() => validIds.filter(isGameId), [validIds, isGameId])
   const nonGameIds = useMemo(() => validIds.filter((id) => !isGameId(id)), [validIds, isGameId])
 
-  // Drive upload readiness (both video and thumbnail are mandatory)
+  // Drive upload readiness (adapts to selected scope: both, video only, or thumbnail only)
+  const isItemDriveReady = useCallback(
+    (item: ValidatedScriptId) => {
+      if (!item.exists) return false
+      if (driveScope === 'video') return Boolean(item.has_video)
+      if (driveScope === 'thumbnail') return Boolean(item.has_thumbnail)
+      return Boolean(item.can_upload_drive)
+    },
+    [driveScope]
+  )
   const driveReadyIds = useMemo(
-    () => validatedItems.filter((item) => item.exists && item.can_upload_drive).map((item) => item.id),
-    [validatedItems]
+    () => validatedItems.filter(isItemDriveReady).map((item) => item.id),
+    [validatedItems, isItemDriveReady]
   )
   const driveNotReadyItems = useMemo(
-    () => validatedItems.filter((item) => item.exists && !item.can_upload_drive),
-    [validatedItems]
+    () => validatedItems.filter((item) => item.exists && !isItemDriveReady(item)),
+    [validatedItems, isItemDriveReady]
   )
 
   // Remove an individual ID
@@ -177,12 +253,18 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                 : 'all'
 
       const data: ScriptCatalogResponse = await fetchScriptCatalog({
-        pageSize: 100,
+        pageSize: filterKey === 'thumbnails' ? 500 : 100,
         stageFilter,
       })
 
       const loadedIds = data.items
-        .filter((s) => (filterKey === 'drive' ? s.has_video && s.has_thumbnail : true))
+        .filter((s) =>
+          filterKey === 'drive'
+            ? s.has_video && s.has_thumbnail
+            : filterKey === 'thumbnails'
+              ? s.stages.thumbnails !== 'done'
+              : true
+        )
         .map((s) => s.id)
 
       if (!loadedIds.length) {
@@ -264,7 +346,11 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
         targetStage === 'chalkboard'
           ? 'Please provide at least one valid Game script ID (e.g. EG01, FG01, SG01, IG01) for chalkboard creation.'
           : targetStage === 'drive_upload'
-          ? 'None of the provided script IDs are ready for Google Drive upload. Both the final assembled video and thumbnail must exist on disk.'
+          ? driveScope === 'video'
+            ? 'None of the provided script IDs have a final assembled video on disk to upload.'
+            : driveScope === 'thumbnail'
+            ? 'None of the provided script IDs have a generated thumbnail on disk to upload.'
+            : 'None of the provided script IDs are ready for Google Drive upload. Both the final assembled video and thumbnail must exist on disk.'
           : 'Please provide at least one valid script ID.'
       )
       return
@@ -285,10 +371,17 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
       if (targetStage === 'voice') {
         if (accent.trim()) options.accent = accent.trim()
         if (voiceEngine) options.voice_engine = voiceEngine
+        options.voice_provider = voiceProvider
+        options.elevenlabs_model = elevenLabsModel
         options.recast = recast
         if (recast) options.force = true
       }
-      if (targetStage === 'assembly') options.keep_subtitles = keepSubtitles
+      if (targetStage === 'assembly') {
+        options.keep_subtitles = keepSubtitles
+        options.force_subtitles = !keepSubtitles
+        options.auto_keep_subtitles = keepSubtitles
+      }
+      if (targetStage === 'drive_upload') options.drive_scope = driveScope
       const job = await createJob(targetStage, targetIds, options)
       onJobStarted(job.job_id)
     } catch (err) {
@@ -298,7 +391,13 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
   }
 
   const comfyOnline = system?.comfyui?.status === 'online' || (system as any)?.comfy?.status === 'online'
-  const isComfyRequired = targetStage === 'images' || targetStage === 'voice'
+  const voiceUsesLocal =
+    targetStage === 'voice' &&
+    (voiceProvider === 'local' || (voiceProvider === 'auto' && (creditEstimate ? creditEstimate.local_count > 0 : true)))
+  const voiceUsesElevenLabs =
+    targetStage === 'voice' &&
+    (voiceProvider === 'elevenlabs' || (voiceProvider === 'auto' && (creditEstimate ? creditEstimate.elevenlabs_count > 0 : true)))
+  const isComfyRequired = targetStage === 'images' || voiceUsesLocal
 
   return (
     <section className="mass-creation-container" aria-label="Mass asset creation">
@@ -378,7 +477,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <div className="option-content">
               <div className="option-title">voice files (audio)</div>
               <div className="option-desc">
-                Multi-character spoken dialogue and narration synthesized via Kokoro / ComfyUI.
+                Multi-character spoken dialogue and narration synthesized via ElevenLabs (eleven_v3) &amp; local Qwen3-TTS.
               </div>
             </div>
             <div className="option-stage-pill">stage B</div>
@@ -395,7 +494,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <div className="option-content">
               <div className="option-title">thumbnail image</div>
               <div className="option-desc">
-                High-contrast vertical title card thumbnails (1080x1920) for YouTube Shorts.
+                High-contrast vertical title card thumbnails (576x1024, 9:16) for YouTube Shorts.
               </div>
             </div>
             <div className="option-stage-pill">stage F</div>
@@ -446,7 +545,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <div className="option-content">
               <div className="option-title">google drive upload</div>
               <div className="option-desc">
-                Batch upload completed final videos (&lt;ID&gt;.mp4) and thumbnails (&lt;ID&gt;_thumbnail.png) directly into your Google Drive hierarchy. Both assets are strictly mandatory.
+                Batch upload completed final videos (&lt;ID&gt;.mp4) and thumbnails (&lt;ID&gt;_thumbnail.png) directly into your Google Drive hierarchy. Supports full bundle, video-only, or thumbnail-only uploads.
               </div>
             </div>
             <div className="option-stage-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>cloud export</div>
@@ -654,10 +753,24 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={18} />
               <span>
-                Google Drive upload strictly requires both final video and thumbnail. {driveNotReadyItems.length} script(s) are not ready yet:{' '}
+                {driveScope === 'video'
+                  ? 'Final video (.mp4) is missing for'
+                  : driveScope === 'thumbnail'
+                  ? 'Thumbnail (.png) is missing for'
+                  : 'Google Drive upload (video + thumbnail) requires both files.'}{' '}
+                {driveNotReadyItems.length} script(s) not ready yet:{' '}
                 <strong>
                   {driveNotReadyItems.slice(0, 5).map((i) => {
-                    const missing = !i.has_video && !i.has_thumbnail ? 'video & thumb' : !i.has_video ? 'video' : 'thumb'
+                    const missing =
+                      driveScope === 'video'
+                        ? 'video'
+                        : driveScope === 'thumbnail'
+                        ? 'thumb'
+                        : !i.has_video && !i.has_thumbnail
+                        ? 'video & thumb'
+                        : !i.has_video
+                        ? 'video'
+                        : 'thumb'
                     return `${i.id} (${missing} missing)`
                   }).join(', ')}
                   {driveNotReadyItems.length > 5 ? '...' : ''}
@@ -749,28 +862,35 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                     </span>
                   )}
 
-                  {item.exists && targetStage === 'drive_upload' && (
+                  {item.exists && targetStage === 'drive_upload' && (() => {
+                    const ready = isItemDriveReady(item)
+                    return (
                     <span
                       className="chip-meta-tag"
                       style={{
-                        background: item.can_upload_drive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: item.can_upload_drive ? '#10b981' : '#ef4444',
-                        borderColor: item.can_upload_drive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+                        background: ready ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: ready ? '#10b981' : '#ef4444',
+                        borderColor: ready ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
                         borderWidth: '1px',
                         borderStyle: 'solid',
                         fontWeight: 600,
                         fontSize: '10px',
                       }}
                     >
-                      {item.can_upload_drive
+                      {ready
                         ? (item.drive_uploaded ? 'drive ✓' : 'ready')
+                        : driveScope === 'video'
+                        ? 'no video'
+                        : driveScope === 'thumbnail'
+                        ? 'no thumb'
                         : (!item.has_video && !item.has_thumbnail
                             ? 'no video/thumb'
                             : !item.has_video
                             ? 'no video'
                             : 'no thumb')}
                     </span>
-                  )}
+                    )
+                  })()}
 
                   <button
                     className="chip-remove-btn"
@@ -824,17 +944,102 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           {targetStage === 'voice' && (
             <>
               <label>
-                Accent override
-                <input className="search-input" value={accent} placeholder="e.g. es_latam_neutral" onChange={(e) => setAccent(e.target.value)} />
-              </label>
-              <label>
-                Voice engine
-                <select className="search-input" value={voiceEngine} onChange={(e) => setVoiceEngine(e.target.value)}>
-                  <option value="">Configured default</option>
-                  <option value="typed">Typed</option>
-                  <option value="legacy">Legacy</option>
+                Voice provider
+                <select
+                  className="search-input"
+                  value={voiceProvider}
+                  onChange={(e) => setVoiceProvider(e.target.value as VoiceProvider)}
+                >
+                  <option value="auto">Auto Hybrid (Roleplay, Expression &amp; Fun Facts → ElevenLabs | Game → Local)</option>
+                  <option value="elevenlabs">ElevenLabs (All selected IDs)</option>
+                  <option value="local">Local Qwen3-TTS (All selected IDs)</option>
                 </select>
               </label>
+
+              {voiceProvider !== 'local' && (
+                <label>
+                  ElevenLabs model
+                  <select
+                    className="search-input"
+                    value={elevenLabsModel}
+                    onChange={(e) => setElevenLabsModel(e.target.value as ElevenLabsModelId)}
+                  >
+                    <option value="eleven_v3">Eleven v3 (Most Expressive — 1 cr/char)</option>
+                    <option value="eleven_multilingual_v2">Multilingual v2 (Classic Stable — 1 cr/char)</option>
+                    <option value="eleven_flash_v2_5">Flash v2.5 (Budget 2x — 0.5 cr/char)</option>
+                  </select>
+                </label>
+              )}
+
+              {voiceProvider !== 'local' && (
+                <div
+                  style={{
+                    background: 'var(--bg-main)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    fontSize: '12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div>
+                      <strong>ElevenLabs:</strong>{' '}
+                      {elevenLabsStatus?.configured ? (
+                        <span style={{ color: '#10b981' }}>
+                          API key configured
+                          {elevenLabsStatus.subscription
+                            ? ` · ${elevenLabsStatus.subscription.remaining_credits.toLocaleString()} / ${elevenLabsStatus.subscription.character_limit.toLocaleString()} credits left (${elevenLabsStatus.subscription.tier})`
+                            : ''}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#f59e0b' }}>API key not set in local main/.env</span>
+                      )}
+                    </div>
+                    {creditEstimate && (
+                      <div style={{ color: 'var(--text-muted)' }}>
+                        Estimated batch cost: <strong>~{creditEstimate.total_estimated_credits.toLocaleString()} credits</strong>{' '}
+                        ({creditEstimate.elevenlabs_count} ElevenLabs, {creditEstimate.local_count} Local)
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    onClick={() => setShowElevenLabsKeyModal(true)}
+                  >
+                    {elevenLabsStatus?.configured ? 'update ElevenLabs key' : 'set ElevenLabs API key'}
+                  </button>
+                </div>
+              )}
+
+              {voiceUsesElevenLabs && elevenLabsStatus && !elevenLabsStatus.configured && (
+                <div className="sheets-alert error">
+                  <AlertTriangle size={18} />
+                  <span>
+                    <strong>ElevenLabs API key missing.</strong> Click <em>set ElevenLabs API key</em> above to save your private key to local <code>main/.env</code> (gitignored), or switch provider to Local Qwen3-TTS.
+                  </span>
+                </div>
+              )}
+
+              <label>
+                Accent override
+                <input className="search-input" value={accent} placeholder="e.g. es_latam_neutral or es_spain_castilian" onChange={(e) => setAccent(e.target.value)} />
+              </label>
+              {voiceProvider !== 'elevenlabs' && (
+                <label>
+                  Local voice engine
+                  <select className="search-input" value={voiceEngine} onChange={(e) => setVoiceEngine(e.target.value)}>
+                    <option value="">Configured default</option>
+                    <option value="typed">Typed</option>
+                    <option value="legacy">Legacy</option>
+                  </select>
+                </label>
+              )}
               <label className="checkbox-label">
                 <input type="checkbox" checked={recast} onChange={(e) => setRecast(e.target.checked)} />
                 Choose new voices
@@ -845,6 +1050,20 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
             <label className="checkbox-label">
               <input type="checkbox" checked={keepSubtitles} onChange={(e) => setKeepSubtitles(e.target.checked)} />
               Reuse existing subtitles
+            </label>
+          )}
+          {targetStage === 'drive_upload' && (
+            <label>
+              Assets to upload to Google Drive
+              <select
+                className="search-input"
+                value={driveScope}
+                onChange={(e) => setDriveScope(e.target.value as 'all' | 'video' | 'thumbnail')}
+              >
+                <option value="all">Both: Final Video + Thumbnail(s)</option>
+                <option value="video">Final Video Only (.mp4)</option>
+                <option value="thumbnail">Thumbnail(s) Only (.png)</option>
+              </select>
             </label>
           )}
 
@@ -893,7 +1112,7 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
                   : targetStage === 'chalkboard'
                     ? `launch chalkboard creation (${gameIds.length} Game scripts)`
                     : targetStage === 'drive_upload'
-                    ? `launch mass drive upload (${driveReadyIds.length} scripts)`
+                    ? `launch mass drive upload — ${driveScope === 'video' ? 'video only' : driveScope === 'thumbnail' ? 'thumbnail only' : 'video + thumb'} (${driveReadyIds.length} scripts)`
                     : `launch mass generation (${validIds.length} scripts)`}
               </span>
             </button>
@@ -909,6 +1128,69 @@ export const MassAssetsCreationView: React.FC<MassAssetsCreationViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Secure ElevenLabs API Key Modal */}
+      {showElevenLabsKeyModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+          onClick={() => setShowElevenLabsKeyModal(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '10px',
+              padding: '24px',
+              maxWidth: '480px',
+              width: '90%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Mic size={18} style={{ color: 'var(--accent)' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Enter ElevenLabs API Key</h3>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
+              Saved strictly locally to <code>main/.env</code> (gitignored — never committed or exposed in API responses).
+            </p>
+            <input
+              type="password"
+              className="search-input"
+              placeholder="Paste your ElevenLabs API key (sk_...)"
+              value={elevenLabsKeyInput}
+              onChange={(e) => setElevenLabsKeyInput(e.target.value)}
+              style={{ width: '100%', marginBottom: '16px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setShowElevenLabsKeyModal(false)}
+                disabled={savingElevenLabsKey}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={handleSaveElevenLabsKey}
+                disabled={!elevenLabsKeyInput.trim() || savingElevenLabsKey}
+              >
+                {savingElevenLabsKey ? 'Saving...' : 'Save Key to .env'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

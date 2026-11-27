@@ -58,25 +58,26 @@ The pipeline models video production as a Directed Acyclic Graph (DAG) partition
  └────────────────────────────────┬──────────────────────────────────┘
                                   │
                                   ▼
- ┌───────────────────────────────────────────────────────────────────┐
- │               STAGE 2: video_creation/_B_voice_generation         │
- │   - Modular voice/ Split (4 Languages x 4 Video Types + Rollback) │
- │   - 1.7B-VoiceDesign Bank & Anti-Repetition Casting       │
- │   - Accent routing, ICL references & Roleplay acting cues │
- │   - Syntactic Carrier Prosody, ?/! Contours & Stress Gating       │
- │   - Per-Type Pause Choreography & Scipy Broadcast Mastering       │
- └───────────────┬────────────────┬──────────────────┬───────────────┘
- ├─────────────────────────────────────────────────────────────────────────────────────────┐
- │        │                │                  │                                            │
- │        ▼                ▼                  ▼                                            │
- │  ┌────────────────────────┐┌──────────────┐┌─────────────────────────┐                  │
- │  │  STAGE 3: _C_images    ││STAGE 4: _D_  ││ STAGE 5: _F_thumbnails  │                  │
- │  │ - Modular visual/      ││Standing Bank ││ - Native CPU Chalkboard │                  │
- │  │   + Cultural Worlds    ││160 Pre-Made  ││   Renderer (FreeType)   │                  │
- │  │ - Purely-positive 17yo ││Curated Audio ││ - Zero VRAM Generation  │                  │
- │  │   1:7 cfg=1.0 2D anchor││Jams (30s)    ││   (576x1024)            │                  │
- │  │ - Native CPU FreeType  │└──────┬───────┘└─────────┬───────────────┘                  │
- │  │   Chalkboard Typography│       │                  │                                  │
+  ┌───────────────────────────────────────────────────────────────────┐
+  │               STAGE 2: video_creation/_B_voice_generation         │
+  │   - Hybrid Engine: ElevenLabs (eleven_v3, 227-voice catalog, LRU) │
+  │     for ROLEPLAY / EXPRESSION / FUN_FACTS + Local Qwen3-TTS       │
+  │     (52 baseline voices) for GAME / offline fallback              │
+  │   - Accent routing (60/40 ES), ICL refs & Roleplay acting cues    │
+  │   - Syntactic Carrier Prosody, ?/! Contours & Stress Gating       │
+  │   - Per-Type Pause Choreography & Scipy Broadcast Mastering       │
+  └───────────────┬────────────────┬──────────────────┬───────────────┘
+  ├─────────────────────────────────────────────────────────────────────────────────────────┐
+  │        │                │                  │                                            │
+  │        ▼                ▼                  ▼                                            │
+  │  ┌────────────────────────┐┌──────────────┐┌─────────────────────────┐                  │
+  │  │  STAGE 3: _C_images    ││STAGE 4: _D_  ││ STAGE 5: _F_thumbnails  │                  │
+  │  │ - Modular visual/      ││Standing Bank ││ - Native CPU Pillow +   │                  │
+  │  │   + Cultural Worlds    ││160 Pre-Made  ││   FreeType (20 templates│                  │
+  │  │ - Positive 19yo 1:7.5  ││Curated Audio ││   + ES LatAm/Spain)     │                  │
+  │  │   sclera eyes cfg=1.0  ││Jams (30s)    ││ - Zero VRAM Generation  │                  │
+  │  │ - Native CPU FreeType  │└──────┬───────┘│   (576x1024)            │                  │
+  │  │   Chalkboard Typography│       │        └─────────┬───────────────┘                  │
  │  └───────────────┬────────┘       │                  │                                  │
  │                  └────────────────┼──────────────────┘                                  │
  │                                   ▼                                                     │
@@ -142,13 +143,13 @@ Content strategy is divided across four distinct formats, each strictly governed
   5. `dialogue_part_4`: Solo medium-wide 3/4 dynamic motion shot on `PERSON_ONE` (`35mm` lens, wider knees-up/hips-up framing stepping forward with renewed confidence).
   6. `payoff`: Celebratory wide action two-shot in motion (`28mm` lens).
 - **Story World Anchor & Purely-Positive Z-Image-Turbo (`cfg=1.0`) Pipeline**:
-  `_C_image_generation` executes a two-pass architecture under `visual/`: Pass 1 builds an overarching `general_prompt` locking setting, lighting, and complete layered character designs (upper garment + trousers/chinos/skirt; omitting footwear in cropped shots); Pass 2 synthesizes non-repetitive scene prompts anchored to this world (`GAME`, `EXPRESSION`, `FUN_FACTS` `hook` shots and `ROLEPLAY` dialogue shots use cropped waist-up / mid-thigh framing and strip wearable footwear via `strip_footwear_clauses` / `_CROPPED_SCENES`). Because Z-Image-Turbo runs at `cfg=1.0`, `sanitize_and_style_prompt()` appends a concise **purely-positive** style anchor (`17-year-old high-school senior`, `realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build`, `lively natural-sized simple black 2D cartoon eyes`, `pure text-free visual illustration`), never skips the proportion anchor on shortened tails, protects compound nouns (`reading lamp`, `reading alcove`, `reading hall`, `reading boxes`, `calling card`, `speaking lectern`), strips legacy negated tails idempotently, and upgrades younger ages (`8–15`, `fourteen-year-old`, `fifteen-year-old`, `14-16yo`) to `17-year-old`.
+  `_C_image_generation` executes a two-pass architecture under `visual/`: Pass 1 builds an overarching `general_prompt` locking setting, lighting, and complete layered character designs (upper garment + trousers/chinos/skirt; omitting footwear in cropped shots); Pass 2 synthesizes non-repetitive scene prompts anchored to this world (`GAME`, `EXPRESSION`, `FUN_FACTS` `hook` shots and `ROLEPLAY` dialogue shots use cropped waist-up / mid-thigh framing and strip wearable footwear via `strip_footwear_clauses` / `_CROPPED_SCENES`). Because Z-Image-Turbo runs at `cfg=1.0`, `sanitize_and_style_prompt()` appends a concise **purely-positive** style anchor (`19-year-old young adult`, `realistic young-adult 1:7.5 head-to-body proportions`, `expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights`, `pure text-free visual illustration`), never skips the proportion anchor on shortened tails, protects compound nouns (`reading lamp`, `reading alcove`, `reading hall`, `reading boxes`, `calling card`, `speaking lectern`), strips legacy negated tails idempotently, and upgrades younger ages/dot eyes automatically.
 - **Strict Gender-Accurate Hairstyle Sanitization (`sanitize_and_style_prompt`)**:
   Enforces programmatic guardrails preventing male characters from receiving female hairstyles (buns, bobs, ponytails, chignons) or female garments, and female characters from receiving masculine haircuts (quiffs, buzz cuts, crew cuts).
 - **Locked Character Continuity Anchors (`extract_or_build_character_anchors` / `CharacterCast`)**:
-  Extracts and persists character hairstyles, skin tones, eye anchors, wardrobes, and `17-year-old` profiles across all scenes in state JSONs.
+  Extracts and persists character hairstyles, skin tones, eye anchors, wardrobes, and `19-year-old` profiles across all scenes in state JSONs.
 - **Universal Multi-Character Gender Specification Rule (Zero-Ambiguity Mandate)**:
-  Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one 17-year-old high-school senior boy and one 17-year-old high-school senior girl"*). Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with complete upper + lower venue outfits.
+  Whenever MORE THAN ONE character appears in a visual prompt, the sex of each character must be explicitly defined (e.g. *"one 19-year-old young man and one 19-year-old young woman"*). Roleplay states track explicit character genders via `speakers_gender: {"PERSON_ONE": "...", "PERSON_TWO": "..."}` with complete upper + lower venue outfits.
 - **`SPECIAL_TREATMENT` Classification System**:
   - Optional 6th CSV column (`idiomatic`, `phonetic`, `false_friend`, or blank) defining the primary learning lens.
   - **Idiomatic Arc (Error #4 Fix)**: For multi-word figurative idioms, the LLM is instructed to enforce active usage modeling: P2 drops the full idiom in Part 1; P1 reacts to literal image while P2 clarifies in ≤1 sentence in Part 2; P2 demonstrates a new real-life usage in Part 3; and **P1 must use the complete idiom in an original sentence in Part 4** (the proof of learning).
@@ -198,9 +199,11 @@ Content strategy is divided across four distinct formats, each strictly governed
 
 ---
 
-## Voice Generation: Modular Architecture, VoiceDesign Bank & Syntactic Carrier Prosody
+## Voice Generation: Hybrid ElevenLabs + Local Qwen3-TTS & VoiceDesign Bank
 
-Stage 2 (`_B_voice_generation`) runs exclusively on **Qwen3-TTS** (`1.7B-Base` cloning + `1.7B-VoiceDesign` reference bank), combining a modular `voice/` package (split cleanly by target language and video type) with the **Syntactic Carrier & Continuous Prosody Architecture**, a curated local **Qwen3-TTS 1.7B-VoiceDesign reference bank**, and per-type **broadcast DSP vocal mastering**:
+Stage 2 (`_B_voice_generation`) combines **ElevenLabs (`eleven_v3`)** cloud synthesis (`_B_voice_generation/elevenlabs/`) for `ROLEPLAY`, `EXPRESSION`, and `FUN_FACTS` (`ELEVENLABS_HYBRID_TYPES`) with local **Qwen3-TTS** (`1.7B-Base` cloning + `1.7B-VoiceDesign` reference bank) for `GAME` and local overrides (`VOICE_PROVIDER=local`). Both share per-type **broadcast DSP vocal mastering** (`dsp_mastering.py`) and raised-cosine fade trimming (`audio_processor.py`).
+
+- **ElevenLabs Hybrid Routing (`elevenlabs/{catalog,client,orchestrator,tags}.py`)**: Curated **227-voice** `voice_catalog.json` (`EN: 57`, `FR: 70`, `IT: 50`, `ES: 50`) using full-cycle LRU rotation (`max_history=60`), same-speaker-only `previous_text`/`next_text` stitching, native `voice_settings["speed"]` (`0.94` Roleplay, `0.92` Expression/Fun Facts), and balanced Narrator genders (`male <-> female`) across `(E, R)` pairs while preserving local `speakers_voice` untouched.
 
 ### 1. Tokenizer Fragmentation & The Citation Monotone Trap
 - **The BPE Tokenizer Flaw**: In autoregressive TTS models (such as Qwen3-TTS), sub-word tokenizers split artificial phonetic respellings (`pri-ZENT`, `PRAHJ-ekt`) or hyphenated words into fragmented tokens. This causes the neural vocoder to hallucinate tense, unnatural vowel phonemes (e.g. `/reɪ/` "ray-cord" instead of reduced `/rɪˈkɔːrd/`).
@@ -248,22 +251,22 @@ Non-English pronunciation scripts receive native articulatory guidance tailored 
 `is_stress_pronunciation_vital()` disambiguates between linguistic pronunciation scripts and conversational/psychological topics (e.g. *"le stress des examens"*, *"gestion du stress"*, *"stress relief"*). Scripts addressing anxiety or relaxation retain standard expressive acting styles with zero phonetic prompt pollution.
 
 ### 9. Modular Language Profiles, Neutral Casting & `VOICE_ENGINE` Rollback (`_B_voice_generation/voice/`)
-Each target language owns an independent `LanguageVoiceProfile` under `voice/languages/` coupled with deterministic anti-repetition casting (`VoiceCastingEngine` persisted in `<OUTPUT_DIR>/voice_quality/casting_history.json`) and an instant rollback toggle (`VOICE_ENGINE=typed|legacy|legacy:<type,lang>`):
-- **English (`voice/languages/english.py`)**: 70/30 `en_us_neutral` / `en_uk_neutral` neutral accent mix (`narrator_temp=0.84`, `dialogue_temp=0.77`) with automatic UK/US topic locking and **English-manifest ICL locking** (`ComfyClient._has_manifest_ref_text()` sets `use_icl=True` / `x_vector_only=False` + exact `ref_text`) so VoiceDesign English voices stay locked to the same identity across every segment.
-- **French (`voice/languages/french.py`)**: Parisian *esprit français* legato *groupes rythmiques* and liaisons (`fr_standard`, `narrator_temp=0.85`, `dialogue_temp=0.80`).
-- **Spanish (`voice/languages/spanish.py`)**: Neutral-only accent mix (**75% `es_latam_neutral`** / **25% `es_spain_castilian`**) with automatic Spain vs. LatAm dialect locking (`detect_dialect_hint()`), plus non-destructive `prepare_tts_prosody_text()` opening `¿`/`¡` injection (`narrator_temp=0.85`, `dialogue_temp=0.79`).
-- **Italian (`voice/languages/italian.py`)**: High-energy melodic prosody, wide pitch excursions, and crisp double consonants (`it_standard`, `narrator_temp=0.87`, `dialogue_temp=0.83`).
-- **Sampling Ceilings & Calm High-Impact Recovery**: `compute_segment_sampling()` caps `temperature <= 0.90` and `subtalker_temperature <= 0.86` (protecting `GAME` `challenge` neutrality), and if all high-impact candidates (`hook`, `answer`, `payoff`, etc.) fail `evaluate_voice_take()`, `orchestrator.py` automatically runs one calmer recovery retry (`temp - 0.10`, `sub_temp - 0.06`, `seed + 1999`).
+Each target language owns an independent `LanguageVoiceProfile` under `voice/languages/` coupled with deterministic anti-repetition casting (`VoiceCastingEngine` persisted in `<OUTPUT_DIR>/voice_quality/casting_history.json`) and rollback/provider toggles (`VOICE_PROVIDER=auto|local|elevenlabs` and `VOICE_ENGINE=typed|legacy|legacy:<type,lang>`):
+- **English (`voice/languages/english.py`)**: 70/30 `en_us_neutral` / `en_uk_neutral` neutral accent mix (local `narrator_sampling`: `0.79`/`0.76`) with automatic UK/US topic locking and **English-manifest ICL locking** (`ComfyClient._has_manifest_ref_text()` sets `use_icl=True` / `x_vector_only=False` + exact `ref_text`).
+- **French (`voice/languages/french.py`)**: Parisian *esprit français* legato *groupes rythmiques* and liaisons (`fr_standard`, local `narrator_sampling`: `0.79`/`0.76`).
+- **Spanish (`voice/languages/spanish.py`)**: Exact Bresenham accent rotation (**60% `es_latam_neutral`** / **40% `es_spain_castilian`**) with automatic Spain vs. LatAm dialect locking (`detect_dialect_hint()`), plus non-destructive `prepare_tts_prosody_text()` opening `¿`/`¡` injection (`narrator_sampling`: `0.79`/`0.76`).
+- **Italian (`voice/languages/italian.py`)**: High-energy melodic prosody and crisp double consonants (`it_standard`, local `narrator_sampling`: `0.79`/`0.76`).
+- **Sampling Ceilings & Quality Gates**: `compute_segment_sampling()` caps `temperature <= 0.90` and `subtalker_temperature <= 0.86`; narrator-only clean Fast-Pass skips extra candidate reruns at score `>= 0.70`; `GAME` checks `high_impact_sections = ("hook", "answer")` and `FUN_FACTS` checks `("hook",)`; `acoustic_evaluator.py` restricts `Flat question intonation` checks to `word_count <= 9`.
 
 ### 10. Local voice bank and format-specific delivery
 
-The current workstation bank contains **52 baseline voices and 40 same-speaker variants**, indexed in `<VOICE_BANK_DIR>/voice_bank_manifest.json`. The builder and persona catalog are versioned here. The active WAVs and manifest are local runtime assets. Casting uses the available curated and Open Swara references, with Kokoro reference clips available as a fallback.
+The current workstation bank contains **52 baseline voices** (after retiring the 75 unused Roleplay emotion-variant clips), indexed in `<VOICE_BANK_DIR>/voice_bank_manifest.json` with 100% verified `ref_text` and `f0_mean`. Casting excludes `roleplay_*` actor baselines from `GAME`/`FUN_FACTS`, removes blacklisted fallback speakers **before** accent locking, and keeps `kokoro_golden` clips only as a legacy fallback.
 
 Automatic casting prefers a warm narrator for teaching and an expressive host for Game when the matching pool supports rotation. Voices flagged in listening review for overly subdued or forceful delivery stay available for deliberate casting or as fallbacks. Narrator instructions favor contrast through timing and word stress at conversational volume.
 
-- **Expression and Fun Facts** synthesize each narration section continuously, with separate directions for the opening, discovery, explanation, and payoff.
-- **Game** keeps a single narrator, even option emphasis, and fixed option spacing. The question and reveal get separate directions.
-- **Roleplay** gives each character a continuous turn, an acting cue, and the other character's preceding line as instruction-only context. The cast stays pinned. When a matching acted reference is available Studio can use it for that speaker, with the baseline as fallback. The bank contains baseline, high-energy, and urgent clips, and supports further acted reference tiers.
+- **Expression, Roleplay, and Fun Facts** default to **ElevenLabs (`eleven_v3`)** when configured (`ELEVENLABS_HYBRID_TYPES`) with same-speaker stitching context, and seamlessly support Local Qwen3-TTS via `VOICE_PROVIDER=local`.
+- **Game** uses **Local Qwen3-TTS** by default with a single narrator, even option emphasis, and fixed `0.26s` option micro-pauses.
+- **Roleplay** gives each character a continuous turn, a performance cue (or ElevenLabs audio tag), and the other character's preceding turn as instruction-only context on local renders. The cast stays pinned across all four dialogue parts.
 
 Build staged auditions with `--auditions-only --bank-dir <scratch-bank> --skip-variants`. Filter with `--language` or `--speaker-ids` for a small batch. Use `--promote-from <scratch-bank> --speaker-ids <approved-ids>` to add reviewed and validated references to the active bank. Add `--dry-run` to inspect the selection first.
 
@@ -385,12 +388,12 @@ The production entry point is the browser-based studio (`main/webui/`) powered b
 
 - **The 6 Core Views**:
   1. **Home**: High-level pipeline overview, active KPI summaries, and quick launch actions.
-  2. **Script Catalog (`ScriptList.tsx` & `ScriptDetailModal.tsx`)**: Filter/search all scripts, inspect sections/audio/images/SEO metadata, run the **Gemini Prompt Auditor** (auto-rerolling Cultural Worlds), redo single scenes or queue a full image rebuild preserving your edited `general_prompt` (`preserve_general_prompt=True` via two-phase Llama + ComfyUI handoff), render Game chalkboards, or upload a single script to Google Drive (`POST /api/drive/scripts/{script_id}/upload`).
+  2. **Script Catalog (`ScriptList.tsx` & `ScriptDetailModal.tsx`)**: Filter/search all `1,224` scripts, inspect sections/audio/images/SEO metadata, edit thumbnail/chalkboard text (`render-thumbnail`, `render-chalkboard`), run the **Gemini Prompt Auditor**, redo single scenes or queue a full image rebuild preserving your edited `general_prompt` (`preserve_general_prompt=True` via two-phase Llama + ComfyUI handoff), or upload scoped assets to Google Drive (`POST /api/drive/scripts/{script_id}/upload`).
   3. **Queue (`JobQueueView.tsx`)**: Task runner with live terminal log streaming via WebSockets (`/ws/jobs/{job_id}`), progress bars, and cancellation controls.
   4. **Mass Assets Creation Studio (`MassAssetsCreationView.tsx`)**:
-     - Targeted batch execution across all **7 stages**: **Script Dialogues** (Stage A), **Scene Images** (Stage C — `preserve_general_prompt=False` so `force` / `regenerate_prompts` rebuilds both `general_prompt` and storyboard `image_prompts`), **Voice Files** (Stage B), **Thumbnail Images** (Stage F), **Chalkboard Images** (Game only, CPU), **Video Assembly** (Stage G — targeted IDs always render a replacement before publishing it once Stage B + C prerequisites pass), and **Google Drive Upload** (`drive_upload` — bundle replacement after both uploads succeed).
-     - Accepts arbitrary ID lists, CSV drag-and-drop, or one-click catalog presets with real-time validation (`POST /api/scripts/validate-ids`).
-  5. **Google Sheets Sync (`GoogleSheetsSyncView.tsx`)**: 4-step interactive workflow across all 16 sheets (including `FUN_FACTS`) fetching Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`), running format-aware diffs, applying edits to state JSONs (invalidating stale titles/anchors on topic change & resetting downstream stages), and syncing tracking manifests.
+     - Targeted batch execution across all **7 stages**: **Script Dialogues** (Stage A), **Scene Images** (Stage C — `preserve_general_prompt=False` so `force` / `regenerate_prompts` rebuilds both `general_prompt` and storyboard `image_prompts`), **Voice Files** (Stage B — hybrid ElevenLabs `eleven_v3` + Local Qwen3-TTS with credit estimator & provider/model selectors), **Thumbnail Images** (Stage F — 20 CPU templates + Spanish LatAm/Spain variants), **Chalkboard Images** (Game only, CPU), **Video Assembly** (Stage G — strict `keep_subtitles` toggle, non-overlapping ASS subtitles, staged MP4 replacement), and **Google Drive Upload** (`drive_upload` — scoped `all`/`video`/`thumbnail` replacement).
+     - Accepts arbitrary ID lists, CSV drag-and-drop, or one-click catalog presets (including pending thumbnails filtering `stages.thumbnails !== 'done'`) with real-time validation (`POST /api/scripts/validate-ids`).
+  5. **Google Sheets Sync (`GoogleSheetsSyncView.tsx`)**: Supports both **Script Modifications** (`POST /api/sheets/sync`: Column D + Column B across all 16 sheets with `GAME` option merging and `Counter`-based diffing) and **Thumbnail Titles Sync** (`POST /api/sheets/sync-thumbnails`: Column J `THUMBNAIL_TITLE` across all 16 sheets, resetting only `thumbnail_generation`).
   6. **Bingo Matrix (`BingoMatrixView.tsx`)**: At-a-glance asset readiness matrix across all 16 language/format matrices.
 
 ---
@@ -431,8 +434,8 @@ main/connectivity/
    - Supports both in-place updates of existing IDs and automatic appending of new records.
 5. **Scan Ready Scripts by Date (`connectivity/scan_ready_scripts.py`)**:
    Scans Google Sheets for rows where `script_ready` (Column E) is checked and `video_ready` (Column G) is NOT checked. Skips completed videos (`video_ready == True`). Exports grouped `ID, expression` records into daily CSV files in `<OUTPUT_DIR>/connectivity/ready_scripts/<YYYY-MM-DD>_ready_scripts.csv` (or `undated_ready_scripts.csv` if date is blank).
-6. **Google Drive Export & Clean Replacement Sync (`connectivity/sync_drive.py` & `drive_sync/`)**:
-   Validates that both the finished video and thumbnail exist locally, then removes duplicate `<script_id>` folders and clears existing remote files inside `<root>/<language>/<expressions|fun_facts|game|role_play>/<script_id>/` (with Shared Drives support and HTTP 400/403 Trash fallback) before uploading fresh `<script_id>.mp4` and `<script_id>_thumbnail.png` files and updating `StateManager`.
+6. **Google Drive Export & Scoped Replacement Sync (`connectivity/sync_drive.py` & `drive_sync/`)**:
+   Supports `drive_scope` (`all`, `video`, or `thumbnail`), validates the required local asset(s) (including paired Spanish `thumbnail_latam.png` + `thumbnail_spain.png`), automatically falls back from expired `token.json` to `client_secret.json` browser OAuth re-auth, removes duplicate `<script_id>` folders and old target files inside `<root>/<language>/<expressions|fun_facts|game|role_play>/<script_id>/`, and updates `StateManager`.
 
 ---
 
@@ -494,15 +497,19 @@ LLM_API_BASE_URL=http://127.0.0.1:8080/v1
 LLM_MODEL_NAME=Gemma-4-E2B
 
 # ==============================================================================
-# ComfyUI & Voice Generation Configuration
+# ComfyUI, Local Qwen3-TTS & ElevenLabs Hybrid Voice Configuration
 # ==============================================================================
 COMFY_API_URL=http://127.0.0.1:8188
 # COMFY_DIR=../../ComfyUI_windows_portable
 # COMFY_OUTPUT_DIR=../../ComfyUI_windows_portable/ComfyUI/output
 # COMFY_INPUT_DIR=../../ComfyUI_windows_portable/ComfyUI/input
 # OPEN_SWARA_DIR=../../ComfyUI_windows_portable/open-swara/voices
-# VOICE_ENGINE=typed
 # VOICE_BANK_DIR=../../ComfyUI_windows_portable/open-swara/voices/voice_design_bank
+# VOICE_ENGINE=typed
+# VOICE_PROVIDER=auto            # auto | elevenlabs | local
+# ELEVENLABS_API_KEY=            # Configured via main/.env or WebUI modal
+# ELEVENLABS_MODEL_ID=eleven_v3
+# GEMINI_API_KEY=                # Configured for WebUI Gemini Prompt Auditor
 
 # ==============================================================================
 # Media Storage Directory
@@ -642,9 +649,9 @@ shorts_automation/
 │   │   └── images/                     # Static brand assets
 │   │       ├── game_images/            # Empty chalkboard template and waiting illustrations
 │   │       ├── openning_closure_images/# Opening bumper (2.0s) and outro CTA cards (3.0s)
-│   │       ├── thumbnail_models/       # Reference character portraits for Flux Img2Img
+│   │       ├── thumbnail_models/       # 20 category-specific master templates (<lang>/<cat>/template.png + ES latam/spain)
 │   │       └── watermark/              # Channel watermark logo (.png)
-│   ├── state/                          # Runtime script state artifacts (JSONs ignored by git)
+│   ├── state/                          # Runtime script state artifacts (1,224 JSONs, ignored by git)
 │   │   ├── README.md                   # State directory guide and schema documentation
 │   │   └── script_state.sample.json    # Canonical reference state schema
 │   ├── tools/                          # Developer utilities and operations CLI
@@ -652,12 +659,12 @@ shorts_automation/
 │   │   ├── database/                   # DB sync, ID assignment, and CLI query tools
 │   │   ├── modifiers/                  # Interactive single & mass asset modifiers (script, voice, image, subtitles)
 │   │   ├── prompt_builders/            # System editor prompt compilation tools
-│   │   ├── webui.py                    # WebUI launcher tool
+│   │   ├── webui.py                    # WebUI launcher tool (port 8190)
 │   │   ├── llama.py                    # Headless LLM supervisor tool
 │   │   ├── comfy.py                    # Headless ComfyUI supervisor tool
-│   │   └── check_script_changes.py     # Script change auditor & synchronizer
+│   │   └── check_script_changes.py     # Script change auditor & synchronizer (Counter GAME diffing)
 │   ├── webui/                          # Modern WebUI Management Studio (FastAPI + React 19)
-│   │   ├── frontend/                   # React 19, TypeScript, Vite & Tailwind source code
+│   │   ├── frontend/                   # React 19, TypeScript, Vite 8 & Tailwind source code
 │   │   ├── jobs/                       # Background task runner & stage adapters (scripts, voice, images, chalkboard, thumbnails, assembly, drive)
 │   │   ├── routers/                    # API route controllers (system, jobs, scripts, media, sheets, drive)
 │   │   ├── static/                     # Pre-compiled production React SPA assets
@@ -665,21 +672,22 @@ shorts_automation/
 │   │   └── README.md                   # WebUI architecture & API documentation
 │   ├── video_creation/                 # Core generation stages (_A through _G)
 │   │   ├── workflows/                  # Exported ComfyUI JSON API workflows (incl. Qwen3-TTS VoiceDesign.json)
-│   │   ├── _A_video_scripts/           # Scriptwriting, prompt rules, and metadata synthesis
-│   │   ├── _B_voice_generation/        # Stage B modular Qwen3-TTS & VoiceDesign bank suite
+│   │   ├── _A_video_scripts/           # Scriptwriting, prompt rules, verbatim parser, and metadata synthesis
+│   │   ├── _B_voice_generation/        # Stage B Hybrid ElevenLabs + Local Qwen3-TTS & VoiceDesign bank suite
+│   │   │   ├── elevenlabs/             # 227-voice catalog (LRU), Eleven v3 client, hybrid orchestrator & audio tags
 │   │   │   ├── core/                   # comfy_client.py, acoustic_evaluator.py, audio_processor.py, voice_manager.py, script_parser.py, stress_enhancer.py
-│   │   │   ├── data/                   # voice_bank_personas.json (active and audition personas) & ref transcript CSVs
+│   │   │   ├── data/                   # voice_bank_personas.json & ref transcript CSVs
 │   │   │   ├── tools/                  # build_voice_bank.py (1.7B-VoiceDesign bank + HPS/spectral gate)
 │   │   │   ├── voice/                  # Modular common/ (casting, punctuation, dsp_mastering, orchestrator), languages/ (4), types/ (4)
-│   │   │   ├── voice_modifier.py       # Interactive recaster & modifier (100% parity with orchestrator)
+│   │   │   └── voice_modifier.py       # Interactive recaster & modifier (100% parity with orchestrator)
 │   │   ├── _C_image_generation/        # Scene illustration & visual direction suite
 │   │   │   ├── core/                   # prompt_builder.py, chalkboard_renderer.py, comfy_client.py
 │   │   │   ├── visual/                 # Modular common/style/sanitizer, 124 Cultural Worlds (languages/), and typed rules (types/)
 │   │   │   ├── image_modifier.py       # Single scene & batch group recreation, dual gender casting
-│   │   │   └── main.py                 # Multi-scene image generation runner
+│   │   │   └── service.py              # Shared Stage C generation service called by WebUI ImagesAdapter
 │   │   ├── _D_music_generation/        # Standing Music Bank generator and catalog
-│   │   ├── _F_thumbnail_image_generation/ # Native CPU chalkboard thumbnail renderer
-│   │   └── _G_video_assembly/          # Modular assembly/ (types/ + languages/), Whisper subtitles, audio ducking & FFmpeg
+│   │   ├── _F_thumbnail_image_generation/ # Native CPU category thumbnail renderer (20 templates + Spanish variants)
+│   │   └── _G_video_assembly/          # Modular assembly/ (types/ + languages/), Whisper subtitles (non-overlap), audio ducking & FFmpeg
 │   ├── requirements.txt                # Production runtime dependencies
 │   ├── system_prompts_editor.csv       # External LLM system prompts for script doctoring
 │   ├── .env.example                    # Environment variable configuration template

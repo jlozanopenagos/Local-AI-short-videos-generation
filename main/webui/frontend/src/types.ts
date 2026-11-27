@@ -44,8 +44,13 @@ export interface ScriptAssets {
   audio: string | null
   images: string[]
   thumbnail: string | null
+  thumbnail_variants?: Record<string, string>
   video: string | null
   poster?: string | null
+  drive_folder_url?: string
+  drive_video_url?: string
+  drive_thumbnail_url?: string
+  drive_thumbnails?: Record<string, { id?: string; name?: string; url?: string }>
 }
 
 export interface ScriptSummary {
@@ -129,13 +134,23 @@ export interface ScriptDetail extends ScriptSummary {
   game_archetype?: string
   learning_objective?: string
   speakers_voice?: Record<string, string>
+  speakers_elevenlabs_voice?: Record<string, string>
   speakers_gender?: Record<string, string>
+  voice_profile_meta?: {
+    engine?: string
+    provider?: string
+    elevenlabs_model?: string
+    dialect?: string
+    video_type?: string
+    credits_used?: number
+  }
   scenes?: SceneDetail[]
   youtube_metadata?: YouTubeMetadata
   script_text?: string
   script_dict?: Record<string, any>
   chalkboard_exercise?: string
   chalkboard_title?: string
+  thumbnail_title?: string
   target_expression?: string
 }
 
@@ -144,6 +159,7 @@ export interface ScriptUpdatePayload {
   script_dict?: Record<string, any>
   chalkboard_exercise?: string
   chalkboard_title?: string
+  thumbnail_title?: string
   target_expression?: string
   general_prompt?: string
   character_anchors?: Record<string, any>
@@ -183,9 +199,12 @@ export interface SheetsSyncRecord {
   delta_words: string
   diff_preview: string
   status: 'updated' | 'failed' | 'pending'
+  old_title?: string
+  new_title?: string
 }
 
 export interface SheetsSyncResult {
+  sync_mode?: 'scripts' | 'thumbnails'
   purged_csvs: string[]
   fetched_files: { filename: string; count: number }[]
   total_fetched: number
@@ -228,6 +247,49 @@ export interface ValidatedScriptId {
   has_thumbnail?: boolean
   can_upload_drive?: boolean
   drive_uploaded?: boolean
+}
+
+export type VoiceProvider = 'auto' | 'elevenlabs' | 'local'
+export type ElevenLabsModelId = 'eleven_v3' | 'eleven_multilingual_v2' | 'eleven_flash_v2_5'
+
+export interface ElevenLabsModelInfo {
+  id: ElevenLabsModelId
+  label: string
+  credits_per_char: number
+  supports_audio_tags: boolean
+}
+
+export interface ElevenLabsSubscriptionInfo {
+  tier: string
+  status: string
+  character_count: number
+  character_limit: number
+  remaining_credits: number
+  next_reset_unix?: number | null
+}
+
+export interface ElevenLabsStatus {
+  configured: boolean
+  default_provider: VoiceProvider
+  default_model: ElevenLabsModelId
+  hybrid_types: string[]
+  models: ElevenLabsModelInfo[]
+  subscription?: ElevenLabsSubscriptionInfo | null
+  subscription_error?: string | null
+}
+
+export interface VoiceCreditEstimateResponse {
+  model_id: ElevenLabsModelId
+  voice_provider: VoiceProvider
+  total_estimated_credits: number
+  elevenlabs_count: number
+  local_count: number
+  items: {
+    id: string
+    video_type: string
+    provider: 'elevenlabs' | 'local'
+    estimated_credits: number
+  }[]
 }
 
 export interface ValidateIdsResponse {

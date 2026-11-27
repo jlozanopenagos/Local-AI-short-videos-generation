@@ -76,7 +76,7 @@ LANGUAGE PURITY IN DIALOGUE (STRICT — ALL LANGUAGES):
 MANDATORY JSON STRUCTURE:
 -----------------------------
 The "script" object for ROLEPLAY MUST contain EXACTLY these 7 keys:
-1. "title": Catchy, short situational scene title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS).
+1. "title": Catchy, short situational scene title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS, NO category/format prefixes like "Quiz:", "Expression:", "Fun Fact:", "Roleplay:", "In Action:", "Origin:").
 2. "hook": Spoken by NARRATOR (15-20 words). High-energy setup (100% in TARGET_LANGUAGE).
 3. "DIALOGUE_PART_1": Spoken by PERSON_ONE then PERSON_TWO. Both lines separated by \\n.
 4. "DIALOGUE_PART_2": Spoken by PERSON_ONE then PERSON_TWO. Reaction to trigger. Both lines separated by \\n.

@@ -7,16 +7,16 @@ Modern, high-performance Web Single Page Application (SPA) for managing, monitor
 ## Tech Stack & Architecture
 
 - **Core Framework**: React 19 + TypeScript (Strict Type Safety)
-- **Build Tool**: Vite 7 (Lightning-fast HMR and optimized asset bundling)
+- **Build Tool**: Vite 8 (fast HMR and optimized asset bundling)
 - **Styling**: Tailwind CSS + Lucide React icon set
 - **Streaming & Real-Time Comms**: WebSockets (`/ws/jobs/{job_id}`, `/ws/system`) paired with adaptive REST status polling
-- **Backend Delivery**: Pre-compiled production bundle output to `shorts_automation/main/webui/static/`, served as static files by FastAPI (`main/webui/server.py`).
+- **Backend Delivery**: Pre-compiled production bundle output to `shorts_automation/main/webui/static/`, served as static files by FastAPI (`main/webui/server.py`, default port `8190`).
 
 ---
 
 ## Voice controls
 
-Use Voice with Force to regenerate audio and enable Recast if you want Studio to pick different references. Review the resulting audio in the Script Detail modal. The active voice bank is configured on the backend.
+Voice generation supports **Hybrid routing** (`Auto`: ElevenLabs `eleven_v3` for `ROLEPLAY`, `EXPRESSION`, and `FUN_FACTS`, Local Qwen3-TTS for `GAME`), **ElevenLabs only**, or **Local Qwen3-TTS only**. Configure `ELEVENLABS_API_KEY` directly in Mass Creation (persisted to gitignored `main/.env`), pick the ElevenLabs model (`eleven_v3`, `eleven_multilingual_v2`, `eleven_flash_v2_5`), preview estimated credits before launch, and enable **Force** / **Recast (`Choose new voices`)** when rerendering. The active local bank (`52` baseline voices) and ElevenLabs curated catalog (`227` voices) live on the backend.
 
 ## The 6 Primary Navigation Views
 
@@ -27,11 +27,11 @@ The WebUI is structured around 6 tabs in the top navigation bar (`Navbar.tsx`):
 
 ### 2. Script Catalog & Detail Inspection (`ScriptList.tsx` & `ScriptDetailModal.tsx`)
 - **System Health Telemetry (`SystemCard.tsx`)**: Live connectivity status for the LLM Server, ComfyUI, and hardware/VRAM telemetry with start/stop controls.
-- **Filterable Catalog**: Search and filter available scripts by language, video format, and stage status.
-- **Script Detail Modal (`ScriptDetailModal.tsx`)**: Inspects script sections, audio waveform, scene storyboard illustrations, thumbnail preview, and YouTube SEO metadata:
-  - **Gemini Prompt Auditor**: Calls `POST /api/scripts/{script_id}/gemini-audit-prompt` to enforce purely-positive Z-Image-Turbo rules and automatically reroll a fresh Cultural World excluding the previous draft's setting.
+- **Filterable Catalog**: Search and filter available scripts (`1,224` in `main/state/`) by language, video format, and stage status.
+- **Script Detail Modal (`ScriptDetailModal.tsx`)**: Inspects script sections, audio waveform, scene storyboard illustrations, live-editable thumbnail title & preview (`POST /api/scripts/{script_id}/render-thumbnail`), and YouTube SEO metadata:
+  - **Gemini Prompt Auditor**: Calls `POST /api/scripts/{script_id}/gemini-audit-prompt` to reroll Cultural Worlds and audit prompts.
   - **Single-Scene & Full-Set Image Redo**: Redo individual scene frames, or trigger **Queue Redo (All Images)** to preserve your saved/edited `general_prompt` (`preserve_general_prompt=True`) while running the two-phase Llama -> ComfyUI rebuild of all scene prompts and PNGs.
-  - **Direct Google Drive Upload**: Verifies video + thumbnail presence and uploads cleanly (`POST /api/drive/scripts/{script_id}/upload`), deleting existing duplicates before uploading.
+  - **Direct Google Drive Upload**: Scoped upload (`all`, `video`, or `thumbnail`) via `POST /api/drive/scripts/{script_id}/upload`, cleaning existing duplicates before uploading.
 
 ### 3. Queue (`JobQueueView.tsx`)
 - **Active Task Monitoring**: Real-time visualization of queued, running, completed, and cancelled background worker jobs.
@@ -39,18 +39,19 @@ The WebUI is structured around 6 tabs in the top navigation bar (`Navbar.tsx`):
 
 ### 4. Mass Assets Creation (`MassAssetsCreationView.tsx`)
 High-throughput batch production interface for arbitrary script ID lists across any language or video format:
-- **Flexible ID Collection**: Accepts pasted IDs (`POST /api/scripts/validate-ids`), CSV drag-and-drop (`ID` / `SCRIPT_ID` column), or one-click catalog presets (*pending scene images*, *pending voice tracks*, *pending thumbnails*, *ready for video assembly*, *ready for drive upload (video + thumb)*, *game chalkboards*).
+- **Flexible ID Collection**: Accepts pasted IDs (`POST /api/scripts/validate-ids`), CSV drag-and-drop (`ID` / `SCRIPT_ID` column), or one-click catalog presets (*pending scene images*, *pending voice tracks*, *pending thumbnails* filtering `stages.thumbnails !== 'done'`, *ready for video assembly*, *ready for drive upload*, *game chalkboards*).
 - **7 Supported Target Stages**:
   - **Script Dialogues** (`scripts`, Stage A): Regenerates modular scripts via LLM.
   - **Scene Images** (`images`, Stage C): When forced (`force: true` default), rebuilds both `general_prompt` and storyboard `image_prompts` via Llama before rendering via ComfyUI.
-  - **Voice Files** (`voice`, Stage B): Multi-speaker Qwen3-TTS + Kokoro synthesis with automatic Llama VRAM handoff.
-  - **Thumbnail Images** (`thumbnails`, Stage F): Vertical chalkboard thumbnails (`1080x1920`).
+  - **Voice Files** (`voice`, Stage B): Hybrid ElevenLabs (`eleven_v3`) + Local Qwen3-TTS (`ComfyUI`) synthesis with automatic Llama VRAM handoff, credit estimation, accent/model overrides, and recasting.
+  - **Thumbnail Images** (`thumbnails`, Stage F): Vertical category thumbnails (`576x1024`, zero VRAM) across 20 templates including Spanish LatAm/Spain variants.
   - **Chalkboard Images** (`chalkboard`, Game only): Instant CPU FreeType chalk typography rendering (zero ComfyUI/LLM).
-  - **Video Assembly** (`assembly`, Stage G): Always dispatches with `force: true`; validates Stage B + Stage C prerequisites, unlinks any existing final `.mp4` on disk, and re-renders modular typed video & ASS subtitles from scratch.
-  - **Google Drive Upload** (`drive_upload`): Filters to scripts that have both final video and thumbnail, removes existing duplicates on Drive, and uploads fresh `<script_id>.mp4` & `<script_id>_thumbnail.png` bundles via `DriveAdapter`.
+  - **Video Assembly** (`assembly`, Stage G): Always dispatches with `force: true`; validates Stage B + Stage C prerequisites, strictly respects the **"Reuse existing subtitles"** checkbox (`keep_subtitles`), and renders non-overlapping `.ass` captions and MP4s via staged replacement.
+  - **Google Drive Upload** (`drive_upload`): Supports `drive_scope` selector (**Both: Final Video + Thumbnail(s)**, **Final Video Only**, **Thumbnail(s) Only**), validates scope readiness, removes existing duplicates on Drive, and uploads via `DriveAdapter`.
 
 ### 5. Google Sheets Sync (`GoogleSheetsSyncView.tsx`)
-- Interactive 4-step browser sync powered by `/api/sheets/sync` & `/api/sheets/status` across all 16 sheets (including `FUN_FACTS`): cache purge, Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) + Column B (`EXPRESSION`) fetch, format-aware diff audit, and state JSON synchronization with automatic topic-change and downstream invalidation.
+- **Script Revisions (Column D)**: Interactive 4-step sync powered by `/api/sheets/sync` across all 16 sheets (`SCRIPT_CHANGED`/`SCRIPT_CHANGE` + Column B `EXPRESSION`) with `Counter`-based diffing and `GAME` option merging.
+- **Thumbnail Titles Sync (Column J)**: Syncs Column J (`THUMBNAIL_TITLE`) across all 16 sheets via `/api/sheets/sync-thumbnails`, updating `content_metadata.thumbnail_title` and resetting only `thumbnail_generation` to `pending`.
 
 ### 6. Bingo Matrix (`BingoMatrixView.tsx`)
 - Visual asset readiness grid tracking completion across all 16 language/format matrices (`EE`, `EG`, `ER`, `EF`, etc.).
@@ -96,15 +97,15 @@ main/webui/frontend/
 
 ### Local Development (with Hot Reloading)
 ```bash
-# 1. Start the FastAPI backend
-py main/tools/webui.py --port 8000
+# 1. Start the FastAPI backend (default port 8190)
+py main/tools/webui.py
 
 # 2. In another terminal, start the Vite development server
 cd main/webui/frontend
 npm install
 npm run dev
 ```
-Vite will launch on `http://localhost:5173` and automatically proxy API calls (`/api/*`) to `http://127.0.0.1:8000`.
+Vite launches on `http://127.0.0.1:5173` and proxies API/WebSocket calls (`/api/*`, `/ws/*`) to the FastAPI backend (`8190`).
 
 ### Production Build
 Whenever frontend source files in `src/` are modified, rebuild the production bundle:

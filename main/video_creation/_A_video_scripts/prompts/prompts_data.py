@@ -90,6 +90,7 @@ FIELD RULES
 TITLE (STRICT - ZERO EMOJIS)
 - STRICT EMOJI BAN: NEVER include any emojis, symbols, or pictographs in the title. Emojis are strictly forbidden.
 - STRICT CLICHÉ BAN: NEVER use formulaic filler suffixes: "The Native Secret", "The Secret", "Secret", "Le Secret des Natifs", "Il Segreto dei Nativi", "El Secreto de los Nativos", "Shorts Guide", "Game Changer", "Changes Everything".
+- STRICT NO VIDEO-TYPE LABELS: NEVER prefix or label the title with the video format or category (e.g., NEVER write "Quiz:", "Game:", "Expression:", "Fun Fact:", "Roleplay:", "In Action:", "En Acción:", "En Action :", "In Azione:", "Origin:", "Origen:", "Origine:"). The thumbnail artwork already identifies the format.
 - Structure: Expression or Topic + colon or separator + tension-based hook reflecting the video format.
 - Capitalize for readability: Use UPPERCASE for 1–3 high-impact hook words; Title Case for supporting words; lowercase for prepositions/connectors.
 - Must be specific to this exact script and format.

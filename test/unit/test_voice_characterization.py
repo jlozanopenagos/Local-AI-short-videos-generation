@@ -134,6 +134,15 @@ class TestVoiceCharacterization(unittest.TestCase):
 
         self.fixture_dir = Path(__file__).resolve().parents[1] / "fixtures" / "image_prompts" / "states"
         self.test_sm = StateManager(self.base_dir)
+        self._env_patch = patch.dict(
+            os.environ,
+            {"VOICE_PROVIDER": "local", "ELEVENLABS_API_KEY": ""},
+        )
+        self._env_patch.start()
+        self.addCleanup(self._env_patch.stop)
+        self._cfg_patch = patch.object(config, "VOICE_PROVIDER", "local")
+        self._cfg_patch.start()
+        self.addCleanup(self._cfg_patch.stop)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -168,7 +177,7 @@ class TestVoiceCharacterization(unittest.TestCase):
             staged.write_bytes(b"partial replacement")
             return None
 
-        with patch(
+        with patch.dict(os.environ, {"VOICE_PROVIDER": "local", "ELEVENLABS_API_KEY": ""}), patch(
             "video_creation._B_voice_generation.voice.common.orchestrator.concatenate_audios",
             side_effect=failed_merge,
         ):
@@ -186,7 +195,10 @@ class TestVoiceCharacterization(unittest.TestCase):
     def test_all_16_golden_ids_legacy_and_typed_invariants(self):
         """Runs all 16 Golden IDs offline in both `legacy` and `typed` mode and verifies core invariants."""
         for engine_mode in ("legacy", "typed"):
-            with self.subTest(engine_mode=engine_mode), patch.dict(os.environ, {"VOICE_ENGINE": engine_mode}):
+            with self.subTest(engine_mode=engine_mode), patch.dict(
+                os.environ,
+                {"VOICE_ENGINE": engine_mode, "VOICE_PROVIDER": "local", "ELEVENLABS_API_KEY": ""},
+            ):
                 vm = VoiceManager(self.open_swara_dir, self.comfy_input_dir)
                 for sid in GOLDEN_IDS:
                     script_data = self._prepare_golden_state(sid)
@@ -325,7 +337,10 @@ class TestVoiceCharacterization(unittest.TestCase):
 
         fake_comfy = RecordingFakeComfyClient()
         vm = VoiceManager(self.open_swara_dir, self.comfy_input_dir)
-        with patch.dict(os.environ, {"VOICE_ENGINE": "typed"}), patch(
+        with patch.dict(
+            os.environ,
+            {"VOICE_ENGINE": "typed", "VOICE_PROVIDER": "local", "ELEVENLABS_API_KEY": ""},
+        ), patch(
             "video_creation._B_voice_generation.core.acoustic_evaluator.evaluate_acoustic_prominence",
             return_value=(2.4, {"transcript": "record", "occurrences": []}),
         ):
@@ -348,7 +363,10 @@ class TestVoiceCharacterization(unittest.TestCase):
     def test_selective_legacy_rollback_switch(self):
         """Verifies `VOICE_ENGINE=legacy:game` rolls back GAME while keeping EXPRESSION typed."""
         vm = VoiceManager(self.open_swara_dir, self.comfy_input_dir)
-        with patch.dict(os.environ, {"VOICE_ENGINE": "legacy:game"}):
+        with patch.dict(
+            os.environ,
+            {"VOICE_ENGINE": "legacy:game", "VOICE_PROVIDER": "local", "ELEVENLABS_API_KEY": ""},
+        ):
             # SG01 -> legacy (no Option micro-pause, -16 LUFS); SE01 -> typed (-15.2 LUFS, ¿?)
             sg01 = self._prepare_golden_state("SG01")
             fake_g = RecordingFakeComfyClient()

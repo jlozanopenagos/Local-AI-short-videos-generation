@@ -80,11 +80,20 @@ def extract_spoken_text_from_state(state: Dict[str, Any]) -> str:
                 pass
 
     if isinstance(script_obj, dict):
-        spoken_parts = [
-            str(v).strip()
-            for k, v in script_obj.items()
-            if k.lower() not in IGNORED_SCRIPT_KEYS and isinstance(v, str) and str(v).strip()
-        ]
+        challenge_norm = normalize_text_for_comparison(str(script_obj.get("challenge", "")), "GAME")
+        spoken_parts = []
+        for k, v in script_obj.items():
+            if k.lower() in IGNORED_SCRIPT_KEYS or not isinstance(v, str) or not str(v).strip():
+                continue
+            # Legacy 4-paragraph GAME scripts duplicated `challenge` into `pressure`;
+            # skip the duplicate so word-count comparison doesn't false-positive.
+            if (
+                k.lower() == "pressure"
+                and challenge_norm
+                and normalize_text_for_comparison(str(v), "GAME") == challenge_norm
+            ):
+                continue
+            spoken_parts.append(str(v).strip())
         return "\n\n".join(spoken_parts).strip()
 
     return ""
@@ -241,14 +250,23 @@ def audit_script_changes(
                 if sorted(words_new) == sorted(words_curr):
                     identical_records.append(record_info)
                 elif vtype.upper() == "GAME":
-                    # For GAME, check if the remaining differences are only minor particles/connectors
-                    diff_words_new = set(words_new) - set(words_curr)
-                    diff_words_curr = set(words_curr) - set(words_new)
+                    # For GAME, compare word multisets (Counter) — never plain sets —
+                    # so replacing a word with another word that already appears elsewhere
+                    # in the script (e.g., 'prima di' -> 'con') is never ignored!
+                    from collections import Counter
+                    c_new = Counter(words_new)
+                    c_curr = Counter(words_curr)
+                    diff_words_new = set((c_new - c_curr).keys())
+                    diff_words_curr = set((c_curr - c_new).keys())
                     ignorable_game_diffs = {
                         "a", "an", "to", "or", "ou", "o", "oppure", "and", "y", "e",
                         "which", "one", "is", "it", "tu", "ton", "il", "la", "le"
                     }
-                    if diff_words_new.issubset(ignorable_game_diffs) and diff_words_curr.issubset(ignorable_game_diffs):
+                    if (
+                        (diff_words_new or diff_words_curr)
+                        and diff_words_new.issubset(ignorable_game_diffs)
+                        and diff_words_curr.issubset(ignorable_game_diffs)
+                    ):
                         identical_records.append(record_info)
                     else:
                         record_info["diff_preview"] = compute_preview_diff(curr_spoken, new_script)

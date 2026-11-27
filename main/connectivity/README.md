@@ -93,8 +93,8 @@ main/connectivity/
 - **Action**: Bridges the gap between fetched Column D corrections (+ Column B `EXPRESSION` updates) in `main/input/csv/script_to_change/` and local State JSON files (`main/state/`).
 - **Functionality**:
   - Compares every row in every CSV in `script_to_change/` against its local State JSON across all 4 formats (`EXPRESSION`, `GAME`, `ROLEPLAY`, `FUN_FACTS`).
-  - Normalizes speaker prefixes (`Narrator:`), quotation marks, and line structures to eliminate false-positive diff reports.
-  - **GAME & FUN_FACTS Format Awareness**: Automatically parses GAME challenges into neutral spoken words (no uppercase stress giveaways), strict option tags (`A: `, `B: `), zero connectors (`or`, `and`, etc.), parts-of-speech context (`a record.` / `to record.`), period endings, and synchronizes `chalkboard_exercise` with `challenge`; parses 5-section `FUN_FACTS` (`hook`, `setup`, `discovery`, `explanation`, `payoff`) cleanly via `script_modifier.py`.
+  - Normalizes speaker prefixes (`Narrator:`), quotation marks, and line structures to eliminate false-positive diff reports, and uses **`collections.Counter` multiset diffing** for `GAME` scripts (with legacy duplicate `pressure == challenge` deduplication) so swapped/replaced words that appear elsewhere in the script are never missed.
+  - **GAME & FUN_FACTS Format Awareness**: Merges blank-line-separated `GAME` options (`A:`/`B:`/`C:`/`D:`) into `challenge`, detects 5-paragraph no-pressure reveals via expanded `answer_patterns` (`script_modifier.py`), strips stress giveaways and connectors, synchronizes `chalkboard_exercise` with `challenge`, and parses 5-section `FUN_FACTS` (`hook`, `setup`, `discovery`, `explanation`, `payoff`).
   - Displays word count diffs and snippet previews.
   - Applying updates (`--apply`) saves modified scripts with zero section duplication, propagates Column B `EXPRESSION` topic updates (invalidating stale titles and visual anchors so downstream stages regenerate cleanly), and resets downstream stages (`voice_generation`, `image_generation`, `thumbnail_generation`, `video_assembly`) to `'pending'`.
 - **Usage**:
@@ -181,22 +181,22 @@ main/connectivity/
   py main/connectivity/scan_ready_scripts.py -l french -t expression
   ```
 
-### 6. Google Drive Clean Replacement Sync (`sync_drive.py`)
-- **Action**: Uploads completed `<script_id>.mp4` and `<script_id>_thumbnail.png` bundles to Google Drive and retires the old files after both replacements are uploaded.
-- **Credential Resolution & Setup**: Resolves credentials in strict priority order: explicit `--credentials` flag -> `GOOGLE_APPLICATION_CREDENTIALS` env var -> `main/credentials/` (`token.json` -> `service_account.json` -> `client_secret.json`). See [`../credentials/README.md`](../credentials/README.md) for OAuth 2.0 Desktop App and Service Account setup instructions.
-- **Drive Folder Hierarchy (`DEFAULT_ROOT_FOLDER_ID = "15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z"`)**:
+### 6. Google Drive Scoped Replacement Sync (`sync_drive.py`)
+- **Action**: Uploads completed `<script_id>.mp4` and/or `<script_id>_thumbnail.png` (for Spanish: both `<script_id>_thumbnail_latam.png` and `<script_id>_thumbnail_spain.png`) to Google Drive and retires old versions of the replaced assets.
+- **Credential Resolution & Auto-Reauth**: Resolves credentials in strict priority order: explicit `--credentials` flag -> `GOOGLE_APPLICATION_CREDENTIALS` env var -> `main/credentials/` (`token.json` -> `service_account.json` -> `client_secret.json`). When an OAuth `token.json` is expired or revoked, `GoogleDriveClient` automatically falls back to `client_secret.json` for interactive browser re-authentication and refreshes `token.json`. See [`../credentials/README.md`](../credentials/README.md) for OAuth 2.0 Desktop App and Service Account setup instructions.
+- **Drive Folder Hierarchy (`GOOGLE_DRIVE_ROOT_FOLDER_ID`)**:
   ```text
   <root_folder_id> / <language> (english|french|italian|spanish)
                      / <video_type> (expressions|fun_facts|game|role_play)
                        / <script_id> (e.g. EE01, FR21, IG09)
                          ├── <script_id>.mp4
-                         └── <script_id>_thumbnail.png
+                         └── <script_id>_thumbnail.png  (or _thumbnail_latam.png & _thumbnail_spain.png for ES)
   ```
-- **Bundle Replacement**:
-  - **Local Validation**: Checks that the video and thumbnail exist before calling Drive.
-  - **Replacement Order**: Captures existing video and thumbnail IDs, uploads both replacements, and saves the new links. It then removes the previous video and thumbnail versions that use the canonical filenames.
+- **Scoped Bundle Replacement (`drive_scope` = `all` | `video` | `thumbnail`)**:
+  - **Local Validation**: Checks only the asset(s) required for the active `drive_scope` before calling Drive.
+  - **Replacement Order**: Captures existing matching target IDs, uploads replacements, and saves links before retiring prior files for those target asset types.
   - **Permission-Safe Deletion (`delete_file`)**: Attempts permanent `files().delete()`, falls back automatically to `trashed: True` on HTTP 400/403, safely ignores HTTP 404, and evicts `_folder_cache` entries on deletion.
-  - **Upload Failure**: If the thumbnail upload fails after the video upload completes, sync attempts to remove the new video and leaves the previous bundle available.
+  - **Rollback Safety**: If a paired upload fails partway through (`all` scope), sync attempts to clean up the partial replacement and preserve the previous Drive files.
 - **Usage**:
   ```powershell
   # Upload a single script bundle
@@ -216,12 +216,13 @@ main/connectivity/
 
 In addition to CLI runners, the complete Google Sheets connectivity workflow is natively integrated into the modern browser WebUI (`py main/tools/webui.py` -> **Google Sheets Sync** tab):
 
-- **Interactive 4-Step Pipeline**:
+- **Script Revisions Sync (`POST /api/sheets/sync`)**:
   1. **Fetch External Revisions**: Pulls Column D (`SCRIPT_CHANGED` / `SCRIPT_CHANGE`) and Column B (`EXPRESSION`) across all 16 sheets (including `FUN_FACTS`) into local CSVs.
-  2. **Check & Audit Differences**: Displays side-by-side diff previews, word count metrics, and speaker normalization directly in the browser.
-  3. **Apply Detected Changes**: Applies script and Column B `EXPRESSION` updates with zero section duplication, invalidates stale titles/anchors on topic change, and resets downstream stages to pending.
-  4. **Scan Ready Scripts**: Filters Columns E-H and exports dated CSV queues for batch generation.
-- **REST Endpoints**: Powered by `main/webui/routers/sheets.py` with full error logging and task execution.
+  2. **Check & Audit Differences**: Runs `Counter`-based diffing across all 4 formats (deduplicating legacy `pressure == challenge` copies) and renders side-by-side diff previews and word count deltas.
+  3. **Apply Detected Changes**: Applies script and Column B `EXPRESSION` updates cleanly (merging blank-line `GAME` `A:`/`B:`/`C:`/`D:` options into `challenge`), invalidates stale titles/anchors on topic change, and resets downstream stages to pending.
+- **Thumbnail Titles Sync (`POST /api/sheets/sync-thumbnails`)**:
+  - Fetches **Column J (`THUMBNAIL_TITLE`)** across all 16 sheets (`normalize_sheet_rows()` supports named headers or positional Column J fallback), updates `content_metadata.thumbnail_title`, and marks **only `thumbnail_generation` = `pending`** (leaving voice, scene images, and video assembly untouched).
+- **REST Endpoints**: Powered by `main/webui/routers/sheets.py` (`/api/sheets/status`, `/api/sheets/sync`, `/api/sheets/sync-thumbnails`, `/api/sheets/reset`).
 
 ---
 

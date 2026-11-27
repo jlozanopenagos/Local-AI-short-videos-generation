@@ -943,13 +943,13 @@ class VisualPromptBuilder:
             )
 
             character_directive = (
-                f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, GENDER-ACCURATE HAIR & COMPLETE LAYERED WARDROBE CONTINUITY):\n"
-                f"   - Character 1 (Left Position): An expressive 17-year-old high-school senior {p1_word} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) positioned on the LEFT side of the frame.\n"
-                f"     * Complexion & Eyes: Explicitly specify skin tone and lively natural-sized simple black cartoon eyes (e.g. 'warm tan skin and simple black cartoon eyes' or 'fair peach skin and simple black cartoon eyes')!\n"
+                f"2. Dual Lead Characters (MANDATORY EXACT SKIN TONE, EXPRESSIVE 2D ANIMATED EYES, GENDER-ACCURATE HAIR & COMPLETE LAYERED WARDROBE CONTINUITY):\n"
+                f"   - Character 1 (Left Position): An expressive 19-year-old young adult ({p1_word}) (tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build) positioned on the LEFT side of the frame.\n"
+                f"     * Complexion & Eyes: Explicitly specify skin tone and expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights (e.g. 'warm tan skin and expressive 2D animated eyes with clean white sclera and dark pupils')!\n"
                 f"     * Hair: Explicitly specify hair color and hairstyle (e.g. '{c1_hair_example}')!\n"
                 f"     * Complete Layered Wardrobe (Upper + Lower — Omit Footwear): Explicitly specify stylish, culturally authentic garments fitting this specific city and setting ({anchor_environment}) incorporating BOTH a layered upper garment AND an explicit lower garment (trousers, chinos, or skirt) — e.g. corduroy overshirt over tee with charcoal chinos, OR crisp linen shirt under a kitchen apron with dark tailored trousers! Omit shoes/footwear so cropped and medium scenes never zoom out head-to-toe.\n"
-                f"   - Character 2 (Right Position): An energetic 17-year-old high-school senior {p2_word} (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) positioned on the RIGHT side of the frame.\n"
-                f"     * Complexion & Eyes: Explicitly specify skin tone and lively natural-sized simple black cartoon eyes (e.g. 'fair peach skin and simple black cartoon eyes' or 'warm olive skin and simple black cartoon eyes')!\n"
+                f"   - Character 2 (Right Position): An energetic 19-year-old young adult ({p2_word}) (tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build) positioned on the RIGHT side of the frame.\n"
+                f"     * Complexion & Eyes: Explicitly specify skin tone and expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights (e.g. 'fair peach skin and expressive 2D animated eyes with clean white sclera and dark pupils')!\n"
                 f"     * Hair: Explicitly specify contrasting hair color and hairstyle (e.g. '{c2_hair_example}')!\n"
                 f"     * Complete Layered Wardrobe (Upper + Lower — Omit Footwear): Explicitly specify complementary stylish culturally authentic garments including BOTH a layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching this city and venue (omit shoes/footwear)!\n"
                 f"   CRITICAL GENDER-ACCURATE HAIRSTYLE RULE:\n"
@@ -960,7 +960,7 @@ class VisualPromptBuilder:
         else:
             p_gend = get_speaker_gender_safe(speakers_gender, "NARRATOR", "") or get_speaker_gender_safe(speakers_gender, "PERSON_ONE", "male")
             is_female = "f" in str(p_gend).lower() or "girl" in str(p_gend).lower()
-            gender_desc = "17-year-old high-school senior girl (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)" if is_female else "17-year-old high-school senior boy (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build)"
+            gender_desc = "19-year-old young woman (tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build)" if is_female else "19-year-old young man (tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build)"
             protagonist_hair = (
                 "dark wavy hair tied in an elegant ponytail or chic shoulder-length bob"
                 if is_female
@@ -976,8 +976,8 @@ class VisualPromptBuilder:
                     "   - Staging & Companion Rule: If a secondary character or peer is genuinely needed by the story, Character 1 is on the LEFT and Character 2 is on the RIGHT, each with explicitly specified sex, skin tone, hair color, and complete layered upper + lower outfits (omit shoes/footwear in cropped shots)!"
                 )
             character_directive = (
-                f"2. Protagonist (MANDATORY EXACT SKIN TONE, SIMPLE BLACK CARTOON EYES, HAIR & COMPLETE LAYERED WARDROBE CONTINUITY):\n"
-                f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), lively natural-sized simple black cartoon eyes, hair color and hairstyle (e.g. '{protagonist_hair}'), and a complete stylish culturally authentic venue outfit explicitly matching this city and setting (specify BOTH layered top garment AND explicit lower garment such as trousers/chinos/skirt; omit shoes/footwear so waist-up and medium shots stay tightly framed).\n"
+                f"2. Protagonist (MANDATORY EXACT SKIN TONE, EXPRESSIVE 2D ANIMATED EYES, HAIR & COMPLETE LAYERED WARDROBE CONTINUITY):\n"
+                f"   - Primary Character: An expressive {gender_desc} with explicitly specified skin tone (e.g. 'warm tan skin' or 'fair peach skin'), expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights, hair color and hairstyle (e.g. '{protagonist_hair}'), and a complete stylish culturally authentic venue outfit explicitly matching this city and setting (specify BOTH layered top garment AND explicit lower garment such as trousers/chinos/skirt; omit shoes/footwear so waist-up and medium shots stay tightly framed).\n"
                 f"{companion_rule}"
             )
 
@@ -1004,7 +1004,7 @@ class VisualPromptBuilder:
             "for 'proJECT vs PROject', camera tripods, clapperboard without text, and megaphone on a sunset terrace film set; for travel/visiting, vintage leather luggage and architectural compasses).\n"
             "   STRICT BAN ON GENERIC PROP CLICHÉS: NEVER use generic ribbon-wrapped gift boxes, mystery boxes, or present parcels unless the topic literally and explicitly discusses gifts or birthdays.\n"
             "4. Atmosphere & Style: Vibrant color palette, rich cinematic lighting, clean modern 2D cartoon narrative illustration, "
-            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, simple black cartoon eyes (NO colored irises like blue or green), rich environmental depth.\n"
+            "stylized 2D animation art style, vibrant flat colors, bold outlines, expressive facial design, expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights (NO colored irises like blue or green), rich environmental depth.\n"
             f"{format_staging_directive}\n"
             "6. STATIC STAGE SETUP ONLY (NO MOMENTARY DIALOGUE ACTIONS):\n"
             "   Describe the physical stage, setting props, and characters standing ready on set in their stylish culturally authentic outfits and positions matching the format staging above.\n"

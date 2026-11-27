@@ -230,18 +230,43 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False, strip_f
     text = re.sub(r",\s*\)", ")", text)
     text = re.sub(r",\s*,+", ",", text)
 
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 17-year-old high-school senior boy", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a 17-year-old high-school senior girl", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a 17-year-old high-school senior protagonist", text, flags=re.IGNORECASE)
-    text = re.sub(r"(?<!\bNO\s)(?<!\bmiddle-aged\s)(?<!\bolder\s)\b(adult|grown-?up)s?\b", "high-school teenagers", text, flags=re.IGNORECASE)
-    text = re.sub(r"(?<!\bNO\s)\ban adult\b", "a high-school teenager", text, flags=re.IGNORECASE)
-    # Upgrade younger ages (8-15, fourteen/fifteen, 14-16yo / 14-16-year-old) to 17-year-old while preserving 16-year-old / 17-year-old / 18-year-old
-    text = re.sub(r"\b(?:14|15)-16(?:-year-old|yo)\b", "17-year-old", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:14|15)-16\s+years?\s+old\b", "17 years old", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:8|9|10|11|12|13|14|15)-year-old\b", "17-year-old", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:fourteen|fifteen)-year-old\b", "17-year-old", text, flags=re.IGNORECASE)
-    text = re.sub(r"\b(?:14|15)yo\b", "17-year-old", text, flags=re.IGNORECASE)
-    text = re.sub(r"(?<!\bNO\s)\b(?:kid|child|children)\b", "teenager", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:man|actor|gentleman)\b", "a 19-year-old young man", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:woman|actress|lady)\b", "a 19-year-old young woman", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba young(?:\s+[a-zA-Z]+)?\s+(?:performer|enthusiast|student|person|scholar|professional|individual|character)\b", "a 19-year-old young adult protagonist", text, flags=re.IGNORECASE)
+    # Upgrade boy/girl/high-school/teenager phrasing that pulls 2D cartoon models toward young kids into college-age young adults
+    text = re.sub(
+        r"\b(?:(?:14|15|16|17|18|19)-year-old\s+)?(?:high-school\s+(?:senior|student)\s+|teenage(?:r)?\s+)+boy\b",
+        "19-year-old young man",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(?:(?:14|15|16|17|18|19)-year-old\s+)?(?:high-school\s+(?:senior|student)\s+|teenage(?:r)?\s+)+girl\b",
+        "19-year-old young woman",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\b(?:14|15|16|17|18)-year-old\s+boy\b", "19-year-old young man", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:14|15|16|17|18)-year-old\s+girl\b", "19-year-old young woman", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\b(?:(?:14|15|16|17|18)-year-old\s+)?high-school\s+(?:senior|student)\s+protagonist\b",
+        "19-year-old young adult protagonist",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(?:(?:14|15|16|17|18)-year-old\s+)?high-school\s+(?:seniors?|students?)\b",
+        "19-year-old young adult",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Upgrade younger child/early-teen ages (8-15, fourteen/fifteen, 14-16yo) to 19-year-old young adult
+    text = re.sub(r"\b(?:14|15)-16(?:-year-old|yo)\b", "19-year-old", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:14|15)-16\s+years?\s+old\b", "19 years old", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:8|9|10|11|12|13|14|15)-year-old\b", "19-year-old", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:fourteen|fifteen)-year-old\b", "19-year-old", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:14|15)yo\b", "19-year-old", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\bNO\s)\b(?:kid|child|children)\b", "young adult", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:wearing\s+)?normal clothing\b", "wearing stylish culturally authentic venue attire", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:smart\s+)?casual attire\b", "stylish culturally authentic venue attire", text, flags=re.IGNORECASE)
     text = re.sub(r"\bcasual clothes\b", "stylish culturally authentic venue attire", text, flags=re.IGNORECASE)
@@ -255,10 +280,17 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False, strip_f
     text = re.sub(r"\btall slender proportions\b", "natural balanced teenage proportions", text, flags=re.IGNORECASE)
     text = re.sub(r"\btall slender build\b", "natural healthy athletic build", text, flags=re.IGNORECASE)
 
-    # 4b2. Enforce simple black 2D cartoon eyes (scrub colored irises like blue, green, emerald, hazel, amber, brown eyes)
+    # 4b2. Enforce expressive 2D animated eyes with white sclera & dark pupils (scrub colored irises AND dot-eye triggers like "simple black cartoon eyes")
+    _ANIMATED_EYES_PHRASE = "expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights"
     text = re.sub(
         r"\b(?:(?:bright|lively|clear|expressive|warm|dark|deep|light|vibrant|sparkling|piercing|large|big)\s*,?\s*)*(?:emerald(?:\s+green)?|green|blue|sky-?blue|ice-?blue|hazel|amber|golden|brown|dark-?brown|chestnut|grey|gray|turquoise|violet)\s+(?:(?:animated|stylized|2d)\s+)*(?:cartoon\s+)?eyes\b",
-        "simple black cartoon eyes",
+        _ANIMATED_EYES_PHRASE,
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\b(?:(?:lively|warm|expressive)\s+)?(?:natural-sized\s+)?(?:simple\s+black(?:\s+2d)?\s+cartoon\s+eyes|dot\s+eyes|bead\s+eyes|button\s+eyes)\b",
+        _ANIMATED_EYES_PHRASE,
         text,
         flags=re.IGNORECASE,
     )
@@ -313,12 +345,12 @@ def sanitize_and_style_prompt(prompt: str, allow_gift_box: bool = False, strip_f
     if strip_footwear or CROPPED_FRAMING_RE.search(text):
         text = strip_footwear_clauses(text)
 
-    # 5. Mandatory Purely-Positive 2D Cartoon Style & Late-Teen Proportion Anchor
+    # 5. Mandatory Purely-Positive 2D Cartoon Style & Young-Adult Proportion Anchor
     style_mandate = (
         "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-        "vibrant flat colors, bold outlines, expressive 17-year-old high-school senior character design "
-        "(realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build), "
-        "lively natural-sized simple black 2D cartoon eyes with warm expressive gaze, "
+        "vibrant flat colors, bold outlines, expressive 19-year-old young adult character design "
+        "(tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build), "
+        "expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights, "
         "stylish layered culturally authentic venue wardrobe matching the environment, "
         "rich detailed environmental background with architectural depth and warm atmospheric lighting, "
         "pure text-free visual illustration."

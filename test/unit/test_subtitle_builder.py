@@ -11,6 +11,8 @@ from unittest import mock
 # pyrefly: ignore [missing-import]
 from video_creation._G_video_assembly.core.subtitle_builder import (
     SubtitleBuilder,
+    align_tokens_to_whisper,
+    premerge_whisper_words,
     tokenize_script_with_speakers,
 )
 
@@ -356,6 +358,69 @@ class TestSubtitleBuilder(unittest.TestCase):
             legacy_content = self.out_path.read_text(encoding="utf-8")
             self.assertIn(",5,10,10,150,1", legacy_content)
             self.assertNotIn(r"\fscx", legacy_content)
+
+    def test_premerge_never_glues_ordinary_two_letter_words_like_le_verre(self):
+        """Regression for FF04: 'le' + 'verre' MUST NOT merge into 'le'verre', while real elisions ('l' + \"'ami\") DO merge."""
+        raw = [
+            {"word": "le", "start": 0.0, "end": 0.2},
+            {"word": "verre", "start": 0.2, "end": 0.6},
+            {"word": "pour", "start": 0.6, "end": 0.9},
+            {"word": "l", "start": 0.9, "end": 1.0},
+            {"word": "'ami", "start": 1.0, "end": 1.4},
+            {"word": "d'", "start": 1.4, "end": 1.5},
+            {"word": "abord", "start": 1.5, "end": 1.9},
+        ]
+        merged = premerge_whisper_words(raw)
+        self.assertEqual([w["word"] for w in merged], ["le", "verre", "pour", "l'ami", "d'abord"])
+
+    def test_collapse_recovery_repairs_frozen_word_and_speed_burst(self):
+        """Regression for FF04 / IG87 / SR33: frozen single word + rushed burst recovers to smooth weighted timing."""
+        tokens = ["Le", "verre", "pour", "boire.", "La", "couleur", "vert.", "Le", "mot", "vers."]
+        # Simulate Whisper dropping 6s and cramming everything into 0.5s at the end
+        collapsed_whisper = [
+            {"word": "Le", "start": 18.0, "end": 23.0},
+            {"word": "vers", "start": 23.5, "end": 23.8},
+        ]
+        aligned = align_tokens_to_whisper(
+            tokens,
+            collapsed_whisper,
+            default_start=18.0,
+            default_end=24.0,
+            section_name="discovery",
+        )
+        self.assertEqual(len(aligned), len(tokens))
+        durations = [round(a["end"] - a["start"], 2) for a in aligned]
+        # No frozen word > 1.8s and no 0.03s burst
+        self.assertLessEqual(max(durations), 1.5)
+        self.assertGreaterEqual(min(durations), 0.25)
+        self.assertAlmostEqual(aligned[0]["start"], 18.0, places=2)
+        self.assertAlmostEqual(aligned[-1]["end"], 24.0, places=2)
+
+    def test_build_ass_never_emits_overlapping_dialogue_cues(self):
+        """Regression for IE01 (0:30.87 SENTIRE/QUESTA & 0:34.70 A/USARLA): two words must NEVER overlap in time."""
+        raw_overlapping = [
+            {"word": "Sentire", "start": 30.87, "end": 31.12},
+            {"word": "questa", "start": 30.87, "end": 31.23},
+            {"word": "frase", "start": 31.20, "end": 31.64},
+            {"word": "a", "start": 34.70, "end": 34.95},
+            {"word": "usarla", "start": 34.70, "end": 35.14},
+        ]
+        self.builder.build_ass(raw_overlapping, self.out_path)
+        content = self.out_path.read_text(encoding="utf-8")
+
+        def _parse_t(ts: str) -> float:
+            h, m, s = ts.split(":")
+            return int(h) * 3600 + int(m) * 60 + float(s)
+
+        cues = []
+        for line in content.splitlines():
+            if line.startswith("Dialogue:"):
+                parts = line.split(",", 9)
+                cues.append((_parse_t(parts[1].strip()), _parse_t(parts[2].strip()), parts[9].strip()))
+        self.assertEqual(len(cues), 5)
+        for i in range(1, len(cues)):
+            self.assertGreaterEqual(cues[i][0], cues[i - 1][1], f"Overlap between {cues[i-1]} and {cues[i]}")
+            self.assertGreater(cues[i][1], cues[i][0])
 
 
 if __name__ == "__main__":

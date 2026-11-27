@@ -493,23 +493,21 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
             return None
 
     elif vtype == "GAME":
-        if len(lines) == 5:
-            parsed = {
-                "hook": lines[0],
-                "challenge": clean_game_challenge(lines[1]),
-                "pressure": lines[2],
-                "answer": lines[3],
-                "explanation": lines[4],
-            }
-        elif len(lines) == 4:
-            parsed = {
-                "hook": lines[0],
-                "challenge": clean_game_challenge(lines[1]),
-                "pressure": lines[1],
-                "answer": lines[2],
-                "explanation": lines[3],
-            }
-        elif len(lines) > 5:
+        # Merge standalone multiple-choice option paragraphs (A:, B:, C:, D: / A), B), ...)
+        # directly into the preceding challenge paragraph so Mass Sheets Sync NEVER shifts
+        # Option A into `pressure`, Option B into `answer`, and Option C into `explanation`!
+        _opt_line_re = re.compile(r"^\s*(?:(?:opci[oó]n|option|opzione)\s+)?[A-D]\s*[:\)\.\-]\s*", re.IGNORECASE)
+        merged_game_lines: List[str] = []
+        for idx_l, ln in enumerate(lines):
+            if idx_l >= 2 and merged_game_lines and _opt_line_re.match(ln):
+                # Only attach to the challenge block (index 1), never to answer/explanation
+                if len(merged_game_lines) == 2:
+                    merged_game_lines[-1] = merged_game_lines[-1] + "\n" + ln
+                    continue
+            merged_game_lines.append(ln)
+        lines = merged_game_lines
+
+        if len(lines) >= 5:
             hook = lines[0]
             # Identify the actual answer section via strict answer phrase patterns
             answer_patterns = [
@@ -517,8 +515,9 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 re.compile(r"\boption\s+[a-d]\s+(?:is|wins|est|è|es)\b", re.I),
                 re.compile(r"\b(?:it\s+is|it's|c'est|è|es)\s+[a-d]\b", re.I),
                 re.compile(r"\b(?:the\s+)?winner\s+is\b", re.I),
-                re.compile(r"\b(?:la\s+)?(?:réponse|risposta|respuesta)\s+(?:est|è|es|correcta)\b", re.I),
-                re.compile(r"\b(?:gagnant|ganador)\b", re.I),
+                re.compile(r"\b(?:la\s+)?(?:réponse|risposta|respuesta)\s+(?:est|è|es|correcta|giusta|esatta)\b", re.I),
+                re.compile(r"\b(?:se\s+hai\s+scelto|si\s+has\s+elegido|si\s+tu\s+as\s+choisi|if\s+you\s+(?:chose|picked))\b", re.I),
+                re.compile(r"\b(?:punto\s+pieno|punto\s+asegurado|gagnant|ganador)\b", re.I),
                 re.compile(r"^(?:answer|réponse|risposta|respuesta)\s*[:：]", re.I),
             ]
             ans_idx = -1
@@ -534,7 +533,7 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 explanation = "\n\n".join(lines[ans_idx+1:]) if ans_idx+1 < len(lines) else lines[ans_idx]
             elif ans_idx != -1 and ans_idx == 2:
                 challenge = lines[1]
-                pressure = lines[1]
+                pressure = ""
                 answer = lines[2]
                 explanation = "\n\n".join(lines[3:])
             else:
@@ -550,6 +549,14 @@ def parse_user_script_into_sections(raw_script: str, video_type: str) -> Optiona
                 "pressure": pressure,
                 "answer": answer,
                 "explanation": explanation,
+            }
+        elif len(lines) == 4:
+            parsed = {
+                "hook": lines[0],
+                "challenge": clean_game_challenge(lines[1]),
+                "pressure": "",
+                "answer": lines[2],
+                "explanation": lines[3],
             }
         else:
             return None
@@ -867,39 +874,24 @@ def format_script_with_llm(
         for k, v in direct_parsed.items():
             script_field[k] = v
 
-    # Resolve and clean up a format-differentiated, emoji-free title
-    tlang_lower = (target_language or "").lower()
-    vtype_upper = (video_type or "EXPRESSION").upper()
-
+    # Resolve and clean up an emoji-free, category-prefix-free title
     clean_expr_base = re.sub(
-        r"^(?:quiz|in action|en acci[óo]n|en action|in azione|origin|origen|origine)\s*[:：]\s*",
+        r"^(?:[\[\(]\s*)?"
+        r"(?:"
+        r"quiz|game|juego|jeu|gioco|trivia|"
+        r"expression|expresi[óo]n|espressione|idiom|modismo|"
+        r"fun\s*facts?|dato\s*curioso|datos\s*curiosos|curiosidad|curiosit[éeàa]|"
+        r"role[\s-]*play|dialogue|di[áa]logo|dialogo|"
+        r"in\s+action|en\s+acci[óo]n|en\s+action|in\s+azione|"
+        r"origin|origen|origine"
+        r")"
+        r"(?:\s*[\]\)]\s*[:：\|\-–—]?\s*|\s*(?:[:：\|]|\s[-–—]\s)\s*)",
         "",
         str(expression_or_topic),
         flags=re.IGNORECASE,
-    ).strip()
+    ).strip() or str(expression_or_topic).strip()
 
-    if vtype_upper == "GAME":
-        default_native_title = f"Quiz : {clean_expr_base}" if tlang_lower == "french" else f"Quiz: {clean_expr_base}"
-    elif vtype_upper == "ROLEPLAY":
-        if tlang_lower == "spanish":
-            default_native_title = f"En Acción: {clean_expr_base}"
-        elif tlang_lower == "french":
-            default_native_title = f"En Action : {clean_expr_base}"
-        elif tlang_lower == "italian":
-            default_native_title = f"In Azione: {clean_expr_base}"
-        else:
-            default_native_title = f"In Action: {clean_expr_base}"
-    elif vtype_upper == "FUN_FACTS":
-        if tlang_lower == "spanish":
-            default_native_title = f"Origen: {clean_expr_base}"
-        elif tlang_lower == "french":
-            default_native_title = f"Origine : {clean_expr_base}"
-        elif tlang_lower == "italian":
-            default_native_title = f"Origine: {clean_expr_base}"
-        else:
-            default_native_title = f"Origin: {clean_expr_base}"
-    else:
-        default_native_title = clean_expr_base
+    default_native_title = clean_expr_base
 
     prev_topic_norm = str(
         existing_content_metadata.get("topic")

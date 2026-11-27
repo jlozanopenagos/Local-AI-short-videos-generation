@@ -21,7 +21,7 @@ EXPRESSION_VOICE_PROFILE = VideoTypeVoiceProfile(
     preferred_narrator_archetypes=("warm_narrator", "energetic_host"),
     target_cps_override=11.2,
     max_cps_override=14.5,
-    target_wpm_range=(130.0, 140.0),
-    max_wpm=145.0,
+    target_wpm_range=(130.0, 145.0),
+    max_wpm=158.0,
     apply_pace_safety_net=True,
 )

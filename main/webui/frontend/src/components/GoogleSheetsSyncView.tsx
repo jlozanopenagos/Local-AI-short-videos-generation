@@ -12,9 +12,10 @@ import {
   ChevronUp,
   Sparkles,
   Info,
+  Image as ImageIcon,
 } from 'lucide-react'
 import type { SheetsSyncStatus, SheetsSyncRecord } from '../types'
-import { fetchSheetsSyncStatus, startSheetsSync, resetSheetsSyncStatus } from '../api'
+import { fetchSheetsSyncStatus, startSheetsSync, startThumbnailTitlesSync, resetSheetsSyncStatus } from '../api'
 
 interface GoogleSheetsSyncViewProps {
   onSelectScript: (scriptId: string) => void
@@ -70,6 +71,18 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
     }
   }
 
+  const handleStartThumbnailTitlesSync = async (applyChanges: boolean) => {
+    setErrorMsg(null)
+    setIsStarting(true)
+    try {
+      await startThumbnailTitlesSync({ apply_changes: applyChanges })
+      await loadStatus()
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err))
+      setIsStarting(false)
+    }
+  }
+
   const handleReset = async () => {
     try {
       await resetSheetsSyncStatus()
@@ -99,8 +112,8 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
           <div>
             <h1 className="sheets-title">Google Sheets synchronization</h1>
             <p className="sheets-subtitle">
-              Fetch script modifications from Google Sheets (column D: SCRIPT_CHANGED), purge cached CSVs, and update
-              local JSON state files with automatic downstream reset.
+              Fetch script modifications (Column D: SCRIPT_CHANGED) and thumbnail titles (Column J: short_title /
+              THUMBNAIL_TITLE) from Google Sheets, and update local JSON state files cleanly.
             </p>
           </div>
         </div>
@@ -187,6 +200,44 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
         )}
       </div>
 
+      {/* Thumbnail Titles Sync Card (Column J) */}
+      <div className="sheets-control-card">
+        <div className="control-options">
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <ImageIcon size={20} className="icon-accent" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div>
+              <strong>Thumbnail titles sync (Column J)</strong>
+              <p className="checkbox-hint" style={{ margin: '4px 0 0 0', display: 'block' }}>
+                Fetches custom thumbnail titles from Column J across all 16 Google Sheets and updates{' '}
+                <code>content_metadata.thumbnail_title</code> in your local JSON states. Only resets{' '}
+                <code>thumbnail_generation</code> to <em>pending</em> (never touches voice, scene images, or video assembly).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="control-actions">
+          <button
+            className="btn btn-primary"
+            disabled={isRunning}
+            onClick={() => handleStartThumbnailTitlesSync(true)}
+          >
+            <Sparkles size={16} className={isRunning ? 'spin' : ''} />
+            <span>{isRunning ? 'synchronizing...' : 'fetch & update thumbnail titles (col J)'}</span>
+          </button>
+
+          <button
+            className="btn btn-outline"
+            disabled={isRunning}
+            onClick={() => handleStartThumbnailTitlesSync(false)}
+            title="fetches Column J and previews thumbnail title differences without modifying local JSON states"
+          >
+            <Info size={16} />
+            <span>preview thumbnail titles only</span>
+          </button>
+        </div>
+      </div>
+
       {/* Summary Stat Cards */}
       {result && (
         <div className="sheets-stats-grid">
@@ -266,13 +317,25 @@ export const GoogleSheetsSyncView: React.FC<GoogleSheetsSyncViewProps> = ({ onSe
                     </div>
 
                     <div className="script-meta-right">
-                      <span className="word-delta-tag" title="Word count comparison">
-                        {rec.words_current}w &rarr; {rec.words_new}w
-                        <strong className="delta-pill">{rec.delta_words}</strong>
-                      </span>
+                      {result.sync_mode === 'thumbnails' && rec.new_title ? (
+                        <span className="word-delta-tag" title="New thumbnail title from Column J">
+                          &ldquo;{rec.new_title}&rdquo;
+                        </span>
+                      ) : (
+                        <span className="word-delta-tag" title="Word count comparison">
+                          {rec.words_current}w &rarr; {rec.words_new}w
+                          <strong className="delta-pill">{rec.delta_words}</strong>
+                        </span>
+                      )}
 
                       <span className={`status-pill ${rec.status}`}>
-                        {rec.status === 'updated' ? 'Updated & reset' : rec.status === 'failed' ? 'Failed' : 'Pending'}
+                        {rec.status === 'updated'
+                          ? result.sync_mode === 'thumbnails'
+                            ? 'Title updated'
+                            : 'Updated & reset'
+                          : rec.status === 'failed'
+                            ? 'Failed'
+                            : 'Pending'}
                       </span>
 
                       <button

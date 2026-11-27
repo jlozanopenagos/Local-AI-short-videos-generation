@@ -18,10 +18,10 @@ The launcher serves the studio on `http://127.0.0.1:8190` by default. For an exi
 
 ## Production workflow
 
-1. Generate a lesson script from **Script Catalog**, or bring reviewed Google Sheets revisions into existing local scripts with **Sheets Sync**.
-2. Queue **Voice**, **Scene Images**, and **Thumbnails** from the catalog or **Mass Creation**. Mass Creation accepts pasted IDs, an ID CSV, or a catalog selection. It offers image seeds, voice accents and engine selection, and recasting.
-3. Queue **Video Assembly** after voice and images complete. FFmpeg combines the audio, illustrations, subtitles, music, and branding into a vertical MP4. Enable subtitle reuse to keep existing captions when available.
-4. Track execution in **Queue**, inspect media in the script details, and use **Drive Upload** to deliver the finished video and thumbnail.
+1. Generate a lesson script from **Script Catalog**, or bring reviewed Google Sheets revisions (**Column D** scripts and **Column J** thumbnail titles) into existing local state JSONs (`main/state/`, `1,224` scripts) via **Sheets Sync**.
+2. Queue **Voice**, **Scene Images**, and **Thumbnails** from the catalog or **Mass Creation**. Mass Creation accepts pasted IDs, an ID CSV, or catalog presets (including pending thumbnails), plus image seeds, voice provider/model selection, accent overrides, and recasting.
+3. Queue **Video Assembly** after voice and images complete. FFmpeg combines the audio, illustrations, non-overlapping subtitles, music, and branding into a vertical MP4. Enable **"Reuse existing subtitles"** only when you intentionally want to keep existing `.ass` captions.
+4. Track execution in **Queue**, inspect media or edit thumbnail/chalkboard text in the script details, and use **Drive Upload** (full bundle, video-only, or thumbnail-only) to deliver the finished assets.
 
 Per-script JSON under `main/state/` records production status and references to assets. Generated media lives under the configured `OUTPUT_DIR`. Use the live catalog or the status tools for inventory.
 
@@ -29,22 +29,34 @@ The WebUI is the production entry point. Operator tools cover service supervisio
 
 ## Verification
 
-Run `py -m pytest test -m "not live"` after completing the [test setup](test/README.md). The suite includes an isolated Sheets-to-MP4 workflow with real FFmpeg, a browser retry and preview check, and focused engine tests. Windows CI builds the frontend and runs the deterministic and browser checks. The real ComfyUI GPU test is opt-in.
+Run `py -m pytest test -m "not live"` after completing the [test setup](test/README.md). Offline tests automatically isolate `VOICE_PROVIDER=local` via `test/conftest.py` so no live ElevenLabs credits are spent. The suite includes an isolated Sheets-to-MP4 workflow with real FFmpeg, a browser retry and preview check, and focused engine tests. Windows CI builds the frontend and runs the deterministic and browser checks. The real ComfyUI GPU test is opt-in.
 
 ## Project guides
 
+- [Repository agent quickstart](AGENTS.md)
+- [Full agent & architecture contract](main/AGENTS.md)
 - [Architecture and configuration](main/README.md)
 - [Studio and API](main/webui/README.md)
 - [Sheets and Drive](main/connectivity/README.md)
 - [State schema](main/state/README.md)
 - [Operator tools](main/tools/README.md)
-- [Contributor guidance](main/AGENTS.md)
+- [Test suite guide](test/README.md)
 
 ## Voice generation today
 
-Studio sends scripts to Qwen3-TTS through ComfyUI. Expression and Fun Facts use continuous narration per section. Game keeps one narrator and preserves even option timing. Roleplay keeps the actors assigned to their characters and renders each turn continuously with context and an acting direction. Narrator direction is format-specific across all four languages.
+Studio uses a **hybrid voice architecture** defined by `ELEVENLABS_HYBRID_TYPES` (`roleplay`, `expression`, `fun_facts`):
 
-The local workstation's curated bank currently has 52 distinct voices plus 40 same-speaker reference variants. Local audio assets and the active bank manifest live in the configured runtime, while the persona catalog and builder are versioned here. Use Voice with Force to rerender and enable Recast only to audition a different cast.
+- **ElevenLabs (`eleven_v3`)** renders `ROLEPLAY`, `EXPRESSION`, and `FUN_FACTS` using a `227`-voice curated catalog (`EN: 57`, `FR: 70`, `IT: 50`, `ES: 50`) with full-cycle LRU rotation (`max_history=60`), same-speaker-only `previous_text`/`next_text` stitching, native delivery speed (`0.94` Roleplay, `0.92` Expression/Fun Facts), and raised-cosine `10ms`/`20ms` trim fades.
+- **Local Qwen3-TTS (`1.7B-Base` / `1.7B-VoiceDesign` via ComfyUI)** renders `GAME` (and any script when `VOICE_PROVIDER=local`). The local curated bank currently contains **52 distinct baseline voices** indexed in `<VOICE_BANK_DIR>/voice_bank_manifest.json` (`roleplay_*` actor baselines are excluded from `GAME` and `FUN_FACTS`, and Spanish local casting follows an exact 60% LatAm / 40% Castilian rotation).
+
+Use Voice with **Force** to rerender and enable **Recast (`Choose new voices`)** only to assign a different cast.
+
+## Thumbnails, subtitles, Sheets & Drive today
+
+- **Thumbnails (Stage F):** Rendered natively on CPU with Pillow + FreeType (`576x1024`, zero VRAM) across **20 category-specific master templates** (single `template.png` per category for EN/FR/IT; paired `latam.png` + `spain.png` variants for Spanish). Custom titles from `content_metadata.thumbnail_title` (editable in the Script Detail modal or synced from Google Sheets **Column J**) render verbatim.
+- **Subtitles & Assembly (Stage G):** Word alignment protects 1–2 letter words from false apostrophe gluing, recovers collapsed Whisper timings via character-weighted interpolation, enforces a 2-layer strict non-overlap guard on every `.ass` dialogue event, and strictly respects the **"Reuse existing subtitles"** toggle in Mass Creation.
+- **Google Sheets Sync:** Syncs both script edits (**Column D `SCRIPT_CHANGED`** + **Column B `EXPRESSION`**) with blank-line `GAME` option merging and `Counter`-based diffing, and custom **Column J (`THUMBNAIL_TITLE`)** titles directly into local state JSONs (resetting only `thumbnail_generation` to `pending`).
+- **Google Drive Upload:** Supports scoped uploads (`all` / `video` / `thumbnail`), dual Spanish regional thumbnails, duplicate folder cleanup, and automatic browser OAuth re-authentication when `token.json` expires (`client_secret.json`).
 
 ## Historical release notes
 
@@ -70,7 +82,7 @@ These notes describe earlier releases. Use the workflow and verification instruc
 ### Previous Release: Google Drive Sync Suite, Single Source of Truth Visual Anchors & Prompt Auditor 2.0
 - **Google Drive Export & Mass Drive Upload Suite**:
   - **Standalone CLI & Service (`main/connectivity/sync_drive.py` & `drive_sync/`)**: Headless and automated synchronization of finished video assets to Google Drive (`drive_client.py` & `sync_service.py`). Supports OAuth 2.0 Desktop App (`client_secret.json` -> `token.json` in `main/credentials/`) and Service Account (`service_account.json`) credentials.
-  - **Hierarchical Drive Folder Structuring**: Routes uploads to `DEFAULT_ROOT_FOLDER_ID` (`15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z`) organized into `<language>` (`english`, `french`, `spanish`, `italian`), `<video_type>` (`expressions`, `fun_facts`, `game`, `role_play`), and `<script_id>` subfolders.
+  - **Hierarchical Drive Folder Structuring**: Routes uploads to `GOOGLE_DRIVE_ROOT_FOLDER_ID` organized into `<language>` (`english`, `french`, `spanish`, `italian`), `<video_type>` (`expressions`, `fun_facts`, `game`, `role_play`), and `<script_id>` subfolders.
   - **Atomic Video & Thumbnail Bundling**: Strictly validates that each script possesses both the final assembled video and companion thumbnail before uploading `<script_id>.mp4` and `<script_id>_thumbnail.png`.
   - **WebUI Single-Script Upload & Mass Drive Upload**:
     - `ScriptDetailModal`: Added instant "upload to google drive" action (`POST /api/drive/scripts/{script_id}/upload`).
@@ -97,7 +109,7 @@ These notes describe earlier releases. Use the workflow and verification instruc
   - **Healthy Athletic Build**: Replaced `"tall slender proportions"` with `"natural balanced teenage proportions, healthy youthful athletic build"`, eradicating gaunt stick-figure silhouettes.
   - **Expanded Negative Shield**: Added `NO bulging eyes, NO bug eyes, NO staring unblinking eyes, NO excessively open rounded eyes, NO unnatural wide eyes, NO deadpan blank face, NO emotionless expression, NO stiff mannequin pose, NO gaunt, NO emaciated, NO stick-figure proportions`.
 - **Zero-Copy Static Shared Asset Architecture**:
-  - **Elimination of Duplicate Asset Copies**: Static pre-made assets that never vary across scripts of the same language and video type (e.g. Tito waiting image `pressure.png` for GAME shorts, opening branding cards, closure cards, watermark) are NEVER physically copied into individual script output folders (`D:\AI\output\video_assets\...`).
+  - **Elimination of Duplicate Asset Copies**: Static pre-made assets that never vary across scripts of the same language and video type (e.g. Tito waiting image `pressure.png` for GAME shorts, opening branding cards, closure cards, watermark) are NEVER physically copied into individual script output folders (`<OUTPUT_DIR>/video_assets/...`).
   - **On-Demand Dynamic Resolution (`resolve_static_scene_path`)**: `config/settings.py` dynamically resolves the canonical asset from `input/images/game_images/` or `input/images/openning_closure_images/` based on script language, video type, and dialect without hardcoded paths.
   - **Decoupled Creation & Assembly**: `_C_image_generation/main.py` and `image_modifier.py` verify central asset existence and skip file duplication, while `_G_video_assembly/core/video_assembler.py` automatically links the central asset directly into the FFmpeg render timeline. Reclaimed 167.78 MB of disk space by purging 93 duplicate files.
 - **Queued Scene Image Redoing & Specific Prompt Editor**:

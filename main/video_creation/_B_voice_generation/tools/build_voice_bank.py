@@ -328,7 +328,7 @@ def _passes_gender_pitch_gate(
             return False, f"Male low-band ratio too thin (M/F_E={mf_energy_ratio:.2f} < 0.08; likely female)"
         return True, ""
     min_f0, max_f0, min_p25, max_ratio = (
-        (175.0, 245.0, 160.0, 0.10) if lower_register else (200.0, 285.0, 195.0, 0.05)
+        (175.0, 245.0, 160.0, 0.10) if lower_register else (200.0, 275.0, 195.0, 0.05)
     )
     if not (min_f0 <= mean_f0 <= max_f0):
         return False, f"Female HPS pitch out of range ({mean_f0:.1f} Hz; expected {min_f0:g}-{max_f0:g} Hz)"
@@ -354,8 +354,8 @@ def _run_voicedesign_take(
         wf["36"]["inputs"]["voice_instruction"] = voice_instruction
         wf["36"]["inputs"]["language"] = language.capitalize()
         wf["36"]["inputs"]["seed"] = seed
-        wf["36"]["inputs"]["temperature"] = 0.85
-        wf["36"]["inputs"]["subtalker_temperature"] = 0.82
+        wf["36"]["inputs"]["temperature"] = 0.80
+        wf["36"]["inputs"]["subtalker_temperature"] = 0.76
     if "8" in wf and "inputs" in wf["8"]:
         wf["8"]["inputs"]["filename_prefix"] = f"audio/vd_{uuid.uuid4().hex[:8]}"
 
@@ -395,6 +395,7 @@ def _generate_baseline_for_persona(
     final_wav = out_dir / f"{lang}_{gend}_{sid}_baseline.wav"
 
     # A staged lower-register clip must meet the same gate when a build resumes.
+    # pyrefly: ignore[missing-import]
     import soundfile as sf
 
     if final_wav.exists() and not force:
@@ -454,8 +455,12 @@ def _generate_baseline_for_persona(
         )
         score, passes_gate, _, metrics = evaluate_voice_take(tmp_flac, target_text=persona["ref_text"], language=lang)
         lang_prob = _verify_whisper_language(tmp_flac, lang)
+        hnr_val = float(metrics.get("hnr_mean", 1.0))
+        jmp_val = float(metrics.get("rapid_f0_jump_rate", 0.0))
+        clean_voice = hnr_val >= 0.58 and jmp_val <= 0.045
         rank = (
             (10.0 if gender_ok else 0.0)
+            + (6.0 if clean_voice else 0.0)
             + (5.0 if lang_prob >= 0.96 else 0.0)
             + score
             + (0.25 * lang_prob)
@@ -463,8 +468,10 @@ def _generate_baseline_for_persona(
         )
         if not gender_ok:
             print(f"    [Cand {idx+1} gender-pitch warn]: {gender_issue}", flush=True)
+        if not clean_voice:
+            print(f"    [Cand {idx+1} quality warn]: HNR={hnr_val:.3f} F0jmp={jmp_val*100:.1f}%", flush=True)
         candidates.append((tmp_flac, rank, lang_prob, score, gender_ok, hps_f0, p25_f0, mf_ratio))
-        if passes_gate and gender_ok and (
+        if passes_gate and gender_ok and clean_voice and (
             (idx == 0 and lang_prob >= 0.97 and score >= 0.78)
             or (idx >= 1 and lang_prob >= 0.96)
         ):
@@ -510,11 +517,11 @@ def _generate_baseline_for_persona(
 
 
 _ROLEPLAY_VARIANT_DELIVERY = {
-    "high_energy": "Playful excitement, quick and conversational, with a clear stress on the key word.",
-    "surprised_urgent": "Restrained urgency, speaking quickly with a brief hesitation and a steady register.",
-    "reassuring": "Reassure a worried friend, with warm emphasis and an unhurried landing.",
-    "frustrated": "Hold back irritation, using clipped consonants and firm stress in a steady register.",
-    "embarrassed": "Sound briefly flustered, hesitate, then recover with a quieter, matter-of-fact finish.",
+    "high_energy": "Speak with bright, enthusiastic excitement and lively smiling energy, punching the exclamation with unmistakable joy.",
+    "surprised_urgent": "Speak with startled disbelief and breathless urgency, quickening on the shocked question with genuine emotional weight.",
+    "reassuring": "Reassure a worried friend with genuine warmth, calm emphasis, and a comforting, unhurried landing.",
+    "frustrated": "Speak with sharp frustration and exasperation, hitting the opening words with clipped irritation and emphatic stress.",
+    "embarrassed": "Sound genuinely flustered and embarrassed, hesitating awkwardly before dropping slightly into a sheepish finish.",
 }
 
 
@@ -589,9 +596,9 @@ def _generate_roleplay_variants(
                     output_prefix=f"audio/var_{sid}_{tier}_{idx+1}",
                     dest_path=tmp_flac,
                     seed=seed,
-                    use_icl=True,
+                    use_icl=False if tier in ("high_energy", "surprised_urgent", "frustrated") else True,
                     ref_text=baseline_entry["ref_text"],
-                    sampling_overrides={"temperature": 0.88, "subtalker_temperature": 0.83},
+                    sampling_overrides={"temperature": 0.82, "subtalker_temperature": 0.78},
                     accent_hint=baseline_entry["accent"],
                 )
                 data, sr = sf.read(str(tmp_flac))

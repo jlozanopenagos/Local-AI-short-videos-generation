@@ -109,10 +109,13 @@ class AssemblyAdapter(BaseStageAdapter):
         sm = StateManager(base_dir=self.base_dir)
         skip_existing = bool(options.get("skip_existing", False))
         force = not skip_existing
+        has_explicit_keep = "keep_subtitles" in options
         keep_subtitles = bool(options.get("keep_subtitles", False))
-        force_subtitles = bool(options.get("force_subtitles", False))
+        # When caller explicitly passes keep_subtitles=False (e.g. WebUI checkbox unchecked),
+        # force fresh subtitle regeneration instead of silently reusing old .ass files.
+        force_subtitles = bool(options.get("force_subtitles", False)) or (has_explicit_keep and not keep_subtitles)
         has_explicit_auto = "auto_keep_subtitles" in options
-        auto_keep_subtitles = bool(options.get("auto_keep_subtitles", True))
+        auto_keep_subtitles = bool(options.get("auto_keep_subtitles", not force_subtitles))
         max_attempts = int(options.get("max_attempts", 3))
 
         default_workers = max(1, int(os.getenv("ASSEMBLY_MAX_WORKERS", "3")))

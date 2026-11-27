@@ -321,12 +321,96 @@ payoff: A theatrical superstition turns stage panic into pure energy!"""
             self.assertEqual(updated["prompt_params"]["TOPIC"], "Silent Letters")
             self.assertEqual(updated["prompt_params"]["EXPRESSION"], "Silent Letters")
             self.assertEqual(updated["content_metadata"]["topic"], "Silent Letters")
-            self.assertEqual(updated["content_metadata"]["script"]["title"], "Origin: Silent Letters")
-            self.assertEqual(updated["metadata"]["TITLE"], "Origin: Silent Letters")
+            self.assertEqual(updated["content_metadata"]["script"]["title"], "Silent Letters")
+            self.assertEqual(updated["metadata"]["TITLE"], "Silent Letters")
             for k in ("hook", "setup", "discovery", "explanation", "payoff"):
                 self.assertIn(k, updated["content_metadata"]["script"])
             self.assertNotIn("general_prompt", updated["assets"])
             self.assertEqual(updated["status"]["image_generation"], "pending")
+
+    def test_normalize_sheet_rows_extracts_column_j_short_title_and_positional_fallback(self):
+        """Verify normalize_sheet_rows extracts Column J via short_title/THUMBNAIL_TITLE or positional fallback."""
+        # pyrefly: ignore[missing-import]
+        from connectivity.core.client import normalize_sheet_rows
+
+        rows = [
+            {
+                "ID": "ig02",
+                "expression": "Avere le mani bucate",
+                "script": "body",
+                "SCRIPT_CHANGED": "",
+                "short_title": "MANI BUCATE?!",
+            },
+            {
+                "ID": "eg03",
+                "expression": "reCORD",
+                "script": "body",
+                "SCRIPT_CHANGED": "",
+                "script_ready": "TRUE",
+                "script_date": "",
+                "video_ready": "",
+                "video_date": "",
+                "short_description": "",
+                "CustomColJHeader": "REcord or reCORD?",
+            },
+        ]
+        norm = normalize_sheet_rows(rows)
+        self.assertEqual(len(norm), 2)
+        self.assertEqual(norm[0]["THUMBNAIL_TITLE"], "MANI BUCATE?!")
+        self.assertEqual(norm[1]["THUMBNAIL_TITLE"], "REcord or reCORD?")
+
+    @patch("webui.routers.sheets._get_indexed_scripts")
+    def test_thumbnail_titles_sync_worker_updates_only_thumbnail_title_and_resets_only_thumbnails(self, mock_index):
+        """Verify _run_thumbnail_titles_sync_worker writes thumbnail_title without resetting voice/images/assembly."""
+        import json
+        import tempfile
+        # pyrefly: ignore[missing-import]
+        from core.state_manager import StateManager
+        # pyrefly: ignore[missing-import]
+        from webui.routers.sheets import _run_thumbnail_titles_sync_worker
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            sm = StateManager(base_dir)
+            sm.save_script_state("IG02", {
+                "id": "IG02",
+                "status": {
+                    "script_generation": "done",
+                    "voice_generation": "done",
+                    "image_generation": "done",
+                    "thumbnail_generation": "done",
+                    "video_assembly": "done",
+                },
+                "prompt_params": {"ID": "IG02", "TARGET_LANGUAGE": "Italian", "VIDEO_TYPE": "GAME"},
+                "content_metadata": {
+                    "video_type": "GAME",
+                    "language": "Italian",
+                    "script": {"title": "Old Title"},
+                },
+            })
+
+            fake_rows = [{
+                "ID": "IG02",
+                "expression": "Avere le mani bucate",
+                "short_title": "MANI BUCATE?!",
+            }]
+            with patch("connectivity.core.ENDPOINT_REGISTRY", {("italian", "game"): "https://fake"}), \
+                 patch("connectivity.core.get_endpoint", return_value=("italian", "game", "https://fake")), \
+                 patch("connectivity.core.fetch_raw_sheet_rows", return_value=fake_rows):
+                _run_thumbnail_titles_sync_worker(apply_changes=True, base_dir=base_dir)
+
+            status = get_sheets_sync_status()
+            self.assertEqual(status["status"], "completed")
+            self.assertEqual(status["result"]["sync_mode"], "thumbnails")
+            self.assertEqual(status["result"]["updated_count"], 1)
+
+            updated = sm.get_script_state("IG02")
+            self.assertEqual(updated["content_metadata"]["thumbnail_title"], "MANI BUCATE?!")
+            self.assertEqual(updated["status"]["thumbnail_generation"], "pending")
+            self.assertEqual(updated["status"]["voice_generation"], "done")
+            self.assertEqual(updated["status"]["image_generation"], "done")
+            self.assertEqual(updated["status"]["video_assembly"], "done")
+            mock_index.assert_called_once_with(force_refresh=True)
 
 
 if __name__ == "__main__":

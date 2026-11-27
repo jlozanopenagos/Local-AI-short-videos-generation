@@ -163,7 +163,7 @@ Lighting should reinforce the emotional tone without becoming unnecessarily dram
 
 VISUAL STYLE
 
-Use: clean modern 2D cartoon animation style, polished narrative illustration, expressive characters with simple black cartoon eyes (STRICTLY NO colored irises like blue, green, or hazel eyes), rich detailed physical background environment with architectural/atmospheric depth (authentic indoor venue OR open-air street/plaza/landmark), vibrant ambient lighting, readable silhouettes. Strictly ban dot eyes, minimalist faces, and solid color backgrounds.
+Use: clean modern 2D cartoon animation style, polished narrative illustration, expressive characters with expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights (STRICTLY NO colored irises like blue, green, or hazel eyes), rich detailed physical background environment with architectural/atmospheric depth (authentic indoor venue OR open-air street/plaza/landmark), vibrant ambient lighting, readable silhouettes. Strictly ban dot eyes, minimalist faces, and solid color backgrounds.
 
 Do not add: "8K", "masterpiece", "photorealistic", "hyper realistic", "ultra detailed".
 
@@ -261,7 +261,7 @@ _ALL_TYPES_STORYBOARD_GRAMMAR = """\
        - Explanation: Real-world narrative medium-wide shot (35mm lens) showing natural confident usage with 0% camera eye contact.
 
      * FOR EXPRESSION SHORTS (LAYERED DEPTH & INSIDER REVELATION PROGRESSION):
-       - Hook [THE INSIDER GUIDE]: Waist-up / mid-thigh angled 35mm foreground-and-background depth composition (Rule of Thirds, cropped cleanly at hips/mid-thigh — omit footwear). The 17-year-old high-school senior protagonist (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build) occupies 40-45% foreground left or right, turned 3/4 toward the viewer with an engaging, playful knowing smile and lively simple black cartoon eyes, holding or gesturing toward an authentic prop while sharing an insider secret breaking the fourth wall. The luminous midground and deep background reveal the story setting and oversized thematic visual metaphor in rich atmospheric depth.
+       - Hook [THE INSIDER GUIDE]: Waist-up / mid-thigh angled 35mm foreground-and-background depth composition (Rule of Thirds, cropped cleanly at hips/mid-thigh — omit footwear). The 19-year-old young adult protagonist (tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build) occupies 40-45% foreground left or right, turned 3/4 toward the viewer with an engaging, playful knowing smile and expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights, holding or gesturing toward an authentic prop while sharing an insider secret breaking the fourth wall. The luminous midground and deep background reveal the story setting and oversized thematic visual metaphor in rich atmospheric depth.
        - Setup [SOCIAL CONTRAST]: Two-shot profile angle across a table/counter demonstrating the conversational friction or literal misunderstanding.
        - Discovery [EUREKA BREAKTHROUGH]: Waist-up medium action shot at a demonstration station. Radiant smile of sudden clarity and understanding.
        - Example [LIVING KINETIC MOTION]: Dynamic waist-up or mid-thigh action shot actively demonstrating the exact verb or example situation in full motion while keeping facial expressions clear.
@@ -315,12 +315,12 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * Micro-zone diversity within that established setting is strongly encouraged (e.g. moving naturally from the concrete skate bowl to the park bench, to the rails), but the overarching location is 100% locked.
    - To guarantee 100% character visual consistency (no shifting hair colors, no shifting clothes, no shifting skin tones, no shifting ages):
      * EVERY SINGLE SCENE PROMPT MUST EXPLICITLY REPEAT THE EXACT SAME VISUAL TRAITS FOR EACH CHARACTER:
-       - Exact demographic & skin tone: e.g. "17-year-old high-school senior girl with fair peach skin", "17-year-old high-school senior boy with warm tan skin" (realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build). NEVER omit skin tone, otherwise camera angle changes will drift into a completely different ethnicity!
-       - Simple black cartoon eyes: ALWAYS specify "lively natural-sized simple black cartoon eyes" (NEVER colored irises like blue, green, hazel, or amber eyes).
-       - Exact hair color AND exact gender-accurate hairstyle: e.g. for a GIRL: "dark wavy hair in a sleek ponytail"; for a BOY: "short textured dark-brown hair with clean tapered sides and neat side-part" (NEVER give a boy a ponytail, bun, or long hair; NEVER change or omit hair color or styling!).
+       - Exact demographic & skin tone: e.g. "19-year-old young woman with fair peach skin", "19-year-old young man with warm tan skin" (tall mature 1:7.5 head-to-body adult proportions, defined angular jawline, broad proportional shoulders, lean athletic young-adult build). NEVER omit skin tone, otherwise camera angle changes will drift into a completely different ethnicity!
+       - Expressive 2D animated eyes: ALWAYS specify "expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights" (NEVER colored irises like blue, green, hazel, or amber eyes, and NEVER dot/bead eyes).
+       - Exact hair color AND exact gender-accurate hairstyle: e.g. for a YOUNG WOMAN: "dark wavy hair in a sleek ponytail"; for a YOUNG MAN: "short textured dark-brown hair with clean tapered sides and neat side-part" (NEVER give a young man a ponytail, bun, or long hair; NEVER change or omit hair color or styling!).
        - Complete locked wardrobe (BOTH top + bottom garments — OMIT FOOTWEAR IN CROPPED SHOTS): e.g. "wearing her emerald velvet blazer over cream shirt and pleated charcoal trousers", "wearing his olive corduroy overshirt over striped henley and navy chinos" (ALWAYS include both upper layer AND trousers/chinos/skirt, and omit shoes/footwear in waist-up, chest-up, mid-thigh, and medium shots so framing stays cropped!).
        - Exact staging: Character 1 on the LEFT, Character 2 on the RIGHT.
-     * NEVER omit the characters' skin tone, simple black cartoon eyes, hair color, hairstyle, or complete upper + lower wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!
+     * NEVER omit the characters' skin tone, expressive 2D animated eyes (white sclera + dark pupils), hair color, hairstyle, or complete upper + lower wardrobe in any scene prompt, otherwise the image generation model will randomly invent different ethnicities, hair, and clothes!
      * Write purely positive visual descriptions inside every JSON prompt string — DO NOT include "NO ..." or "NOT ..." clauses inside the prompt string, since Z-Image-Turbo uses cfg=1.0.
    - Natural staging variations: Characters move naturally across the set (e.g. from the shop counter to the sunlit doorway, to the balcony rail or stone balustrade) without artificially teleporting to incompatible places.
 
@@ -375,10 +375,10 @@ CRITICAL DIRECTIVES FOR COMPLETE SCENE UNIQUENESS & FAITHFUL SCRIPT ENACTMENT:
      * NO generic modern coffee shops, cafe tables, or barista counters (unless the script explicitly mentions ordering coffee or a classic cafe terrace).
    - AUTHENTIC CULTURAL DIVERSITY: Ground every scene directly in the authentic city, shop, plaza, coastal promenade, or cultural landmark established in the Master Story World / General Prompt!
 
-10. HIGH-FIDELITY CHARACTER FACIAL QUALITY (SIMPLE BLACK CARTOON EYES — NO COLORED IRISES):
+10. HIGH-FIDELITY CHARACTER FACIAL QUALITY (EXPRESSIVE 2D ANIMATED EYES — DARK PUPILS, CLEAN WHITE SCLERA, NO DOT EYES):
     - Characters across ALL scenes must maintain consistent, high-end 2D cartoon animation fidelity.
-    - Every character must have simple black cartoon eyes with expressive eyebrows and clean line art (STRICTLY NO colored irises like blue, green, hazel, or amber eyes).
-    - ABSOLUTELY FORBIDDEN: Colored eyes (blue, green, hazel), tiny featureless bead eyes, flat minimalist stick faces, or featureless faces! Every character across every scene must look as polished and expressive as a modern 2D animated feature film.
+    - Every character must have expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, bright catchlights, expressive eyebrows, and clean line art (STRICTLY NO colored irises like blue, green, hazel, or amber eyes).
+    - ABSOLUTELY FORBIDDEN: Colored eyes (blue, green, hazel), dot eyes, tiny featureless bead eyes, flat minimalist stick faces, or featureless faces! Every character across every scene must look as polished and expressive as a modern 2D animated feature film.
 
 11. ENVIRONMENTAL BACKGROUND RICHNESS (STRICT BAN ON SOLID COLOR / EMPTY BACKDROPS — INDOOR OR OUTDOOR):
     - Every scene prompt MUST describe the physical background environment (either a richly detailed indoor venue OR an atmospheric open-air street, plaza, market, waterfront, or landmark):

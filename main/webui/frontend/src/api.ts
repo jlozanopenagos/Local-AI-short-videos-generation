@@ -1,4 +1,4 @@
-import type { SystemStatus, ScriptSummary, ScriptDetail, ScriptUpdatePayload, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse } from './types'
+import type { SystemStatus, ScriptSummary, ScriptDetail, ScriptUpdatePayload, Job, JobStage, ScriptCatalogResponse, ScriptFacets, SheetsSyncStatus, ValidateIdsResponse, ElevenLabsStatus, VoiceCreditEstimateResponse, VoiceProvider, ElevenLabsModelId } from './types'
 
 export type { ScriptUpdatePayload }
 
@@ -137,6 +137,31 @@ export async function renderChalkboard(
   return res.json()
 }
 
+export async function renderThumbnail(
+  scriptId: string,
+  thumbnailTitle?: string
+): Promise<{
+  status: string
+  message: string
+  thumbnail_title: string
+  thumbnail_path?: string | null
+  thumbnail_variants?: Record<string, string>
+  script: ScriptDetail
+}> {
+  const res = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}/render-thumbnail`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      thumbnail_title: thumbnailTitle,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Failed to render thumbnail for script ${scriptId}`)
+  }
+  return res.json()
+}
+
 export async function toggleScriptStage(
   scriptId: string,
   stage: string,
@@ -204,6 +229,46 @@ export async function saveGeminiKey(apiKey: string): Promise<{ status: string; m
   return res.json()
 }
 
+export async function fetchElevenLabsStatus(includeSubscription = true): Promise<ElevenLabsStatus> {
+  const res = await fetch(`/api/system/elevenlabs-status?include_subscription=${includeSubscription ? 'true' : 'false'}`)
+  if (!res.ok) throw new Error(`ElevenLabs status HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function saveElevenLabsKey(apiKey: string): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/system/elevenlabs-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to save ElevenLabs API key')
+  }
+  return res.json()
+}
+
+export async function estimateVoiceCredits(
+  scriptIds: string[],
+  voiceProvider: VoiceProvider = 'auto',
+  elevenlabsModel: ElevenLabsModelId = 'eleven_v3'
+): Promise<VoiceCreditEstimateResponse> {
+  const res = await fetch('/api/scripts/estimate-voice-credits', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      script_ids: scriptIds,
+      voice_provider: voiceProvider,
+      elevenlabs_model: elevenlabsModel,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to estimate voice credits')
+  }
+  return res.json()
+}
+
 export function getMediaUrl(pathOrFilename?: string | null): string {
   if (!pathOrFilename) return ''
   if (pathOrFilename.startsWith('http://') || pathOrFilename.startsWith('https://')) {
@@ -230,6 +295,21 @@ export async function startSheetsSync(options: { clean_cache?: boolean; apply_ch
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || 'Failed to start Google Sheets sync')
+  }
+  return res.json()
+}
+
+export async function startThumbnailTitlesSync(options: { apply_changes?: boolean } = {}): Promise<{ status: string; message: string }> {
+  const res = await fetch('/api/sheets/sync-thumbnails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      apply_changes: options.apply_changes ?? true,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Failed to start thumbnail titles sync')
   }
   return res.json()
 }
@@ -289,11 +369,16 @@ export async function redoAllScriptImages(
   return res.json()
 }
 
+export type DriveUploadScope = 'all' | 'video' | 'thumbnail'
+
 export async function uploadScriptToDrive(
-  scriptId: string
+  scriptId: string,
+  scope: DriveUploadScope = 'all'
 ): Promise<{ success: boolean; message: string; data: any }> {
   const res = await fetch(`/api/drive/scripts/${encodeURIComponent(scriptId)}/upload`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))

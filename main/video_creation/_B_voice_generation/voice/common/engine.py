@@ -205,8 +205,8 @@ def compute_segment_sampling(
             temp += lang_profile.exclamation_temp_delta
             sub_temp += lang_profile.exclamation_temp_delta * 0.4
 
-    temp = round(max(0.65, min(0.90, temp)), 3)
-    sub_temp = round(max(0.68, min(0.86, sub_temp)), 3)
+    temp = round(max(0.68, min(0.85, temp)), 3)
+    sub_temp = round(max(0.68, min(0.80, sub_temp)), 3)
 
     return {
         "temperature": temp,

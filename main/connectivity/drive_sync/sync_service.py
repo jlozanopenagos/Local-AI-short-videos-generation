@@ -3,7 +3,7 @@ sync_service.py — High-level Google Drive orchestration service for Shorts Aut
 
 Handles:
 - Mapping script metadata to the exact target folder hierarchy:
-  Root (15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z)
+  Root (GOOGLE_DRIVE_ROOT_FOLDER_ID)
     -> <language> (english, french, italian, spanish)
       -> <video_type> (expressions, fun_facts, game, role_play)
         -> <script_id> (e.g. EE01, FR21, IG09)
@@ -109,6 +109,57 @@ def resolve_script_assets(
     return resolved_video, resolved_thumb
 
 
+def resolve_script_thumbnails(
+    script_data: Dict[str, Any],
+    base_dir: Optional[Path] = None,
+) -> List[Tuple[Optional[str], Path]]:
+    """Resolves all thumbnail files on disk for a script.
+
+    Returns a list of `(variant_name_or_None, local_path)`:
+    - Spanish scripts with LatAm + Spain variants return `[("latam", ...), ("spain", ...)]`.
+    - Single-thumbnail scripts return `[(None, Path(...))]`.
+    """
+    script_id = script_data.get("id") or script_data.get("script_id") or "UNKNOWN"
+    assets = script_data.get("assets", {}) or {}
+    variants_raw = assets.get("thumbnail_variants")
+
+    resolved: List[Tuple[Optional[str], Path]] = []
+    if isinstance(variants_raw, dict) and variants_raw:
+        preferred_order = ["latam", "spain"]
+        ordered_keys = [k for k in preferred_order if k in variants_raw] + [
+            k for k in sorted(variants_raw) if k not in preferred_order
+        ]
+        for v_key in ordered_keys:
+            p_str = variants_raw.get(v_key)
+            if p_str:
+                p = Path(p_str)
+                if p.exists():
+                    resolved.append((str(v_key), p))
+        if resolved:
+            return resolved
+
+    try:
+        from config import get_script_output_dir, resolve_script_language, resolve_script_video_type
+
+        lang = resolve_script_language(script_data)
+        vtype = resolve_script_video_type(script_data)
+        out_dir = get_script_output_dir(script_id, lang, base_dir, video_type=vtype)
+        if lang == "spanish":
+            for v_key in ("latam", "spain"):
+                cand = out_dir / f"thumbnail_{v_key}.png"
+                if cand.exists():
+                    resolved.append((v_key, cand))
+            if resolved:
+                return resolved
+    except Exception as exc:
+        logger.debug("[%s] Error checking variant thumbnail paths: %s", script_id, exc)
+
+    _, single_thumb = resolve_script_assets(script_data, base_dir=base_dir)
+    if single_thumb is not None:
+        return [(None, single_thumb)]
+    return []
+
+
 def upload_script_to_drive(
     script_id: str,
     client: Optional[Any] = None,
@@ -116,10 +167,17 @@ def upload_script_to_drive(
     credentials_path: Optional[str | Path] = None,
     root_folder_id: Optional[str] = None,
     progress_callback: Optional[Any] = None,
+    assets_scope: str = "all",
+    base_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """
-    Uploads a completed script's final video and thumbnail to Google Drive under:
+    Uploads a script's final video and/or thumbnail(s) to Google Drive under:
     Root / <language> / <video_type> / <script_id> /
+
+    `assets_scope`:
+      - "all": requires and uploads both final video and thumbnail(s) (default).
+      - "video": uploads only the final `.mp4` video without touching thumbnails.
+      - "thumbnail": uploads only the rendered thumbnail `.png`(s) without touching video.
 
     Returns a dict with execution details and drive URLs.
     """
@@ -128,7 +186,16 @@ def upload_script_to_drive(
     from state_manager import StateManager
     from config import resolve_script_language, resolve_script_video_type
 
-    sm = state_mgr or StateManager()
+    scope_norm = (assets_scope or "all").strip().lower()
+    if scope_norm == "thumbnails":
+        scope_norm = "thumbnail"
+    if scope_norm not in ("all", "video", "thumbnail"):
+        raise ValueError(f"Unsupported assets_scope '{assets_scope}'. Expected 'all', 'video', or 'thumbnail'.")
+
+    include_video = scope_norm in ("all", "video")
+    include_thumbnail = scope_norm in ("all", "thumbnail")
+
+    sm = state_mgr or StateManager(base_dir=base_dir) if base_dir else (state_mgr or StateManager())
     if hasattr(sm, "load_script_state"):
         res = sm.load_script_state(script_id)
         if isinstance(res, dict):
@@ -150,16 +217,27 @@ def upload_script_to_drive(
         root_folder_id=root_id,
     )
 
-    # 1. Resolve local files (both video and thumbnail are mandatory for Drive upload)
-    video_path, thumb_path = resolve_script_assets(script_data)
-    if not video_path or not video_path.exists():
-        raise FileNotFoundError(
-            f"[{script_id}] Final video file not found on disk. Assemble the video first before uploading."
-        )
-    if not thumb_path or not thumb_path.exists():
-        raise FileNotFoundError(
-            f"[{script_id}] Thumbnail file not found on disk. Both video and thumbnail are required before uploading to Google Drive."
-        )
+    # 1. Resolve local files requested by `assets_scope` BEFORE creating/modifying anything in Drive
+    video_path: Optional[Path] = None
+    thumb_entries: List[Tuple[Optional[str], Path]] = []
+
+    if include_video:
+        video_path, _ = resolve_script_assets(script_data, base_dir=base_dir)
+        if not video_path or not video_path.exists():
+            raise FileNotFoundError(
+                f"[{script_id}] Final video file not found on disk. Assemble the video first before uploading."
+            )
+
+    if include_thumbnail:
+        thumb_entries = resolve_script_thumbnails(script_data, base_dir=base_dir)
+        if not thumb_entries:
+            if scope_norm == "thumbnail":
+                raise FileNotFoundError(
+                    f"[{script_id}] Thumbnail file not found on disk. Render the thumbnail first before uploading to Google Drive."
+                )
+            raise FileNotFoundError(
+                f"[{script_id}] Thumbnail file not found on disk. Both video and thumbnail are required before uploading to Google Drive."
+            )
 
     # 2. Determine target Drive folder hierarchy
     raw_lang = resolve_script_language(script_data)
@@ -169,8 +247,8 @@ def upload_script_to_drive(
     target_vtype = map_video_type_to_folder(raw_vtype)
 
     logger.info(
-        "[%s] Navigating Google Drive folders: Root -> %s -> %s -> %s",
-        script_id, target_lang, target_vtype, script_id
+        "[%s] Navigating Google Drive folders (scope=%s): Root -> %s -> %s -> %s",
+        script_id, scope_norm, target_lang, target_vtype, script_id
     )
 
     # Step 1: Language folder (e.g. english)
@@ -184,63 +262,113 @@ def upload_script_to_drive(
 
     folder_url = f"https://drive.google.com/drive/folders/{script_folder_id}"
     video_name = f"{script_id}.mp4"
-    thumbnail_name = f"{script_id}_thumbnail.png"
-    previous_files = [
-        *drive_client.list_named_files(script_folder_id, video_name),
-        *drive_client.list_named_files(script_folder_id, thumbnail_name),
+    thumb_targets = [
+        (
+            variant,
+            local_p,
+            f"{script_id}_thumbnail_{variant}.png" if variant else f"{script_id}_thumbnail.png",
+        )
+        for variant, local_p in thumb_entries
     ]
 
-    video_upload_res = drive_client.upload_or_update_file(
-        local_path=video_path,
-        remote_filename=video_name,
-        parent_folder_id=script_folder_id,
-        mime_type="video/mp4",
-        progress_callback=progress_callback,
-        replace_existing=False,
-    )
-    try:
-        thumb_upload_res = drive_client.upload_or_update_file(
-            local_path=thumb_path,
-            remote_filename=thumbnail_name,
+    previous_files: List[Dict[str, Any]] = []
+    if include_video:
+        previous_files.extend(drive_client.list_named_files(script_folder_id, video_name))
+    if include_thumbnail:
+        for _variant, _local_p, rname in thumb_targets:
+            previous_files.extend(drive_client.list_named_files(script_folder_id, rname))
+
+    video_upload_res: Optional[Dict[str, Any]] = None
+    uploaded_thumbs: List[Tuple[Optional[str], str, Dict[str, Any]]] = []
+
+    if include_video and video_path is not None:
+        video_upload_res = drive_client.upload_or_update_file(
+            local_path=video_path,
+            remote_filename=video_name,
             parent_folder_id=script_folder_id,
-            mime_type="image/png",
+            mime_type="video/mp4",
+            progress_callback=progress_callback,
             replace_existing=False,
         )
-    except Exception:
-        drive_client.delete_file(video_upload_res["id"], video_name)
-        raise
 
-    # 5. Update State
+    if include_thumbnail:
+        try:
+            for variant, local_p, rname in thumb_targets:
+                res = drive_client.upload_or_update_file(
+                    local_path=local_p,
+                    remote_filename=rname,
+                    parent_folder_id=script_folder_id,
+                    mime_type="image/png",
+                    replace_existing=False,
+                )
+                uploaded_thumbs.append((variant, rname, res))
+        except Exception:
+            if video_upload_res and video_upload_res.get("id"):
+                drive_client.delete_file(video_upload_res["id"], video_name)
+            for _v, rname, res in uploaded_thumbs:
+                if res and res.get("id"):
+                    drive_client.delete_file(res["id"], rname)
+            raise
+
+    # 5. Update State (preserving Drive fields of any untouched asset scope)
     assets = script_data.setdefault("assets", {})
     assets["drive_folder_id"] = script_folder_id
     assets["drive_folder_url"] = folder_url
-    assets["drive_video_id"] = video_upload_res.get("id")
-    assets["drive_video_url"] = video_upload_res.get("web_view_link")
-    if thumb_upload_res:
-        assets["drive_thumbnail_id"] = thumb_upload_res.get("id")
-        assets["drive_thumbnail_url"] = thumb_upload_res.get("web_view_link")
+
+    if video_upload_res is not None:
+        assets["drive_video_id"] = video_upload_res.get("id")
+        assets["drive_video_url"] = video_upload_res.get("web_view_link")
+
+    primary_thumb_res: Optional[Dict[str, Any]] = None
+    if uploaded_thumbs:
+        primary_thumb_res = uploaded_thumbs[0][2]
+        assets["drive_thumbnail_id"] = primary_thumb_res.get("id")
+        assets["drive_thumbnail_url"] = primary_thumb_res.get("web_view_link")
+
+        variant_drive_map = {
+            variant: {
+                "id": res.get("id"),
+                "name": rname,
+                "url": res.get("web_view_link"),
+            }
+            for variant, rname, res in uploaded_thumbs
+            if variant
+        }
+        if variant_drive_map:
+            assets["drive_thumbnails"] = variant_drive_map
+        else:
+            assets.pop("drive_thumbnails", None)
 
     status = script_data.setdefault("status", {})
-    status["drive_upload"] = "done"
+    if scope_norm == "all" or (assets.get("drive_video_id") and assets.get("drive_thumbnail_id")):
+        status["drive_upload"] = "done"
 
     sm.save_script_state(script_id, script_data)
-    new_file_ids = {video_upload_res["id"], thumb_upload_res["id"]}
+    new_file_ids = set()
+    if video_upload_res and video_upload_res.get("id"):
+        new_file_ids.add(video_upload_res["id"])
+    for _v, _rn, res in uploaded_thumbs:
+        if res and res.get("id"):
+            new_file_ids.add(res["id"])
+
     deleted_existing_count = 0
     for previous in previous_files:
         file_id = previous.get("id")
         if file_id and file_id not in new_file_ids:
             deleted_existing_count += drive_client.delete_file(file_id, previous.get("name", ""))
-    logger.info("[%s] Drive upload complete! Folder URL: %s", script_id, folder_url)
+    logger.info("[%s] Drive upload complete (scope=%s)! Folder URL: %s", script_id, scope_norm, folder_url)
 
     return {
         "script_id": script_id,
+        "assets_scope": scope_norm,
         "language": target_lang,
         "video_type": target_vtype,
         "folder_id": script_folder_id,
         "folder_url": folder_url,
         "deleted_existing_count": deleted_existing_count,
         "video": video_upload_res,
-        "thumbnail": thumb_upload_res,
+        "thumbnail": primary_thumb_res,
+        "thumbnails": [res for _v, _rn, res in uploaded_thumbs],
     }
 
 

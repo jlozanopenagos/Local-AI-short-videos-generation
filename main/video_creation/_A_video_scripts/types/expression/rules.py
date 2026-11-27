@@ -57,7 +57,7 @@ PRACTICAL USAGE IS ALWAYS THE CORE GOAL
 MANDATORY SCRIPT STRUCTURE & JSON SCHEMA
 -----------------------------
 The "script" object for EXPRESSION MUST contain EXACTLY these 6 keys:
-1. "title": Catchy, short title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS, 100% in TARGET_LANGUAGE).
+1. "title": Catchy, short title in TARGET_LANGUAGE (3-6 words, ZERO EMOJIS, 100% in TARGET_LANGUAGE, NO category/format prefixes like "Quiz:", "Expression:", "Fun Fact:", "Roleplay:", "In Action:", "Origin:").
 2. "hook": Spoken by Narrator (10-15 words). High-energy curiosity hook (100% in TARGET_LANGUAGE).
 3. "setup": Spoken by Narrator (20-25 words). Sets up the story, contrast, or dilemma (100% in TARGET_LANGUAGE).
 4. "discovery": Spoken by Narrator (20-25 words). Reveals the authentic expression, nuance, or street usage (100% in TARGET_LANGUAGE).

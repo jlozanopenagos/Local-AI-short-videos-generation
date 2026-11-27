@@ -441,12 +441,13 @@ class TestWebUIApi(unittest.TestCase):
 
     def test_drive_status_endpoint(self):
         """Verify GET /api/drive/status returns drive configuration."""
-        resp = self.client.get("/api/drive/status")
+        with patch("webui.routers.drive.DEFAULT_ROOT_FOLDER_ID", "FAKE_DRIVE_ROOT_ID"):
+            resp = self.client.get("/api/drive/status")
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertIn("configured", data)
         self.assertIn("root_folder_id", data)
-        self.assertEqual(data["root_folder_id"], "15HhCvcrsaAn3fLQM7Hdv3J0HVgcp39_Z")
+        self.assertEqual(data["root_folder_id"], "FAKE_DRIVE_ROOT_ID")
 
     @patch("webui.routers.drive.upload_script_to_drive")
     @patch("webui.routers.drive.StateManager")
@@ -468,4 +469,154 @@ class TestWebUIApi(unittest.TestCase):
         data = resp.json()
         self.assertTrue(data["success"])
         self.assertEqual(data["data"]["folder_url"], "https://drive.google.com/drive/folders/ABCDEF")
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_get_script_detail_exposes_thumbnail_variants(self, mock_get_sm):
+        """Verify GET /api/scripts/{id} exposes thumbnail_variants for dual Spanish thumbnails."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = {
+            "id": "SE01",
+            "content_metadata": {"language": "spanish", "video_type": "expression", "topic": "Tomar el pelo"},
+            "status": {"script_generation": "done", "thumbnail_generation": "done"},
+            "assets": {
+                "thumbnail_path": "/fake/output/SE01/thumbnail_latam.png",
+                "thumbnail_variants": {
+                    "latam": "/fake/output/SE01/thumbnail_latam.png",
+                    "spain": "/fake/output/SE01/thumbnail_spain.png",
+                },
+            },
+        }
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.get("/api/scripts/SE01")
+        self.assertEqual(resp.status_code, 200)
+        assets = resp.json()["assets"]
+        self.assertEqual(assets["thumbnail"], "/fake/output/SE01/thumbnail_latam.png")
+        self.assertEqual(
+            assets["thumbnail_variants"],
+            {
+                "latam": "/fake/output/SE01/thumbnail_latam.png",
+                "spain": "/fake/output/SE01/thumbnail_spain.png",
+            },
+        )
+
+    @patch("webui.routers.scripts._get_state_manager")
+    @patch("video_creation._F_thumbnail_image_generation.service.generate_thumbnail_for_script")
+    def test_render_thumbnail_endpoint_updates_text_and_renders(self, mock_gen_thumb, mock_get_sm):
+        """Verify POST /api/scripts/{id}/render-thumbnail saves thumbnail_title and re-renders thumbnail(s)."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        state_doc = {
+            "id": "SR08",
+            "content_metadata": {
+                "language": "spanish",
+                "video_type": "roleplay",
+                "script": {"title": "En Acción: embarazada"},
+            },
+            "status": {"script_generation": "done"},
+            "assets": {},
+        }
+        mock_sm.get_script_state.return_value = state_doc
+        mock_get_sm.return_value = mock_sm
+
+        def _fake_render(data, state_mgr=None, base_dir=None):
+            data.setdefault("assets", {})["thumbnail_path"] = "/fake/output/SR08/thumbnail_latam.png"
+            data["assets"]["thumbnail_variants"] = {
+                "latam": "/fake/output/SR08/thumbnail_latam.png",
+                "spain": "/fake/output/SR08/thumbnail_spain.png",
+            }
+            data.setdefault("status", {})["thumbnail_generation"] = "done"
+            return True
+
+        mock_gen_thumb.side_effect = _fake_render
+
+        resp = self.client.post(
+            "/api/scripts/SR08/render-thumbnail",
+            json={"thumbnail_title": "¡Cuidado!: Embarazada"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["thumbnail_title"], "¡Cuidado!: Embarazada")
+        self.assertEqual(state_doc["content_metadata"]["thumbnail_title"], "¡Cuidado!: Embarazada")
+        self.assertEqual(data["script"]["thumbnail_title"], "¡Cuidado!: Embarazada")
+        mock_gen_thumb.assert_called_once()
+
+    @patch("webui.routers.drive.upload_script_to_drive")
+    @patch("webui.routers.drive.StateManager")
+    def test_upload_single_script_endpoint_supports_scoped_uploads_and_rejects_bad_scope(self, mock_sm_cls, mock_upload):
+        """Verify POST /api/drive/scripts/{id}/upload forwards 'thumbnail' and 'video' scopes cleanly."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.return_value = True
+        mock_sm.get_script_state.return_value = MagicMock()
+        mock_sm_cls.return_value = mock_sm
+
+        mock_upload.return_value = {
+            "script_id": "EE01",
+            "assets_scope": "thumbnail",
+            "folder_url": "https://drive.google.com/drive/folders/ABCDEF",
+            "video": None,
+            "thumbnail": {"name": "EE01_thumbnail.png", "id": "222"},
+        }
+
+        resp_thumb = self.client.post("/api/drive/scripts/EE01/upload", json={"scope": "thumbnail"})
+        self.assertEqual(resp_thumb.status_code, 200)
+        self.assertTrue(resp_thumb.json()["success"])
+        self.assertEqual(mock_upload.call_args.kwargs["assets_scope"], "thumbnail")
+
+        resp_vid = self.client.post("/api/drive/scripts/EE01/upload", json={"scope": "video"})
+        self.assertEqual(resp_vid.status_code, 200)
+        self.assertEqual(mock_upload.call_args.kwargs["assets_scope"], "video")
+
+        resp_bad = self.client.post("/api/drive/scripts/EE01/upload", json={"scope": "audio"})
+        self.assertEqual(resp_bad.status_code, 400)
+
+    def test_elevenlabs_status_never_leaks_api_key(self):
+        """Verify GET /api/system/elevenlabs-status reports config without leaking the secret key."""
+        with patch.dict("os.environ", {"ELEVENLABS_API_KEY": "sk_super_secret_should_never_leak"}):
+            resp = self.client.get("/api/system/elevenlabs-status?include_subscription=false")
+        self.assertEqual(resp.status_code, 200)
+        body_text = resp.text
+        self.assertNotIn("sk_super_secret_should_never_leak", body_text)
+        data = resp.json()
+        self.assertTrue(data["configured"])
+        self.assertEqual(data["default_model"], "eleven_v3")
+        self.assertEqual(len(data["models"]), 3)
+
+    @patch("webui.routers.scripts._get_state_manager")
+    def test_estimate_voice_credits_hybrid_routing(self, mock_get_sm):
+        """Verify POST /api/scripts/estimate-voice-credits routes Roleplay/Expression to ElevenLabs and Game to Local."""
+        mock_sm = MagicMock()
+        mock_sm.script_exists.side_effect = lambda sid: sid in ("SR08", "SG02")
+        mock_sm.get_script_state.side_effect = lambda sid: (
+            {
+                "id": "SR08",
+                "content_metadata": {
+                    "language": "spanish",
+                    "video_type": "roleplay",
+                    "script": {"hook": "Una copa rota en la cena.", "dialogue_part_1": "PERSON_ONE (Anxious): Ay no!"},
+                },
+            }
+            if sid == "SR08"
+            else {
+                "id": "SG02",
+                "content_metadata": {
+                    "language": "spanish",
+                    "video_type": "game",
+                    "script": {"hook": "¿Sabes qué significa esto?"},
+                },
+            }
+        )
+        mock_get_sm.return_value = mock_sm
+
+        resp = self.client.post(
+            "/api/scripts/estimate-voice-credits",
+            json={"script_ids": ["SR08", "SG02"], "voice_provider": "auto", "elevenlabs_model": "eleven_v3"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["elevenlabs_count"], 1)
+        self.assertEqual(data["local_count"], 1)
+        self.assertGreater(data["total_estimated_credits"], 0)
 

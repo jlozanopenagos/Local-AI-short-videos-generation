@@ -66,24 +66,42 @@ SAMPLE_ROLEPLAY_SCRIPT = {
 }
 
 SAMPLE_GAME_SCRIPT = {
-    "title": "Acoustic Ear Test: Break a Leg",
+    "title": "Acoustic Ear Test: Contract Stress",
     "hook": "Think your ears are tuned to real spoken English? Let's test your reflexes.",
-    "challenge": "Both actors signed the employment CONtract yesterday. Did you hear A: CONtract, or B: conTRACT?",
-    "pressure": "Lock in your choice before the timer runs out.",
-    "answer": "Option A takes the win! The noun takes the stress on the first syllable: CONtract.",
+    "challenge": "Both actors signed the employment contract yesterday. Which word did you hear? A: a contract.  B: to contract.",
+    "pressure": "Lock in your choice before the timer runs out!",
+    "answer": "Option A takes the win! A contract takes the stress on the first syllable as a noun.",
     "explanation": "Nouns place stress on the first beat, while verbs push it to the second beat.",
-    "chalkboard_exercise": "Both actors signed the employment ___ yesterday.\nA) CONtract\nB) conTRACT"
+    "chalkboard_exercise": "Both actors signed the employment ___ yesterday.\nA: a contract.\nB: to contract."
 }
 
 SAMPLE_FUN_FACTS_SCRIPT = {
-    "title": "Why English Has a Silent K in Knight and Knee",
-    "hook": "Ever wonder why you write a K in knight, knee, and knife, but never pronounce it?",
+    "title": "Why English Has a Silent K",
+    "hook": "Ever wonder why you write a K in knight and knee, but never pronounce it?",
+    "setup": "For centuries, English writers kept the letter K at the start of common everyday words.",
     "discovery": "In Old English and Germanic ancestors, that K was fully pronounced like 'k-nee' and 'k-nicht'.",
-    "payoff": "Spelling froze when printing presses arrived, but speech kept moving fast. Which silent letter confuses you most?"
+    "explanation": "Printing presses standardized English spelling just as spoken pronunciation dropped the initial K sound.",
+    "payoff": "Spelling froze in place, but speech kept moving fast. Which silent letter confuses you most?"
 }
 
 
 if HAS_PYTEST:
+    @pytest.fixture(autouse=True)
+    def _isolate_live_voice_providers(monkeypatch):
+        """Prevent offline tests from hitting live ElevenLabs APIs or spending credits."""
+        if os.getenv("SHORTS_LIVE_ELEVENLABS") != "1":
+            monkeypatch.setenv("VOICE_PROVIDER", "local")
+            monkeypatch.setenv("ELEVENLABS_API_KEY", "")
+            try:
+                import config
+                monkeypatch.setattr(config, "VOICE_PROVIDER", "local", raising=False)
+                monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "", raising=False)
+                if hasattr(config, "settings"):
+                    monkeypatch.setattr(config.settings, "VOICE_PROVIDER", "local", raising=False)
+                    monkeypatch.setattr(config.settings, "ELEVENLABS_API_KEY", "", raising=False)
+            except Exception:
+                pass
+
     @pytest.fixture
     def isolated_workspace() -> Generator[WorkspaceHelper, None, None]:
         helper = WorkspaceHelper()

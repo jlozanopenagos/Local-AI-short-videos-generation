@@ -47,16 +47,16 @@ FALLBACK_MODELS = [
 
 POSITIVE_STYLE_PILLAR = (
     "Clean modern 2D cartoon narrative illustration, stylized 2D animation art style, "
-    "vibrant flat colors, bold outlines, expressive 17-year-old high-school senior character design "
-    "(realistic late-teen 1:7 head-to-body proportions, defined jawline, proportional shoulders, lean athletic teenage build), "
-    "lively natural-sized simple black 2D cartoon eyes with warm expressive gaze, "
+    "vibrant flat colors, bold outlines, expressive 19-year-old young adult character design "
+    "(realistic young-adult 1:7.5 head-to-body proportions, defined jawline, proportional shoulders, lean athletic build), "
+    "expressive 2D animated eyes with clean white sclera, dark pupils, defined eyelids, and bright catchlights with warm expressive gaze, "
     "stylish layered culturally authentic venue wardrobe matching the environment, "
     "rich detailed environmental background with architectural depth and warm atmospheric lighting, "
     "pure text-free visual illustration."
 )
 
 NEGATIVE_PROMPT_SHIELD = (
-    "(high-school student protagonist, stylish layered venue wardrobe, cultural setting visible, "
+    "(young-adult protagonist, stylish layered venue wardrobe, cultural setting visible, "
     "2D cartoon animation frame, pure text-free scene)"
 )
 
@@ -182,7 +182,7 @@ def extract_character_anchors_from_output(raw_text: str) -> Tuple[str, Dict[str,
                 p2_info = _parse_character_line(line_str)
 
         if p1_info:
-            anchors["char1_identity"] = p1_info.get("identity", "17-year-old high-school senior boy")
+            anchors["char1_identity"] = p1_info.get("identity", "19-year-old young man")
             anchors["char1_hair"] = p1_info.get("hair", "short textured dark hair")
             anchors["char1_attire"] = p1_info.get("attire", "a casual overshirt over a tee")
             anchors["char1_shoes"] = p1_info.get("shoes", "")
@@ -191,7 +191,7 @@ def extract_character_anchors_from_output(raw_text: str) -> Tuple[str, Dict[str,
                 c1_desc += f" and {anchors['char1_shoes']}"
             anchors["char1_desc"] = c1_desc
         if p2_info:
-            anchors["char2_identity"] = p2_info.get("identity", "17-year-old high-school senior girl")
+            anchors["char2_identity"] = p2_info.get("identity", "19-year-old young woman")
             anchors["char2_hair"] = p2_info.get("hair", "sleek dark bob")
             anchors["char2_attire"] = p2_info.get("attire", "a corduroy jacket")
             anchors["char2_shoes"] = p2_info.get("shoes", "")
@@ -260,7 +260,7 @@ def _strip_redundant_tails(text: str) -> str:
     cleaned = text.strip()
     # Strip trailing parenthetical production shields (legacy or current)
     cleaned = re.sub(
-        r'\((?:high-school student protagonist|thematic setting visible|realistic (?:adolescent 1:6\.5|late-teen 1:7))[^)]*\)',
+        r'\((?:high-school student protagonist|young-adult protagonist|thematic setting visible|realistic (?:adolescent 1:6\.5|late-teen 1:7|young-adult 1:7\.5))[^)]*\)',
         '',
         cleaned,
         flags=re.IGNORECASE,
@@ -580,25 +580,31 @@ def audit_general_prompt(
             return "feminine hairstyle (e.g. shoulder-length bob, high ponytail, soft wavy hair over shoulders, braids — NO sideburns or buzz cuts)"
         return "masculine hairstyle (e.g. short textured hair with neat side-part, tapered sides, tousled short curls — NO buns, ponytails, braids, or long hair)"
 
+    def _young_adult(g: str) -> str:
+        return "19-year-old young woman" if g == "girl" else "19-year-old young man"
+
+    c1_label = _young_adult(c1_gender)
+    c2_label = _young_adult(c2_gender)
+
     if has_two_characters:
         part_a_template = (
             "[CHARACTER_ANCHORS]\n"
-            f"CHAR_1: 17-year-old high-school senior {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
-            f"CHAR_2: 17-year-old high-school senior {c2_gender} | hair: <explicit hair color and {_hair_guidance(c2_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
+            f"CHAR_1: {c1_label} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
+            f"CHAR_2: {c2_label} | hair: <explicit hair color and {_hair_guidance(c2_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
             "[/CHARACTER_ANCHORS]"
         )
         char_mandate = (
-            f"3. CHARACTER 1 (Subject on the LEFT): Start with 'On the LEFT,' followed by a full inline prose description of the 17-year-old high-school senior {c1_gender} incorporating their {_hair_guidance(c1_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
-            f"4. CHARACTER 2 (Counterpart on the RIGHT): Start with 'On the RIGHT,' followed by a full inline prose description of the 17-year-old high-school senior {c2_gender} incorporating their {_hair_guidance(c2_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
+            f"3. CHARACTER 1 (Subject on the LEFT): Start with 'On the LEFT,' followed by a full inline prose description of the {c1_label} incorporating their {_hair_guidance(c1_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose).\n"
+            f"4. CHARACTER 2 (Counterpart on the RIGHT): Start with 'On the RIGHT,' followed by a full inline prose description of the {c2_label} incorporating their {_hair_guidance(c2_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_2' in Part B; write out their full visual description in prose).\n"
         )
     else:
         part_a_template = (
             "[CHARACTER_ANCHORS]\n"
-            f"CHAR_1: 17-year-old high-school senior {c1_gender} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
+            f"CHAR_1: {c1_label} | hair: <explicit hair color and {_hair_guidance(c1_gender)}> | attire: <explicit layered upper garment AND explicit lower garment (trousers, chinos, or skirt) matching environment>\n"
             "[/CHARACTER_ANCHORS]"
         )
         char_mandate = (
-            f"3. PROTAGONIST: Full inline prose description of the solo 17-year-old high-school senior {c1_gender} incorporating their {_hair_guidance(c1_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). SOLO PROTAGONIST MANDATE: DO NOT include a second character or companion in this solo scene.\n"
+            f"3. PROTAGONIST: Full inline prose description of the solo {c1_label} incorporating their {_hair_guidance(c1_gender)} and complete layered culturally authentic venue wardrobe (BOTH layered top garment AND explicit lower garment such as trousers, chinos, or skirt matching this city and setting — omit shoes/footwear so cropped scenes stay framed waist-up) (DO NOT write the literal placeholder 'CHAR_1' in Part B; write out their full visual description in prose). SOLO PROTAGONIST MANDATE: DO NOT include a second character or companion in this solo scene.\n"
         )
 
     previous_contrast = ""

@@ -261,8 +261,8 @@ class TestDriveSync(unittest.TestCase):
                 "thumbnail_generation": "done",
             },
             "assets": {
-                "final_video": "D:/AI/output/video_assets/english/expression/script_EE01/script_EE01_final.mp4",
-                "thumbnail_path": "D:/AI/output/video_assets/english/expression/script_EE01/thumbnail.png",
+                "final_video": "/fake/output/video_assets/english/expression/script_EE01/script_EE01_final.mp4",
+                "thumbnail_path": "/fake/output/video_assets/english/expression/script_EE01/thumbnail.png",
             },
         }
         mock_sm.load_script_state.return_value = state_doc
@@ -342,6 +342,131 @@ class TestDriveSync(unittest.TestCase):
         mock_client.get_or_create_folder.assert_not_called()
         mock_client.delete_duplicate_folders.assert_not_called()
         mock_client.clear_folder.assert_not_called()
+
+    def test_upload_spanish_script_uploads_both_latam_and_spain_thumbnails(self):
+        """Verify Spanish scripts upload both LatAm and Spain thumbnails and roll back cleanly on failure."""
+        mock_client = MagicMock()
+        mock_client.root_folder_id = DEFAULT_ROOT_FOLDER_ID
+        mock_client.get_or_create_folder.side_effect = ["LANG_ES", "TYPE_EXPR", "SCRIPT_SE01"]
+        mock_client.list_named_files.side_effect = [
+            [{"id": "OLD_VID", "name": "SE01.mp4"}],
+            [{"id": "OLD_LATAM", "name": "SE01_thumbnail_latam.png"}],
+            [],
+        ]
+        mock_client.delete_file.return_value = True
+        mock_client.upload_or_update_file.side_effect = [
+            {"id": "VID_1", "name": "SE01.mp4", "web_view_link": "https://drive.google.com/v1"},
+            {"id": "TH_LATAM", "name": "SE01_thumbnail_latam.png", "web_view_link": "https://drive.google.com/tl"},
+            {"id": "TH_SPAIN", "name": "SE01_thumbnail_spain.png", "web_view_link": "https://drive.google.com/ts"},
+        ]
+
+        mock_sm = MagicMock()
+        mock_sm.load_script_state.return_value = {
+            "id": "SE01",
+            "content_metadata": {"language": "spanish", "video_type": "expression"},
+            "status": {"video_assembly": "done", "thumbnail_generation": "done"},
+            "assets": {
+                "final_video": "D:/dummy/SE01_final.mp4",
+                "thumbnail_path": "D:/dummy/thumbnail_latam.png",
+                "thumbnail_variants": {
+                    "latam": "D:/dummy/thumbnail_latam.png",
+                    "spain": "D:/dummy/thumbnail_spain.png",
+                },
+            },
+        }
+
+        with patch("pathlib.Path.exists", return_value=True):
+            result = upload_script_to_drive("SE01", client=mock_client, state_mgr=mock_sm)
+
+        self.assertEqual([t["name"] for t in result["thumbnails"]], ["SE01_thumbnail_latam.png", "SE01_thumbnail_spain.png"])
+        self.assertEqual(result["thumbnail"]["name"], "SE01_thumbnail_latam.png")
+        mock_client.delete_file.assert_has_calls([
+            call("OLD_VID", "SE01.mp4"),
+            call("OLD_LATAM", "SE01_thumbnail_latam.png"),
+        ])
+        _sid, saved_data = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(sorted(saved_data["assets"]["drive_thumbnails"].keys()), ["latam", "spain"])
+
+        # Failure during second thumbnail upload must roll back video AND first thumbnail
+        mock_client.reset_mock()
+        mock_sm.reset_mock()
+        mock_client.get_or_create_folder.side_effect = ["LANG_ES", "TYPE_EXPR", "SCRIPT_SE01"]
+        mock_client.list_named_files.side_effect = [[], [], []]
+        mock_client.upload_or_update_file.side_effect = [
+            {"id": "NEW_VID"},
+            {"id": "NEW_LATAM"},
+            OSError("spain upload failed"),
+        ]
+        with patch("pathlib.Path.exists", return_value=True):
+            with self.assertRaisesRegex(OSError, "spain upload failed"):
+                upload_script_to_drive("SE01", client=mock_client, state_mgr=mock_sm)
+
+        mock_client.delete_file.assert_has_calls([
+            call("NEW_VID", "SE01.mp4"),
+            call("NEW_LATAM", "SE01_thumbnail_latam.png"),
+        ])
+        mock_sm.save_script_state.assert_not_called()
+
+    def test_upload_script_to_drive_single_scope_thumbnail_and_video_alone(self):
+        """Verify assets_scope='thumbnail' uploads only thumbnail(s) without needing video, and 'video' uploads only .mp4."""
+        mock_client = MagicMock()
+        mock_client.root_folder_id = DEFAULT_ROOT_FOLDER_ID
+        mock_client.get_or_create_folder.side_effect = ["LANG_EN", "TYPE_EXPR", "SCRIPT_EE01"]
+        mock_client.list_named_files.return_value = [{"id": "OLD_THUMB", "name": "EE01_thumbnail.png"}]
+        mock_client.delete_file.return_value = True
+        mock_client.upload_or_update_file.return_value = {
+            "id": "NEW_THUMB", "name": "EE01_thumbnail.png", "web_view_link": "https://drive.google.com/th",
+        }
+
+        mock_sm = MagicMock()
+        mock_sm.load_script_state.return_value = {
+            "id": "EE01",
+            "content_metadata": {"language": "english", "video_type": "expression"},
+            "status": {"thumbnail_generation": "done"},
+            "assets": {"thumbnail_path": "D:/dummy/thumbnail.png"},
+        }
+
+        with patch("pathlib.Path.exists", side_effect=lambda self_or_none=None: True):
+            res_thumb = upload_script_to_drive(
+                script_id="EE01", client=mock_client, state_mgr=mock_sm, assets_scope="thumbnail",
+            )
+
+        self.assertEqual(res_thumb["assets_scope"], "thumbnail")
+        self.assertIsNone(res_thumb["video"])
+        self.assertEqual(res_thumb["thumbnail"]["name"], "EE01_thumbnail.png")
+        mock_client.list_named_files.assert_called_once_with("SCRIPT_EE01", "EE01_thumbnail.png")
+        mock_client.delete_file.assert_called_once_with("OLD_THUMB", "EE01_thumbnail.png")
+        _, saved_thumb_state = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_thumb_state["assets"]["drive_thumbnail_id"], "NEW_THUMB")
+        self.assertNotEqual(saved_thumb_state["status"].get("drive_upload"), "done")
+
+        # Now upload ONLY video; existing remote thumbnail must not be queried or deleted
+        mock_client.reset_mock()
+        mock_client.get_or_create_folder.side_effect = ["LANG_EN", "TYPE_EXPR", "SCRIPT_EE01"]
+        mock_client.list_named_files.return_value = [{"id": "OLD_VID", "name": "EE01.mp4"}]
+        mock_client.delete_file.return_value = True
+        mock_client.upload_or_update_file.return_value = {
+            "id": "NEW_VID", "name": "EE01.mp4", "web_view_link": "https://drive.google.com/vid",
+        }
+        saved_thumb_state["assets"]["final_video"] = "D:/dummy/EE01_final.mp4"
+        mock_sm.load_script_state.return_value = saved_thumb_state
+        mock_sm.save_script_state.reset_mock()
+
+        with patch("pathlib.Path.exists", return_value=True):
+            res_vid = upload_script_to_drive(
+                script_id="EE01", client=mock_client, state_mgr=mock_sm, assets_scope="video",
+            )
+
+        self.assertEqual(res_vid["assets_scope"], "video")
+        self.assertIsNone(res_vid["thumbnail"])
+        self.assertEqual(res_vid["thumbnails"], [])
+        self.assertEqual(res_vid["video"]["name"], "EE01.mp4")
+        mock_client.list_named_files.assert_called_once_with("SCRIPT_EE01", "EE01.mp4")
+        mock_client.delete_file.assert_called_once_with("OLD_VID", "EE01.mp4")
+        _, saved_both_state = mock_sm.save_script_state.call_args[0]
+        self.assertEqual(saved_both_state["status"]["drive_upload"], "done")
+        self.assertEqual(saved_both_state["assets"]["drive_thumbnail_id"], "NEW_THUMB")
+        self.assertEqual(saved_both_state["assets"]["drive_video_id"], "NEW_VID")
 
 
 if __name__ == "__main__":

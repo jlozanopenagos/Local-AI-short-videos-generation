@@ -20,20 +20,25 @@ import {
   CloudUpload,
   ExternalLink
 } from 'lucide-react'
-import type { ScriptDetail, JobStage } from '../types'
+import type { ScriptDetail, JobStage, VoiceProvider, ElevenLabsModelId, ElevenLabsStatus } from '../types'
 import {
   fetchScriptDetail,
   getMediaUrl,
   createJob,
   generateScript,
   renderChalkboard,
+  renderThumbnail,
   updateScript,
   geminiAuditPrompt,
   fetchGeminiStatus,
   saveGeminiKey,
+  fetchElevenLabsStatus,
+  saveElevenLabsKey,
+  estimateVoiceCredits,
   redoSceneImage,
   redoAllScriptImages,
-  uploadScriptToDrive
+  uploadScriptToDrive,
+  type DriveUploadScope
 } from '../api'
 
 interface ScriptDetailModalProps {
@@ -93,6 +98,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [renderingChalkboard, setRenderingChalkboard] = useState(false)
   const [chalkboardRenderStatus, setChalkboardRenderStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  // Thumbnail editing & re-rendering state
+  const [editThumbnailTitle, setEditThumbnailTitle] = useState('')
+  const [renderingThumbnail, setRenderingThumbnail] = useState(false)
+  const [thumbnailRenderStatus, setThumbnailRenderStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
   // Scene image re-rendering state
   const [redoingSceneType, setRedoingSceneType] = useState<string | null>(null)
   const [redoingAllImages, setRedoingAllImages] = useState(false)
@@ -100,8 +110,19 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
   const [imgCacheBuster, setImgCacheBuster] = useState<number>(Date.now())
 
   // Google Drive upload state
-  const [uploadingDrive, setUploadingDrive] = useState(false)
+  const [uploadingDriveScope, setUploadingDriveScope] = useState<DriveUploadScope | null>(null)
+  const uploadingDrive = uploadingDriveScope !== null
   const [driveUploadStatus, setDriveUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Per-ID Voice Generation Specs (Local Qwen3-TTS vs ElevenLabs + model)
+  const [voiceProvider, setVoiceProvider] = useState<VoiceProvider>('auto')
+  const [elevenLabsModel, setElevenLabsModel] = useState<ElevenLabsModelId>('eleven_v3')
+  const [voiceRecast, setVoiceRecast] = useState(false)
+  const [elevenLabsStatus, setElevenLabsStatus] = useState<ElevenLabsStatus | null>(null)
+  const [estimatedVoiceCredits, setEstimatedVoiceCredits] = useState<{ provider: string; credits: number } | null>(null)
+  const [showElevenLabsKeyModal, setShowElevenLabsKeyModal] = useState(false)
+  const [elevenLabsKeyInput, setElevenLabsKeyInput] = useState('')
+  const [savingElevenLabsKey, setSavingElevenLabsKey] = useState(false)
 
   // Escape key listener for image lightbox
   useEffect(() => {
@@ -129,10 +150,11 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     }
     setEditScenePrompts(scenePromptMap)
 
-    // 2. Chalkboard & Game Archetype
+    // 2. Chalkboard, Thumbnail & Game Archetype
     const titleVal = data.chalkboard_title || data.target_expression || data.title || ''
     setChalkboardTitle(titleVal)
     setChalkboardExercise(data.chalkboard_exercise || '')
+    setEditThumbnailTitle(data.thumbnail_title || titleVal)
     setEditGameArchetype(data.game_archetype || 'FILL_IN_THE_BLANK_SPEEDRUN')
 
     // 3. Script structure
@@ -170,12 +192,58 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     loadData()
   }, [loadData])
 
+  useEffect(() => {
+    fetchElevenLabsStatus(true)
+      .then((st) => setElevenLabsStatus(st))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!detail?.id) return
+    let cancelled = false
+    estimateVoiceCredits([detail.id], voiceProvider, elevenLabsModel)
+      .then((res) => {
+        if (cancelled) return
+        const item = res.items[0]
+        setEstimatedVoiceCredits(
+          item ? { provider: item.provider, credits: item.estimated_credits } : null
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setEstimatedVoiceCredits(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [detail?.id, voiceProvider, elevenLabsModel])
+
+  const handleSaveElevenLabsKey = async () => {
+    if (!elevenLabsKeyInput.trim()) return
+    setSavingElevenLabsKey(true)
+    try {
+      await saveElevenLabsKey(elevenLabsKeyInput.trim())
+      setElevenLabsKeyInput('')
+      setShowElevenLabsKeyModal(false)
+      const st = await fetchElevenLabsStatus(true)
+      setElevenLabsStatus(st)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSavingElevenLabsKey(false)
+    }
+  }
+
   const handleRunStage = async (stage: JobStage) => {
     setTriggeringStage(stage)
     try {
       const options: Record<string, any> = { force: true }
       if (stage === 'images' && (editGeneralPrompt.trim() || (detail?.general_prompt || '').trim())) {
         options.preserve_general_prompt = true
+      }
+      if (stage === 'voice') {
+        options.voice_provider = voiceProvider
+        options.elevenlabs_model = elevenLabsModel
+        options.recast = voiceRecast
       }
       const job = await createJob(stage, [scriptId], options)
       onJobStarted(job.job_id)
@@ -548,15 +616,53 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     }
   }
 
-  const handleUploadToDrive = async () => {
+  const handleRenderThumbnail = async () => {
     if (!detail) return
-    setUploadingDrive(true)
+    setRenderingThumbnail(true)
+    setThumbnailRenderStatus(null)
+    try {
+      const res = await renderThumbnail(detail.id, editThumbnailTitle)
+      if (res.script) {
+        setDetail(res.script)
+        populateEditorState(res.script)
+      } else {
+        const reloaded = await fetchScriptDetail(detail.id)
+        setDetail(reloaded)
+        populateEditorState(reloaded)
+      }
+      setImgCacheBuster(Date.now())
+      setThumbnailRenderStatus({
+        type: 'success',
+        message: `✓ Thumbnail re-rendered with text: "${res.thumbnail_title}"`,
+      })
+      setTimeout(() => {
+        setThumbnailRenderStatus(null)
+      }, 6000)
+    } catch (err) {
+      setThumbnailRenderStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setRenderingThumbnail(false)
+    }
+  }
+
+  const handleUploadToDrive = async (scope: DriveUploadScope = 'all') => {
+    if (!detail) return
+    setUploadingDriveScope(scope)
     setDriveUploadStatus(null)
     try {
-      const res = await uploadScriptToDrive(detail.id)
+      const res = await uploadScriptToDrive(detail.id, scope)
+      const what =
+        scope === 'video'
+          ? 'video'
+          : scope === 'thumbnail'
+          ? 'thumbnail(s)'
+          : 'video & thumbnail(s)'
       setDriveUploadStatus({
         type: 'success',
-        message: `✓ uploaded to drive successfully! files placed in ${res.data.language}/${res.data.video_type}/${detail.id}/`,
+        message: `✓ ${what} uploaded to Drive (${res.data.language}/${res.data.video_type}/${detail.id}/)!`,
       })
       const reloaded = await fetchScriptDetail(detail.id)
       setDetail(reloaded)
@@ -564,10 +670,10 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
     } catch (err) {
       setDriveUploadStatus({
         type: 'error',
-        message: `failed to upload to google drive: ${err instanceof Error ? err.message : String(err)}`,
+        message: `failed to upload ${scope === 'all' ? '' : `${scope} `}to Google Drive: ${err instanceof Error ? err.message : String(err)}`,
       })
     } finally {
-      setUploadingDrive(false)
+      setUploadingDriveScope(null)
     }
   }
 
@@ -692,7 +798,7 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   <button
                     className="btn btn-sm"
                     disabled={uploadingDrive}
-                    onClick={handleUploadToDrive}
+                    onClick={() => handleUploadToDrive('all')}
                     title="upload final video and thumbnail to google drive"
                     style={{
                       background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -705,9 +811,9 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                       gap: '5px',
                     }}
                   >
-                    <CloudUpload size={13} className={uploadingDrive ? 'spin' : ''} />
+                    <CloudUpload size={13} className={uploadingDriveScope === 'all' ? 'spin' : ''} />
                     <span>
-                      {uploadingDrive
+                      {uploadingDriveScope === 'all'
                         ? 'uploading to drive...'
                         : (detail.assets as any)?.drive_folder_url || (detail as any).drive_folder_url
                         ? 're-upload to drive'
@@ -1597,40 +1703,397 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
             {/* Tab: Media Players */}
             {activeTab === 'media' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {detail.assets?.audio ? (
-                  <div>
-                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>master voice audio</h4>
+                {driveUploadStatus && (
+                  <div
+                    className={`sheets-alert ${driveUploadStatus.type}`}
+                    style={{ fontSize: '13px', marginBottom: 0 }}
+                  >
+                    {driveUploadStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                    <span>{driveUploadStatus.message}</span>
+                  </div>
+                )}
+
+                {/* Master Voice Audio + Per-ID Voice Generation Specs (Local vs ElevenLabs) */}
+                <div
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h4 style={{ fontSize: '14px', margin: 0, color: 'var(--text-muted)' }}>master voice audio</h4>
+                      {detail.voice_profile_meta?.provider === 'elevenlabs' ? (
+                        <span className="brand-badge" style={{ fontSize: '11px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', borderColor: 'rgba(139, 92, 246, 0.4)' }}>
+                          ElevenLabs · {detail.voice_profile_meta.elevenlabs_model || 'eleven_v3'}
+                          {detail.voice_profile_meta.credits_used ? ` (${detail.voice_profile_meta.credits_used} cr)` : ''}
+                        </span>
+                      ) : detail.assets?.audio ? (
+                        <span className="brand-badge" style={{ fontSize: '11px' }}>
+                          Local Qwen3-TTS
+                        </span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={() => setShowElevenLabsKeyModal(true)}
+                      style={{ fontSize: '11px' }}
+                    >
+                      {elevenLabsStatus?.configured ? 'ElevenLabs key ✓' : 'set ElevenLabs API key'}
+                    </button>
+                  </div>
+
+                  {detail.assets?.audio ? (
                     <audio controls style={{ width: '100%' }} src={getMediaUrl(detail.assets.audio)} />
-                  </div>
-                ) : (
-                  <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>no voice generated yet.</div>
-                )}
+                  ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>no voice generated yet.</div>
+                  )}
 
-                {detail.assets?.video && (
-                  <div>
-                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>final short video</h4>
-                    <video controls style={{ maxWidth: '320px', borderRadius: '8px', border: '1px solid var(--border)' }} src={getMediaUrl(detail.assets.video)} />
-                  </div>
-                )}
+                  {/* Per-ID Voice Generation Specs */}
+                  <div
+                    style={{
+                      background: 'var(--bg-main)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      voice generation specs
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <span>voice provider</span>
+                        <select
+                          className="search-input"
+                          value={voiceProvider}
+                          onChange={(e) => setVoiceProvider(e.target.value as VoiceProvider)}
+                        >
+                          <option value="auto">Auto Hybrid (Roleplay/Expr/Facts → ElevenLabs | Game → Local)</option>
+                          <option value="elevenlabs">ElevenLabs</option>
+                          <option value="local">Local Qwen3-TTS</option>
+                        </select>
+                      </label>
 
-                {detail.assets?.thumbnail && (
-                  <div>
-                    <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>chalkboard thumbnail</h4>
-                    <img
-                      src={`${getMediaUrl(detail.assets.thumbnail)}${getMediaUrl(detail.assets.thumbnail).includes('?') ? '&' : '?'}t=${imgCacheBuster}`}
-                      alt="Thumbnail"
-                      onClick={() =>
-                        setEnlargedImage({
-                          url: `${getMediaUrl(detail.assets.thumbnail!)}${getMediaUrl(detail.assets.thumbnail!).includes('?') ? '&' : '?'}t=${imgCacheBuster}`,
-                          title: `${detail.id} - Chalkboard Thumbnail`,
-                          subtitle: detail.title,
-                        })
-                      }
-                      title="Click to view enlarged thumbnail"
-                      style={{ maxWidth: '240px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                      {voiceProvider !== 'local' && (
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                          <span>ElevenLabs model</span>
+                          <select
+                            className="search-input"
+                            value={elevenLabsModel}
+                            onChange={(e) => setElevenLabsModel(e.target.value as ElevenLabsModelId)}
+                          >
+                            <option value="eleven_v3">Eleven v3 (Most Expressive — 1 cr/char)</option>
+                            <option value="eleven_multilingual_v2">Multilingual v2 (Classic Stable — 1 cr/char)</option>
+                            <option value="eleven_flash_v2_5">Flash v2.5 (Budget 2x — 0.5 cr/char)</option>
+                          </select>
+                        </label>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--text-main)' }}>
+                          <input
+                            type="checkbox"
+                            checked={voiceRecast}
+                            onChange={(e) => setVoiceRecast(e.target.checked)}
+                          />
+                          <span>choose new voices</span>
+                        </label>
+                        {estimatedVoiceCredits && (
+                          <span>
+                            route: <strong>{estimatedVoiceCredits.provider === 'elevenlabs' ? `ElevenLabs (~${estimatedVoiceCredits.credits} cr)` : 'Local Qwen3-TTS (0 cr)'}</strong>
+                            {estimatedVoiceCredits.provider === 'elevenlabs' && elevenLabsStatus?.subscription
+                              ? ` · ${elevenLabsStatus.subscription.remaining_credits.toLocaleString()} left`
+                              : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        disabled={triggeringStage !== null || generatingScript}
+                        onClick={() => handleRunStage('voice')}
+                        title="generate or redo voice using the selected provider and model"
+                      >
+                        <Mic size={13} />
+                        <span>{triggeringStage === 'voice' ? 'queuing voice...' : 'generate / re-do voice'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Final Short Video + Standalone Video Drive Upload */}
+                <div
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <h4 style={{ fontSize: '14px', margin: 0, color: 'var(--text-muted)' }}>final short video</h4>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {detail.assets?.drive_video_url && (
+                        <a
+                          href={detail.assets.drive_video_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            borderColor: '#10b981',
+                            color: '#10b981',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink size={13} />
+                          <span>view video on drive</span>
+                        </a>
+                      )}
+                      {detail.assets?.video && (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={uploadingDrive}
+                          onClick={() => handleUploadToDrive('video')}
+                          title="upload only the final .mp4 video to google drive (without thumbnails)"
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <CloudUpload size={13} className={uploadingDriveScope === 'video' ? 'spin' : ''} />
+                          <span>
+                            {uploadingDriveScope === 'video'
+                              ? 'uploading video...'
+                              : detail.assets?.drive_video_url
+                              ? 're-upload video only to drive'
+                              : 'upload video only to drive'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {detail.assets?.video ? (
+                    <video
+                      controls
+                      style={{ maxWidth: '320px', borderRadius: '8px', border: '1px solid var(--border)' }}
+                      src={getMediaUrl(detail.assets.video)}
                     />
+                  ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>no final video assembled yet.</div>
+                  )}
+                </div>
+
+                {/* Thumbnails: Content Editor + Re-render + Standalone Thumbnail Drive Upload */}
+                <div
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <h4 style={{ fontSize: '14px', margin: 0, color: 'var(--text-muted)' }}>
+                      {detail.assets?.thumbnail_variants && Object.keys(detail.assets.thumbnail_variants).length > 1
+                        ? 'thumbnails (LatAm & Spain)'
+                        : 'thumbnail'}
+                    </h4>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {(detail.assets?.drive_thumbnail_url || detail.assets?.drive_folder_url || detail.drive_folder_url) && (
+                        <a
+                          href={detail.assets?.drive_thumbnail_url || detail.assets?.drive_folder_url || detail.drive_folder_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            borderColor: '#10b981',
+                            color: '#10b981',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink size={13} />
+                          <span>view thumbnail on drive</span>
+                        </a>
+                      )}
+                      {(detail.assets?.thumbnail || (detail.assets?.thumbnail_variants && Object.keys(detail.assets.thumbnail_variants).length > 0)) && (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={uploadingDrive || renderingThumbnail}
+                          onClick={() => handleUploadToDrive('thumbnail')}
+                          title="upload only the thumbnail image(s) to google drive (without video)"
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <CloudUpload size={13} className={uploadingDriveScope === 'thumbnail' ? 'spin' : ''} />
+                          <span>
+                            {uploadingDriveScope === 'thumbnail'
+                              ? 'uploading thumbnail...'
+                              : detail.assets?.drive_thumbnail_url
+                              ? 're-upload thumbnail(s) to drive'
+                              : 'upload thumbnail(s) to drive'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  {/* Thumbnail Text Content Editor */}
+                  <div
+                    style={{
+                      background: 'var(--bg-main)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        thumbnail text content
+                      </label>
+                      {editThumbnailTitle.trim() !== (detail.thumbnail_title || '').trim() && (
+                        <span style={{ fontSize: '11px', color: '#f59e0b' }}>● unsaved edits</span>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      className="search-input"
+                      style={{ width: '100%', fontSize: '13px' }}
+                      value={editThumbnailTitle}
+                      onChange={(e) => setEditThumbnailTitle(e.target.value)}
+                      placeholder="Enter text rendered on the thumbnail card (leave blank to reset to script title)..."
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Tip: Use <code>:</code> to split header and main phrase (e.g. <code>Header: Main Phrase</code>). Leave empty to revert to script title.
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          disabled={renderingThumbnail}
+                          onClick={() => {
+                            setEditThumbnailTitle(detail.thumbnail_title || detail.chalkboard_title || detail.title || '')
+                            setThumbnailRenderStatus(null)
+                          }}
+                          title="reset thumbnail text to currently saved value"
+                        >
+                          <RefreshCw size={12} />
+                          <span>reset</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          disabled={renderingThumbnail}
+                          onClick={handleRenderThumbnail}
+                          title="save thumbnail text and immediately re-render the thumbnail image(s)"
+                        >
+                          <Sparkles size={12} className={renderingThumbnail ? 'spin' : ''} />
+                          <span>{renderingThumbnail ? 're-doing thumbnail...' : 'save & re-do thumbnail'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {thumbnailRenderStatus && (
+                    <div
+                      className={`sheets-alert ${thumbnailRenderStatus.type}`}
+                      style={{ fontSize: '13px', marginBottom: 0 }}
+                    >
+                      {thumbnailRenderStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                      <span>{thumbnailRenderStatus.message}</span>
+                    </div>
+                  )}
+
+                  {/* Thumbnail Image Preview(s) */}
+                  {detail.assets?.thumbnail_variants && Object.keys(detail.assets.thumbnail_variants).length > 1 ? (
+                    <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                      {Object.entries(detail.assets.thumbnail_variants).map(([variant, thumbPath]) => {
+                        const label = variant === 'latam' ? 'LatAm' : variant === 'spain' ? 'Spain' : variant
+                        const src = `${getMediaUrl(thumbPath)}${getMediaUrl(thumbPath).includes('?') ? '&' : '?'}t=${imgCacheBuster}`
+                        return (
+                          <div key={variant} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>{label}</span>
+                            <img
+                              src={src}
+                              alt={`Thumbnail ${label}`}
+                              onClick={() =>
+                                setEnlargedImage({
+                                  url: src,
+                                  title: `${detail.id} - Thumbnail (${label})`,
+                                  subtitle: detail.title,
+                                })
+                              }
+                              title={`Click to view enlarged ${label} thumbnail`}
+                              style={{ maxWidth: '180px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : detail.assets?.thumbnail ? (
+                    <div>
+                      <img
+                        src={`${getMediaUrl(detail.assets.thumbnail!)}${getMediaUrl(detail.assets.thumbnail!).includes('?') ? '&' : '?'}t=${imgCacheBuster}`}
+                        alt="Thumbnail"
+                        onClick={() =>
+                          setEnlargedImage({
+                            url: `${getMediaUrl(detail.assets.thumbnail!)}${getMediaUrl(detail.assets.thumbnail!).includes('?') ? '&' : '?'}t=${imgCacheBuster}`,
+                            title: `${detail.id} - Thumbnail`,
+                            subtitle: detail.title,
+                          })
+                        }
+                        title="Click to view enlarged thumbnail"
+                        style={{ maxWidth: '240px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                      no thumbnail rendered yet. Edit the text above and click <strong>save &amp; re-do thumbnail</strong>.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1819,6 +2282,78 @@ export const ScriptDetailModal: React.FC<ScriptDetailModalProps> = ({
                   disabled={!geminiKeyInput.trim() || savingGeminiKey}
                 >
                   {savingGeminiKey ? 'Saving...' : 'Save Key & Audit Prompt'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Secure ElevenLabs API Key Configuration Dialog */}
+        {showElevenLabsKeyModal && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.75)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2000,
+            }}
+            onClick={() => setShowElevenLabsKeyModal(false)}
+          >
+            <div
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '10px',
+                padding: '24px',
+                maxWidth: '480px',
+                width: '90%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Mic size={18} style={{ color: 'var(--accent)' }} />
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>enter ElevenLabs API key</h3>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+                Your private key is saved strictly locally in <code>main/.env</code> (gitignored) so it is never pushed to GitHub or returned in API responses.
+              </p>
+              <input
+                type="password"
+                className="form-control"
+                placeholder="paste your ElevenLabs API key (sk_...)"
+                value={elevenLabsKeyInput}
+                onChange={(e) => setElevenLabsKeyInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginBottom: '16px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  color: 'var(--text-main)',
+                  fontSize: '13px',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  onClick={() => setShowElevenLabsKeyModal(false)}
+                  disabled={savingElevenLabsKey}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={handleSaveElevenLabsKey}
+                  disabled={!elevenLabsKeyInput.trim() || savingElevenLabsKey}
+                >
+                  {savingElevenLabsKey ? 'Saving...' : 'Save Key to .env'}
                 </button>
               </div>
             </div>

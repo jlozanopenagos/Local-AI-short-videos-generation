@@ -14,8 +14,7 @@ Run production jobs in Studio. These commands cover service lifecycle, local ass
 | **`auditing/`** | Quality inspection, metrics & health checks | `status_scraper.py`, `json_health_checker.py`, `scrapper_script.py` |
 | **`database/`** | Expression database, queue sync & stage resets | `db.py`, `sync_prompts.py`, `reset_stage_status.py` |
 | **`prompt_builders/`**| System editor prompts generator | `generate_editor_prompts_csv.py` |
-| **`voice_quality/`** | Qwen3-TTS VoiceDesign 7-register generator & reference voice auditor | `build_voicedesign_references.py`, `audit_reference_voices.py` |
-| **Root Tools** | Modern WebUI, headless daemons (ComfyUI, LLM) & script change auditor | `webui.py`, `llama.py`, `comfy.py`, `check_script_changes.py`, `upgrade_titles.py` |
+| **Root Tools** | Modern WebUI, headless daemons (ComfyUI, LLM) & script change auditor | `webui.py`, `llama.py`, `comfy.py`, `check_script_changes.py` |
 
 ---
 
@@ -182,16 +181,13 @@ py tools/prompt_builders/generate_editor_prompts_csv.py
 
 ---
 
-### 5. Voice Quality & Vocal Register Bank (`tools/voice_quality/`)
+### 5. Voice Quality Bank Builder (`_B_voice_generation/tools/`)
 
-Utilities for building and auditing the 7 vocal-register reference clips (`alto`, `mezzo`, `soprano`, `bass`, `baritone`, `tenor`, `narrator`) used by `Qwen3-TTS` across English, French, Spanish, and Italian.
+The local voice bank builder lives in **`main/video_creation/_B_voice_generation/tools/build_voice_bank.py`** (`52` curated baseline voices indexed in `voice_bank_manifest.json`).
 
 ```bash
-# Generate the 7 vocal-register golden references via Qwen3-TTS-12Hz-1.7B-VoiceDesign
-py tools/voice_quality/build_voicedesign_references.py
-
-# Audit reference WAVs in input/voices/ for SNR, clipping, and Whisper language fidelity
-py tools/voice_quality/audit_reference_voices.py
+# Dry-run the active curated VoiceDesign bank builder
+py video_creation/_B_voice_generation/tools/build_voice_bank.py --dry-run
 ```
 ---
 
@@ -250,7 +246,7 @@ py tools/llama.py restart
 Launches the unified FastAPI backend server and serves the modern React 19 SPA dashboard. Automatically mounts static assets from `main/webui/static/`, initializes job workers, and opens the default browser.
 
 ```bash
-# Launch WebUI on default port (http://127.0.0.1:8000) and open browser
+# Launch WebUI on default port (http://127.0.0.1:8190) and open browser
 py tools/webui.py
 
 # Custom port and network interface
@@ -258,18 +254,4 @@ py tools/webui.py --port 8080 --host 0.0.0.0
 
 # Headless mode without launching default web browser
 py tools/webui.py --no-browser
-```
-
----
-
-### 9. Title & Metadata Upgrader (`tools/upgrade_titles.py`)
-
-Upgrades titles and metadata across state files, purging clichés ("The Native Secret", etc.) and enforcing format-specific title archetypes (punchy 3–6 word chalkboard titles for Tito and high-CTR uppercase titles for YouTube).
-
-```bash
-# Upgrade titles across all state JSON files
-py tools/upgrade_titles.py --all
-
-# Dry-run audit preview
-py tools/upgrade_titles.py --dry-run
 ```

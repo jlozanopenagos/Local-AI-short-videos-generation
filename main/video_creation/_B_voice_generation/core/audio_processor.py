@@ -103,10 +103,13 @@ def trim_audio_silence(
     sr: int,
     threshold: float = 0.012,
     pad_leading: float = 0.025,
-    pad_trailing: float = 0.05
+    pad_trailing: float = 0.05,
+    fade_in_sec: float = 0.010,
+    fade_out_sec: float = 0.020,
 ) -> np.ndarray:
     """Trims both leading dead silence (from neural TTS latency) and trailing silence
-    from generated segments to ensure crisp, human-like turn-taking pacing.
+    from generated segments to ensure crisp, human-like turn-taking pacing, and applies
+    micro edge fades (default 10ms fade-in / 20ms fade-out) to eliminate hard boundary clicks.
     """
     if len(data) == 0:
         return data
@@ -119,8 +122,32 @@ def trim_audio_silence(
         trail_samples = int(pad_trailing * sr)
         start_idx = max(0, non_silent[0] - lead_samples)
         end_idx = min(len(data), non_silent[-1] + trail_samples)
-        return data[start_idx:end_idx]
-    return data
+        trimmed = data[start_idx:end_idx].copy()
+    else:
+        trimmed = data.copy()
+
+    n_samples = len(trimmed)
+    fade_in_n = min(max(0, int(fade_in_sec * sr)), n_samples // 2)
+    fade_out_n = min(max(0, int(fade_out_sec * sr)), n_samples // 2)
+
+    if fade_in_n > 1 or fade_out_n > 1:
+        is_float = np.issubdtype(trimmed.dtype, np.floating)
+        work = trimmed if is_float else trimmed.astype(np.float32)
+        if fade_in_n > 1:
+            ramp_in = 0.5 * (1.0 - np.cos(np.pi * np.linspace(0.0, 1.0, fade_in_n, dtype=work.dtype)))
+            if work.ndim > 1:
+                work[:fade_in_n] *= ramp_in[:, None]
+            else:
+                work[:fade_in_n] *= ramp_in
+        if fade_out_n > 1:
+            ramp_out = 0.5 * (1.0 + np.cos(np.pi * np.linspace(0.0, 1.0, fade_out_n, dtype=work.dtype)))
+            if work.ndim > 1:
+                work[-fade_out_n:] *= ramp_out[:, None]
+            else:
+                work[-fade_out_n:] *= ramp_out
+        trimmed = work if is_float else work.astype(trimmed.dtype)
+
+    return trimmed
 
 def trim_trailing_silence(data: np.ndarray, sr: int, threshold: float = 0.01, pad_seconds: float = 0.15) -> np.ndarray:
     """Trims trailing dead silence from generated TTS segments (backwards-compatible alias)."""

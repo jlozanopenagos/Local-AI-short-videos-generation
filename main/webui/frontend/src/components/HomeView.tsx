@@ -214,7 +214,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
               <h3 className="home-workflow-heading">mass asset creation</h3>
               <p className="home-workflow-desc">
-                Batch render scene illustrations, Kokoro voice narration, title thumbnails, or game chalkboard typography across targeted script IDs.
+                Batch render scene illustrations, hybrid ElevenLabs &amp; Qwen3-TTS voice narration, title thumbnails, or game chalkboard typography across targeted script IDs.
               </p>
             </div>
             <span className="home-workflow-arrow">

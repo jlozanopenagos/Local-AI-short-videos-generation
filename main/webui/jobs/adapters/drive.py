@@ -37,7 +37,17 @@ class DriveAdapter(BaseStageAdapter):
         success_count = 0
         failed_ids: List[str] = []
 
-        emit_log(f"Starting Google Drive upload for {total} script(s)...")
+        raw_scope = str(options.get("drive_scope") or options.get("scope") or "all").strip().lower()
+        scope = "thumbnail" if raw_scope == "thumbnails" else raw_scope
+        if scope not in ("all", "video", "thumbnail"):
+            scope = "all"
+        scope_label = {
+            "all": "video and thumbnail",
+            "video": "final video only",
+            "thumbnail": "thumbnail(s) only",
+        }[scope]
+
+        emit_log(f"Starting Google Drive upload ({scope_label}) for {total} script(s)...")
 
         # Authenticate client once for the entire batch
         try:
@@ -65,7 +75,7 @@ class DriveAdapter(BaseStageAdapter):
                 failed_ids.append(script_id)
                 continue
 
-            emit_log(f"[{script_id}] Uploading video and thumbnail to Google Drive...")
+            emit_log(f"[{script_id}] Uploading {scope_label} to Google Drive...")
 
             try:
                 def progress_cb(pct: float) -> None:
@@ -76,6 +86,8 @@ class DriveAdapter(BaseStageAdapter):
                     client=client,
                     state_mgr=sm,
                     progress_callback=progress_cb,
+                    assets_scope=scope,
+                    base_dir=self.base_dir,
                 )
                 deleted_cnt = res.get("deleted_existing_count", 0)
                 if deleted_cnt > 0:

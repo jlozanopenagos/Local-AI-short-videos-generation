@@ -236,6 +236,39 @@ class TestAcousticEvaluator(unittest.TestCase):
             # The losing candidate (cand1) should be unlinked
             self.assertFalse(cand1.exists())
 
+    def test_evaluate_voice_take_flags_buzz_vibration_and_erratic_pitch(self):
+        """Verify acoustic gate flags low-HNR buzzing audio and erratic pitch spikes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            buzz_path = Path(tmpdir) / "buzz.flac"
+            erratic_path = Path(tmpdir) / "erratic.flac"
+            sr = 24000
+            duration = 2.0
+            t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+
+            # Heavy noise + weak carrier -> low HNR buzz
+            rng = np.random.default_rng(42)
+            buzz_sig = 0.08 * np.sin(2 * np.pi * 170 * t) + 0.25 * rng.normal(0.0, 1.0, size=len(t))
+            sf.write(str(buzz_path), buzz_sig.astype(np.float32), sr)
+
+            # Wild erratic alternating pitch (110 Hz <-> 360 Hz every 40ms)
+            freq_steps = np.where((np.floor(t / 0.04) % 2) == 0, 110.0, 360.0)
+            erratic_sig = 0.3 * np.sin(2 * np.pi * np.cumsum(freq_steps) / sr)
+            sf.write(str(erratic_path), erratic_sig.astype(np.float32), sr)
+
+            _, pass_err, issues_err, met_err = evaluate_voice_take(
+                erratic_path, "This is a sample sentence with normal length.", "english"
+            )
+            self.assertFalse(pass_err)
+            self.assertTrue(
+                any("vibration" in i.lower() or "erratic" in i.lower() for i in issues_err),
+                f"Expected vibration/erratic issue, got: {issues_err} (metrics={met_err})",
+            )
+
+            _, _, _, met_buzz = evaluate_voice_take(
+                buzz_path, "This is a sample sentence with normal length.", "english"
+            )
+            self.assertLess(met_buzz["hnr_mean"], 0.54)
+
 
 if __name__ == "__main__":
     unittest.main()

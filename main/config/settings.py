@@ -99,6 +99,11 @@ IMAGE_STALL_TIMEOUT = int(os.getenv("IMAGE_STALL_TIMEOUT", "600"))
 IMAGE_WORKFLOW_PATH = WORKFLOWS_DIR / "AcademiaSD_Z-Image_v05.json"
 
 # Voice config
+VOICE_PROVIDER = os.getenv("VOICE_PROVIDER", "auto").strip().lower()
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "").strip()
+ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_v3").strip()
+ELEVENLABS_HYBRID_TYPES = ("roleplay", "expression", "fun_facts")
+
 OPEN_SWARA_DIR = _resolve_local_path(os.getenv("OPEN_SWARA_DIR"), BASE_DIR) or (COMFY_DIR / "open-swara" / "voices")
 VOICE_WORKFLOW_PATH = WORKFLOWS_DIR / "Qwen3-TTS Voice.json"
 

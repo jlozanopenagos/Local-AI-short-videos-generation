@@ -417,14 +417,39 @@ def synthesize_script_voice(
     preview_sections: Optional[Set[str]] = None,
     narrator_pitch_anchor: Optional[float] = None,
     narrator_reference: Optional[tuple[Path, str]] = None,
+    voice_provider: Optional[str] = None,
+    elevenlabs_model: Optional[str] = None,
+    check_cancelled: Optional[Any] = None,
 ) -> bool:
-    """Runs complete Stage B synthesis for one script across legacy or typed voice profiles."""
+    """Runs complete Stage B synthesis for one script across local Qwen3-TTS or isolated ElevenLabs provider."""
     script_id = script_data["id"]
     if quality_preview and (quality_preview not in {"baseline", "direction", "reference", "continuity", "roleplay"} or
                             not base_dir or Path(base_dir).resolve() == Path(config.BASE_DIR).resolve()):
         raise ValueError("Voice-quality previews require a supported mode and a separate workspace.")
     if (preview_sections or narrator_pitch_anchor is not None or narrator_reference) and not quality_preview:
         raise ValueError("Section and pitch overrides are only available for voice-quality previews.")
+
+    video_type = config.resolve_script_video_type(script_data)
+    if not quality_preview:
+        from video_creation._B_voice_generation.elevenlabs.client import resolve_elevenlabs_api_key
+        from video_creation._B_voice_generation.elevenlabs.orchestrator import synthesize_script_voice_elevenlabs
+        from video_creation._B_voice_generation.elevenlabs.tags import resolve_voice_provider
+
+        resolved_provider = resolve_voice_provider(video_type, requested_provider=voice_provider)
+        # If provider wasn't explicitly requested and no ElevenLabs API key is configured, stay on local Qwen3-TTS
+        if resolved_provider == "elevenlabs" and (voice_provider is not None or resolve_elevenlabs_api_key()):
+            return synthesize_script_voice_elevenlabs(
+                script_data=script_data,
+                state_manager=state_manager,
+                model_id=elevenlabs_model,
+                base_dir=base_dir,
+                manual_genders=manual_genders,
+                force_fresh_cast=force_fresh_cast,
+                explicit_accent=explicit_accent,
+                mark_video_assembly_pending=mark_video_assembly_pending,
+                check_cancelled=check_cancelled,
+            )
+
     script_text = script_data.get("script_text", "")
     metadata = script_data.get("metadata", {})
     label = metadata.get("LABEL", "english")
@@ -434,7 +459,6 @@ def synthesize_script_voice(
         if extracted != "english":
             clean_language = extracted
 
-    video_type = config.resolve_script_video_type(script_data)
     use_typed = (
         (engine_mode == "typed")
         if engine_mode in ("legacy", "typed")
@@ -497,9 +521,12 @@ def synthesize_script_voice(
 
     manual_voice_paths: Dict[str, Path] = {}
     if not force_fresh_cast and isinstance(existing_voices, dict):
-        all_saved_kokoro = bool(existing_voices) and all("kokoro_golden" in str(v).lower() for v in existing_voices.values() if v)
-        upgrade_legacy_kokoro = bool(use_typed and force and all_saved_kokoro and _has_non_kokoro_voices(voice_manager, clean_language, set(resolved_genders.values())))
-        if not upgrade_legacy_kokoro:
+        has_legacy_cast = bool(existing_voices) and any(
+            ("kokoro_golden" in str(v).lower() or "open_swara_" in str(v).lower())
+            for v in existing_voices.values() if v
+        )
+        upgrade_legacy_cast = bool(use_typed and force and has_legacy_cast and _has_non_kokoro_voices(voice_manager, clean_language, set(resolved_genders.values())))
+        if not upgrade_legacy_cast:
             for spk, vname in existing_voices.items():
                 if vname and str(vname).endswith(".wav"):
                     resolved_p = voice_manager.open_swara_dir / vname if not Path(vname).is_absolute() else Path(vname)
@@ -551,21 +578,38 @@ def synthesize_script_voice(
     preview_trace: list[dict] = []
     reference_pitches: dict[Path, float | None] = {}
 
+    # Pre-compute Roleplay `previous_line` in original dialogue order so we can group synthesis by speaker
+    # (maximizing ComfyUI LoadAudio + VoiceClonePrompt cache hits) and re-sort by `index` before merging.
+    prev_lines_by_idx: Dict[int, str] = {}
     previous_character_turn = None
     for seg in segments:
+        spk_cf = seg["speaker"].casefold()
+        is_rp_char = (
+            use_typed and vtype_upper == "ROLEPLAY" and seg["is_dialogue"]
+            and spk_cf in {"person_one", "person_two"}
+        )
+        if is_rp_char:
+            if previous_character_turn and previous_character_turn[0] != spk_cf:
+                prev_lines_by_idx[seg["index"]] = previous_character_turn[1]
+            previous_character_turn = (spk_cf, seg["text"])
+        else:
+            previous_character_turn = None
+
+    # Group by speaker for multi-speaker Roleplays (Narrator -> P1 -> P2) unless running a preview trace
+    if not quality_preview and len(unique_speakers) > 1:
+        speaker_rank = {spk: pos for pos, spk in enumerate(unique_speakers)}
+        synthesis_order = sorted(segments, key=lambda s: (speaker_rank.get(s["speaker"], 99), s["index"]))
+    else:
+        synthesis_order = segments
+
+    for seg in synthesis_order:
         speaker = seg["speaker"]
         is_dialogue = seg["is_dialogue"]
         is_roleplay_character = (
             use_typed and vtype_upper == "ROLEPLAY" and is_dialogue
             and speaker.casefold() in {"person_one", "person_two"}
         )
-        previous_line = ""
-        if is_roleplay_character:
-            if previous_character_turn and previous_character_turn[0] != speaker.casefold():
-                previous_line = previous_character_turn[1]
-            previous_character_turn = (speaker.casefold(), seg["text"])
-        else:
-            previous_character_turn = None
+        previous_line = prev_lines_by_idx.get(seg["index"], "")
         if preview_sections and seg["section"].casefold() not in preview_sections:
             continue
         idx = seg["index"]
@@ -630,15 +674,18 @@ def synthesize_script_voice(
         turn_accent_hint = None
 
         if use_typed:
-            gender, ref_voice_path, seed = voice_manager.resolve_turn_voice(
-                speaker=speaker,
-                language=clean_language,
-                emotion=original_emotion or emotion,
-                text=target_text,
-                section=sec_name,
-                video_type=video_type,
-                engine_mode="typed",
-            )
+            if type_profile.support_multi_energy_roles:
+                gender, ref_voice_path, seed = voice_manager.resolve_turn_voice(
+                    speaker=speaker,
+                    language=clean_language,
+                    emotion=original_emotion or emotion,
+                    text=target_text,
+                    section=sec_name,
+                    video_type=video_type,
+                    engine_mode="typed",
+                )
+            else:
+                gender, ref_voice_path, seed = voice_manager.get_speaker_voice(speaker, clean_language)
             target_text, prosody_flags = prepare_tts_prosody_text(
                 text=target_text,
                 raw_text=raw_text,
@@ -701,10 +748,19 @@ def synthesize_script_voice(
 
         sec_bucket = _normalize_section_bucket(sec_name)
         high_secs = type_profile.high_impact_sections if use_typed else ("hook", "pressure", "payoff", "cta", "reveal")
+        _HIGH_EMOTION_INTENTS = frozenset({
+            "urgency", "amusement", "disbelief", "frustration", "embarrassment",
+            "anger", "fear", "shock", "excitement", "pride",
+        })
+        intent_name = INTENT_NAMES[intent] if intent is not None and intent < len(INTENT_NAMES) else None
+        is_intense_roleplay_turn = bool(
+            continuous_roleplay and (intent_name in _HIGH_EMOTION_INTENTS or bool(original_emotion))
+        )
         is_high_impact = (
             any(k in sec_name or k == sec_bucket for k in high_secs)
             or (is_game and "answer" in sec_name)
             or (is_seg_stress_vital and bool(detected_stress_words))
+            or is_intense_roleplay_turn
         )
 
         if candidates is not None:
@@ -723,7 +779,12 @@ def synthesize_script_voice(
         if narrator_reference and is_narrator:
             gen_extra.update(use_icl=True, ref_text=narrator_reference[1])
         if continuous_roleplay:
-            gen_extra["delivery_direction"] = roleplay_turn_direction(clean_language, intent, previous_line)
+            gen_extra["delivery_direction"] = roleplay_turn_direction(
+                clean_language, intent, previous_line, fallback_emotion=original_emotion or "",
+            )
+            # Keep ICL enabled (`use_icl=True` from config) on ONE locked `baseline.wav` per character.
+            # `x_vector_only=True` (`use_icl=False`) drifts pitch/timbre by 6-8 semitones & degrades Spanish HNR
+            # across turns, making 2 characters sound like 3-4 speakers.
         elif (
             is_narrator and use_typed and not detected_stress_words and (
                 continuous_narrator
@@ -736,6 +797,20 @@ def synthesize_script_voice(
 
         eval_vtype = video_type if use_typed else None
         eval_sec = sec_name if use_typed else None
+        if ref_voice_path and ref_voice_path not in reference_pitches:
+            manifest_f0 = None
+            if getattr(voice_manager, "bank_manifest", None):
+                _ref_ent = voice_manager.bank_manifest.find_entry_by_audio(ref_voice_path.name)
+                if _ref_ent is not None and getattr(_ref_ent, "f0_mean", 0.0) and float(_ref_ent.f0_mean) > 0.0:
+                    manifest_f0 = float(_ref_ent.f0_mean)
+            reference_pitches[ref_voice_path] = (
+                manifest_f0 if manifest_f0 is not None else reference_median_pitch(ref_voice_path)
+            )
+        seg_ref_f0 = (
+            narrator_pitch_anchor
+            if (is_narrator and narrator_pitch_anchor)
+            else reference_pitches.get(ref_voice_path)
+        )
 
         try:
             if quality_preview and not (is_seg_stress_vital and detected_stress_words):
@@ -831,80 +906,105 @@ def synthesize_script_voice(
                     style=style,
                     **gen_extra,
                 )
-                takes = [
-                    (
-                        script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx + 1}.flac",
-                        {"output_prefix": f"{output_prefix}_take{take_idx + 1}", "seed": seed + take_idx * 777},
-                    )
-                    for take_idx in range(seg_candidates)
-                ]
                 studio_voice = getattr(comfy_client, "check_cancelled", None) is not None
-                queue_candidates = getattr(comfy_client, "generate_voice_candidates", None)
-                if studio_voice and queue_candidates is not None and not quality_preview:
-                    queue_candidates(takes, **workflow_inputs)
-                else:
-                    for take_path, take_inputs in takes:
-                        comfy_client.generate_voice_segment(
-                            dest_path=take_path, **take_inputs, **workflow_inputs,
-                        )
-                candidate_paths = [path for path, _ in takes]
+                take1_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take1.flac"
 
-                if use_typed:
-                    candidate_ratings = [
-                        evaluate_voice_take(
-                            cp,
-                            target_text=target_text,
-                            language=language,
-                            video_type=eval_vtype,
-                            section=eval_sec,
-                        )
-                        for cp in candidate_paths
-                    ]
-                    any_clean = any(rating[1] for rating in candidate_ratings)
-                    if not any_clean:
-                        calm_samp = dict(sampling_overrides or {})
-                        calm_samp["temperature"] = round(max(0.72, float(calm_samp.get("temperature", 0.84)) - 0.10), 3)
-                        calm_samp["subtalker_temperature"] = round(max(0.74, float(calm_samp.get("subtalker_temperature", 0.81)) - 0.06), 3)
-                        calm_extra = {**gen_extra, "sampling_overrides": calm_samp}
-                        calm_seed = seed + 1999
-                        calm_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take_calm.flac"
-                        print(
-                            f"  [Pitch/Quality Recovery]: All high-impact takes flagged; retrying calmly "
-                            f"(temp={calm_samp['temperature']}, sub={calm_samp['subtalker_temperature']}, seed={calm_seed})..."
-                        )
-                        if studio_voice:
-                            longest_take = max(rating[3].get("duration", 0.0) for rating in candidate_ratings)
-                            calm_extra.update(stall_timeout=int(max(90, min(180, 20 + 10 * longest_take))), max_retries=1)
-                        try:
-                            comfy_client.generate_voice_segment(
-                                ref_audio_name=ref_filename,
-                                target_text=target_text,
-                                language=language,
-                                gender=gender,
-                                context=context,
-                                emotion=emotion,
-                                energy=energy,
-                                style=style,
-                                output_prefix=f"{output_prefix}_calm",
-                                dest_path=calm_path,
-                                seed=calm_seed,
-                                **calm_extra,
-                            )
-                            candidate_paths.append(calm_path)
-                        except TimeoutError:
-                            if not studio_voice:
-                                raise
-                            print("  [Pitch/Quality Recovery]: Time budget reached. Using the completed takes.")
-
-
-                select_best_general_candidate(
-                    candidate_paths=candidate_paths,
+                # Adaptive Take #2: evaluate Take #1 first; if it passes cleanly with Score >= 0.75,
+                # skip redundant Take #2 renders (saving ~40-45% GPU time with zero quality loss).
+                comfy_client.generate_voice_segment(
+                    dest_path=take1_path,
+                    output_prefix=f"{output_prefix}_take1",
+                    seed=seed,
+                    **workflow_inputs,
+                )
+                t1_score, t1_clean, t1_issues, t1_metrics = evaluate_voice_take(
+                    take1_path,
                     target_text=target_text,
                     language=language,
-                    dest_path=dest_path,
                     video_type=eval_vtype,
                     section=eval_sec,
+                    reference_f0=seg_ref_f0,
                 )
+
+                fast_pass_min_score = 0.70 if (is_narrator and not is_roleplay) else 0.75
+                if t1_clean and t1_score >= fast_pass_min_score and candidates is None:
+                    print(
+                        f"  [Quality Gate]: Fast-Pass Take #1 "
+                        f"(Score: {t1_score:.2f} | PitchVar: {t1_metrics['pitch_variance']*100:.1f}% | Tempo: {t1_metrics['cps']} c/s) — skipping Take #2"
+                    )
+                    if dest_path.exists():
+                        dest_path.unlink()
+                    shutil.move(str(take1_path), str(dest_path))
+                else:
+                    candidate_paths = [take1_path]
+                    candidate_ratings = [(t1_score, t1_clean, t1_issues, t1_metrics)]
+                    for take_idx in range(1, seg_candidates):
+                        t_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take{take_idx + 1}.flac"
+                        comfy_client.generate_voice_segment(
+                            dest_path=t_path,
+                            output_prefix=f"{output_prefix}_take{take_idx + 1}",
+                            seed=seed + take_idx * 777,
+                            **workflow_inputs,
+                        )
+                        candidate_paths.append(t_path)
+                        if use_typed:
+                            candidate_ratings.append(
+                                evaluate_voice_take(
+                                    t_path,
+                                    target_text=target_text,
+                                    language=language,
+                                    video_type=eval_vtype,
+                                    section=eval_sec,
+                                    reference_f0=seg_ref_f0,
+                                )
+                            )
+
+                    if use_typed:
+                        any_clean = any(rating[1] for rating in candidate_ratings)
+                        if not any_clean:
+                            calm_samp = dict(sampling_overrides or {})
+                            calm_samp["temperature"] = round(max(0.68, float(calm_samp.get("temperature", 0.80)) - 0.08), 3)
+                            calm_samp["subtalker_temperature"] = round(max(0.68, float(calm_samp.get("subtalker_temperature", 0.78)) - 0.06), 3)
+                            calm_extra = {**gen_extra, "sampling_overrides": calm_samp}
+                            calm_seed = seed + 1999
+                            calm_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take_calm.flac"
+                            print(
+                                f"  [Pitch/Quality Recovery]: All high-impact takes flagged; retrying calmly "
+                                f"(temp={calm_samp['temperature']}, sub={calm_samp['subtalker_temperature']}, seed={calm_seed})..."
+                            )
+                            if studio_voice:
+                                longest_take = max(rating[3].get("duration", 0.0) for rating in candidate_ratings)
+                                calm_extra.update(stall_timeout=int(max(90, min(180, 20 + 10 * longest_take))), max_retries=1)
+                            try:
+                                comfy_client.generate_voice_segment(
+                                    ref_audio_name=ref_filename,
+                                    target_text=target_text,
+                                    language=language,
+                                    gender=gender,
+                                    context=context,
+                                    emotion=emotion,
+                                    energy=energy,
+                                    style=style,
+                                    output_prefix=f"{output_prefix}_calm",
+                                    dest_path=calm_path,
+                                    seed=calm_seed,
+                                    **calm_extra,
+                                )
+                                candidate_paths.append(calm_path)
+                            except TimeoutError:
+                                if not studio_voice:
+                                    raise
+                                print("  [Pitch/Quality Recovery]: Time budget reached. Using the completed takes.")
+
+                    select_best_general_candidate(
+                        candidate_paths=candidate_paths,
+                        target_text=target_text,
+                        language=language,
+                        dest_path=dest_path,
+                        video_type=eval_vtype,
+                        section=eval_sec,
+                        reference_f0=seg_ref_f0,
+                    )
             else:
                 comfy_client.generate_voice_segment(
                     ref_audio_name=ref_filename,
@@ -926,17 +1026,25 @@ def synthesize_script_voice(
                     language=language,
                     video_type=eval_vtype,
                     section=eval_sec,
+                    reference_f0=seg_ref_f0,
                 )
                 if passes_gate:
                     print(f"  [Quality Gate]: Pass (Score: {score:.2f} | PitchVar: {metrics['pitch_variance']*100:.1f}% | Tempo: {metrics['cps']} c/s)")
                 else:
-                    print(f"  [Quality Gate]: Take #1 flagged: {', '.join(issues)}. Auto-retrying with seed {seed + 555}...")
+                    print(f"  [Quality Gate]: Take #1 flagged: {', '.join(issues)}. Auto-retrying calmly with seed {seed + 555}...")
                     take1_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take1.flac"
                     take2_path = script_output_dir / f"segment_{idx:02d}_{speaker.replace(' ', '_')}_take2.flac"
                     if dest_path.exists():
                         if take1_path.exists():
                             take1_path.unlink()
                         shutil.move(str(dest_path), str(take1_path))
+
+                    retry_extra = dict(gen_extra)
+                    if sampling_overrides:
+                        calmer_s = dict(sampling_overrides)
+                        calmer_s["temperature"] = round(max(0.68, float(calmer_s.get("temperature", 0.80)) - 0.08), 3)
+                        calmer_s["subtalker_temperature"] = round(max(0.68, float(calmer_s.get("subtalker_temperature", 0.78)) - 0.06), 3)
+                        retry_extra["sampling_overrides"] = calmer_s
 
                     comfy_client.generate_voice_segment(
                         ref_audio_name=ref_filename,
@@ -950,7 +1058,7 @@ def synthesize_script_voice(
                         output_prefix=f"{output_prefix}_take2",
                         dest_path=take2_path,
                         seed=seed + 555,
-                        **gen_extra,
+                        **retry_extra,
                     )
                     select_best_general_candidate(
                         candidate_paths=[take1_path, take2_path],
@@ -959,6 +1067,7 @@ def synthesize_script_voice(
                         dest_path=dest_path,
                         video_type=eval_vtype,
                         section=eval_sec,
+                        reference_f0=seg_ref_f0,
                     )
         except InterruptedError:
             return False
@@ -975,12 +1084,13 @@ def synthesize_script_voice(
                 word_count=seg_words,
                 max_wpm=type_profile.max_wpm,
                 target_wpm=target_wpm_mid,
-                max_slowdown=0.12,
+                max_slowdown=0.07,
             )
             if stretched:
                 print(f"  [Pace Safety Net]: Gently slowed {factor:.2f}x ({before_wpm:.0f} -> {after_wpm:.0f} WPM)")
 
         segments_to_concat.append({
+            "index": idx,
             "path": dest_path,
             "section": seg["section"],
             "speaker": speaker,
@@ -991,6 +1101,9 @@ def synthesize_script_voice(
     if not segments_to_concat:
         print(f"No selected sections were available for {script_id}.")
         return False
+
+    # Restore exact script timeline order before merging (synthesis may have been grouped by speaker).
+    segments_to_concat.sort(key=lambda item: item["index"])
 
     print(f"\nSyntheses complete. Merging {len(segments_to_concat)} segments...")
     master_path = script_output_dir / f"script_{script_id}_master.wav"

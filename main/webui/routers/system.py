@@ -255,3 +255,69 @@ def save_gemini_key(payload: GeminiKeyRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to write to .env: {exc}")
 
 
+class ElevenLabsKeyRequest(BaseModel):
+    api_key: str
+
+
+@router.get("/elevenlabs-status")
+def get_elevenlabs_status(include_subscription: bool = Query(default=True)) -> Dict[str, Any]:
+    """Returns ElevenLabs configuration & live remaining credit balance (never exposes the API key)."""
+    from config import settings
+    from video_creation._B_voice_generation.elevenlabs.client import ElevenLabsClient, resolve_elevenlabs_api_key
+    from video_creation._B_voice_generation.elevenlabs.tags import SUPPORTED_ELEVENLABS_MODELS
+
+    key = resolve_elevenlabs_api_key()
+    configured = bool(key)
+    subscription = None
+    subscription_error = None
+
+    if configured and include_subscription:
+        try:
+            subscription = ElevenLabsClient(api_key=key).get_subscription_info()
+        except Exception as exc:
+            subscription_error = str(exc)
+
+    return {
+        "configured": configured,
+        "default_provider": getattr(settings, "VOICE_PROVIDER", "auto"),
+        "default_model": getattr(settings, "ELEVENLABS_MODEL_ID", "eleven_v3"),
+        "hybrid_types": list(getattr(settings, "ELEVENLABS_HYBRID_TYPES", ("roleplay", "expression", "fun_facts"))),
+        "models": list(SUPPORTED_ELEVENLABS_MODELS.values()),
+        "subscription": subscription,
+        "subscription_error": subscription_error,
+    }
+
+
+@router.post("/elevenlabs-key")
+def save_elevenlabs_key(payload: ElevenLabsKeyRequest) -> Dict[str, Any]:
+    """Saves the user's ElevenLabs API key strictly to gitignored local main/.env."""
+    key = payload.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="API key cannot be empty.")
+
+    import os
+    from config import settings
+    os.environ["ELEVENLABS_API_KEY"] = key
+    settings.ELEVENLABS_API_KEY = key
+
+    env_path = BASE_DIR / ".env"
+    try:
+        lines = []
+        key_found = False
+        if env_path.exists():
+            content = env_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                if line.strip().startswith("ELEVENLABS_API_KEY="):
+                    lines.append(f"ELEVENLABS_API_KEY={key}")
+                    key_found = True
+                else:
+                    lines.append(line)
+        if not key_found:
+            lines.append(f"\n# ElevenLabs API Key (private, gitignored)\nELEVENLABS_API_KEY={key}")
+
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return {"status": "success", "message": "ElevenLabs API key saved securely to local main/.env."}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write to .env: {exc}")
+
+
